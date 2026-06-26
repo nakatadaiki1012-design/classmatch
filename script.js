@@ -2653,13 +2653,13 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       const subjKey = (r.subj || '').trim();
       const color = (state.subjectCfg[subjKey]?.color) || (subjKey ? pickColor(subjKey) : '#fff');
       tr.style.background = subjKey ? hexWithAlpha(color, 0.10) : '';
+      tr.draggable = true;
       tr.innerHTML = `
+      <td class="drag-handle" title="ドラッグして並び替え">⠿</td>
       <td>
         <div class="op-buttons">
           <button class="dup" data-act="dup">複製</button>
           <button class="del" data-act="del">削除</button>
-          <button class="row-up" data-act="up" title="上へ移動">▲</button>
-          <button class="row-dn" data-act="dn" title="下へ移動">▼</button>
         </div>
       </td>
       <td><input type="text" value="${escapeAttr(r.cls || '')}" placeholder="例: 1-1,1-2" /></td>
@@ -2692,22 +2692,37 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
         markDirty('rowDup');
         renderInputTable();
       };
-      tr.querySelector('[data-act="up"]').onclick = () => {
-        const idx = state.rawRows.findIndex(x => x._id === r._id);
-        if (idx <= 0) return;
+      // ── Drag & drop row reorder ──
+      tr.addEventListener('dragstart', (ev) => {
+        _dragRowId = r._id;
+        tr.classList.add('dragging-row');
+        ev.dataTransfer.effectAllowed = 'move';
+        ev.dataTransfer.setData('text/plain', r._id);
+      });
+      tr.addEventListener('dragend', () => {
+        _dragRowId = null;
+        tr.classList.remove('dragging-row');
+        document.querySelectorAll('#input-tbody tr').forEach(x => x.classList.remove('drag-over-row'));
+      });
+      tr.addEventListener('dragover', (ev) => {
+        ev.preventDefault(); ev.dataTransfer.dropEffect = 'move';
+        document.querySelectorAll('#input-tbody tr').forEach(x => x.classList.remove('drag-over-row'));
+        if (_dragRowId && _dragRowId !== r._id) tr.classList.add('drag-over-row');
+      });
+      tr.addEventListener('drop', (ev) => {
+        ev.preventDefault();
+        tr.classList.remove('drag-over-row');
+        if (!_dragRowId || _dragRowId === r._id) return;
+        const fromIdx = state.rawRows.findIndex(x => x._id === _dragRowId);
+        const toIdx = state.rawRows.findIndex(x => x._id === r._id);
+        if (fromIdx < 0 || toIdx < 0) return;
         pushHistory('rowMove');
-        [state.rawRows[idx - 1], state.rawRows[idx]] = [state.rawRows[idx], state.rawRows[idx - 1]];
+        const [moved] = state.rawRows.splice(fromIdx, 1);
+        state.rawRows.splice(toIdx, 0, moved);
+        _dragRowId = null;
         markDirty('rowMove');
         renderInputTable();
-      };
-      tr.querySelector('[data-act="dn"]').onclick = () => {
-        const idx = state.rawRows.findIndex(x => x._id === r._id);
-        if (idx >= state.rawRows.length - 1) return;
-        pushHistory('rowMove');
-        [state.rawRows[idx], state.rawRows[idx + 1]] = [state.rawRows[idx + 1], state.rawRows[idx]];
-        markDirty('rowMove');
-        renderInputTable();
-      };
+      });
       // bind inputs — IME composition guard prevents re-render during kanji conversion
       const withIMEGuard = (inp, fn) => {
         let composing = false;
@@ -2730,6 +2745,7 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
   }
   let inputRerenderTimer = null;
   let _inputTableIMEComposing = false; // global IME guard for datalist re-render
+  let _dragRowId = null; // drag-and-drop row reorder
   function renderInputTableDebounced(activeRow, activeInput) {
     if (_inputTableIMEComposing) return; // don't blow up IME session
     // Snapshot focus: which row ID and which column index was active
@@ -4063,9 +4079,11 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
     clearSuggestionArrows();
     if (!moves || !moves.length) return;
 
+    // メイングリッドへの矢印オーバーレイ（全移動ステップを可視化）
+    try { _drawMainGridArrows(moves); } catch (e) { console.warn('grid arrow error:', e); }
+
     const drawTimer = setTimeout(() => {
-      // 既に開いている個人窓にのみ矢印を描画（提案ポップアップの邪魔にならないよう
-      // メイングリッドへのオーバーレイは廃止し、float窓のみ対象）
+      // 既に開いている個人窓にも矢印を描画
       for (const m of moves) {
         const it = state.items[m.id];
         if (!it) continue;
@@ -5478,9 +5496,14 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
           }
           candidateSlots.sort((a, b) => b.priority - a.priority);
 
-          // 上位40スロットを探索
-          const topSlots = candidateSlots.slice(0, 40);
+          // 全スロットを探索（ただし有望順上位60に絞る）
+          const topSlots = candidateSlots.slice(0, 60);
           const totalSlots = topSlots.length;
+          if (totalSlots === 0) {
+            btnDeep.textContent = '探索対象スロットがありません';
+            btnDeep.style.background = originalBg; btnDeep.disabled = false;
+            return;
+          }
 
           for (const slot of topSlots) {
             // 全体タイムアウトチェック
@@ -5533,23 +5556,44 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
             }
           }
 
+          // ── 結果後処理 ──
+          // 同じ移動先への重複提案をまとめ、スコア降順でソート
+          if (pack.linked) {
+            const byDest = {};
+            for (const s of pack.linked) {
+              const mt = s.moves?.find(m => m.id === id);
+              if (!mt) continue;
+              const k = `${mt.day}-${mt.period}`;
+              if (!byDest[k] || (s.score || 0) > (byDest[k].score || 0)) byDest[k] = s;
+            }
+            // 将棋モード以外の既存提案は保持し、深探索分だけ差し替え
+            const nonDeep = pack.linked.filter(s => !s.isDeep);
+            pack.linked = [...nonDeep, ...Object.values(byDest).filter(s => s.isDeep)];
+            pack.linked.sort((a, b) => (b.score || 0) - (a.score || 0));
+          }
+
           const totalSec = ((performance.now() - globalStart) / 1000).toFixed(1);
 
+          // ボタンを常に再有効化（再探索可能にする）
+          const resetBtn = () => {
+            if (btnDeep) {
+              btnDeep.style.background = originalBg;
+              btnDeep.disabled = false;
+            }
+          };
+
           if (!foundAny) {
-            btnDeep.textContent = `新しい手は見つかりませんでした (${totalSec}秒)`;
-            setTimeout(() => {
-              if (btnDeep) {
-                btnDeep.textContent = '🤔 将棋モード (長考・8秒)';
-                btnDeep.style.background = originalBg;
-                btnDeep.disabled = false;
-              }
-            }, 3000);
+            btnDeep.textContent = `見つかりませんでした (${totalSec}秒)`;
+            setTimeout(resetBtn, 3000);
           } else {
-            btnDeep.textContent = `♛ ${pack.linked.filter(s => s.isDeep).length}件の新手を発見! (${totalSec}秒)`;
-            // 深探索結果を含めてpackを再構築し、マトリクスの◎〇△を正しく更新
+            const cnt = (pack.linked || []).filter(s => s.isDeep).length;
+            btnDeep.textContent = `♛ ${cnt}件の新手! (${totalSec}秒) — 再探索`;
+            resetBtn(); // 即座に再有効化（再クリックで再探索できる）
+            // 🔗連動タブに自動切替して結果を表示
+            pack._tab = 'linked';
             const deepSugs = (pack.linked || []).filter(s => s.isDeep);
             if (deepSugs.length > 0) {
-              const best = deepSugs[0];
+              const best = deepSugs.sort((a, b) => (b.score || 0) - (a.score || 0))[0];
               const mTarget = best.moves.find(m => m.id === id);
               if (mTarget) {
                 pack._selDay = String(mTarget.day);
@@ -5557,7 +5601,6 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
                 pack._selIdx = 0;
               }
             }
-            // 即時再描画（pack内にdeep結果が入っているのでマトリクスに反映される）
             render();
           }
         };
@@ -12768,7 +12811,7 @@ function buildIndex(){
     $('#btn-all-classes')?.addEventListener('click', () => { try { openAllClassesWindow(); } catch (e) { console.error(e); } });
     // Bind column resizers for input table
     setTimeout(() => {
-      document.querySelectorAll('#input-colgroup col[data-col]').forEach(col => {
+      document.querySelectorAll('#input-table col[data-col]').forEach(col => {
         const colName = col.dataset.col;
         const th = document.querySelector(`#input-thead-row th[data-col="${colName}"]`);
         if (!th) return;
@@ -15256,8 +15299,12 @@ function clearOverlays() {
       if ((now - start) > maxMs) break;
       if (visits > maxVisits) break;
 
-      frontier.sort((a, b) => b.prio - a.prio);
-      const node = frontier.shift();
+      // Best-first: find max prio in O(n) instead of sorting
+      let bestFIdx = 0;
+      for (let bi = 1; bi < frontier.length; bi++) {
+        if (frontier[bi].prio > frontier[bestFIdx].prio) bestFIdx = bi;
+      }
+      const node = frontier.splice(bestFIdx, 1)[0];
       const moveById = node.moveById;
 
       visits++;
@@ -15426,9 +15473,12 @@ function clearOverlays() {
       if ((now - start) > maxMs) break;
       if (visits > maxVisits) break;
 
-      // best-first: prioが高いものから
-      frontier.sort((a, b) => b.prio - a.prio);
-      const node = frontier.shift();
+      // best-first: find max prio in O(n)
+      let bestFIdx2 = 0;
+      for (let bi = 1; bi < frontier.length; bi++) {
+        if (frontier[bi].prio > frontier[bestFIdx2].prio) bestFIdx2 = bi;
+      }
+      const node = frontier.splice(bestFIdx2, 1)[0];
       const moveById = node.moveById;
 
       visits++;

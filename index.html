@@ -363,19 +363,35 @@
       </div>
 
       <div class="table-wrap">
-        <table class="data-table">
+        <table class="data-table" id="input-table">
+          <colgroup>
+            <col data-col="drag" style="width:28px">
+            <col data-col="ops" style="width:110px">
+            <col data-col="cls" style="width:90px">
+            <col data-col="subj" style="width:110px">
+            <col data-col="subjAbbr" style="width:60px">
+            <col data-col="dept" style="width:70px">
+            <col data-col="tea" style="width:110px">
+            <col data-col="teaAbbr" style="width:60px">
+            <col data-col="room" style="width:100px">
+            <col data-col="count" style="width:56px">
+            <col data-col="dbl" style="width:44px">
+            <col data-col="parallel" style="width:44px">
+          </colgroup>
           <thead>
-            <tr>
-              <th>操作</th>
-              <th>クラス</th>
-              <th>科目</th>
-              <th>科目略</th>
-              <th>教科</th>
-              <th>教員</th>
-              <th>教員略</th>
-              <th>教室</th>
-              <th>コマ数</th>
-              <th>2連</th>
+            <tr id="input-thead-row">
+              <th data-col="drag" class="th-drag" title="ドラッグで並び替え"></th>
+              <th data-col="ops">操作<span class="col-resizer"></span></th>
+              <th data-col="cls">クラス<span class="col-resizer"></span></th>
+              <th data-col="subj">科目<span class="col-resizer"></span></th>
+              <th data-col="subjAbbr">略<span class="col-resizer"></span></th>
+              <th data-col="dept">教科<span class="col-resizer"></span></th>
+              <th data-col="tea">教員<span class="col-resizer"></span></th>
+              <th data-col="teaAbbr">略<span class="col-resizer"></span></th>
+              <th data-col="room">教室<span class="col-resizer"></span></th>
+              <th data-col="count">コマ<span class="col-resizer"></span></th>
+              <th data-col="dbl">2連</th>
+              <th data-col="parallel">並列</th>
             </tr>
           </thead>
           <tbody id="input-tbody"></tbody>

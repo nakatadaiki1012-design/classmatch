@@ -460,17 +460,42 @@ body {
   border: none
 }
 
-.op-buttons .row-up,
-.op-buttons .row-dn {
-  background: #f1f5f9;
-  color: #475569;
-  border: 1px solid #cbd5e1;
-  padding: 4px 6px;
-  font-size: 11px
+/* drag-and-drop row reorder */
+.drag-handle {
+  cursor: grab;
+  color: #94a3b8;
+  font-size: 16px;
+  text-align: center;
+  user-select: none;
+  padding: 4px 2px !important;
 }
+.drag-handle:active { cursor: grabbing; }
+.dragging-row { opacity: 0.4; }
+.drag-over-row { outline: 2px dashed #3b82f6; outline-offset: -2px; background: #eff6ff !important; }
 
-.op-buttons .row-up:hover { background: #e2e8f0; }
-.op-buttons .row-dn:hover { background: #e2e8f0; }
+/* column resizer handle */
+.col-resizer {
+  position: absolute;
+  right: 0; top: 0; bottom: 0;
+  width: 6px;
+  cursor: col-resize;
+  background: transparent;
+}
+.col-resizer:hover { background: rgba(59,130,246,.4); }
+#input-thead-row th { position: relative; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Excel-like table styling */
+#input-table { table-layout: fixed; border-collapse: collapse; font-size: 13px; }
+#input-table th, #input-table td { border: 1px solid #e2e8f0; padding: 4px 6px; overflow: hidden; }
+#input-table td input[type=text], #input-table td input[type=number] {
+  width: 100%; box-sizing: border-box; border: none; background: transparent; font-size: 13px; padding: 0;
+}
+#input-table td input[type=text]:focus, #input-table td input[type=number]:focus {
+  outline: 2px solid #3b82f6; border-radius: 2px; background: #eff6ff;
+}
+#input-table tbody tr:hover { background: #f8fafc; }
+#input-table tbody tr.dragging-row { background: #fef3c7 !important; }
+.th-drag { width: 28px; padding: 0 !important; }
 
 .settings-grid {
   flex: 1;
