@@ -2737,16 +2737,17 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
     if (!rows.length) {
       addRow(); // create one
     }
-    for (const r of state.rawRows) {
+    const isSorted = !!_inputSort.col;
+    for (const r of getSortedRows()) {
       ensureRowId(r);
       const tr = document.createElement('tr');
       tr.dataset.rowid = r._id;
       const subjKey = (r.subj || '').trim();
       const color = (state.subjectCfg[subjKey]?.color) || (subjKey ? pickColor(subjKey) : '#fff');
       tr.style.background = subjKey ? hexWithAlpha(color, 0.10) : '';
-      tr.draggable = true;
+      tr.draggable = !isSorted;
       tr.innerHTML = `
-      <td class="drag-handle" title="ドラッグして並び替え">⠿</td>
+      <td class="drag-handle" title="${isSorted ? '並替中はドラッグ不可' : 'ドラッグして並び替え'}" style="${isSorted ? 'color:#cbd5e1;cursor:default' : ''}">${isSorted ? '—' : '⠿'}</td>
       <td>
         <div class="op-buttons">
           <button class="dup" data-act="dup">複製</button>
@@ -2803,7 +2804,7 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       tr.addEventListener('drop', (ev) => {
         ev.preventDefault();
         tr.classList.remove('drag-over-row');
-        if (!_dragRowId || _dragRowId === r._id) return;
+        if (!_dragRowId || _dragRowId === r._id || isSorted) return;
         const fromIdx = state.rawRows.findIndex(x => x._id === _dragRowId);
         const toIdx = state.rawRows.findIndex(x => x._id === r._id);
         if (fromIdx < 0 || toIdx < 0) return;
@@ -2837,6 +2838,60 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
   let inputRerenderTimer = null;
   let _inputTableIMEComposing = false; // global IME guard for datalist re-render
   let _dragRowId = null; // drag-and-drop row reorder
+  // sort state: { col: 'cls'|'subj'|'dept'|'tea'|null, dir: 'asc'|'desc' }
+  let _inputSort = { col: null, dir: 'asc' };
+  let _teaSort = { col: 'name', dir: 'asc' }; // default: name asc
+
+  function getSortedRows() {
+    if (!_inputSort.col) return state.rawRows;
+    const col = _inputSort.col;
+    const dir = _inputSort.dir === 'asc' ? 1 : -1;
+    return [...state.rawRows].sort((a, b) => {
+      const va = (a[col] || '').trim();
+      const vb = (b[col] || '').trim();
+      return va.localeCompare(vb, 'ja') * dir;
+    });
+  }
+
+  function updateSortButtons() {
+    document.querySelectorAll('#input-sort-bar .sort-btn[data-sort]').forEach(btn => {
+      const c = btn.dataset.sort;
+      btn.classList.toggle('active-asc', _inputSort.col === c && _inputSort.dir === 'asc');
+      btn.classList.toggle('active-desc', _inputSort.col === c && _inputSort.dir === 'desc');
+    });
+    const resetBtn = $('#btn-sort-reset');
+    if (resetBtn) resetBtn.style.display = _inputSort.col ? '' : 'none';
+  }
+
+  function updateTeaSortButtons() {
+    ['name', 'dept'].forEach(c => {
+      const btn = $(`[data-tea-sort="${c}"]`);
+      if (!btn) return;
+      btn.classList.toggle('active-asc', _teaSort.col === c && _teaSort.dir === 'asc');
+      btn.classList.toggle('active-desc', _teaSort.col === c && _teaSort.dir === 'desc');
+    });
+  }
+
+  function bindSortToolbar() {
+    document.querySelectorAll('#input-sort-bar .sort-btn[data-sort]').forEach(btn => {
+      btn.onclick = () => {
+        const c = btn.dataset.sort;
+        if (_inputSort.col === c) {
+          _inputSort.dir = _inputSort.dir === 'asc' ? 'desc' : 'asc';
+        } else {
+          _inputSort.col = c; _inputSort.dir = 'asc';
+        }
+        updateSortButtons();
+        renderInputTable();
+      };
+    });
+    const resetBtn = $('#btn-sort-reset');
+    if (resetBtn) resetBtn.onclick = () => {
+      _inputSort = { col: null, dir: 'asc' };
+      updateSortButtons();
+      renderInputTable();
+    };
+  }
   function renderInputTableDebounced(activeRow, activeInput) {
     if (_inputTableIMEComposing) return; // don't blow up IME session
     // Snapshot focus: which row ID and which column index was active
@@ -2983,7 +3038,16 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
   function renderTeacherSettings() {
     const box = $('#teacher-container'); if (!box) return;
     rebuildMastersFromRaw();
-    const keys = Object.keys(state.teacherCfg).sort((a, b) => a.localeCompare(b, 'ja'));
+    const dir = _teaSort.dir === 'asc' ? 1 : -1;
+    const keys = Object.keys(state.teacherCfg).sort((a, b) => {
+      if (_teaSort.col === 'dept') {
+        const da = (state.teacherCfg[a]?.dept || inferTeacherDept(a) || '').trim();
+        const db = (state.teacherCfg[b]?.dept || inferTeacherDept(b) || '').trim();
+        const cmp = da.localeCompare(db, 'ja');
+        if (cmp !== 0) return cmp * dir;
+      }
+      return a.localeCompare(b, 'ja') * dir;
+    });
     box.innerHTML = '';
     for (const key of keys) {
       const cfg = state.teacherCfg[key];
@@ -12703,6 +12767,24 @@ function buildIndex(){
       for (const k in state.teacherCfg) state.teacherCfg[k].unavailable = {};
       markDirty('teaClearAll'); rerenderAll();
     };
+
+    // teacher sort buttons
+    ['#btn-tea-sort-name', '#btn-tea-sort-dept'].forEach(sel => {
+      const btn = safeGet(sel);
+      if (!btn) return;
+      btn.onclick = () => {
+        const col = btn.dataset.teaSort;
+        if (_teaSort.col === col) { _teaSort.dir = _teaSort.dir === 'asc' ? 'desc' : 'asc'; }
+        else { _teaSort.col = col; _teaSort.dir = 'asc'; }
+        updateTeaSortButtons();
+        renderTeacherSettings();
+      };
+    });
+    updateTeaSortButtons();
+
+    // input table sort toolbar
+    bindSortToolbar();
+    updateSortButtons();
 
 
     // fold (科目/教員設定の折りたたみ) - duplicate handlers, keep only one

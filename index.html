@@ -367,6 +367,14 @@
         </ul>
       </div>
 
+      <div class="sort-toolbar no-print" id="input-sort-bar">
+        <span class="muted" style="font-size:12px">並替:</span>
+        <button class="sort-btn" data-sort="cls">クラス <span class="sort-icon"></span></button>
+        <button class="sort-btn" data-sort="subj">科目 <span class="sort-icon"></span></button>
+        <button class="sort-btn" data-sort="dept">教科 <span class="sort-icon"></span></button>
+        <button class="sort-btn" data-sort="tea">教員 <span class="sort-icon"></span></button>
+        <button class="sort-btn sort-reset" id="btn-sort-reset" title="元の順に戻す（ドラッグ順）" style="display:none">✕ リセット</button>
+      </div>
       <div class="table-wrap">
         <table class="data-table" id="input-table">
           <colgroup>
@@ -446,6 +454,9 @@
         <div class="spacer"></div>
         <button id="btn-tea-inferdept" class="btn secondary" title="教員の教科(参考)が空なら、担当科目の教科から推定して入れる">教科推定</button>
         <button id="btn-tea-clearall" class="btn secondary">出勤不可 全解除</button>
+        <span class="muted" style="font-size:12px;margin-left:8px">並替:</span>
+        <button class="sort-btn" id="btn-tea-sort-name" data-tea-sort="name">名前 <span class="sort-icon"></span></button>
+        <button class="sort-btn" id="btn-tea-sort-dept" data-tea-sort="dept">教科 <span class="sort-icon"></span></button>
       </div>
       <div id="teacher-container" class="settings-grid"></div>
     </section>
