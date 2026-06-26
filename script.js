@@ -2658,6 +2658,8 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
         <div class="op-buttons">
           <button class="dup" data-act="dup">複製</button>
           <button class="del" data-act="del">削除</button>
+          <button class="row-up" data-act="up" title="上へ移動">▲</button>
+          <button class="row-dn" data-act="dn" title="下へ移動">▼</button>
         </div>
       </td>
       <td><input type="text" value="${escapeAttr(r.cls || '')}" placeholder="例: 1-1,1-2" /></td>
@@ -2688,6 +2690,22 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
         const idx = state.rawRows.findIndex(x => x._id === r._id);
         state.rawRows.splice(idx + 1, 0, copy);
         markDirty('rowDup');
+        renderInputTable();
+      };
+      tr.querySelector('[data-act="up"]').onclick = () => {
+        const idx = state.rawRows.findIndex(x => x._id === r._id);
+        if (idx <= 0) return;
+        pushHistory('rowMove');
+        [state.rawRows[idx - 1], state.rawRows[idx]] = [state.rawRows[idx], state.rawRows[idx - 1]];
+        markDirty('rowMove');
+        renderInputTable();
+      };
+      tr.querySelector('[data-act="dn"]').onclick = () => {
+        const idx = state.rawRows.findIndex(x => x._id === r._id);
+        if (idx >= state.rawRows.length - 1) return;
+        pushHistory('rowMove');
+        [state.rawRows[idx], state.rawRows[idx + 1]] = [state.rawRows[idx + 1], state.rawRows[idx]];
+        markDirty('rowMove');
         renderInputTable();
       };
       // bind inputs — IME composition guard prevents re-render during kanji conversion
@@ -3963,7 +3981,8 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
     }
     bar.querySelector('.qab-suggest').onclick = () => openPropSuggestions(id);
     bar.querySelector('.qab-lock').onclick = () => { if (plc) toggleLock(id); else showToast('未配置のコマはロックできません', 'warning'); };
-    bar.querySelector('.qab-stock').onclick = () => toStock(id);
+    const stockBtn = bar.querySelector('.qab-stock');
+    if (stockBtn) stockBtn.onclick = () => toStock(id);
     bar.querySelector('.qab-close').onclick = () => { selectId(null, ''); };
   }
 
@@ -5374,13 +5393,32 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
     `;
 
       // ── イベントバインド ──
-      // マトリクスセルクリック
+      // マトリクスセルクリック（シングル: スロット選択、ダブル: ベスト提案を即採用）
       sugBox.querySelectorAll('.js-matrix-cell').forEach(cell => {
         cell.onclick = () => {
           pack._selDay = cell.dataset.day;
           pack._selPer = parseInt(cell.dataset.per, 10);
           pack._selIdx = 0;
           render();
+        };
+        cell.ondblclick = (ev) => {
+          ev.stopPropagation();
+          const day = cell.dataset.day;
+          const per = parseInt(cell.dataset.per, 10);
+          const key = `${day}-${per}`;
+          // slotMap は render() のスコープ外なので再計算
+          const allSugsD = [];
+          ['empty', 'swap', 'cycle', 'linked', 'lookahead', 'lns', 'force'].forEach(k => {
+            (pack[k] || []).forEach(s => { if (s && s.moves && s.moves.length) allSugsD.push(s); });
+          });
+          const sugsForSlot = allSugsD.filter(sg => {
+            const m = sg.moves.find(m => m.id === id);
+            return m && `${m.day}-${m.period}` === key;
+          }).sort((a, b) => (b.score || 0) - (a.score || 0));
+          if (sugsForSlot.length) {
+            applySuggestion(sugsForSlot[0]);
+            closeSuggestionPopup();
+          }
         };
       });
 
@@ -5851,18 +5889,18 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
               cellStyle = 'background:#8b5cf6;color:#fff;font-weight:900;font-size:10px';
               cellContent = '↔';
             } else if (isFrom) {
-              // 移動元：赤系濃い背景 + 出発アイコン
+              // 移動元：赤系濃い背景 + 出発矢印
               cellStyle = 'background:#ef4444;color:#fff;font-weight:900;font-size:10px;position:relative';
               const it0 = cellIds.length ? state.items[cellIds[0]] : null;
               const ab0 = it0 ? (state.subjectCfg[it0.subjKey]?.abbr || it0.subj || '').slice(0, 3) : '';
-              cellContent = `<div style="font-size:7px;opacity:.85">${escapeHtml(ab0)}</div><div>発</div>`;
+              cellContent = `<div style="font-size:7px;opacity:.85">${escapeHtml(ab0)}</div><div style="font-size:13px">↑</div>`;
               cellClass = 'smg-c smg-from';
             } else if (isTo) {
-              // 移動先：緑系濃い背景 + 到着アイコン
+              // 移動先：緑系濃い背景 + 到着矢印
               cellStyle = 'background:#16a34a;color:#fff;font-weight:900;font-size:10px;position:relative';
               const it0 = cellIds.length ? state.items[cellIds[0]] : null;
               const ab0 = it0 ? (state.subjectCfg[it0.subjKey]?.abbr || it0.subj || '').slice(0, 3) : '';
-              cellContent = `<div style="font-size:7px;opacity:.85">${it0 ? escapeHtml(ab0) : '空'}</div><div>着</div>`;
+              cellContent = `<div style="font-size:7px;opacity:.85">${it0 ? escapeHtml(ab0) : '空'}</div><div style="font-size:13px">↓</div>`;
               cellClass = 'smg-c smg-to';
             } else if (cellIds.length) {
               const id0 = cellIds[0];
@@ -5898,7 +5936,16 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
           }
         }
         const arrowHTML = arrowPairs.map(ap =>
-          `<div class="smg-arrow-row"><span class="smg-ar-from">${escapeHtml(ap.from)}</span><svg class="smg-ar-svg" viewBox="0 0 40 14" fill="none"><defs><linearGradient id="smgar-${Math.random().toString(36).slice(2, 6)}" x1="0" y1="7" x2="40" y2="7"><stop stop-color="#ef4444"/><stop offset="1" stop-color="#16a34a"/></linearGradient></defs><line x1="2" y1="7" x2="33" y2="7" stroke="#ef4444" stroke-width="2" stroke-linecap="round"/><polygon points="30,3 40,7 30,11" fill="#16a34a"/></svg><span class="smg-ar-to">${escapeHtml(ap.to)}</span></div>`
+          `<div class="smg-arrow-row">` +
+          `<span class="smg-ar-from" style="background:#fef2f2;border:1px solid #ef4444;border-radius:4px;padding:2px 6px;color:#b91c1c;font-size:11px;font-weight:700">` +
+          `↑ ${escapeHtml(ap.subj)} ${escapeHtml(ap.from)}</span>` +
+          `<svg class="smg-ar-svg" viewBox="0 0 48 14" fill="none" style="width:48px;height:14px;flex-shrink:0">` +
+          `<line x1="2" y1="7" x2="40" y2="7" stroke="url(#smgar-grad-${Math.random().toString(36).slice(2,6)})" stroke-width="2.5" stroke-linecap="round"/>` +
+          `<polygon points="36,3 48,7 36,11" fill="#16a34a"/>` +
+          `</svg>` +
+          `<span class="smg-ar-to" style="background:#f0fdf4;border:1px solid #16a34a;border-radius:4px;padding:2px 6px;color:#15803d;font-size:11px;font-weight:700">` +
+          `↓ ${escapeHtml(ap.to)}</span>` +
+          `</div>`
         ).join('');
 
         return `<div class="smg-block">

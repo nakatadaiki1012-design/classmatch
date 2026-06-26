@@ -460,6 +460,18 @@ body {
   border: none
 }
 
+.op-buttons .row-up,
+.op-buttons .row-dn {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  padding: 4px 6px;
+  font-size: 11px
+}
+
+.op-buttons .row-up:hover { background: #e2e8f0; }
+.op-buttons .row-dn:hover { background: #e2e8f0; }
+
 .settings-grid {
   flex: 1;
   overflow: auto;
