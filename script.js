@@ -630,10 +630,10 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
 
   /* =======================
      Project File Export / Import
-     ファイル形式: .classmatch (JSON)
+     ファイル形式: .ide (JSON) — イデア時間割ソフト互換
      全データ（データ登録・科目/教員設定・配置・スナップショット）を一括保存
   ======================= */
-  const PROJECT_FORMAT = 'classmatch-project';
+  const PROJECT_FORMAT = 'idea-timetable-project';
   const PROJECT_VERSION = '1.0';
 
   function exportProjectFile() {
@@ -662,7 +662,7 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
     const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const safeNameBase = (projectName || 'timetable').replace(/[\\/:*?"<>|]/g, '_').slice(0, 50);
-    const filename = `${safeNameBase}_${ts.slice(0, 10)}.classmatch`;
+    const filename = `${safeNameBase}_${ts.slice(0, 10)}.ide`;
     const a = document.createElement('a');
     a.href = url; a.download = filename;
     document.body.appendChild(a); a.click(); a.remove();
@@ -678,10 +678,10 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
     try { data = JSON.parse(text); } catch (e) { showModal('読込失敗', 'JSONの解析に失敗しました: ' + e.message); return; }
 
     // フォーマット確認
-    if (data.format !== PROJECT_FORMAT) {
-      // 旧形式（スナップショットのみのJSONなど）を許容するか確認
+    if (data.format !== PROJECT_FORMAT && data.format !== 'classmatch-project') {
+      // 旧形式（.classmatch / スナップショットのみJSONなど）も許容
       if (!Array.isArray(data) && !data.rawRows) {
-        showModal('形式エラー', 'このファイルはclassmatchプロジェクトファイルではありません。');
+        showModal('形式エラー', 'このファイルはイデアプロジェクトファイル（.ide）ではありません。');
         return;
       }
     }
@@ -974,7 +974,12 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
   /* =======================
      Constraints / Counts
   ======================= */
-  function maxPeriod(day) { return state.settings.periodsByDay[day] || 6; }
+  function maxPeriod(day) {
+    const v = state.settings.periodsByDay[day];
+    return (v != null) ? v : 6; // 0 = hidden, undefined falls back to 6
+  }
+  // Active days (periodsByDay > 0 means the day is shown)
+  function activeDays() { return DAYS.filter(d => maxPeriod(d) > 0); }
   // Effective max period for an item, considering per-class overrides
   function maxPeriodForItem(it, day) {
     if (!it) return maxPeriod(day);
@@ -2702,11 +2707,11 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
 
   function gatherSchoolSettings() {
     pushHistory('school');
-    state.settings.periodsByDay.Mon = clamp(parseInt($('#p-mon').value || 7, 10), 1, 12);
-    state.settings.periodsByDay.Tue = clamp(parseInt($('#p-tue').value || 6, 10), 1, 12);
-    state.settings.periodsByDay.Wed = clamp(parseInt($('#p-wed').value || 6, 10), 1, 12);
-    state.settings.periodsByDay.Thu = clamp(parseInt($('#p-thu').value || 6, 10), 1, 12);
-    state.settings.periodsByDay.Fri = clamp(parseInt($('#p-fri').value || 6, 10), 1, 12);
+    state.settings.periodsByDay.Mon = clamp(parseInt($('#p-mon').value ?? 7, 10), 0, 12);
+    state.settings.periodsByDay.Tue = clamp(parseInt($('#p-tue').value ?? 6, 10), 0, 12);
+    state.settings.periodsByDay.Wed = clamp(parseInt($('#p-wed').value ?? 6, 10), 0, 12);
+    state.settings.periodsByDay.Thu = clamp(parseInt($('#p-thu').value ?? 6, 10), 0, 12);
+    state.settings.periodsByDay.Fri = clamp(parseInt($('#p-fri').value ?? 6, 10), 0, 12);
     state.settings.lunchAfter = clamp(parseInt($('#lunch-after').value || 4, 10), 0, 11);
     state.settings.roomConflict = !!$('#chk-room-conflict').checked;
     const md = $('#school-tea-maxdaily').value.trim();
@@ -3414,15 +3419,16 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
     const mode = state.ui.viewMode;
     const keysAll = getAxisKeys(mode);
     const keys = keysAll.filter(rowMatchesFilter);
-    const maxP = Math.max(...DAYS.map(d => maxPeriod(d)));
-    const lastDay = DAYS[DAYS.length - 1];
+    const adays = activeDays();
+    const maxP = adays.length ? Math.max(...adays.map(d => maxPeriod(d))) : 1;
+    const lastDay = adays[adays.length - 1];
     let html = `<table class="timetable"><thead><tr><th>${mode === 'teacher' ? '教員' : mode === 'class' ? 'クラス' : '教室'}</th>`;
-    for (const d of DAYS) {
+    for (const d of adays) {
       const sepCls = (d !== lastDay) ? ' day-sep' : '';
       html += `<th colspan="${maxPeriod(d)}" class="${sepCls.trim()}">${DAYJP[d]}</th>`;
     }
     html += `</tr><tr><th></th>`;
-    for (const d of DAYS) {
+    for (const d of adays) {
       for (let p = 1; p <= maxPeriod(d); p++) {
         const isDaySep = (d !== lastDay) && (p === maxPeriod(d));
         html += `<th data-day="${d}" data-p="${p}" class="${isDaySep ? 'day-sep' : ''}">${p}</th>`;
@@ -3433,7 +3439,7 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       const label = (mode === 'teacher') ? (state.teacherCfg[key]?.abbr || key) : key;
       const title = (mode === 'teacher') ? key : '';
       html += `<tr data-row="${escapeAttr(key)}"><th draggable="true" data-rowkey="${escapeAttr(key)}" title="${escapeAttr(title)}">${escapeHtml(label)}</th>`;
-      for (const d of DAYS) {
+      for (const d of adays) {
         for (let p = 1; p <= maxPeriod(d); p++) {
           let forbid = false;
           if (mode === 'teacher') {
