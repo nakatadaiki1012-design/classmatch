@@ -7672,6 +7672,17 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
     countType(idx.tea);
     countType(idx.cls);
     if (state.settings.roomConflict) countType(idx.room);
+    // 教員1日上限超過もハード違反に含める
+    for (const tea in idx.tea) {
+      const maxD = teacherDailyMax(tea);
+      if (maxD == null) continue;
+      for (const day of DAYS) {
+        const dayMap = idx.tea[tea]?.[day]; if (!dayMap) continue;
+        const items = new Set();
+        for (const p in dayMap) { for (const id of (dayMap[p] || [])) items.add(id); }
+        if (items.size > maxD) v += (items.size - maxD);
+      }
+    }
     return v;
   }
 
@@ -8262,19 +8273,38 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       validSlotsCache[id] = slots;
     }
 
-    /* 配置の衝突コスト（速度優先の簡易版） */
+    /* 教員1日上限違反数を返す（ユニーク授業コマ単位） */
+    function countTeacherDailyMaxVio(idx) {
+      let v = 0;
+      for (const tea in idx.tea) {
+        const maxD = teacherDailyMax(tea);
+        if (maxD == null) continue;
+        for (const day of DAYS) {
+          const dayMap = idx.tea[tea]?.[day]; if (!dayMap) continue;
+          const items = new Set();
+          for (const p in dayMap) { for (const id of (dayMap[p] || [])) items.add(id); }
+          if (items.size > maxD) v += (items.size - maxD);
+        }
+      }
+      return v;
+    }
+
+    /* 配置の衝突コスト
+       total = hard×100000 + remain×50000 + soft
+       この重みで lexicographic: vio > remain > soft を数値的に表現 */
     function evalPlacement(placements) {
       const idx = buildIdxFromPlacements(placements);
-      // hard: 重複カウント
+      // hard: 重複 + 教員1日上限超過
       let hard = 0;
       const ct = (map) => { for (const k in map) for (const d in map[k]) for (const p in map[k][d]) { const a = map[k][d][p]; if (a.length > 1) hard += a.length - 1; } };
       ct(idx.tea); ct(idx.cls); if (state.settings.roomConflict) ct(idx.room);
+      hard += countTeacherDailyMaxVio(idx);
       // soft: 偏り+連続
       const sm = softMetricsFromPlacements(placements, optBalance, optNoConsec);
+      const remain = allIds.filter(id => !placements[id]).length;
       return {
-        hard, soft: sm.score, bias: sm.bias, consec: sm.consec,
-        remain: allIds.filter(id => !placements[id]).length,
-        total: hard * 1000 + sm.score + (allIds.filter(id => !placements[id]).length) * 500
+        hard, soft: sm.score, bias: sm.bias, consec: sm.consec, remain,
+        total: hard * 100000 + remain * 50000 + sm.score
       };
     }
 
@@ -8464,8 +8494,8 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
     }
 
     const ev = ctx.evalPlacement(placements);
-    // 改善またはハード違反削減なら採用
-    if (ev.total < lnsState.cost || (ev.hard < lnsState.eval.hard && ev.remain <= lnsState.eval.remain)) {
+    // total は hard×100000 + remain×50000 + soft なので total比較で十分
+    if (ev.total < lnsState.cost) {
       lnsState.placements = placements;
       lnsState.cost = ev.total;
       lnsState.eval = ev;
@@ -8720,17 +8750,28 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       return pen;
     }
 
-    // ── 全コスト（初期・再計算用） ──────────────────
+    // ── 全コスト（初期・再計算用）total = hard×100000 + remain×50000 + soft ──
     function _fullCost() {
       const sm = softMetricsFromPlacements(placements, optBalance, optNoConsec);
       const idx2 = buildIdxFromPlacements(placements);
       let h = 0;
       const ct = (m) => { for (const k in m) for (const d in m[k]) for (const p in m[k][d]) { const a = m[k][d][p]; if (a.length > 1) h += a.length - 1; } };
       ct(idx2.tea); ct(idx2.cls); if (state.settings.roomConflict) ct(idx2.room);
+      // 教員1日上限超過をhardに追加
+      for (const tea in idx2.tea) {
+        const maxD = teacherDailyMax(tea);
+        if (maxD == null) continue;
+        for (const day of DAYS) {
+          const dayMap = idx2.tea[tea]?.[day]; if (!dayMap) continue;
+          const items = new Set();
+          for (const p in dayMap) { for (const id of (dayMap[p] || [])) items.add(id); }
+          if (items.size > maxD) h += (items.size - maxD);
+        }
+      }
       const rem = allIds.filter(id => !placements[id]).length;
       return {
         hard: h, soft: sm.score, bias: sm.bias, consec: sm.consec, remain: rem,
-        total: h * 1000 + sm.score + rem * 500
+        total: h * 100000 + rem * 50000 + sm.score
       };
     }
 
@@ -8768,7 +8809,7 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
         newHard = h;
       }
       const newSoft = optNoConsec ? softMetricsFromPlacements(placements, false, true).score : _cache.soft;
-      const newTotal = newHard * 1000 + newSoft + _cache.remain * 500;
+      const newTotal = newHard * 100000 + newSoft + _cache.remain * 50000;
 
       // 元に戻す
       _removeFromIdx(id, newPlc);
@@ -8820,7 +8861,11 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       bestPlacements: JSON.parse(JSON.stringify(plc)),
       cost: cache.total, bestCost: cache.total,
       eval: cache, bestEval: cache,
-      T: 80, alpha: 0.9995,
+      // 初期温度: soft最適化に適した値（vio/remainは重みが大きく自然にgreedy的に振る舞う）
+      // soft scoreは通常 0〜n*20 程度。T=n*10で十分な探索ができる
+      T: Math.max(200, ctx.allIds.length * 10),
+      T0: Math.max(200, ctx.allIds.length * 10), // 再加熱の上限として参照
+      alpha: 0.9995,
       acceptCount: 0, rejectCount: 0,
       step: 0, improved: false,
       // v46-A2: 停滞脱出
@@ -8892,8 +8937,9 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
     const total = saState.acceptCount + saState.rejectCount;
     if (total > 300) {
       const ratio = saState.acceptCount / total;
-      if (ratio < 0.04 && saState.T < 5) {
-        saState.T = Math.min(saState.T * 2.0, 60);   // 再加熱
+      // soft最適化のT範囲: 10〜500。受理率が低すぎる場合のみ再加熱
+      if (ratio < 0.04 && saState.T < 20) {
+        saState.T = Math.min(saState.T * 2.0, saState.T0 || 200);  // 再加熱（初期温度を上限）
       } else if (ratio > 0.95) {
         saState.alpha = Math.max(saState.alpha * 0.9998, 0.9990); // 冷却促進
       }
@@ -8910,11 +8956,12 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       } else {
         saState.stagnationSteps++;
       }
-      // 4000ステップ改善なし かつ 最大3回まで強制再加熱
-      if (saState.stagnationSteps > 4000 && saState.reheatCount < 3) {
+      // 5000ステップ改善なし かつ 最大3回まで強制再加熱
+      if (saState.stagnationSteps > 5000 && saState.reheatCount < 3) {
         saState.reheatCount++;
         saState.stagnationSteps = 0;
-        saState.T = Math.max(saState.T, 40 + 20 * (3 - saState.reheatCount));
+        const T0 = saState.T0 || 200;
+        saState.T = Math.max(saState.T, T0 * 0.3 * (3 - saState.reheatCount + 1) / 3);
         saState.alpha = Math.max(saState.alpha, 0.9992);
         // ランダムに3〜5コマを強制移動して多様化
         const forceN = 3 + Math.floor(Math.random() * 3);
