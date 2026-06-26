@@ -8287,23 +8287,45 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       return next;
     }
 
-    /* ランダムな移動候補を生成 (swap or relocate) */
+    /* 衝突しているitem IDセットを返す */
+    function findConflictedIds(placements) {
+      const idx = buildIdxFromPlacements(placements);
+      const conflicted = new Set();
+      const scanMap = (map) => {
+        for (const k in map) for (const d in map[k]) for (const p in map[k][d]) {
+          const a = map[k][d][p];
+          if (a.length > 1) { for (const x of a) conflicted.add(x); }
+        }
+      };
+      scanMap(idx.tea); scanMap(idx.cls);
+      if (state.settings.roomConflict) scanMap(idx.room);
+      return conflicted;
+    }
+
+    /* ランダムな移動候補を生成 (swap or relocate) — 違反コマを70%優先 */
     function randomNeighbor(placements) {
       const movable = allIds.filter(id => placements[id] && !placements[id].locked);
       if (!movable.length) return null;
-      const id = movable[Math.floor(Math.random() * movable.length)];
+
+      // 70%の確率で違反中のコマを優先選択
+      let id;
+      const conflicted = findConflictedIds(placements);
+      const conflictedMovable = movable.filter(x => conflicted.has(x));
+      if (conflictedMovable.length && Math.random() < 0.70) {
+        id = conflictedMovable[Math.floor(Math.random() * conflictedMovable.length)];
+      } else {
+        id = movable[Math.floor(Math.random() * movable.length)];
+      }
+
       const slots = validSlotsCache[id];
       if (!slots.length) return null;
       const slot = slots[Math.floor(Math.random() * slots.length)];
       // 50%でswap（別コマと交換）
       if (Math.random() < 0.5) {
-        const cur = placements[id];
         const others = allIds.filter(x => x !== id && placements[x] && !placements[x].locked);
         if (others.length) {
           const other = others[Math.floor(Math.random() * others.length)];
-          const oSlots = validSlotsCache[other];
-          if (oSlots.length) {
-            // swap: id→other.slot, other→id.slot (if valid)
+          if (validSlotsCache[other].length) {
             const next = Object.assign({}, placements);
             const curPlc = placements[id]; const otherPlc = placements[other];
             next[id] = Object.assign({}, otherPlc);
@@ -8316,7 +8338,145 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       return { placements: next, op: 'move', id, day: slot.day, period: slot.period };
     }
 
-    return { allIds, fixedLocked, validSlotsCache, deptOf, timeScore, evalPlacement, movePlacement, randomNeighbor, optBalance, optNoConsec };
+    return { allIds, fixedLocked, validSlotsCache, deptOf, timeScore, evalPlacement, movePlacement, randomNeighbor, findConflictedIds, optBalance, optNoConsec };
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     LNS (Large Neighborhood Search) — 衝突ターゲット破壊+再修復
+     ─────────────────────────────────────────────────────
+     1. 衝突しているコマ + 近傍コマを破壊（unplace）
+     2. MRVで並べ替えてgreedyで再配置（repair）
+     これをstep毎に繰り返し、bestより良ければ採用
+     ═══════════════════════════════════════════════════════ */
+  function initLNSState(basePlacements, ctx) {
+    const ev = ctx.evalPlacement(basePlacements);
+    return {
+      placements: Object.assign({}, basePlacements),
+      bestPlacements: Object.assign({}, basePlacements),
+      cost: ev.total, bestCost: ev.total,
+      eval: ev, bestEval: ev,
+      step: 0, improved: false,
+    };
+  }
+
+  function aiLNSStep(lnsState, ctx) {
+    const { allIds, fixedLocked, validSlotsCache } = ctx;
+    const placements = Object.assign({}, lnsState.placements);
+
+    // 1. 衝突しているコマを特定
+    const conflicted = ctx.findConflictedIds(placements);
+    const movable = allIds.filter(id => placements[id] && !fixedLocked.has(id));
+    if (!movable.length) return;
+
+    // 2. 破壊するコマを選択: 衝突コマ + ランダムな追加コマ
+    const destroySet = new Set();
+    for (const id of conflicted) {
+      if (!fixedLocked.has(id)) destroySet.add(id);
+    }
+    // 衝突がない場合は完全ランダム破壊
+    const baseDestroySize = Math.max(3, Math.min(Math.ceil(movable.length * 0.15), 12));
+    if (destroySet.size === 0) {
+      const extra = shuffle(movable.slice()).slice(0, baseDestroySize);
+      for (const id of extra) destroySet.add(id);
+    } else {
+      // 衝突コマの隣接コマも一部追加して多様化
+      const extra = shuffle(movable.filter(id => !destroySet.has(id))).slice(0, Math.min(baseDestroySize, destroySet.size + 2));
+      for (const id of extra) destroySet.add(id);
+    }
+
+    // 3. 破壊
+    for (const id of destroySet) placements[id] = null;
+
+    // 4. MRV順で貪欲再配置（occupancy込みの真のMRV）
+    const toRepair = [...destroySet];
+    const idx = buildIdxFromPlacements(placements);
+
+    // occupancy込みで有効スロット数を数える
+    const countValidWithOcc = (id) => {
+      const it = state.items[id]; if (!it) return 999;
+      const span = it.span || 1;
+      let cnt = 0;
+      for (const slot of (validSlotsCache[id] || [])) {
+        const { day, period } = slot;
+        let ok = true;
+        for (let dp = 0; dp < span && ok; dp++) {
+          const p = period + dp;
+          for (const t of it.teas || []) {
+            const occ = idx.tea?.[t]?.[day]?.[p] || [];
+            if (it.parallel ? occ.some(x => !state.items[x]?.parallel) : occ.length) { ok = false; break; }
+          }
+          if (!ok) break;
+          for (const c of it.cls || []) {
+            const occ = idx.cls?.[c]?.[day]?.[p] || [];
+            if (it.parallel ? occ.some(x => !state.items[x]?.parallel) : occ.length) { ok = false; break; }
+          }
+        }
+        if (ok) cnt++;
+      }
+      return cnt;
+    };
+
+    toRepair.sort((a, b) => countValidWithOcc(a) - countValidWithOcc(b));
+
+    for (const id of toRepair) {
+      const it = state.items[id]; if (!it) continue;
+      const span = it.span || 1;
+      let bestSlot = null, bestScore = Infinity;
+      for (const slot of (validSlotsCache[id] || [])) {
+        const { day, period } = slot;
+        let conflict = false;
+        for (let dp = 0; dp < span && !conflict; dp++) {
+          const p = period + dp;
+          for (const t of it.teas || []) {
+            const occ = idx.tea?.[t]?.[day]?.[p] || [];
+            if (it.parallel ? occ.some(x => !state.items[x]?.parallel) : occ.length) { conflict = true; break; }
+          }
+          if (conflict) break;
+          for (const c of it.cls || []) {
+            const occ = idx.cls?.[c]?.[day]?.[p] || [];
+            if (it.parallel ? occ.some(x => !state.items[x]?.parallel) : occ.length) { conflict = true; break; }
+          }
+        }
+        if (!conflict) {
+          const ts = ctx.timeScore(period);
+          if (ts < bestScore) { bestScore = ts; bestSlot = slot; }
+        }
+      }
+      if (bestSlot) {
+        placements[id] = { day: bestSlot.day, period: bestSlot.period, locked: false };
+        // インデックス更新
+        for (let dp = 0; dp < span; dp++) {
+          const p = bestSlot.period + dp;
+          for (const t of it.teas || []) {
+            if (!idx.tea[t]) idx.tea[t] = {};
+            if (!idx.tea[t][bestSlot.day]) idx.tea[t][bestSlot.day] = {};
+            if (!idx.tea[t][bestSlot.day][p]) idx.tea[t][bestSlot.day][p] = [];
+            idx.tea[t][bestSlot.day][p].push(id);
+          }
+          for (const c of it.cls || []) {
+            if (!idx.cls[c]) idx.cls[c] = {};
+            if (!idx.cls[c][bestSlot.day]) idx.cls[c][bestSlot.day] = {};
+            if (!idx.cls[c][bestSlot.day][p]) idx.cls[c][bestSlot.day][p] = [];
+            idx.cls[c][bestSlot.day][p].push(id);
+          }
+        }
+      }
+    }
+
+    const ev = ctx.evalPlacement(placements);
+    // 改善またはハード違反削減なら採用
+    if (ev.total < lnsState.cost || (ev.hard < lnsState.eval.hard && ev.remain <= lnsState.eval.remain)) {
+      lnsState.placements = placements;
+      lnsState.cost = ev.total;
+      lnsState.eval = ev;
+    }
+    if (ev.total < lnsState.bestCost) {
+      lnsState.bestPlacements = placements;
+      lnsState.bestCost = ev.total;
+      lnsState.bestEval = ev;
+      lnsState.improved = true;
+    }
+    lnsState.step++;
   }
 
   /* ══════════════════════════════════════════════════
@@ -8673,7 +8833,15 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
     const movable = ctx.allIds.filter(id => placements[id] && !placements[id].locked);
     if (!movable.length) return;
 
-    const id = movable[Math.floor(Math.random() * movable.length)];
+    // 違反コマを60%優先してSA近傍を生成
+    let id;
+    if (Math.random() < 0.60) {
+      const conflicted = ctx.findConflictedIds(placements);
+      const cm = movable.filter(x => conflicted.has(x));
+      id = cm.length ? cm[Math.floor(Math.random() * cm.length)] : movable[Math.floor(Math.random() * movable.length)];
+    } else {
+      id = movable[Math.floor(Math.random() * movable.length)];
+    }
     const slots = ctx.validSlotsCache[id];
     if (!slots.length) return;
 
@@ -12397,6 +12565,7 @@ function buildIndex(){
         let tabuState = null;
         let islandState = null;
         let gaState = null; // v41: GA
+        let lnsState = null; // LNS
         if (algoName !== 'greedy') {
           try {
             aiCtx = buildAiCtx(basePlacements);
@@ -12417,10 +12586,12 @@ function buildIndex(){
               logEntry('GA初期化', { pop: GA_POP_SIZE });
             }
             if (algoName === 'auto') {
-              // autoモード: greedy + FastSA + Island + GA を混合
+              // autoモード: LNS + greedy + FastSA + Island + GA を混合
               tabuState = initTabuState(basePlacements, aiCtx);
               islandState = initIslandState(basePlacements, aiCtx);
               gaState = initGAState(basePlacements, aiCtx);
+              lnsState = initLNSState(basePlacements, aiCtx);
+              logEntry('LNS初期化');
             }
           } catch (e) {
             console.error('[v40] アルゴリズム初期化エラー:', e);
@@ -12493,9 +12664,32 @@ function buildIndex(){
           let latestTrial = null;
 
           // v40: アルゴリズム別の試行ループ
+          // autoモードでは違反が残っている間LNSを優先
+          const hasHardVio = best ? best.key.vio > 0 : true;
+          const hasRemain = best ? best.key.remain > 0 : true;
+
+          if (algoName === 'auto' && lnsState && aiCtx && (hasHardVio || hasRemain)) {
+            // LNS: 違反コマ集中破壊+MRV修復 — 違反がある間は多めに時間を使う
+            const lnsBudget = hasHardVio ? 6 : 3;
+            const lnsFrameEnd = Math.min(now + lnsBudget, frameEnd);
+            while (performance.now() < lnsFrameEnd && !aiRunner.stop) {
+              try { aiLNSStep(lnsState, aiCtx); }
+              catch (e) { console.error('[LNS]', e); break; }
+            }
+            if (lnsState.improved) {
+              tryUpdateBestFromAlgo(lnsState.bestEval, lnsState.bestPlacements, 'LNS🔍');
+              lnsState.improved = false;
+              // SA/Islandも最良解から再スタートして連携
+              if (saState && lnsState.bestCost < (saState.bestCost || Infinity)) {
+                saState = initSAStateFast(lnsState.bestPlacements, aiCtx);
+              }
+            }
+          }
+
           if (algoName === 'greedy' || algoName === 'auto') {
-            // greedy: 従来のrandom restart
-            const greedyFrameEnd = algoName === 'auto' ? Math.min(now + 6, frameEnd) : frameEnd;
+            // greedy: 従来のrandom restart（違反がない場合は時間削減）
+            const greedyBudget = (algoName === 'auto' && !hasHardVio) ? 3 : 6;
+            const greedyFrameEnd = algoName === 'auto' ? Math.min(now + greedyBudget, frameEnd) : frameEnd;
             while (performance.now() < greedyFrameEnd && done < maxTrials && performance.now() < deadline && !aiRunner.stop) {
               let r;
               try { r = aiTrialOnce(basePlacements); }
@@ -12512,7 +12706,7 @@ function buildIndex(){
           }
 
           if ((algoName === 'sa' || algoName === 'auto') && saState && aiCtx) {
-            // v41: FastSA (差分評価エンジン使用)
+            // v41: FastSA (差分評価エンジン使用) — 違反解消後に重点的に
             const saFrameEnd = algoName === 'auto' ? Math.min(now + 4, frameEnd) : frameEnd;
             const saStepsBefore = saState.step;
             while (performance.now() < saFrameEnd && !aiRunner.stop) {
