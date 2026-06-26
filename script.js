@@ -629,6 +629,92 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
   };
 
   /* =======================
+     Project File Export / Import
+     ファイル形式: .classmatch (JSON)
+     全データ（データ登録・科目/教員設定・配置・スナップショット）を一括保存
+  ======================= */
+  const PROJECT_FORMAT = 'classmatch-project';
+  const PROJECT_VERSION = '1.0';
+
+  function exportProjectFile() {
+    const now2 = new Date();
+    const ts = now2.toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const projectName = prompt('プロジェクト名を入力（ファイル名に使用）', `時間割_${ts.slice(0, 10)}`);
+    if (projectName === null) return; // キャンセル
+
+    const payload = {
+      format: PROJECT_FORMAT,
+      version: PROJECT_VERSION,
+      savedAt: now2.toISOString(),
+      projectName: projectName || `時間割_${ts.slice(0, 10)}`,
+      appVersion: document.querySelector('.ver')?.textContent || 'v61',
+      // ── コアデータ ──
+      rawRows: state.rawRows,
+      subjectCfg: state.subjectCfg,
+      teacherCfg: state.teacherCfg,
+      settings: state.settings,
+      placements: state.placements,
+      items: state.items,          // 再構築可能だが含めることで確実に復元
+      snapshots: state.snapshots,  // スナップショット履歴も保存
+    };
+
+    const json = JSON.stringify(payload, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const safeNameBase = (projectName || 'timetable').replace(/[\\/:*?"<>|]/g, '_').slice(0, 50);
+    const filename = `${safeNameBase}_${ts.slice(0, 10)}.classmatch`;
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    flash(`💾 「${filename}」を保存しました`);
+  }
+
+  async function importProjectFile(file) {
+    let text;
+    try { text = await file.text(); } catch (e) { showModal('読込失敗', 'ファイルを読めませんでした: ' + e.message); return; }
+
+    let data;
+    try { data = JSON.parse(text); } catch (e) { showModal('読込失敗', 'JSONの解析に失敗しました: ' + e.message); return; }
+
+    // フォーマット確認
+    if (data.format !== PROJECT_FORMAT) {
+      // 旧形式（スナップショットのみのJSONなど）を許容するか確認
+      if (!Array.isArray(data) && !data.rawRows) {
+        showModal('形式エラー', 'このファイルはclassmatchプロジェクトファイルではありません。');
+        return;
+      }
+    }
+
+    const savedAt = data.savedAt ? new Date(data.savedAt).toLocaleString('ja-JP') : '不明';
+    const name = data.projectName || file.name;
+
+    showModal(
+      'プロジェクト読込',
+      `「${name}」（保存日時: ${savedAt}）を読み込みますか？\n\n現在の作業内容はすべて上書きされます。`,
+      () => {
+        pushHistory('projectImport');
+        // データ復元
+        if (Array.isArray(data.rawRows)) state.rawRows = data.rawRows;
+        if (data.subjectCfg && typeof data.subjectCfg === 'object') state.subjectCfg = data.subjectCfg;
+        if (data.teacherCfg && typeof data.teacherCfg === 'object') state.teacherCfg = data.teacherCfg;
+        if (data.settings && typeof data.settings === 'object') {
+          // 既存settingsに上書き（不完全なキーで壊れないよう）
+          Object.assign(state.settings, data.settings);
+        }
+        if (data.placements && typeof data.placements === 'object') state.placements = data.placements;
+        if (data.items && typeof data.items === 'object') state.items = data.items;
+        if (Array.isArray(data.snapshots)) state.snapshots = data.snapshots;
+
+        markDirty('projectImport');
+        rerenderAll();
+        saveNow();
+        flash(`📂 「${name}」を読み込みました（保存日時: ${savedAt}）`);
+      }
+    );
+  }
+
+  /* =======================
      History (Undo/Redo)
   ======================= */
   const HISTORY_MAX = 60;
@@ -4115,85 +4201,99 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
   }
 
   function _drawMainGridArrows(moves) {
+    document.getElementById('main-grid-sug-svg')?.remove();
+    document.querySelectorAll('.cell-suggest-from,.cell-suggest-to').forEach(el => {
+      el.classList.remove('cell-suggest-from', 'cell-suggest-to');
+    });
+
     const root = document.getElementById('grid');
-    if (!root) return;
-    // メイングリッドは教員/クラス/教室×曜日×時限 形式なので
-    // 移動元→移動先を同じ行（row）の中でつなぐ
+    if (!root || !moves || !moves.length) return;
     const mode = state.ui.viewMode;
 
-    // Collect all td pairs (FROM→TO) for each move
-    const pairs = [];
+    // Collect pairs: {fromRect, toRect, color, label}
+    const arrows = [];
     for (const m of moves) {
-      const it = state.items[m.id];
-      if (!it) continue;
+      const it = state.items[m.id]; if (!it) continue;
       const fromPlc = state.placements[m.id];
-      // Find relevant rows for this item
+      const scfg = state.subjectCfg[it.subjKey] || {};
+      const color = scfg.color || '#ef4444';
+      const label = (scfg.abbr || it.subj || '').slice(0, 4);
+
       const rowKeys = mode === 'teacher' ? (it.teas || [])
         : mode === 'class' ? (it.cls || [])
           : (it.rooms || []);
+
+      // Fall back: if no row matched current mode, try all modes
+      let found = false;
       for (const rk of rowKeys) {
         const tr = root.querySelector(`tbody tr[data-row="${CSS.escape(rk)}"]`);
         if (!tr) continue;
-        const toTd = tr.querySelector(`td[data-day="${m.day}"][data-p="${m.period}"]`);
-        const fromTd = fromPlc ? tr.querySelector(`td[data-day="${fromPlc.day}"][data-p="${fromPlc.period}"]`) : null;
-        if (toTd) pairs.push({ fromTd, toTd, it });
+        found = true;
+        const toTd = tr.querySelector(`td[data-day="${CSS.escape(m.day)}"][data-p="${m.period}"]`);
+        const fromTd = fromPlc ? tr.querySelector(`td[data-day="${CSS.escape(fromPlc.day)}"][data-p="${fromPlc.period}"]`) : null;
+        if (fromTd) fromTd.classList.add('cell-suggest-from');
+        if (toTd) toTd.classList.add('cell-suggest-to');
+        if (fromTd && toTd) {
+          arrows.push({ from: fromTd.getBoundingClientRect(), to: toTd.getBoundingClientRect(), color, label });
+        } else if (toTd) {
+          // Only destination known (unplaced item): just mark TO
+          arrows.push({ from: null, to: toTd.getBoundingClientRect(), color, label });
+        }
+      }
+
+      // If no row found in current mode, highlight by day/period across all rows
+      if (!found) {
+        const toTds = root.querySelectorAll(`tbody td[data-day="${CSS.escape(m.day)}"][data-p="${m.period}"]`);
+        toTds.forEach(td => td.classList.add('cell-suggest-to'));
+        if (fromPlc) {
+          const fromTds = root.querySelectorAll(`tbody td[data-day="${CSS.escape(fromPlc.day)}"][data-p="${fromPlc.period}"]`);
+          fromTds.forEach(td => td.classList.add('cell-suggest-from'));
+        }
       }
     }
 
-    if (!pairs.length) return;
+    if (!arrows.length) return;
 
-    // Highlight cells
-    for (const { fromTd, toTd } of pairs) {
-      if (fromTd) fromTd.classList.add('cell-suggest-from');
-      if (toTd) toTd.classList.add('cell-suggest-to');
-    }
-
-    // Build SVG overlay over the whole grid wrapper
-    const gridWrapper = document.getElementById('grid-wrapper') || root.parentElement;
-    if (!gridWrapper) return;
-    const wrapRect = gridWrapper.getBoundingClientRect();
-
-    // Remove old overlay
-    document.getElementById('main-grid-sug-svg')?.remove();
-
+    // Create full-viewport SVG overlay
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.id = 'main-grid-sug-svg';
-    svg.style.cssText = `position:fixed;top:${wrapRect.top}px;left:${wrapRect.left}px;width:${wrapRect.width}px;height:${wrapRect.height}px;pointer-events:none;z-index:9999;overflow:visible`;
+    svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    svg.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;z-index:19999;overflow:visible';
 
-    let defs = '<defs>';
-    let paths = '';
+    let defs = `<defs>`;
+    let body = '';
 
-    pairs.forEach(({ fromTd, toTd, it }, i) => {
-      if (!fromTd || !toTd) return;
-      const scfg = state.subjectCfg[it.subjKey] || {};
-      const color = scfg.color || '#3b82f6';
-      const uid = `mgsug${i}_${Math.random().toString(36).slice(2, 6)}`;
+    arrows.forEach(({ from, to, color, label }, i) => {
+      const uid = `mgar${i}`;
+      defs += `<marker id="${uid}" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+        <polygon points="0 0,8 3,0 6" fill="${color}"/>
+      </marker>`;
 
-      const fr = fromTd.getBoundingClientRect();
-      const tr2 = toTd.getBoundingClientRect();
-      const fx = (fr.left + fr.width / 2) - wrapRect.left;
-      const fy = (fr.top + fr.height / 2) - wrapRect.top;
-      const tx = (tr2.left + tr2.width / 2) - wrapRect.left;
-      const ty = (tr2.top + tr2.height / 2) - wrapRect.top;
-      const cx = (fx + tx) / 2 + (ty - fy) * 0.4;
-      const cy = (fy + ty) / 2 - (tx - fx) * 0.4;
+      const tx = to.left + to.width / 2;
+      const ty = to.top + to.height / 2;
 
-      defs += `<marker id="${uid}-h" markerWidth="10" markerHeight="8" refX="10" refY="4" orient="auto">
-      <polygon points="0 0,10 4,0 8" fill="${color}" opacity="0.95"/>
-    </marker>`;
-      // glow
-      paths += `<path d="M${fx},${fy} Q${cx},${cy} ${tx},${ty}" stroke="${color}" stroke-width="8" fill="none" opacity="0.15"/>`;
-      // main animated
-      paths += `<path d="M${fx},${fy} Q${cx},${cy} ${tx},${ty}" stroke="${color}" stroke-width="3" fill="none" opacity="0.92" stroke-dasharray="8,5" marker-end="url(#${uid}-h)">
-      <animate attributeName="stroke-dashoffset" from="0" to="-26" dur="0.85s" repeatCount="indefinite"/>
-    </path>`;
-      // dots
-      paths += `<circle cx="${fx}" cy="${fy}" r="5" fill="${color}" opacity="0.85"><animate attributeName="r" values="5;7;5" dur="1.1s" repeatCount="indefinite"/></circle>`;
-      paths += `<circle cx="${tx}" cy="${ty}" r="5" fill="#16a34a" opacity="0.85"><animate attributeName="r" values="5;7;5" dur="1.1s" begin="0.55s" repeatCount="indefinite"/></circle>`;
+      if (from) {
+        const fx = from.left + from.width / 2;
+        const fy = from.top + from.height / 2;
+        // Offset endpoints to cell edges (not centers) for clarity
+        const dx = tx - fx, dy = ty - fy;
+        const len = Math.sqrt(dx * dx + dy * dy) || 1;
+        const r = 14; // cell half-size approx
+        const sx = fx + dx / len * r, sy = fy + dy / len * r;
+        const ex = tx - dx / len * (r + 10), ey = ty - dy / len * (r + 10);
+        // Simple straight line with arrow
+        body += `<line x1="${sx}" y1="${sy}" x2="${ex}" y2="${ey}" stroke="${color}" stroke-width="2.5" opacity="0.9" marker-end="url(#${uid})"/>`;
+        // FROM dot
+        body += `<circle cx="${fx}" cy="${fy}" r="6" fill="${color}" opacity="0.8"/>`;
+        // label near FROM
+        body += `<text x="${fx}" y="${fy - 9}" font-size="10" fill="${color}" text-anchor="middle" font-weight="bold" opacity="0.95">${escapeHtml(label)}</text>`;
+      }
+      // TO dot
+      body += `<circle cx="${tx}" cy="${ty}" r="6" fill="#16a34a" opacity="0.8"/>`;
     });
 
     defs += '</defs>';
-    svg.innerHTML = defs + paths;
+    svg.innerHTML = defs + body;
     document.body.appendChild(svg);
   }
 
@@ -12764,6 +12864,13 @@ function buildIndex(){
     $('#btn-ai').onclick = () => aiPlaceAll();
     $('#btn-analyze')?.addEventListener('click', () => showTimetableAnalysis());
     $('#btn-set-manager')?.addEventListener('click', () => openSetManager());
+    $('#btn-project-save')?.addEventListener('click', () => exportProjectFile());
+    $('#btn-project-load')?.addEventListener('click', () => $('#project-load-file')?.click());
+    $('#project-load-file')?.addEventListener('change', async (ev) => {
+      const f = ev.target.files?.[0]; if (!f) return;
+      await importProjectFile(f);
+      ev.target.value = '';
+    });
     $('#btn-sandbox-start')?.addEventListener('click', () => enableSandbox());
     $('#btn-lock-all')?.addEventListener('click', () => lockAllPlaced('lock'));
     $('#btn-unlock-all')?.addEventListener('click', () => lockAllPlaced('unlock'));
