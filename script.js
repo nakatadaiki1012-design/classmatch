@@ -12669,9 +12669,9 @@ function buildIndex(){
           const hasRemain = best ? best.key.remain > 0 : true;
 
           if (algoName === 'auto' && lnsState && aiCtx && (hasHardVio || hasRemain)) {
-            // LNS: 違反コマ集中破壊+MRV修復 — 違反がある間は多めに時間を使う
-            const lnsBudget = hasHardVio ? 6 : 3;
-            const lnsFrameEnd = Math.min(now + lnsBudget, frameEnd);
+            // LNS: 違反コマ集中破壊+MRV修復 — フレームの前半に実行
+            const lnsBudget = hasHardVio ? 4 : 2;
+            const lnsFrameEnd = Math.min(performance.now() + lnsBudget, frameEnd);
             while (performance.now() < lnsFrameEnd && !aiRunner.stop) {
               try { aiLNSStep(lnsState, aiCtx); }
               catch (e) { console.error('[LNS]', e); break; }
@@ -12687,9 +12687,9 @@ function buildIndex(){
           }
 
           if (algoName === 'greedy' || algoName === 'auto') {
-            // greedy: 従来のrandom restart（違反がない場合は時間削減）
-            const greedyBudget = (algoName === 'auto' && !hasHardVio) ? 3 : 6;
-            const greedyFrameEnd = algoName === 'auto' ? Math.min(now + greedyBudget, frameEnd) : frameEnd;
+            // greedy: 従来のrandom restart（performance.now()で現在時刻基準）
+            const greedyBudget = (algoName === 'auto' && !hasHardVio) ? 3 : 5;
+            const greedyFrameEnd = algoName === 'auto' ? Math.min(performance.now() + greedyBudget, frameEnd) : frameEnd;
             while (performance.now() < greedyFrameEnd && done < maxTrials && performance.now() < deadline && !aiRunner.stop) {
               let r;
               try { r = aiTrialOnce(basePlacements); }
@@ -12707,7 +12707,7 @@ function buildIndex(){
 
           if ((algoName === 'sa' || algoName === 'auto') && saState && aiCtx) {
             // v41: FastSA (差分評価エンジン使用) — 違反解消後に重点的に
-            const saFrameEnd = algoName === 'auto' ? Math.min(now + 4, frameEnd) : frameEnd;
+            const saFrameEnd = algoName === 'auto' ? Math.min(performance.now() + 4, frameEnd) : frameEnd;
             const saStepsBefore = saState.step;
             while (performance.now() < saFrameEnd && !aiRunner.stop) {
               try { aiSAStepFast(saState, aiCtx); }
@@ -12720,7 +12720,7 @@ function buildIndex(){
 
           if ((algoName === 'ga' || algoName === 'auto') && gaState && aiCtx) {
             // v41: GA
-            const gaFrameEnd = algoName === 'auto' ? Math.min(now + 3, frameEnd) : frameEnd;
+            const gaFrameEnd = algoName === 'auto' ? Math.min(performance.now() + 3, frameEnd) : frameEnd;
             while (performance.now() < gaFrameEnd && !aiRunner.stop) {
               try { aiGAStep(gaState, aiCtx); }
               catch (e) { console.error('[GA]', e); break; }
