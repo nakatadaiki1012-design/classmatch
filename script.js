@@ -7133,9 +7133,65 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
     }
 
     const unplaced0 = allIds.filter(id => !placements[id]);
-    // v32.5: Improved hardness — count actual valid slots using pure constraint check
-    // (forbidden periods + teacher unavailability only, ignoring occupancy)
-    // Items with very few valid placements (e.g. LHR Thu-4 only) must go first
+
+    // ── Degree map: 教員・クラスを共有するアイテム数（拘束度） ──────────
+    // 自分が配置される時に他の何アイテムの選択肢を狭めるか → 大きいほど先に配置すべき
+    const degreeMap = {};
+    for (const id of allIds) {
+      const it = state.items[id]; if (!it) { degreeMap[id] = 0; continue; }
+      let deg = 0;
+      for (const t of it.teas || []) {
+        for (const xid of allIds) {
+          if (xid === id) continue;
+          if ((state.items[xid]?.teas || []).includes(t)) deg++;
+        }
+      }
+      for (const c of it.cls || []) {
+        for (const xid of allIds) {
+          if (xid === id) continue;
+          if ((state.items[xid]?.cls || []).includes(c)) deg++;
+        }
+      }
+      degreeMap[id] = deg;
+    }
+
+    // ── occupancy込みの有効スロット数（真のMRV） ──────────────────────
+    const countValidWithOcc = (id, curIdx) => {
+      const it = state.items[id]; if (!it) return 999;
+      const span = it.span || 1;
+      let cnt = 0;
+      for (const day of DAYS) {
+        const maxP = maxPeriod(day);
+        for (let p = 1; p <= maxP; p++) {
+          if (span === 2 && p === maxP) continue;
+          let ok = true;
+          for (let dp = 0; dp < span && ok; dp++) {
+            const pp = p + dp;
+            if (isForbiddenForSubject(it.subjKey, day, pp)) { ok = false; break; }
+            for (const t of it.teas || []) {
+              if (isUnavailableForTeacher(t, day, pp)) { ok = false; break; }
+              const occ = curIdx.tea?.[t]?.[day]?.[pp] || [];
+              if (it.parallel ? occ.some(x => !state.items[x]?.parallel) : occ.length) { ok = false; break; }
+            }
+            if (!ok) break;
+            for (const c of it.cls || []) {
+              const occ = curIdx.cls?.[c]?.[day]?.[pp] || [];
+              if (it.parallel ? occ.some(x => !state.items[x]?.parallel) : occ.length) { ok = false; break; }
+            }
+          }
+          if (ok) cnt++;
+        }
+      }
+      return cnt;
+    };
+
+    // MRV+Degree合成: 有効スロットが少ない順、同数ならdegree多い順
+    const mrvDegreeScore = (id, curIdx) => {
+      const mrv = countValidWithOcc(id, curIdx);
+      return mrv * 10000 - degreeMap[id]; // mrv小・degree大が先
+    };
+
+    // 静的な初期hardnessソート（高速化: degree・MRVを初期概算で）
     const validSlotCountPure = (id) => {
       const it = state.items[id]; if (!it) return 999;
       let cnt = 0;
@@ -7159,10 +7215,10 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       const span = it.span || 1;
       const forbid = countForbid(it.subjKey) || 0;
       const structuralHardness = (span === 2 ? 10 : 0) + (it.cls?.length > 1 ? 6 : 0) + (it.teas?.length > 1 ? 5 : 0) + (it.rooms?.length > 1 ? 2 : 0) + forbid * 0.4;
-      // Slot scarcity: items with very few valid slots are extremely constrained
       const slots = validSlotCountPure(id);
       const scarcity = slots === 0 ? 200 : slots === 1 ? 150 : slots <= 3 ? 80 : slots <= 6 ? 40 : slots <= 12 ? 20 : slots <= 20 ? 8 : 0;
-      return structuralHardness + scarcity;
+      const degree = Math.min(degreeMap[id] || 0, 30) * 0.5; // degree heuristic
+      return structuralHardness + scarcity + degree;
     };
     let order = unplaced0.slice().sort((a, b) => hardness(b) - hardness(a));
     if (rand > 0.15) order = shuffle(order);
@@ -7349,10 +7405,108 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       }
     };
 
-    // greedy placement — hardest first (2-span, multi-class, many-teacher, many-forbid)
-    for (const id of order) {
+    // ── Pilot lookahead: simulate placing next K items greedily to score a candidate ──
+    // Used for forward checking & pilot scoring of top candidate slots
+    const pilotScore = (id, it, day, period, pilotDepth, remSet) => {
+      // Temporarily place and measure: count how many of next pilotDepth items can be placed
+      const tmpIdx = { tea: JSON.parse(JSON.stringify(idx.tea || {})), cls: JSON.parse(JSON.stringify(idx.cls || {})), room: JSON.parse(JSON.stringify(idx.room || {})) };
+      // Place this candidate in tmpIdx
+      const tmpPlace = (xid, xit, xday, xp) => { addToIdxLocal(tmpIdx, xid, xit, { day: xday, period: xp }); };
+      tmpPlace(id, it, day, period);
+
+      let placed = 0, dead = 0;
+      const remArr = [...remSet].filter(x => x !== id);
+      // Re-sort remaining by MRV with tmpIdx
+      remArr.sort((a, b) => mrvDegreeScore(a, tmpIdx) - mrvDegreeScore(b, tmpIdx));
+      for (let pi = 0; pi < Math.min(pilotDepth, remArr.length); pi++) {
+        const pid = remArr[pi];
+        const pit = state.items[pid]; if (!pit) continue;
+        let bestDay = null, bestP = -1, bestSc = -Infinity;
+        for (const xday of DAYS) {
+          const xmaxP = maxPeriod(xday);
+          for (let xp = 1; xp <= xmaxP; xp++) {
+            if ((pit.span || 1) === 2 && xp === xmaxP) continue;
+            // Check validity against tmpIdx
+            let ok = true;
+            for (let dp = 0; dp < (pit.span || 1) && ok; dp++) {
+              const pp = xp + dp;
+              if (isForbiddenForSubject(pit.subjKey, xday, pp)) { ok = false; break; }
+              for (const t of pit.teas || []) {
+                if (isUnavailableForTeacher(t, xday, pp)) { ok = false; break; }
+                const occ = tmpIdx.tea?.[t]?.[xday]?.[pp] || [];
+                if (pit.parallel ? occ.some(x => !state.items[x]?.parallel) : occ.length) { ok = false; break; }
+              }
+              if (!ok) break;
+              for (const c of pit.cls || []) {
+                const occ = tmpIdx.cls?.[c]?.[xday]?.[pp] || [];
+                if (pit.parallel ? occ.some(x => !state.items[x]?.parallel) : occ.length) { ok = false; break; }
+              }
+            }
+            if (!ok) continue;
+            const sc = scoreCandidate(pit, xday, xp);
+            if (sc > bestSc) { bestSc = sc; bestDay = xday; bestP = xp; }
+          }
+        }
+        if (bestDay) { tmpPlace(pid, pit, bestDay, bestP); placed++; }
+        else dead++;
+      }
+      // Score = placed items bonus - dead (unplaceable) items penalty
+      return placed * 10 - dead * 30;
+    };
+
+    // Forward check: would placing id at (day,period) make any remaining item unplaceable?
+    const forwardCheck = (id, it, day, period, remSet) => {
+      // Quick check: only run if remaining set is small enough
+      if (remSet.size > 60) return true; // skip FC for large problems (too expensive)
+      const tmpIdx = { tea: JSON.parse(JSON.stringify(idx.tea || {})), cls: JSON.parse(JSON.stringify(idx.cls || {})), room: JSON.parse(JSON.stringify(idx.room || {})) };
+      addToIdxLocal(tmpIdx, id, it, { day, period });
+      for (const rid of remSet) {
+        if (rid === id) continue;
+        const rit = state.items[rid]; if (!rit) continue;
+        let hasSlot = false;
+        outer: for (const rday of DAYS) {
+          const rmaxP = maxPeriod(rday);
+          for (let rp = 1; rp <= rmaxP; rp++) {
+            if ((rit.span || 1) === 2 && rp === rmaxP) continue;
+            let ok = true;
+            for (let dp = 0; dp < (rit.span || 1) && ok; dp++) {
+              const pp = rp + dp;
+              if (isForbiddenForSubject(rit.subjKey, rday, pp)) { ok = false; break; }
+              for (const t of rit.teas || []) {
+                if (isUnavailableForTeacher(t, rday, pp)) { ok = false; break; }
+                const occ = tmpIdx.tea?.[t]?.[rday]?.[pp] || [];
+                if (rit.parallel ? occ.some(x => !state.items[x]?.parallel) : occ.length) { ok = false; break; }
+              }
+              if (!ok) break;
+              for (const c of rit.cls || []) {
+                const occ = tmpIdx.cls?.[c]?.[rday]?.[pp] || [];
+                if (rit.parallel ? occ.some(x => !state.items[x]?.parallel) : occ.length) { ok = false; break; }
+              }
+            }
+            if (ok) { hasSlot = true; break outer; }
+          }
+        }
+        if (!hasSlot) return false; // dead-end detected
+      }
+      return true;
+    };
+
+    // Dynamic MRV greedy — at each step pick the most constrained remaining item
+    const remaining = new Set(order);
+    const PILOT_DEPTH = 4; // simulate this many moves ahead for top candidates
+    while (remaining.size > 0) {
+      // Select most constrained item (min MRV, max degree for tiebreak)
+      let bestId = null, bestMrvScore = Infinity;
+      for (const id of remaining) {
+        const s = mrvDegreeScore(id, idx);
+        if (s < bestMrvScore) { bestMrvScore = s; bestId = id; }
+      }
+      remaining.delete(bestId);
+
+      const id = bestId;
       const it = state.items[id]; if (!it) continue;
       if (placements[id]) continue;
+
       const cands = [];
       for (const day of DAYS) {
         const maxP = maxPeriod(day);
@@ -7363,8 +7517,25 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
         }
       }
       if (!cands.length) continue;
-      const pick = choose(cands);
-      place(id, it, pick.day, pick.period);
+
+      // Sort candidates, then apply pilot lookahead to top-K to pick best
+      cands.sort((a, b) => b.score - a.score);
+      const pilotK = remaining.size > 0 ? Math.min(5, cands.length) : 1;
+      if (remaining.size > 0 && pilotK > 1) {
+        // Forward check + pilot scoring on top candidates
+        let bestCand = null, bestPilot = -Infinity;
+        for (let ci = 0; ci < pilotK; ci++) {
+          const c = cands[ci];
+          if (!forwardCheck(id, it, c.day, c.period, remaining)) continue; // skip dead-ends
+          const ps = c.score + pilotScore(id, it, c.day, c.period, PILOT_DEPTH, remaining);
+          if (ps > bestPilot) { bestPilot = ps; bestCand = c; }
+        }
+        if (!bestCand) bestCand = cands[0]; // all caused dead-ends, fall back
+        place(id, it, bestCand.day, bestCand.period);
+      } else {
+        const pick = choose(cands);
+        place(id, it, pick.day, pick.period);
+      }
     }
 
     // v32.4: multi-pass stash repair — try to place each remaining item by moving one blocker
@@ -8448,10 +8619,75 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
 
     toRepair.sort((a, b) => countValidWithOcc(a) - countValidWithOcc(b));
 
-    for (const id of toRepair) {
+    // Pilot simulation: for a candidate (id placed at slot), greedily place next pilotN remaining items
+    // Returns bonus score (placed - dead*3)
+    const lnsPilotSim = (id, slot, pilotIds) => {
+      const tmpIdx = { tea: {}, cls: {}, room: {} };
+      // Clone relevant parts of idx (only keys touched by remaining items)
+      for (const xid of [id, ...pilotIds]) {
+        const xit = state.items[xid]; if (!xit) continue;
+        for (const t of xit.teas || []) {
+          if (idx.tea[t]) tmpIdx.tea[t] = JSON.parse(JSON.stringify(idx.tea[t]));
+        }
+        for (const c of xit.cls || []) {
+          if (idx.cls[c]) tmpIdx.cls[c] = JSON.parse(JSON.stringify(idx.cls[c]));
+        }
+      }
+      const tmpAdd = (xid, xit, xday, xp) => {
+        const xspan = xit.span || 1;
+        for (let dp = 0; dp < xspan; dp++) {
+          const pp = xp + dp;
+          for (const t of xit.teas || []) {
+            if (!tmpIdx.tea[t]) tmpIdx.tea[t] = {};
+            if (!tmpIdx.tea[t][xday]) tmpIdx.tea[t][xday] = {};
+            if (!tmpIdx.tea[t][xday][pp]) tmpIdx.tea[t][xday][pp] = [];
+            tmpIdx.tea[t][xday][pp].push(xid);
+          }
+          for (const c of xit.cls || []) {
+            if (!tmpIdx.cls[c]) tmpIdx.cls[c] = {};
+            if (!tmpIdx.cls[c][xday]) tmpIdx.cls[c][xday] = {};
+            if (!tmpIdx.cls[c][xday][pp]) tmpIdx.cls[c][xday][pp] = [];
+            tmpIdx.cls[c][xday][pp].push(xid);
+          }
+        }
+      };
+      // Place the candidate
+      tmpAdd(id, state.items[id], slot.day, slot.period);
+      let placed = 0, dead = 0;
+      for (const pid of pilotIds) {
+        const pit = state.items[pid]; if (!pit) continue;
+        const pspan = pit.span || 1;
+        let bestSlotP = null, bestMRV = Infinity;
+        for (const pslot of (validSlotsCache[pid] || [])) {
+          let ok = true;
+          for (let dp = 0; dp < pspan && ok; dp++) {
+            const pp = pslot.period + dp;
+            for (const t of pit.teas || []) {
+              const occ = tmpIdx.tea?.[t]?.[pslot.day]?.[pp] || [];
+              if (pit.parallel ? occ.some(x => !state.items[x]?.parallel) : occ.length) { ok = false; break; }
+            }
+            if (!ok) break;
+            for (const c of pit.cls || []) {
+              const occ = tmpIdx.cls?.[c]?.[pslot.day]?.[pp] || [];
+              if (pit.parallel ? occ.some(x => !state.items[x]?.parallel) : occ.length) { ok = false; break; }
+            }
+          }
+          if (ok) { bestSlotP = pslot; break; } // take first valid slot (already MRV sorted)
+        }
+        if (bestSlotP) { tmpAdd(pid, pit, bestSlotP.day, bestSlotP.period); placed++; }
+        else dead++;
+      }
+      return placed - dead * 3;
+    };
+
+    const placedSet = new Set(); // track repaired ids for pilot lookback
+    for (let ri = 0; ri < toRepair.length; ri++) {
+      const id = toRepair[ri];
       const it = state.items[id]; if (!it) continue;
       const span = it.span || 1;
-      let bestSlot = null, bestScore = Infinity;
+
+      // Collect valid slots
+      const validSlots = [];
       for (const slot of (validSlotsCache[id] || [])) {
         const { day, period } = slot;
         let conflict = false;
@@ -8467,28 +8703,38 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
             if (it.parallel ? occ.some(x => !state.items[x]?.parallel) : occ.length) { conflict = true; break; }
           }
         }
-        if (!conflict) {
-          const ts = ctx.timeScore(period);
-          if (ts < bestScore) { bestScore = ts; bestSlot = slot; }
-        }
+        if (!conflict) validSlots.push(slot);
       }
-      if (bestSlot) {
-        placements[id] = { day: bestSlot.day, period: bestSlot.period, locked: false };
-        // インデックス更新
-        for (let dp = 0; dp < span; dp++) {
-          const p = bestSlot.period + dp;
-          for (const t of it.teas || []) {
-            if (!idx.tea[t]) idx.tea[t] = {};
-            if (!idx.tea[t][bestSlot.day]) idx.tea[t][bestSlot.day] = {};
-            if (!idx.tea[t][bestSlot.day][p]) idx.tea[t][bestSlot.day][p] = [];
-            idx.tea[t][bestSlot.day][p].push(id);
-          }
-          for (const c of it.cls || []) {
-            if (!idx.cls[c]) idx.cls[c] = {};
-            if (!idx.cls[c][bestSlot.day]) idx.cls[c][bestSlot.day] = {};
-            if (!idx.cls[c][bestSlot.day][p]) idx.cls[c][bestSlot.day][p] = [];
-            idx.cls[c][bestSlot.day][p].push(id);
-          }
+      if (!validSlots.length) continue;
+
+      // Pilot lookahead: score top-K slots by simulating next 3 remaining repairs
+      const PILOT_K = Math.min(6, validSlots.length);
+      const pilotAhead = toRepair.slice(ri + 1, ri + 4); // next 3 items to repair
+      let bestSlot = validSlots[0], bestPilot = -Infinity;
+      for (let ki = 0; ki < PILOT_K; ki++) {
+        const slot = validSlots[ki];
+        const baseScore = -ctx.timeScore(slot.period); // prefer early periods (lower timeScore = better)
+        const pilotBonus = pilotAhead.length > 0 ? lnsPilotSim(id, slot, pilotAhead) : 0;
+        const total = baseScore + pilotBonus;
+        if (total > bestPilot) { bestPilot = total; bestSlot = slot; }
+      }
+
+      placements[id] = { day: bestSlot.day, period: bestSlot.period, locked: false };
+      placedSet.add(id);
+      // インデックス更新
+      for (let dp = 0; dp < span; dp++) {
+        const p = bestSlot.period + dp;
+        for (const t of it.teas || []) {
+          if (!idx.tea[t]) idx.tea[t] = {};
+          if (!idx.tea[t][bestSlot.day]) idx.tea[t][bestSlot.day] = {};
+          if (!idx.tea[t][bestSlot.day][p]) idx.tea[t][bestSlot.day][p] = [];
+          idx.tea[t][bestSlot.day][p].push(id);
+        }
+        for (const c of it.cls || []) {
+          if (!idx.cls[c]) idx.cls[c] = {};
+          if (!idx.cls[c][bestSlot.day]) idx.cls[c][bestSlot.day] = {};
+          if (!idx.cls[c][bestSlot.day][p]) idx.cls[c][bestSlot.day][p] = [];
+          idx.cls[c][bestSlot.day][p].push(id);
         }
       }
     }
