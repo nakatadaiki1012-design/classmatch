@@ -8512,44 +8512,309 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       const K = Math.min(8, cands.length);
       const top = cands.slice(0, K);
       const best = top[0].score;
-      const tau = 0.3 + rand * 3.0; // larger = more random
+      const tau = 0.3 + rand * 3.0;
       let sumW = 0;
-      const ws = top.map(c => {
-        const w = Math.exp((c.score - best) / tau);
-        sumW += w; return w;
-      });
+      const ws = top.map(c => { const w = Math.exp((c.score - best) / tau); sumW += w; return w; });
       let r = Math.random() * sumW;
-      for (let i = 0; i < top.length; i++) {
-        r -= ws[i];
-        if (r <= 0) return top[i];
-      }
+      for (let i = 0; i < top.length; i++) { r -= ws[i]; if (r <= 0) return top[i]; }
       return top[0];
+    }
+
+    // ── フォワードチェック: 配置後に残コマのスロット数を管理 ──
+    // resItems[`t:T:D:P`] or [`c:C:D:P`] → unplaced item ids that need that resource slot
+    function buildFwdResItems(unpIds, placements, idx) {
+      const resItems = {};
+      const slotCnt = {};
+      for (const xid of unpIds) {
+        if (placements[xid]) { slotCnt[xid] = Infinity; continue; }
+        const xit = state.items[xid]; if (!xit) { slotCnt[xid] = 0; continue; }
+        const xspan = xit.span || 1;
+        let cnt = 0;
+        for (const d2 of DAYS) {
+          const maxP2 = maxPeriod(d2);
+          for (let p2 = 1; p2 <= maxP2; p2++) {
+            if (xspan === 2 && p2 === maxP2) continue;
+            if (!canPlace(xid, xit, d2, p2, idx)) continue;
+            cnt++;
+            for (let dp2 = 0; dp2 < xspan; dp2++) {
+              const pp = p2 + dp2;
+              for (const t of xit.teas || []) { const k = `t:${t}:${d2}:${pp}`; (resItems[k] = resItems[k] || new Set()).add(xid); }
+              for (const c of xit.cls || []) { const k = `c:${c}:${d2}:${pp}`; (resItems[k] = resItems[k] || new Set()).add(xid); }
+            }
+          }
+        }
+        slotCnt[xid] = cnt;
+      }
+      return { resItems, slotCnt };
+    }
+
+    // After placing id at (day, period), update slotCnt for affected items.
+    // Returns set of items that dropped to 0 (for diagnostics).
+    function updateFwdAfterPlace(id, it, day, period, placements, idx, resItems, slotCnt) {
+      const span = it.span || 1;
+      const affected = new Set();
+      for (let dp = 0; dp < span; dp++) {
+        const p = period + dp;
+        for (const t of it.teas || []) { const k = `t:${t}:${day}:${p}`; (resItems[k] || new Set()).forEach(yid => { if (yid !== id && !placements[yid]) affected.add(yid); }); }
+        for (const c of it.cls || []) { const k = `c:${c}:${day}:${p}`; (resItems[k] || new Set()).forEach(yid => { if (yid !== id && !placements[yid]) affected.add(yid); }); }
+      }
+      for (const yid of affected) {
+        const yit = state.items[yid]; if (!yit) continue;
+        const yspan = yit.span || 1;
+        // Count how many of Y's valid start positions overlap the newly blocked cells
+        let lost = 0;
+        for (let p2 = Math.max(1, period - yspan + 1); p2 <= period + span - 1; p2++) {
+          const maxP = maxPeriod(day);
+          if (p2 < 1 || p2 > maxP) continue;
+          if (yspan === 2 && p2 === maxP) continue;
+          if (canPlace(yid, yit, day, p2, idx)) lost++;
+        }
+        slotCnt[yid] = Math.max(0, (slotCnt[yid] || 0) - lost);
+      }
+    }
+
+    // Forward-check penalty: penalise placements that would doom (slotCnt→0) related items
+    function fwdPenalty(id, it, day, period, placements, idx, resItems, slotCnt) {
+      const span = it.span || 1;
+      const affected = new Set();
+      for (let dp = 0; dp < span; dp++) {
+        const p = period + dp;
+        for (const t of it.teas || []) { const k = `t:${t}:${day}:${p}`; (resItems[k] || new Set()).forEach(yid => { if (yid !== id && !placements[yid]) affected.add(yid); }); }
+        for (const c of it.cls || []) { const k = `c:${c}:${day}:${p}`; (resItems[k] || new Set()).forEach(yid => { if (yid !== id && !placements[yid]) affected.add(yid); }); }
+      }
+      let penalty = 0;
+      for (const yid of affected) {
+        const cur = slotCnt[yid];
+        if (cur == null || cur === Infinity) continue;
+        const yit = state.items[yid]; if (!yit) continue;
+        const yspan = yit.span || 1;
+        let lost = 0;
+        for (let p2 = Math.max(1, period - yspan + 1); p2 <= period + span - 1; p2++) {
+          const maxP = maxPeriod(day);
+          if (p2 < 1 || p2 > maxP) continue;
+          if (yspan === 2 && p2 === maxP) continue;
+          if (canPlace(yid, yit, day, p2, idx)) lost++;
+        }
+        const after = cur - lost;
+        if (after <= 0) penalty += 80;       // dooms an item
+        else if (after === 1) penalty += 20;  // leaves only 1 slot (very risky)
+        else if (after === 2) penalty += 5;
+      }
+      return penalty;
+    }
+
+    // ── 深度2連鎖スワップ修復 ──
+    // After greedy: for each unplaced item U, try moving up to 2 blockers to place U
+    function chainRepair(unplacedIds, placements, idx, fixedLocked) {
+      let improved = true;
+      while (improved) {
+        improved = false;
+        for (const uid of unplacedIds) {
+          if (placements[uid]) continue;
+          const uit = state.items[uid]; if (!uit) continue;
+          const uspan = uit.span || 1;
+
+          // depth-1: can U go here if we remove B1?
+          for (const day of DAYS) {
+            const maxP = maxPeriod(day);
+            for (let p = 1; p <= maxP; p++) {
+              if (uspan === 2 && p === maxP) continue;
+              if (canPlace(uid, uit, day, p, idx)) {
+                // direct placement
+                placements[uid] = { day, period: p, locked: false };
+                addToIdxLocal(uid, uit, placements[uid], idx);
+                improved = true; break;
+              }
+              // gather 1-step blockers
+              const b1Set = new Set();
+              for (let dp = 0; dp < uspan; dp++) {
+                const pp = p + dp;
+                for (const t of uit.teas || []) (idx.tea?.[t]?.[day]?.[pp] || []).forEach(x => b1Set.add(x));
+                for (const c of uit.cls || []) (idx.cls?.[c]?.[day]?.[pp] || []).forEach(x => b1Set.add(x));
+                if (state.settings.roomConflict) for (const r of uit.rooms || []) (idx.room?.[r]?.[day]?.[pp] || []).forEach(x => b1Set.add(x));
+              }
+              for (const b1 of b1Set) {
+                if (!b1 || fixedLocked.has(b1) || !placements[b1]) continue;
+                const b1it = state.items[b1]; if (!b1it) continue;
+                // temporarily remove B1
+                const b1plc = placements[b1];
+                placements[b1] = null;
+                removeFromIdx(b1, b1it, b1plc, idx);
+                if (canPlace(uid, uit, day, p, idx)) {
+                  // B1 can be moved somewhere directly?
+                  const b1span = b1it.span || 1;
+                  let b1placed = false;
+                  for (const d2 of DAYS) {
+                    if (b1placed) break;
+                    const maxP2 = maxPeriod(d2);
+                    for (let p2 = 1; p2 <= maxP2; p2++) {
+                      if (b1span === 2 && p2 === maxP2) continue;
+                      if (canPlace(b1, b1it, d2, p2, idx)) {
+                        placements[b1] = { day: d2, period: p2, locked: false };
+                        addToIdxLocal(b1, b1it, placements[b1], idx);
+                        b1placed = true; break;
+                      }
+                    }
+                  }
+                  if (!b1placed) {
+                    // depth-2: B1 needs to displace B2 to find a spot
+                    for (const d2 of DAYS) {
+                      if (b1placed) break;
+                      const maxP2 = maxPeriod(d2);
+                      for (let p2 = 1; p2 <= maxP2; p2++) {
+                        if (b1span === 2 && p2 === maxP2) continue;
+                        // gather B2 blockers for B1 at (d2,p2)
+                        const b2Set = new Set();
+                        for (let dp2 = 0; dp2 < b1span; dp2++) {
+                          const pp2 = p2 + dp2;
+                          for (const t of b1it.teas || []) (idx.tea?.[t]?.[d2]?.[pp2] || []).forEach(x => b2Set.add(x));
+                          for (const c of b1it.cls || []) (idx.cls?.[c]?.[d2]?.[pp2] || []).forEach(x => b2Set.add(x));
+                        }
+                        for (const b2 of b2Set) {
+                          if (!b2 || fixedLocked.has(b2) || !placements[b2] || b2 === b1) continue;
+                          const b2it = state.items[b2]; if (!b2it) continue;
+                          const b2plc = placements[b2];
+                          placements[b2] = null;
+                          removeFromIdx(b2, b2it, b2plc, idx);
+                          // can B1 go to (d2,p2)?
+                          if (canPlace(b1, b1it, d2, p2, idx)) {
+                            // can B2 go anywhere directly?
+                            const b2span = b2it.span || 1;
+                            let b2placed = false;
+                            for (const d3 of DAYS) {
+                              if (b2placed) break;
+                              const maxP3 = maxPeriod(d3);
+                              for (let p3 = 1; p3 <= maxP3; p3++) {
+                                if (b2span === 2 && p3 === maxP3) continue;
+                                if (canPlace(b2, b2it, d3, p3, idx)) {
+                                  placements[b2] = { day: d3, period: p3, locked: false };
+                                  addToIdxLocal(b2, b2it, placements[b2], idx);
+                                  b2placed = true; break;
+                                }
+                              }
+                            }
+                            if (b2placed) {
+                              placements[b1] = { day: d2, period: p2, locked: false };
+                              addToIdxLocal(b1, b1it, placements[b1], idx);
+                              b1placed = true; break;
+                            }
+                          }
+                          // restore B2 if didn't work
+                          if (!placements[b2]) {
+                            placements[b2] = b2plc;
+                            addToIdxLocal(b2, b2it, b2plc, idx);
+                          }
+                        }
+                        if (b1placed) break;
+                      }
+                    }
+                  }
+                  if (b1placed) {
+                    // place U now that B1 is out of the way
+                    placements[uid] = { day, period: p, locked: false };
+                    addToIdxLocal(uid, uit, placements[uid], idx);
+                    improved = true;
+                  } else {
+                    // restore B1
+                    placements[b1] = b1plc;
+                    addToIdxLocal(b1, b1it, b1plc, idx);
+                  }
+                  if (placements[uid]) break;
+                } else {
+                  // restore B1 (U still can't go here even without B1)
+                  placements[b1] = b1plc;
+                  addToIdxLocal(b1, b1it, b1plc, idx);
+                }
+              }
+              if (placements[uid]) break;
+            }
+            if (placements[uid]) break;
+          }
+        }
+      }
+    }
+
+    // helper: remove item from local idx
+    function removeFromIdx(id, it, plc, idx) {
+      if (!plc) return;
+      const span = it.span || 1;
+      for (let dp = 0; dp < span; dp++) {
+        const p = plc.period + dp;
+        for (const t of it.teas || []) { const arr = idx.tea?.[t]?.[plc.day]?.[p]; if (arr) { const i = arr.indexOf(id); if (i >= 0) arr.splice(i, 1); } }
+        for (const c of it.cls || []) { const arr = idx.cls?.[c]?.[plc.day]?.[p]; if (arr) { const i = arr.indexOf(id); if (i >= 0) arr.splice(i, 1); } }
+        for (const r of it.rooms || []) { const arr = idx.room?.[r]?.[plc.day]?.[p]; if (arr) { const i = arr.indexOf(id); if (i >= 0) arr.splice(i, 1); } }
+      }
+    }
+
+    // ── ターゲット型シェイク ──
+    // Identify placed items that block the most unplaced items; unplace those as priority
+    function targetedShakeIds(unplacedIds, placements, prevIdx) {
+      const blockCount = {}; // placed id → how many unplaced items it blocks
+      for (const uid of unplacedIds) {
+        if (placements[uid]) continue;
+        const uit = state.items[uid]; if (!uit) continue;
+        const uspan = uit.span || 1;
+        const seen = new Set();
+        for (const day of DAYS) {
+          const maxP = maxPeriod(day);
+          for (let p = 1; p <= maxP; p++) {
+            if (uspan === 2 && p === maxP) continue;
+            for (let dp = 0; dp < uspan; dp++) {
+              const pp = p + dp;
+              for (const t of uit.teas || []) (prevIdx?.tea?.[t]?.[day]?.[pp] || []).forEach(x => { if (!seen.has(x)) { seen.add(x); blockCount[x] = (blockCount[x] || 0) + 1; } });
+              for (const c of uit.cls || []) (prevIdx?.cls?.[c]?.[day]?.[pp] || []).forEach(x => { if (!seen.has(x)) { seen.add(x); blockCount[x] = (blockCount[x] || 0) + 1; } });
+            }
+          }
+        }
+      }
+      // Return top-K placed items sorted by block count
+      return Object.entries(blockCount)
+        .filter(([xid]) => placements[xid] && !placements[xid]?.locked)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 6)
+        .map(([xid]) => xid);
     }
 
     // --- Run trials ---
     let best = null;
+    let prevBestPlacements = null;
 
-    // Lightweight RNG diversity: jitter order each trial if rand>0
     const shuffled = (arr) => {
       const a = arr.slice();
-      for (let i = a.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [a[i], a[j]] = [a[j], a[i]];
-      }
+      for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
       return a;
     };
 
     for (let t = 0; t < tries; t++) {
-      // start from base (keep fixed placements)
       const placements = deepClone(basePlacements);
 
-      // build local idx/stats once
+      // ターゲット型シェイク: 前回試行で未配置が残った場合、ブロッカーを優先的に外す
+      if (t > 0 && prevBestPlacements && mode !== 'gentle') {
+        const prevIdx = buildIdxFrom(prevBestPlacements);
+        const prevUnplaced = unplaced0.filter(id => !prevBestPlacements[id]);
+        if (prevUnplaced.length > 0) {
+          const shakeIds = targetedShakeIds(prevUnplaced, prevBestPlacements, prevIdx);
+          // shake targets + previously unplaced (already null in basePlacements so just target the blockers)
+          for (const sid of shakeIds) { placements[sid] = null; }
+          // also random shake to avoid getting stuck in same pattern
+          if (mode === 'bold' && Math.random() < 0.4) {
+            const movable = unplaced0.filter(id => placements[id] && !placements[id]?.locked);
+            const extra = shuffled(movable).slice(0, 2 + Math.floor(Math.random() * 3));
+            for (const eid of extra) placements[eid] = null;
+          }
+        }
+      }
+
       const idx = buildIdxFrom(placements);
       const stats = buildDeptStats(placements);
 
+      // フォワードチェック用データ構造を構築
+      const currentUnplaced = unplaced.filter(id => !placements[id]);
+      const { resItems, slotCnt } = buildFwdResItems(currentUnplaced, placements, idx);
+      const useFwd = currentUnplaced.length <= 600; // large schedules: skip for speed
+
       const order = (rand > 0.15) ? shuffled(unplaced) : unplaced;
 
-      let placedCnt = 0;
       for (const id of order) {
         if (placements[id]) continue;
         const it = state.items[id]; if (!it) continue;
@@ -8559,7 +8824,9 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
           for (let p = 1; p <= maxP; p++) {
             if ((it.span || 1) === 2 && p === maxP) continue;
             if (!canPlace(id, it, day, p, idx)) continue;
-            const sc = scoreCandidate(id, it, day, p, idx, stats);
+            let sc = scoreCandidate(id, it, day, p, idx, stats);
+            // フォワードチェック: 他コマの配置可能枠が0になる選択を避ける
+            if (useFwd) sc -= fwdPenalty(id, it, day, p, placements, idx, resItems, slotCnt);
             cands.push({ day, period: p, score: sc });
           }
         }
@@ -8567,7 +8834,7 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
         const pick = chooseCandidate(cands, rand);
         placements[id] = { day: pick.day, period: pick.period, locked: false };
         addToIdxLocal(id, it, placements[id], idx);
-        // update stats incrementally
+        if (useFwd) updateFwdAfterPlace(id, it, pick.day, pick.period, placements, idx, resItems, slotCnt);
         const dept = deptOf(it);
         if (dept) {
           if (!stats.clsDept) stats.clsDept = {};
@@ -8576,14 +8843,16 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
             if (!stats.clsDept[c][dept]) stats.clsDept[c][dept] = { sum: 0, cnt: 0 };
             const st = stats.clsDept[c][dept];
             const span = it.span || 1;
-            for (let dp = 0; dp < span; dp++) {
-              const p = pick.period + dp;
-              st.sum += timeScore(p);
-              st.cnt += 1;
-            }
+            for (let dp = 0; dp < span; dp++) { const p = pick.period + dp; st.sum += timeScore(p); st.cnt += 1; }
           }
         }
-        placedCnt++;
+      }
+
+      // 深度2連鎖スワップで残った未配置コマを修復
+      const fixedLocked = new Set([...fixedIds, ...allIds.filter(id => placements[id]?.locked)]);
+      const stillUnplaced = unplaced0.filter(id => !placements[id]);
+      if (stillUnplaced.length > 0 && stillUnplaced.length <= 30) {
+        chainRepair(stillUnplaced, placements, idx, fixedLocked);
       }
 
       const remain = unplaced0.filter(id => !placements[id]).length;
@@ -8595,7 +8864,7 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
         (key.remain === best.key.remain && key.soft === best.key.soft && key.placed > best.key.placed)) {
         best = { placements, key };
       }
-      // Early stop if perfect and good enough
+      prevBestPlacements = placements;
       if (best && best.key.remain === 0 && best.key.soft < 2) break;
     }
 
