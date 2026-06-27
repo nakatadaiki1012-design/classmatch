@@ -9142,6 +9142,141 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       }
     }
 
+    // ── 深度3連鎖スワップ修復 ──
+    // 深度2で解決できなかった難しいケースに対応（残り8コマ以下のみ実行）
+    function chainRepairDepth3(unplacedIds, placements, idx, fixedLocked) {
+      for (const uid of unplacedIds) {
+        if (placements[uid]) continue;
+        const uit = state.items[uid]; if (!uit) continue;
+        const uspan = uit.span || 1;
+        outer3:
+        for (const day of DAYS) {
+          const maxP = maxPeriod(day);
+          for (let p = 1; p <= maxP; p++) {
+            if (uspan === 2 && p === maxP) continue;
+            // gather B1 blockers
+            const b1Set = new Set();
+            for (let dp = 0; dp < uspan; dp++) {
+              const pp = p + dp;
+              for (const t of uit.teas || []) (idx.tea?.[t]?.[day]?.[pp] || []).forEach(x => b1Set.add(x));
+              for (const c of uit.cls || []) (idx.cls?.[c]?.[day]?.[pp] || []).forEach(x => b1Set.add(x));
+            }
+            if (!b1Set.size) {
+              // direct place
+              placements[uid] = { day, period: p, locked: false };
+              addToIdxLocal(uid, uit, placements[uid], idx);
+              break outer3;
+            }
+            for (const b1 of b1Set) {
+              if (!b1 || fixedLocked.has(b1) || !placements[b1]) continue;
+              const b1it = state.items[b1]; if (!b1it) continue;
+              const b1plc = placements[b1];
+              placements[b1] = null; removeFromIdx(b1, b1it, b1plc, idx);
+              if (!canPlace(uid, uit, day, p, idx)) { placements[b1] = b1plc; addToIdxLocal(b1, b1it, b1plc, idx); continue; }
+              // try placing B1 somewhere (depth-2 logic)
+              let b1done = false;
+              const b1span = b1it.span || 1;
+              for (const d2 of DAYS) {
+                if (b1done) break;
+                const mp2 = maxPeriod(d2);
+                for (let p2 = 1; p2 <= mp2; p2++) {
+                  if (b1span === 2 && p2 === mp2) continue;
+                  if (canPlace(b1, b1it, d2, p2, idx)) {
+                    placements[b1] = { day: d2, period: p2, locked: false }; addToIdxLocal(b1, b1it, placements[b1], idx);
+                    b1done = true; break;
+                  }
+                  // depth-3: B1 needs to displace B2, B2 displaces B3
+                  const b2Set = new Set();
+                  for (let dp2 = 0; dp2 < b1span; dp2++) {
+                    const pp2 = p2 + dp2;
+                    for (const t of b1it.teas || []) (idx.tea?.[t]?.[d2]?.[pp2] || []).forEach(x => b2Set.add(x));
+                    for (const c of b1it.cls || []) (idx.cls?.[c]?.[d2]?.[pp2] || []).forEach(x => b2Set.add(x));
+                  }
+                  for (const b2 of b2Set) {
+                    if (!b2 || fixedLocked.has(b2) || !placements[b2] || b2 === b1) continue;
+                    const b2it = state.items[b2]; if (!b2it) continue;
+                    const b2plc = placements[b2];
+                    placements[b2] = null; removeFromIdx(b2, b2it, b2plc, idx);
+                    if (!canPlace(b1, b1it, d2, p2, idx)) { placements[b2] = b2plc; addToIdxLocal(b2, b2it, b2plc, idx); continue; }
+                    // try placing B2 somewhere
+                    const b2span = b2it.span || 1;
+                    let b2done = false;
+                    for (const d3 of DAYS) {
+                      if (b2done) break;
+                      const mp3 = maxPeriod(d3);
+                      for (let p3 = 1; p3 <= mp3; p3++) {
+                        if (b2span === 2 && p3 === mp3) continue;
+                        if (canPlace(b2, b2it, d3, p3, idx)) {
+                          placements[b2] = { day: d3, period: p3, locked: false }; addToIdxLocal(b2, b2it, placements[b2], idx);
+                          b2done = true; break;
+                        }
+                      }
+                    }
+                    if (b2done) {
+                      placements[b1] = { day: d2, period: p2, locked: false }; addToIdxLocal(b1, b1it, placements[b1], idx);
+                      b1done = true; break;
+                    }
+                    placements[b2] = b2plc; addToIdxLocal(b2, b2it, b2plc, idx);
+                  }
+                  if (b1done) break;
+                }
+              }
+              if (b1done) {
+                placements[uid] = { day, period: p, locked: false }; addToIdxLocal(uid, uit, placements[uid], idx);
+                break outer3;
+              }
+              placements[b1] = b1plc; addToIdxLocal(b1, b1it, b1plc, idx);
+            }
+          }
+        }
+      }
+    }
+
+    // ── ソフト最適化ローカルサーチ ──
+    // 全コマ配置後（remain=0）にソフト制約（連続教科・時間帯偏り）を局所探索で改善
+    function softOptSwap(placements, idx, allItemIds, fixedLocked) {
+      const movable = allItemIds.filter(id => placements[id] && !fixedLocked.has(id));
+      const softScore = () => totalSoft(placements).score;
+      let curScore = softScore();
+      const MAX_ITERS = Math.min(200, movable.length * 3);
+      for (let iter = 0; iter < MAX_ITERS; iter++) {
+        // Pick 2 random movable items and try swapping their slots
+        const i1 = Math.floor(Math.random() * movable.length);
+        let i2 = Math.floor(Math.random() * (movable.length - 1));
+        if (i2 >= i1) i2++;
+        const id1 = movable[i1], id2 = movable[i2];
+        const plc1 = placements[id1], plc2 = placements[id2];
+        if (!plc1 || !plc2) continue;
+        const it1 = state.items[id1], it2 = state.items[id2];
+        if (!it1 || !it2) continue;
+        // Tentative swap (check feasibility)
+        placements[id1] = null; placements[id2] = null;
+        removeFromIdx(id1, it1, plc1, idx); removeFromIdx(id2, it2, plc2, idx);
+        const ok1 = canPlace(id1, it1, plc2.day, plc2.period, idx);
+        const ok2 = canPlace(id2, it2, plc1.day, plc1.period, idx);
+        if (ok1 && ok2) {
+          const newPlc1 = { day: plc2.day, period: plc2.period, locked: false };
+          const newPlc2 = { day: plc1.day, period: plc1.period, locked: false };
+          placements[id1] = newPlc1; addToIdxLocal(id1, it1, newPlc1, idx);
+          placements[id2] = newPlc2; addToIdxLocal(id2, it2, newPlc2, idx);
+          const newScore = softScore();
+          if (newScore < curScore) {
+            curScore = newScore; // keep swap
+          } else {
+            // revert
+            placements[id1] = null; placements[id2] = null;
+            removeFromIdx(id1, it1, newPlc1, idx); removeFromIdx(id2, it2, newPlc2, idx);
+            placements[id1] = plc1; addToIdxLocal(id1, it1, plc1, idx);
+            placements[id2] = plc2; addToIdxLocal(id2, it2, plc2, idx);
+          }
+        } else {
+          // restore
+          placements[id1] = plc1; addToIdxLocal(id1, it1, plc1, idx);
+          placements[id2] = plc2; addToIdxLocal(id2, it2, plc2, idx);
+        }
+      }
+    }
+
     // ── ターゲット型シェイク ──
     // Identify placed items that block the most unplaced items; unplace those as priority
     function targetedShakeIds(unplacedIds, placements, prevIdx) {
@@ -9212,9 +9347,51 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       const { resItems, slotCnt } = buildFwdResItems(currentUnplaced, placements, idx);
       const useFwd = currentUnplaced.length <= 600; // large schedules: skip for speed
 
-      const order = (rand > 0.15) ? shuffled(unplaced) : unplaced;
+      // Max-Regret: 1位と2位スロットスコア差が大きいコマを優先（occupancy無視の構造的評価）
+      const computeRegret = (xid) => {
+        const xit = state.items[xid]; if (!xit) return 0;
+        const xspan = xit.span || 1;
+        const scores = [];
+        for (const d of DAYS) {
+          const mp = maxPeriod(d);
+          for (let p = 1; p <= mp; p++) {
+            if (xspan === 2 && p === mp) continue;
+            let ok = true;
+            for (let dp = 0; dp < xspan && ok; dp++) {
+              if (isForbiddenForSubject(xit.subjKey, d, p + dp)) ok = false;
+              for (const t of xit.teas || []) { if (isUnavailableForTeacher(t, d, p + dp)) { ok = false; break; } }
+            }
+            if (ok) scores.push(100 - Math.abs(timeScore(p)) * 0.5);
+          }
+        }
+        if (scores.length < 2) return scores.length === 0 ? -999 : 999;
+        scores.sort((a, b) => b - a);
+        return scores[0] - scores[1]; // 後悔度: 大きいほど1位スロットが唯一的
+      };
 
-      for (const id of order) {
+      // 動的MRV: 現在のoccupancyを考慮した配置可能スロット数
+      const mrvCount = (xid, curIdx) => {
+        const xit = state.items[xid]; if (!xit) return 999;
+        let c = 0;
+        for (const d of DAYS) { const mp = maxPeriod(d); for (let p = 1; p <= mp; p++) { if ((xit.span||1)===2&&p===mp) continue; if (canPlace(xid,xit,d,p,curIdx)) c++; } }
+        return c;
+      };
+
+      // 初期順: ランダム性がある場合はシャッフル後にMax-Regret補正
+      const orderArr = (rand > 0.15) ? shuffled(unplaced) : unplaced.slice();
+      if (rand <= 0.15) {
+        // deterministic: sort by hardness(desc) then regret(desc) as secondary
+        orderArr.sort((a, b) => {
+          const hDiff = hardness(b) - hardness(a);
+          if (Math.abs(hDiff) > 5) return hDiff;
+          return computeRegret(b) - computeRegret(a);
+        });
+      }
+
+      let greedyPlacedCnt = 0;
+      let orderPos = 0;
+      while (orderPos < orderArr.length) {
+        const id = orderArr[orderPos++];
         if (placements[id]) continue;
         const it = state.items[id]; if (!it) continue;
         const cands = [];
@@ -9245,13 +9422,37 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
             for (let dp = 0; dp < span; dp++) { const p = pick.period + dp; st.sum += timeScore(p); st.cnt += 1; }
           }
         }
+        greedyPlacedCnt++;
+
+        // 動的MRV再ソート: 20コマ配置ごとに残りをスロット数の少ない順に再ソート
+        if (greedyPlacedCnt % 20 === 0 && orderPos < orderArr.length) {
+          const rem = orderArr.slice(orderPos).filter(xid => !placements[xid]);
+          if (rem.length > 1) {
+            rem.sort((a, b) => mrvCount(a, idx) - mrvCount(b, idx));
+            let ri = 0;
+            for (let oi = orderPos; oi < orderArr.length; oi++) {
+              if (ri < rem.length) orderArr[oi] = rem[ri++];
+            }
+          }
+        }
       }
 
-      // 深度2連鎖スワップで残った未配置コマを修復
+      // 深度2→3連鎖スワップで残った未配置コマを修復
       const fixedLocked = new Set([...fixedIds, ...allIds.filter(id => placements[id]?.locked)]);
       const stillUnplaced = unplaced0.filter(id => !placements[id]);
       if (stillUnplaced.length > 0 && stillUnplaced.length <= 30) {
         chainRepair(stillUnplaced, placements, idx, fixedLocked);
+      }
+      // 深度3修復: 残りが少ない場合にのみ重い探索を実行
+      const stillUnplaced3 = unplaced0.filter(id => !placements[id]);
+      if (stillUnplaced3.length > 0 && stillUnplaced3.length <= 8) {
+        chainRepairDepth3(stillUnplaced3, placements, idx, fixedLocked);
+      }
+
+      // ソフト最適化ローカルサーチ: 全コマ配置後に制約違反を軽減
+      const remainAfterRepair = unplaced0.filter(id => !placements[id]).length;
+      if (remainAfterRepair === 0 && (optBalance || optNoConsec)) {
+        softOptSwap(placements, idx, unplaced0, fixedLocked);
       }
 
       const remain = unplaced0.filter(id => !placements[id]).length;
@@ -9496,8 +9697,9 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       const slots = validSlotsCache[id];
       if (!slots.length) return null;
       const slot = slots[Math.floor(Math.random() * slots.length)];
-      // 50%でswap（別コマと交換）
-      if (Math.random() < 0.5) {
+      const r = Math.random();
+      // 40%でswap（別コマと交換）
+      if (r < 0.40) {
         const others = allIds.filter(x => x !== id && placements[x] && !placements[x].locked);
         if (others.length) {
           const other = others[Math.floor(Math.random() * others.length)];
@@ -9507,6 +9709,23 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
             next[id] = Object.assign({}, otherPlc);
             next[other] = Object.assign({}, curPlc);
             return { placements: next, op: 'swap', id, other };
+          }
+        }
+      }
+      // 15%でOR-opt 3コマ同時移動（連続コマの挿入移動）
+      if (r < 0.55 && movable.length >= 3) {
+        const others2 = movable.filter(x => x !== id);
+        if (others2.length >= 2) {
+          const id2 = others2[Math.floor(Math.random() * others2.length)];
+          const id3 = others2.filter(x => x !== id2)[Math.floor(Math.random() * (others2.length - 1))];
+          const sl2 = validSlotsCache[id2]; const sl3 = validSlotsCache[id3];
+          if (sl2.length && sl3.length) {
+            const next = Object.assign({}, placements);
+            // rotate: id→slot of id2, id2→slot of id3, id3→slot of id
+            next[id] = Object.assign({}, placements[id2]);
+            next[id2] = Object.assign({}, placements[id3]);
+            next[id3] = Object.assign({}, placements[id]);
+            return { placements: next, op: 'oropt3', id, id2, id3 };
           }
         }
       }
@@ -9532,6 +9751,8 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       cost: ev.total, bestCost: ev.total,
       eval: ev, bestEval: ev,
       step: 0, improved: false,
+      // 適応型破壊サイズ
+      destroyMult: 1.0, noImproveSteps: 0,
     };
   }
 
@@ -9549,8 +9770,12 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
     for (const id of conflicted) {
       if (!fixedLocked.has(id)) destroySet.add(id);
     }
+    // 適応型破壊サイズ: 改善停滞時は大きく、改善中は小さく
+    lnsState.noImproveSteps++;
+    if (lnsState.improved) { lnsState.destroyMult = Math.max(0.6, lnsState.destroyMult * 0.85); lnsState.noImproveSteps = 0; }
+    else if (lnsState.noImproveSteps > 8) { lnsState.destroyMult = Math.min(2.5, lnsState.destroyMult * 1.2); lnsState.noImproveSteps = 0; }
     // 衝突がない場合は完全ランダム破壊
-    const baseDestroySize = Math.max(3, Math.min(Math.ceil(movable.length * 0.15), 12));
+    const baseDestroySize = Math.max(3, Math.min(Math.ceil(movable.length * 0.15 * lnsState.destroyMult), 20));
     if (destroySet.size === 0) {
       const extra = shuffle(movable.slice()).slice(0, baseDestroySize);
       for (const id of extra) destroySet.add(id);
@@ -13871,6 +14096,25 @@ function buildIndex(){
         let lastApply = 0;
         let lastLive = 0;  // for live preview even without improvement
 
+        // バンディット型時間配分: 各アルゴリズムの改善回数に基づき動的に時間配分
+        const _bandit = {
+          lns:    { wins: 1, pulls: 1 },
+          greedy: { wins: 1, pulls: 1 },
+          sa:     { wins: 1, pulls: 1 },
+          ga:     { wins: 1, pulls: 1 },
+          island: { wins: 1, pulls: 1 },
+        };
+        let _banditTotal = 0;
+        const _banditBudget = (name, frameMs) => {
+          // UCB1: score = wins/pulls + sqrt(2*ln(total)/pulls)
+          const b = _bandit[name]; if (!b) return frameMs * 0.2;
+          const ucb = b.wins / b.pulls + Math.sqrt(2 * Math.log(_banditTotal + 1) / b.pulls);
+          const sum = Object.values(_bandit).reduce((s, x) => s + x.wins / x.pulls + Math.sqrt(2 * Math.log(_banditTotal + 1) / x.pulls), 0);
+          return frameMs * (ucb / sum);
+        };
+        const _banditWin = (name) => { if (_bandit[name]) { _bandit[name].wins++; _bandit[name].pulls++; } _banditTotal++; };
+        const _banditPull = (name) => { if (_bandit[name]) _bandit[name].pulls++; _banditTotal++; };
+
         // v40: アルゴリズム選択・ログ・島モデル状態
         const algoName = $('#ai-algo')?.value || 'auto';
         const aiLog = []; // 探索ログ
@@ -13992,9 +14236,10 @@ function buildIndex(){
           const hasRemain = best ? best.key.remain > 0 : true;
 
           if (algoName === 'auto' && lnsState && aiCtx && (hasHardVio || hasRemain)) {
-            // LNS: 違反コマ集中破壊+MRV修復 — フレームの前半に実行
-            const lnsBudget = hasHardVio ? 4 : 2;
-            const lnsFrameEnd = Math.min(performance.now() + lnsBudget, frameEnd);
+            // LNS: 違反コマ集中破壊+MRV修復（バンディット配分）
+            const lnsMsBudget = Math.max(2, Math.min(6, _banditBudget('lns', 12)));
+            const lnsFrameEnd = Math.min(performance.now() + lnsMsBudget, frameEnd);
+            _banditPull('lns');
             while (performance.now() < lnsFrameEnd && !aiRunner.stop) {
               try { aiLNSStep(lnsState, aiCtx); }
               catch (e) { console.error('[LNS]', e); break; }
@@ -14002,6 +14247,7 @@ function buildIndex(){
             if (lnsState.improved) {
               tryUpdateBestFromAlgo(lnsState.bestEval, lnsState.bestPlacements, 'LNS🔍');
               lnsState.improved = false;
+              _banditWin('lns');
               // SA/Islandも最良解から再スタートして連携
               if (saState && lnsState.bestCost < (saState.bestCost || Infinity)) {
                 saState = initSAStateFast(lnsState.bestPlacements, aiCtx);
@@ -14010,9 +14256,11 @@ function buildIndex(){
           }
 
           if (algoName === 'greedy' || algoName === 'auto') {
-            // greedy: 従来のrandom restart（performance.now()で現在時刻基準）
-            const greedyBudget = (algoName === 'auto' && !hasHardVio) ? 3 : 5;
-            const greedyFrameEnd = algoName === 'auto' ? Math.min(performance.now() + greedyBudget, frameEnd) : frameEnd;
+            // greedy: Max-Regret+動的MRV強化版（バンディット配分）
+            const greedyMsBudget = algoName === 'auto' ? Math.max(2, Math.min(7, _banditBudget('greedy', 12))) : 12;
+            const greedyFrameEnd = algoName === 'auto' ? Math.min(performance.now() + greedyMsBudget, frameEnd) : frameEnd;
+            if (algoName === 'auto') _banditPull('greedy');
+            const bestBefore = best;
             while (performance.now() < greedyFrameEnd && done < maxTrials && performance.now() < deadline && !aiRunner.stop) {
               let r;
               try { r = aiTrialOnce(basePlacements); }
@@ -14024,32 +14272,36 @@ function buildIndex(){
               }
               done++;
               latestTrial = r;
-              if (!best || betterKey(r.key, best.key)) { best = r; logEntry('greedy新ベスト', r.key); }
+              if (!best || betterKey(r.key, best.key)) { best = r; logEntry('greedy新ベスト', r.key); if (algoName === 'auto') _banditWin('greedy'); }
             }
           }
 
           if ((algoName === 'sa' || algoName === 'auto') && saState && aiCtx) {
-            // v41: FastSA (差分評価エンジン使用) — 違反解消後に重点的に
-            const saFrameEnd = algoName === 'auto' ? Math.min(performance.now() + 4, frameEnd) : frameEnd;
+            // v41: FastSA (差分評価エンジン使用、バンディット配分)
+            const saMsBudget = algoName === 'auto' ? Math.max(2, Math.min(6, _banditBudget('sa', 12))) : 12;
+            const saFrameEnd = algoName === 'auto' ? Math.min(performance.now() + saMsBudget, frameEnd) : frameEnd;
             const saStepsBefore = saState.step;
+            if (algoName === 'auto') _banditPull('sa');
             while (performance.now() < saFrameEnd && !aiRunner.stop) {
               try { aiSAStepFast(saState, aiCtx); }
               catch (e) { console.error('[FastSA]', e); break; }
             }
             const saStepsDone = saState.step - saStepsBefore;
             if (algoName === 'sa') done += Math.ceil(saStepsDone / 20);
-            if (saState.improved) { tryUpdateBestFromAlgo(saState.bestEval, saState.bestPlacements, 'SA🔥'); saState.improved = false; }
+            if (saState.improved) { tryUpdateBestFromAlgo(saState.bestEval, saState.bestPlacements, 'SA🔥'); saState.improved = false; if (algoName === 'auto') _banditWin('sa'); }
           }
 
           if ((algoName === 'ga' || algoName === 'auto') && gaState && aiCtx) {
-            // v41: GA
-            const gaFrameEnd = algoName === 'auto' ? Math.min(performance.now() + 3, frameEnd) : frameEnd;
+            // v41: GA（バンディット配分）
+            const gaMsBudget = algoName === 'auto' ? Math.max(1, Math.min(4, _banditBudget('ga', 12))) : 12;
+            const gaFrameEnd = algoName === 'auto' ? Math.min(performance.now() + gaMsBudget, frameEnd) : frameEnd;
+            if (algoName === 'auto') _banditPull('ga');
             while (performance.now() < gaFrameEnd && !aiRunner.stop) {
               try { aiGAStep(gaState, aiCtx); }
               catch (e) { console.error('[GA]', e); break; }
             }
             if (algoName === 'ga') done = gaState.step;
-            if (gaState.improved) { tryUpdateBestFromAlgo(gaState.bestEval, gaState.bestPlacements, 'GA🧬'); gaState.improved = false; }
+            if (gaState.improved) { tryUpdateBestFromAlgo(gaState.bestEval, gaState.bestPlacements, 'GA🧬'); gaState.improved = false; if (algoName === 'auto') _banditWin('ga'); }
           }
 
           if (algoName === 'tabu' && tabuState && aiCtx) {
@@ -14063,13 +14315,16 @@ function buildIndex(){
           }
 
           if ((algoName === 'island' || algoName === 'auto') && islandState && aiCtx) {
-            const islandFrameEnd = algoName === 'auto' ? frameEnd : frameEnd;
+            // Island（バンディット配分）
+            const islandMsBudget = algoName === 'auto' ? Math.max(1, Math.min(4, _banditBudget('island', 12))) : 12;
+            const islandFrameEnd = algoName === 'auto' ? Math.min(performance.now() + islandMsBudget, frameEnd) : frameEnd;
+            if (algoName === 'auto') _banditPull('island');
             while (performance.now() < islandFrameEnd && !aiRunner.stop) {
               try { aiIslandStep(islandState, aiCtx); }
               catch (e) { console.error('[Island]', e); break; }
             }
             if (algoName === 'island') done = islandState.step;
-            if (islandState.improved) { tryUpdateBestFromAlgo(islandState.bestEval, islandState.bestPlacements, 'Island'); islandState.improved = false; }
+            if (islandState.improved) { tryUpdateBestFromAlgo(islandState.bestEval, islandState.bestPlacements, 'Island'); islandState.improved = false; if (algoName === 'auto') _banditWin('island'); }
           }
 
           // Live preview: apply best-so-far when improved, with animation
