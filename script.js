@@ -13608,6 +13608,24 @@ function buildIndex(){
     const _uiMinus = $('#ui-minus'); if (_uiMinus) _uiMinus.onclick = () => { state.ui.uiScale = clampNum((state.ui.uiScale || 1) - 0.1, 0.6, 1.5, 1); markDirty('ui'); applyUiScale(); };
     const _uiPlus = $('#ui-plus'); if (_uiPlus) _uiPlus.onclick = () => { state.ui.uiScale = clampNum((state.ui.uiScale || 1) + 0.1, 0.6, 1.5, 1); markDirty('ui'); applyUiScale(); };
 
+    // View zoom controls (各設定画面の拡縮)
+    state.ui.viewZoom = state.ui.viewZoom || {};
+    function applyViewZoom(viewId) {
+      const z = clampNum(state.ui.viewZoom[viewId] || 1, 0.5, 2.0, 1);
+      state.ui.viewZoom[viewId] = z;
+      const el2 = document.getElementById(viewId);
+      if (el2) el2.style.setProperty('--view-zoom', String(z));
+      const ctrl = document.querySelector(`.zoom-ctrl[data-zoom-target="${viewId}"]`);
+      const lbl2 = ctrl?.querySelector('.zoom-lbl');
+      if (lbl2) lbl2.textContent = Math.round(z * 100) + '%';
+    }
+    document.querySelectorAll('.zoom-ctrl[data-zoom-target]').forEach(ctrl => {
+      const viewId = ctrl.dataset.zoomTarget;
+      applyViewZoom(viewId);
+      ctrl.querySelector('.zoom-out').onclick = () => { state.ui.viewZoom[viewId] = clampNum((state.ui.viewZoom[viewId] || 1) - 0.1, 0.5, 2.0, 1); markDirty('ui'); applyViewZoom(viewId); };
+      ctrl.querySelector('.zoom-in').onclick  = () => { state.ui.viewZoom[viewId] = clampNum((state.ui.viewZoom[viewId] || 1) + 0.1, 0.5, 2.0, 1); markDirty('ui'); applyViewZoom(viewId); };
+    });
+
     // print option checkboxes
     ['print-type', 'print-show-tea', 'print-show-cls', 'print-show-room', 'print-show-span', 'print-borders'].forEach(id2 => {
       const el2 = document.getElementById(id2);

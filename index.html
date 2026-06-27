@@ -265,10 +265,11 @@
           <span class="muted">曜日ごとの時限数 / 昼休み / 教室衝突 / 教員デフォルト上限 / スナップショット</span>
         </div>
         <div class="spacer"></div>
+        <div class="zoom-ctrl" data-zoom-target="view-school"><button class="btn secondary zoom-out" title="縮小">A−</button><span class="zoom-lbl">100%</span><button class="btn secondary zoom-in" title="拡大">A+</button></div>
         <button id="btn-school-default" class="btn secondary">推奨初期値</button>
       </div>
 
-      <div class="settings-grid">
+      <div class="settings-grid" id="school-content">
         <div class="card">
           <h3>曜日ごとの時限数</h3>
           <div class="form-grid">
@@ -353,6 +354,7 @@
           <button id="btn-export" class="btn secondary">CSV保存（UTF-8 BOM）</button>
         </div>
         <div class="spacer"></div>
+        <div class="zoom-ctrl" data-zoom-target="view-input"><button class="btn secondary zoom-out" title="縮小">A−</button><span class="zoom-lbl">100%</span><button class="btn secondary zoom-in" title="拡大">A+</button></div>
         <div class="row gap">
           <button id="btn-reflect" class="btn primary">保存して作成画面へ</button>
         </div>
@@ -427,6 +429,8 @@
           <button id="btn-sub-place-fixed" class="btn secondary" title="許可枠モード（緑）を設定してある科目をまとめて一括配置">📌 固定枠科目
             一括配置</button>
           <button id="btn-sub-clearall" class="btn secondary">固定禁則 全解除</button>
+          <span class="sep" style="width:1px;height:22px;background:#e5e7eb;display:inline-block"></span>
+          <div class="zoom-ctrl" data-zoom-target="view-subject"><button class="btn secondary zoom-out" title="縮小">A−</button><span class="zoom-lbl">100%</span><button class="btn secondary zoom-in" title="拡大">A+</button></div>
         </div>
       </div>
       <div id="subject-container" class="settings-grid"></div>
@@ -445,6 +449,7 @@
         <span class="muted" style="font-size:12px;margin-left:8px">並替:</span>
         <button class="sort-btn" id="btn-tea-sort-name" data-tea-sort="name">名前 <span class="sort-icon"></span></button>
         <button class="sort-btn" id="btn-tea-sort-dept" data-tea-sort="dept">教科 <span class="sort-icon"></span></button>
+        <div class="zoom-ctrl" data-zoom-target="view-teacher"><button class="btn secondary zoom-out" title="縮小">A−</button><span class="zoom-lbl">100%</span><button class="btn secondary zoom-in" title="拡大">A+</button></div>
       </div>
       <div id="teacher-container" class="settings-grid"></div>
     </section>

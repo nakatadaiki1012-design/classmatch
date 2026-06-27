@@ -2377,6 +2377,36 @@ body[data-stock-size="xl"] .stock-item .si-name {
   min-width: 30px;
 }
 
+.zoom-ctrl {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 7px;
+  padding: 2px 4px;
+}
+.zoom-ctrl .btn {
+  padding: 1px 6px;
+  font-size: 11px;
+  min-width: 28px;
+}
+.zoom-lbl {
+  font-size: 10px;
+  color: #64748b;
+  min-width: 34px;
+  text-align: center;
+}
+
+/* zoom applied to view content areas */
+#view-school .settings-grid,
+#view-input .table-wrap,
+#view-subject .settings-grid,
+#view-teacher .settings-grid {
+  zoom: var(--view-zoom, 1);
+  transform-origin: top left;
+}
+
 #teacher-container,
 #subject-container {
   display: grid;
