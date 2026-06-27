@@ -7516,6 +7516,159 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
 
 
   /* =======================
+     XLSX export (teacher / class matrix)
+     Format mirrors the school's 先生の授業時間割一覧 xlsx:
+       Row 1: title
+       Row 2: day headers (merged)
+       Row 3: period numbers
+       Per entity: 2 rows — row A = class names, row B = subject names
+       Col A = entity name (merged A/B), Col B = homeroom/担当, Col C = role (merged)
+  ======================= */
+  function _xlsxDownload(wb, filename) {
+    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([wbout], { type: 'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function _buildXlsxMatrixSheet(axisType) {
+    const idx = buildIndex();
+    const keys = getAxisKeys(axisType);
+    const maxP = Math.max(6, ...DAYS.map(d => maxPeriod(d)));
+    const DAY_NAMES = { Mon: '月曜日', Tue: '火曜日', Wed: '水曜日', Thu: '木曜日', Fri: '金曜日' };
+
+    // Lead cols: A=name, B=homeroom/担当, C=role
+    const LEAD = 3;
+    const totalCols = LEAD + DAYS.length * maxP;
+
+    // --- Build AOA (array-of-arrays) ---
+    const aoa = [];
+
+    // Row 0: title
+    const titleRow = Array(totalCols).fill(null);
+    titleRow[0] = axisType === 'teacher' ? '＜先生の授業時間割一覧＞' : '＜クラス時間割一覧＞';
+    aoa.push(titleRow);
+
+    // Row 1: day headers
+    const dayRow = Array(totalCols).fill(null);
+    let col = LEAD;
+    for (const d of DAYS) { dayRow[col] = DAY_NAMES[d]; col += maxP; }
+    aoa.push(dayRow);
+
+    // Row 2: period numbers
+    const pRow = Array(totalCols).fill(null);
+    col = LEAD;
+    for (const d of DAYS) {
+      for (let p = 1; p <= maxP; p++) { pRow[col++] = p; }
+    }
+    aoa.push(pRow);
+
+    // Entity rows (2 rows each)
+    for (const key of keys) {
+      const rowA = Array(totalCols).fill(null); // class / subject (line 1)
+      const rowB = Array(totalCols).fill(null); // subject / teacher (line 2)
+
+      // Lead cells
+      rowA[0] = key; // name
+      if (axisType === 'teacher') {
+        // Homeroom class for teacher
+        const hrItem = Object.values(state.items).find(it =>
+          (it.teas || []).includes(key) && (it.subj || '').includes('HR')
+        );
+        const hrCls = hrItem ? (hrItem.cls || [])[0] || '' : '';
+        rowA[1] = hrCls;
+        rowB[1] = '担';
+        const tcfg = state.teacherCfg[key] || {};
+        rowA[2] = tcfg.role || '';
+      } else {
+        rowA[1] = key;
+        rowB[1] = '担';
+        rowA[2] = '';
+      }
+
+      col = LEAD;
+      for (const d of DAYS) {
+        for (let p = 1; p <= maxP; p++) {
+          if (p > maxPeriod(d)) { col++; continue; }
+          const ids = idsInCellForRow(axisType, key, d, p, idx) || [];
+          if (ids.length) {
+            const id = ids[0];
+            const it = state.items[id];
+            if (it) {
+              if (axisType === 'teacher') {
+                rowA[col] = (it.cls || []).join(',') || '';
+                const scfg = state.subjectCfg[it.subjKey] || {};
+                rowB[col] = (scfg.abbr || it.subj || it.subjKey || '').trim();
+              } else {
+                const scfg = state.subjectCfg[it.subjKey] || {};
+                rowA[col] = (scfg.abbr || it.subj || it.subjKey || '').trim();
+                rowB[col] = (it.teas || []).map(t => state.teacherCfg[t]?.abbr || t).join(',');
+              }
+            }
+          }
+          col++;
+        }
+      }
+      aoa.push(rowA);
+      aoa.push(rowB);
+    }
+
+    // Convert AOA to worksheet
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+    // Merges
+    const merges = [];
+    // Title row: A1 span full width
+    merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: totalCols - 1 } });
+    // Day headers (row 1): merge each day's columns
+    let mc = LEAD;
+    for (const d of DAYS) {
+      merges.push({ s: { r: 1, c: mc }, e: { r: 1, c: mc + maxP - 1 } });
+      mc += maxP;
+    }
+    // Lead col A/B/C merge over rows 1-2 (header block)
+    merges.push({ s: { r: 1, c: 0 }, e: { r: 2, c: 2 } });
+    // Entity row A col 0 (name) merges with row B col 0
+    // Entity row A col 2 (role) merges with row B col 2
+    const dataStartRow = 3;
+    for (let i = 0; i < keys.length; i++) {
+      const r = dataStartRow + i * 2;
+      merges.push({ s: { r: r, c: 0 }, e: { r: r + 1, c: 0 } }); // name
+      merges.push({ s: { r: r, c: 2 }, e: { r: r + 1, c: 2 } }); // role
+    }
+    ws['!merges'] = merges;
+
+    // Column widths
+    const cols = [];
+    cols.push({ wch: 8 });  // A: name
+    cols.push({ wch: 5 });  // B: homeroom
+    cols.push({ wch: 5 });  // C: role
+    for (let c = LEAD; c < totalCols; c++) cols.push({ wch: 7 });
+    ws['!cols'] = cols;
+
+    return ws;
+  }
+
+  function exportTeacherMatrixXLSX() {
+    if (typeof XLSX === 'undefined') { alert('SheetJSが読み込まれていません'); return; }
+    const wb = XLSX.utils.book_new();
+    const ws = _buildXlsxMatrixSheet('teacher');
+    XLSX.utils.book_append_sheet(wb, ws, '教員時間割');
+    _xlsxDownload(wb, 'teachers_timetable.xlsx');
+  }
+
+  function exportClassMatrixXLSX() {
+    if (typeof XLSX === 'undefined') { alert('SheetJSが読み込まれていません'); return; }
+    const wb = XLSX.utils.book_new();
+    const ws = _buildXlsxMatrixSheet('class');
+    XLSX.utils.book_append_sheet(wb, ws, 'クラス時間割');
+    _xlsxDownload(wb, 'classes_timetable.xlsx');
+  }
+
+  /* =======================
      Snapshots
   ======================= */
   function renderSnapshotList() {
@@ -14035,6 +14188,10 @@ function buildIndex(){
     $('#btn-export-teacher-matrix').onclick = () => exportTeacherMatrixCSV();
     const btnExportClassMatrix = $('#btn-export-class-matrix');
     if (btnExportClassMatrix) btnExportClassMatrix.onclick = () => exportClassMatrixCSV();
+    const btnExportTeaXlsx = $('#btn-export-teacher-xlsx');
+    if (btnExportTeaXlsx) btnExportTeaXlsx.onclick = () => exportTeacherMatrixXLSX();
+    const btnExportClsXlsx = $('#btn-export-class-xlsx');
+    if (btnExportClsXlsx) btnExportClsXlsx.onclick = () => exportClassMatrixXLSX();
     $('#print-type').onchange = renderPrint;
 
     // keyboard

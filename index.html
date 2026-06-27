@@ -753,6 +753,8 @@
         </select>
         <button id="btn-export-teacher-matrix" class="btn secondary">全教員CSV</button>
         <button id="btn-export-class-matrix" class="btn secondary">全クラスCSV</button>
+        <button id="btn-export-teacher-xlsx" class="btn secondary" style="background:#217346;color:#fff;border:none">📊 教員別XLSX</button>
+        <button id="btn-export-class-xlsx" class="btn secondary" style="background:#217346;color:#fff;border:none">📊 クラス別XLSX</button>
       </div>
 
       <div class="print-layout no-print">
@@ -790,6 +792,8 @@
     </div>
   </div>
 
+  <!-- SheetJS for xlsx export -->
+  <script src="xlsx.min.js"></script>
   <script src="script.js"></script>
   <!-- PDF/Canvas libs lazy-loaded on demand by exportPDF() -->
 </body>
