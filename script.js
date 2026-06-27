@@ -1537,15 +1537,19 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
 
       okBtn.style.display = 'none';
       cancelBtn.textContent = 'キャンセル';
-      cancelBtn.onclick = () => { modal.style.display = 'none'; };
+      const _closeConflictModal = () => { modal.classList.remove('show'); modal.style.display = ''; modal.setAttribute('aria-hidden', 'true'); modal.removeEventListener('click', _overlayClose); };
+      const _overlayClose = (ev) => { if (ev.target === modal) _closeConflictModal(); };
+      cancelBtn.onclick = _closeConflictModal;
+      modal.addEventListener('click', _overlayClose);
 
-      modal.style.display = 'block';
+      modal.style.display = '';
+      modal.classList.add('show');
       modal.setAttribute('aria-hidden', 'false');
 
       // Set global handler for solutions
       window._applyConflictSolution = (idx) => {
         try {
-          modal.style.display = 'none';
+          _closeConflictModal();
           const sol = solutions[idx];
           if (!sol) return;
 

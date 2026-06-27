@@ -1790,17 +1790,28 @@ body.prop-hide #split-prop {
 
 .modal-box {
   width: min(640px, 92vw);
+  max-height: 88vh;
   background: #fff;
   border-radius: 14px;
   padding: 16px;
-  box-shadow: var(--shadow)
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .modal-msg {
   font-size: 13px;
   white-space: pre-wrap;
   color: #0f172a;
-  margin: 8px 0 12px
+  margin: 8px 0 12px;
+  overflow-y: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.modal-box > .row.gap.right {
+  flex-shrink: 0;
 }
 
 @media print {
