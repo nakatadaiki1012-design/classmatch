@@ -2854,13 +2854,16 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
   }
 
   function updateSortButtons() {
-    document.querySelectorAll('#input-sort-bar .sort-btn[data-sort]').forEach(btn => {
-      const c = btn.dataset.sort;
-      btn.classList.toggle('active-asc', _inputSort.col === c && _inputSort.dir === 'asc');
-      btn.classList.toggle('active-desc', _inputSort.col === c && _inputSort.dir === 'desc');
+    document.querySelectorAll('#input-thead-row th[data-sort]').forEach(th => {
+      const c = th.dataset.sort;
+      const icon = th.querySelector('.sort-icon');
+      const isAsc = _inputSort.col === c && _inputSort.dir === 'asc';
+      const isDesc = _inputSort.col === c && _inputSort.dir === 'desc';
+      th.classList.toggle('th-sort-active', isAsc || isDesc);
+      if (icon) icon.textContent = isAsc ? '▲' : isDesc ? '▼' : '';
     });
-    const resetBtn = $('#btn-sort-reset');
-    if (resetBtn) resetBtn.style.display = _inputSort.col ? '' : 'none';
+    const resetSpan = $('#th-sort-reset');
+    if (resetSpan) resetSpan.style.display = _inputSort.col ? '' : 'none';
   }
 
   function updateTeaSortButtons() {
@@ -2873,9 +2876,11 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
   }
 
   function bindSortToolbar() {
-    document.querySelectorAll('#input-sort-bar .sort-btn[data-sort]').forEach(btn => {
-      btn.onclick = () => {
-        const c = btn.dataset.sort;
+    document.querySelectorAll('#input-thead-row th[data-sort]').forEach(th => {
+      th.style.cursor = 'pointer';
+      th.onclick = (ev) => {
+        if (ev.target.classList.contains('col-resizer')) return;
+        const c = th.dataset.sort;
         if (_inputSort.col === c) {
           _inputSort.dir = _inputSort.dir === 'asc' ? 'desc' : 'asc';
         } else {
@@ -2885,8 +2890,9 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
         renderInputTable();
       };
     });
-    const resetBtn = $('#btn-sort-reset');
-    if (resetBtn) resetBtn.onclick = () => {
+    const resetSpan = $('#th-sort-reset');
+    if (resetSpan) resetSpan.onclick = (ev) => {
+      ev.stopPropagation();
       _inputSort = { col: null, dir: 'asc' };
       updateSortButtons();
       renderInputTable();
@@ -4335,8 +4341,12 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
 
     arrows.forEach(({ from, to, color, label }, i) => {
       const uid = `mgar${i}`;
-      defs += `<marker id="${uid}" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
-        <polygon points="0 0,8 3,0 6" fill="${color}"/>
+      // Large arrowhead marker (white outline + colored fill)
+      defs += `<marker id="${uid}o" markerWidth="14" markerHeight="10" refX="13" refY="5" orient="auto">
+        <polygon points="0 0,14 5,0 10" fill="white"/>
+      </marker>
+      <marker id="${uid}" markerWidth="12" markerHeight="8" refX="11" refY="4" orient="auto">
+        <polygon points="0 0,12 4,0 8" fill="${color}"/>
       </marker>`;
 
       const tx = to.left + to.width / 2;
@@ -4345,21 +4355,27 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       if (from) {
         const fx = from.left + from.width / 2;
         const fy = from.top + from.height / 2;
-        // Offset endpoints to cell edges (not centers) for clarity
         const dx = tx - fx, dy = ty - fy;
         const len = Math.sqrt(dx * dx + dy * dy) || 1;
-        const r = 14; // cell half-size approx
+        const r = 16; // cell half-size offset from center
         const sx = fx + dx / len * r, sy = fy + dy / len * r;
-        const ex = tx - dx / len * (r + 10), ey = ty - dy / len * (r + 10);
-        // Simple straight line with arrow
-        body += `<line x1="${sx}" y1="${sy}" x2="${ex}" y2="${ey}" stroke="${color}" stroke-width="2.5" opacity="0.9" marker-end="url(#${uid})"/>`;
-        // FROM dot
-        body += `<circle cx="${fx}" cy="${fy}" r="6" fill="${color}" opacity="0.8"/>`;
-        // label near FROM
-        body += `<text x="${fx}" y="${fy - 9}" font-size="10" fill="${color}" text-anchor="middle" font-weight="bold" opacity="0.95">${escapeHtml(label)}</text>`;
+        const ex = tx - dx / len * (r + 14), ey = ty - dy / len * (r + 14);
+        const mx = (sx + ex) / 2, my = (sy + ey) / 2; // midpoint for label
+        // White shadow line then colored line
+        body += `<line x1="${sx}" y1="${sy}" x2="${ex}" y2="${ey}" stroke="white" stroke-width="6" opacity="0.85" stroke-linecap="round" marker-end="url(#${uid}o)"/>`;
+        body += `<line x1="${sx}" y1="${sy}" x2="${ex}" y2="${ey}" stroke="${color}" stroke-width="3.5" opacity="1" stroke-linecap="round" marker-end="url(#${uid})"/>`;
+        // FROM badge: circle with "発" label
+        body += `<circle cx="${fx}" cy="${fy}" r="11" fill="white" stroke="${color}" stroke-width="2.5"/>`;
+        body += `<text x="${fx}" y="${fy + 4}" font-size="11" fill="${color}" text-anchor="middle" font-weight="900">発</text>`;
+        // subject label midway
+        if (label) {
+          body += `<rect x="${mx - label.length * 4 - 4}" y="${my - 9}" width="${label.length * 8 + 8}" height="16" rx="3" fill="white" opacity="0.9"/>`;
+          body += `<text x="${mx}" y="${my + 4}" font-size="11" fill="${color}" text-anchor="middle" font-weight="bold">${escapeHtml(label)}</text>`;
+        }
       }
-      // TO dot
-      body += `<circle cx="${tx}" cy="${ty}" r="6" fill="#16a34a" opacity="0.8"/>`;
+      // TO badge: circle with "着" label
+      body += `<circle cx="${tx}" cy="${ty}" r="11" fill="white" stroke="#16a34a" stroke-width="2.5"/>`;
+      body += `<text x="${tx}" y="${ty + 4}" font-size="11" fill="#16a34a" text-anchor="middle" font-weight="900">着</text>`;
     });
 
     defs += '</defs>';
@@ -13641,6 +13657,18 @@ function buildIndex(){
     setInterval(() => { if (state.autosave.dirty && !state.autosave.saving) saveNow(); }, 10000);
     // initial broadcast request
     try { if (bc) bc.postMessage({ type: 'req' }); } catch (e) { }
+    // expose state and key functions for global helpers / external scripts
+    try {
+      window.state = state;
+      window.__ULT_STATE__ = state;
+      window.rebuildMastersFromRaw = rebuildMastersFromRaw;
+      window.reflectRawToItems = reflectRawToItems;
+      window.rerenderAll = rerenderAll;
+      window.openPropSuggestions = openPropSuggestions;
+      window.previewSuggestionMoves = previewSuggestionMoves;
+      window.placeItem = placeItem;
+      window.rebuildItems = rebuildMastersFromRaw;
+    } catch (e) { }
   }
 
   document.addEventListener('DOMContentLoaded', init);
