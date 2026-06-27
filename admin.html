@@ -1,0 +1,726 @@
+<!doctype html>
+<html lang="ja">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>クラスマッチ トーナメント（管理）</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+  <header class="top">
+    <div class="title">
+      <h1>🏆 クラスマッチ <span>管理</span></h1>
+      <div id="headerMeta">-</div>
+      <div id="statusBar">status: -</div>
+    </div>
+    <nav class="nav">
+      <button id="navSetup">⚙ 設定・生成</button>
+      <button id="navHome">📋 一覧</button>
+      <button id="navShare">🔗 共有</button>
+    </nav>
+  </header>
+
+  <main class="wrap">
+
+    <!-- ══════ SETUP & GENERATE (統合) ══════ -->
+    <section class="card" id="setupView">
+      <h2>⚙ 設定・生成</h2>
+
+      <div id="setupChecklist">
+        <b>チェック（未完があると生成できません）</b>
+        <div class="small" id="setupProblems">-</div>
+      </div>
+
+      <!-- 大会情報 -->
+      <div class="wInputSection">
+        <h3><span class="sectionAccent"></span>① 大会情報</h3>
+        <div class="row" style="flex-wrap:wrap; gap:10px; margin-bottom:10px;">
+          <label>大会名 <input id="tName" placeholder="例：クラスマッチ2026" style="width:180px" /></label>
+          <label>日付 <input id="tDate" type="date" /></label>
+          <label>場所 <input id="tPlace" placeholder="例：体育館" style="width:120px" /></label>
+          <label>入力方式
+            <select id="tInputMode">
+              <option value="score">得点（Score）</option>
+              <option value="winlose">勝敗のみ</option>
+            </select>
+          </label>
+          <label>1試合(分) <input id="wMatchMin" type="number" min="1" value="10" style="width:70px" /></label>
+          <label>インターバル(分) <input id="wIntervalMin" type="number" min="0" value="2" style="width:70px" /></label>
+          <label>PIN <input id="adminPin" placeholder="例：1234" style="width:80px" /></label>
+          <button id="btnSaveMeta">保存</button>
+        </div>
+      </div>
+
+      <!-- 参加クラス -->
+      <div class="wInputSection">
+        <h3><span class="sectionAccent"></span>② 参加クラス</h3>
+        <!-- クラスピッカー（生成ツール） -->
+        <div class="classPicker" id="classPickerSetup">
+          <div class="small" style="margin-bottom:8px; font-weight:600; color:var(--navy);">🎲 一括生成</div>
+          <div class="cpRow">
+            <label>学年数 <input type="number" id="cpGradesS" min="1" max="6" value="3" style="width:65px" /></label>
+            <label>クラス数/学年 <input type="number" id="cpPerGradeS" min="1" max="12" value="8"
+                style="width:75px" /></label>
+            <label>形式
+              <select id="cpFormatS">
+                <option value="alpha">英字 (1-A, 1-B)</option>
+                <option value="num">数字 (1-1, 1-2)</option>
+                <option value="kumi">組 (1年1組)</option>
+                <option value="num0">数字のみ (1, 2, 3…)</option>
+              </select>
+            </label>
+            <button id="cpApplyS" style="align-self:flex-end;">適用 → テキストに反映</button>
+          </div>
+          <div class="cpPreview" id="cpPreviewS">-</div>
+        </div>
+
+        <div class="small" style="margin-bottom:4px; margin-top:8px;">▼ 直接編集（1行1クラスで入力してください）</div>
+        <textarea id="classList" rows="5"></textarea>
+        <div class="small" id="setupClassCount">-</div>
+        <div id="bracketInfoBanner" class="hidden" style="display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-top:6px; padding:8px 10px; background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius); font-size:13px;"></div>
+        <div class="row" style="margin-top:8px;">
+          <button id="btnSaveClasses">クラス保存</button>
+          <button id="btnAdvancedSeeding" class="ghost small">🎯 詳細シード配置（手動）</button>
+        </div>
+        <!-- シードオプション -->
+        <div class="seedOptionsPanel" id="seedOptionsPanel">
+          <div class="small" style="font-weight:600; color:var(--navy); margin-bottom:6px;">🎯 シード設定（不戦勝チームの指定）</div>
+          <div class="row" style="gap:14px; flex-wrap:wrap; align-items:flex-start;">
+            <label style="flex-direction:row; align-items:center; gap:6px; cursor:pointer;">
+              <input type="radio" name="seedMode" id="seedNone" value="none" checked /> シードなし（完全ランダム）
+            </label>
+            <label style="flex-direction:row; align-items:center; gap:6px; cursor:pointer;">
+              <input type="radio" name="seedMode" id="seedEnabled" value="seeded" /> シード有り（先頭Nチームが不戦勝）
+            </label>
+            <div id="seedCountWrap" class="hidden" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+              <label>不戦勝チーム数 <input id="seedCount" type="number" min="1" max="32" value="2"
+                  style="width:70px" /></label>
+              <span class="small seedHint" style="color:var(--ok);"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 競技設定 -->
+      <div class="wInputSection">
+        <h3><span class="sectionAccent"></span>③ 競技設定</h3>
+        <div class="small" style="margin-bottom:8px;">※ コート名は「A,B,C」のようにカンマ区切り。参加クラス数はブラケットのサイズに直結します。</div>
+        <div id="sportsArea"></div>
+        <div class="row" style="margin-top:10px;">
+          <button id="btnAddSport">＋競技を追加</button>
+          <button id="btnSaveSports">競技を保存</button>
+        </div>
+      </div>
+
+      <!-- ポイント設定 -->
+      <div class="wInputSection">
+        <h3><span class="sectionAccent"></span>④ 総合ポイント設定</h3>
+        <div class="pointOptionsPanel" id="pointOptionsPanel">
+          <div class="row" style="gap:14px; flex-wrap:wrap; align-items:center;">
+            <label>1位 <input id="ptRank1" type="number" value="10" style="width:60px" />点</label>
+            <label>2位 <input id="ptRank2" type="number" value="5" style="width:60px" />点</label>
+            <label>3位 <input id="ptRank3" type="number" value="3" style="width:60px" />点</label>
+            <label>4位以下(参加点) <input id="ptRankOther" type="number" value="1" style="width:60px" />点</label>
+            <button id="btnSavePoints" class="secondary small">適用</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 詳細設定 -->
+      <details class="advancedSettingsCard"
+        style="margin-bottom:14px; background:var(--surface2); padding:10px; border-radius:var(--radius); border:1px solid var(--border);">
+        <summary style="font-weight:bold; cursor:pointer; color:var(--navy);">⚙️ 詳細設定（テロップ・チームカラー）</summary>
+        <div style="margin-top:10px;">
+          <h4>📺 TVモード用テロップ（流れる文字）</h4>
+          <textarea id="tTickerText" rows="2" style="width:100%;" placeholder="例：第3試合の選手は本部前に集合してください"></textarea>
+          <div class="small" style="margin-bottom:12px;">※ 入力するとTVモード表示時に画面下部にスクロール表示されます。</div>
+          <h4>🔔 Webhook通知設定 (LINE / Discord)</h4>
+          <input id="tWebhookUrl" placeholder="https://..." style="width:100%;" />
+          <div class="small" style="margin-bottom:12px;">※ 設定すると、試合ステータスが「招集中」または「確定」になった時に自動で通知が飛びます。</div>
+          <h4>🎨 チームカラー設定（クラスごとのテーマカラー）</h4>
+          <div class="small" style="margin-bottom:6px;">クラスを生成・保存するとここに一覧が表示され、色を指定できます。</div>
+          <div id="teamColorList"
+            style="display:flex; flex-wrap:wrap; gap:10px; max-height:150px; overflow-y:auto; padding:4px; border:1px solid var(--border2); border-radius:4px; background:var(--surface);">
+          </div>
+          <div class="row" style="margin-top:8px;">
+            <button id="btnSaveAdvanced" class="primary">詳細設定を保存</button>
+          </div>
+        </div>
+      </details>
+
+      <!-- 生成ボタン -->
+      <div class="row" style="margin-top:4px; flex-wrap:wrap; gap:10px; align-items:center;">
+        <button id="btnGenerateAll">⚡ ブラケット生成（競技×男女）</button>
+        <button id="btnGoEvents" class="secondary">📋 イベント一覧へ</button>
+        <button id="btnReset">⚠ 全消去して新規</button>
+      </div>
+      <div class="small" style="margin-top:6px;">生成後は下のイベント一覧から各ブラケットを開けます。</div>
+
+      <hr style="margin: 24px 0;" />
+
+      <!-- イベント一覧（旧homeView） -->
+      <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:8px;">
+        <h3 style="margin:0;">📋 イベント一覧</h3>
+        <button id="btnCalcRanking" class="secondary small">🏆 総合順位を計算</button>
+      </div>
+      <div id="overallRankingArea"
+        style="display:none; margin-bottom: 24px; padding: 16px; background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border: 1.5px solid #cbd5e1; border-radius: var(--radius);">
+        <h3 style="margin-top:0; margin-bottom:12px; font-size:16px; color:var(--navy);">🏆 クラス総合ランキング</h3>
+        <div id="overallRankingTable"></div>
+      </div>
+      <div id="eventsArea"></div>
+      <div class="small" style="margin-top:12px;" id="eventsHint">※ 各競技の決勝が終わると、自動で総合ポイントが加算されます。</div>
+
+      <!-- バージョンログ -->
+      <div class="versionLog" style="margin-top:20px;">
+        <details>
+          <summary>📝 バージョンログ</summary>
+          <div class="vlBody" id="versionLogBody"></div>
+        </details>
+      </div>
+      <div class="small" style="margin-top:10px;">
+        ★ この管理ページは<b>先生だけ</b>が使う想定です。生徒には <b>viewer.html</b> の共有リンクを配ってください。
+      </div>
+    </section>
+
+
+    <!-- ══════ SHARE ══════ -->
+    <section class="card hidden" id="shareView">
+      <h2>🔗 共有</h2>
+      <div class="small">
+        生徒に配るのは <b>viewer.html</b> のリンクです。<br />
+        「共有リンクを作る」を押すと、viewer.html に貼れるリンクと共有コードが生成されます。
+      </div>
+
+      <hr />
+
+      <div class="row">
+        <button id="btnMakeShare">共有リンクを作る（PIN確認）</button>
+        <button id="btnCopyViewerLink">viewerリンクをコピー</button>
+        <button id="btnCopyCode">共有コードをコピー</button>
+      </div>
+
+      <div class="row" style="margin-top:10px;">
+        <label style="flex:1;">生徒用リンク（viewer.html）
+          <input id="viewerLink" />
+        </label>
+      </div>
+      <div class="row">
+        <label style="flex:1;">共有コード
+          <textarea id="shareCode" rows="5"></textarea>
+        </label>
+      </div>
+
+      <hr />
+
+      <h3>📱 審判用モバイル画面</h3>
+      <div class="small" style="margin-bottom:8px;">
+        生徒審判にスコア入力を担当させる場合は、以下の画面を開いてください。
+      </div>
+      <div class="row">
+        <a href="referee.html" target="_blank"
+          style="display:inline-block; padding:8px 16px; background:var(--primary); color:white; text-decoration:none; border-radius:4px; font-weight:bold;">審判画面
+          (referee.html) を開く</a>
+      </div>
+
+      <hr />
+
+      <h3>別端末へコピー</h3>
+      <div class="row">
+        <button id="btnImportFromCode">コードを取り込み（PIN確認）</button>
+      </div>
+      <div class="row">
+        <label style="flex:1;">取り込みコード
+          <textarea id="importCode" rows="5"></textarea>
+        </label>
+      </div>
+    </section>
+
+    <!-- ══════ EVENT VIEW ══════ -->
+    <section class="card hidden" id="eventView">
+      <div id="eventNavChips" class="eventNavChips print-hide"></div>
+      <!-- 試合進捗スティッキーバー -->
+      <div id="matchProgressBar" class="print-hide" style="position:sticky; top:0; z-index:10; background:var(--surface); border-bottom:1px solid var(--border); padding:6px 12px; font-size:13px; font-weight:600; color:var(--navy); display:none;">
+        <span id="matchProgressText">0 / 0 試合完了</span>
+      </div>
+      <div class="row between">
+        <div>
+          <h2 id="eventTitle">イベント</h2>
+          <div class="small" id="eventMeta">-</div>
+        </div>
+        <div class="row" style="gap:8px;">
+          <button id="btnBackToHome">← 一覧へ</button>
+          <button id="btnPrevEvent" class="ghost" title="前の競技へ" disabled>▲ 前の競技</button>
+          <button id="btnNextEvent" class="ghost" title="次の競技へ" disabled>▼ 次の競技</button>
+        </div>
+      </div>
+
+      <div id="debugBar"></div>
+
+      <!-- 運営用 ダッシュボード -->
+      <div id="dashboardBox" class="card print-hide"
+        style="margin-bottom:12px; padding:12px; border-left:4px solid var(--blue);">
+        <div class="row between" style="align-items:center;">
+          <b style="color:var(--navy);">📊 進行度・遅延ダッシュボード</b>
+          <span id="dashboardDelay" class="badge" style="font-size:12px;">判定中...</span>
+        </div>
+        <div style="margin-top:8px;">
+          <div class="row between small" style="margin-bottom:4px; font-weight:bold;">
+            <span>全体進行度</span>
+            <span id="dashboardText">0 / 0 試合完了 (0%)</span>
+          </div>
+          <progress id="dashboardProgress" value="0" max="100" style="width:100%; height:12px;"></progress>
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div>
+          <div class="row between" style="margin-bottom:8px; flex-wrap:wrap; gap:8px;">
+            <div class="row" style="align-items:center;">
+              <div class="print-hide">
+                <button id="tabBracket" data-active="1">ブラケット</button>
+                <button id="tabTable">タイムテーブル</button>
+              </div>
+              <div style="margin-left:12px; display:flex; gap:8px; align-items:center;"
+                class="quickSettings print-hide">
+                <label class="small">1試合 <input id="qsMatchMin" type="number" min="1"
+                    style="width:50px; padding:2px;" />分</label>
+                <label class="small">入替 <input id="qsIntervalMin" type="number" min="0"
+                    style="width:40px; padding:2px;" />分</label>
+              </div>
+            </div>
+            <div class="bracketToolbar print-hide">
+              <button id="btnEditMatchups" class="ghost small">✏️ 組み合せ</button>
+              <div class="row" style="align-items:center; gap:4px;">
+                <button id="btnOpenLoserModal" class="ghost small">🏳 裏トーナメント設定</button>
+                <button id="btnEditLoserMatchups" class="ghost small hidden">✏️ 裏組み合せ</button>
+              </div>
+              <button id="btnEditSchedule" class="ghost small">⏳ 時間・順序</button>
+              <button id="btnAddExhibition" class="ghost small">➕ エキシビション</button>
+              <button id="btnAddThirdPlace" class="ghost small">🥉 3位決定戦</button>
+              <div class="toolbarSep"></div>
+              <button id="btnBracketDir" class="ghost small" title="ブラケット方向切替">↕ 縦型</button>
+              <button id="btnUi" class="ghost small">🎛 表示調整</button>
+              <button id="btnFitBracket" class="ghost small">↔ 画面に収める</button>
+              <div class="toolbarSep"></div>
+              <button id="btnCopyTable" class="ghost small">📋 表コピー</button>
+              <button id="btnExportCSV" class="ghost small">📄 CSV</button>
+              <button id="btnPrint" class="ghost small" title="A4縦印刷">🖨️ 印刷</button>
+            </div>
+          </div>
+
+          <!-- 表示調整パネル -->
+          <div id="uiPanel" class="hidden">
+            <div class="uiPanelHeader">
+              <span>🎛️ ブラケット表示調整</span>
+              <button id="btnUiClose" class="ghost small">✕ 閉じる</button>
+            </div>
+            <!-- メインブラケット用 -->
+            <div class="uiPanelSection">
+              <div class="uiPanelSectionLabel">◼ メインブラケット</div>
+              <div class="uiSliderGrid">
+                <div class="uiSliderRow"><label>テキスト<input id="uiFont" type="range" min="10" max="22"
+                      value="13" /></label><span class="uiVal" id="uiFontV">13</span></div>
+                <div class="uiSliderRow"><label>枠の幅<input id="uiW" type="range" min="60" max="400"
+                      value="130" /></label><span class="uiVal" id="uiWV">130</span></div>
+                <div class="uiSliderRow"><label>枠の高さ<input id="uiH" type="range" min="20" max="80"
+                      value="28" /></label><span class="uiVal" id="uiHV">28</span></div>
+                <div class="uiSliderRow"><label>R間隔(縦Y/横X)<input id="uiGapY" type="range" min="20" max="400"
+                      value="120" /></label><span class="uiVal" id="uiGapYV">120</span></div>
+                <div class="uiSliderRow"><label>縦:1-2回戦間隔<input id="uiGapY1" type="range" min="0" max="400"
+                      value="0" /></label><span class="uiVal" id="uiGapY1V">0</span></div>
+                <div class="uiSliderRow"><label>縦:2-3回戦間隔<input id="uiGapY2" type="range" min="0" max="400"
+                      value="0" /></label><span class="uiVal" id="uiGapY2V">0</span></div>
+                <div class="uiSliderRow"><label>縦:3-4回戦間隔<input id="uiGapY3" type="range" min="0" max="400"
+                      value="0" /></label><span class="uiVal" id="uiGapY3V">0</span></div>
+                <div class="uiSliderRow"><label>縦:4回戦〜間隔<input id="uiGapY4" type="range" min="0" max="400"
+                      value="0" /></label><span class="uiVal" id="uiGapY4V">0</span></div>
+                <div class="uiSliderRow"><label>試合間隔(縦X/横Y)¹<input id="uiGapX" type="range" min="0" max="100"
+                      value="8" /></label><span class="uiVal" id="uiGapXV">8</span></div>
+                <div class="uiSliderRow"><label>横:1-2回戦間隔<input id="uiGapX1" type="range" min="0" max="400"
+                      value="0" /></label><span class="uiVal" id="uiGapX1V">0</span></div>
+                <div class="uiSliderRow"><label>横:2-3回戦間隔<input id="uiGapX2" type="range" min="0" max="400"
+                      value="0" /></label><span class="uiVal" id="uiGapX2V">0</span></div>
+                <div class="uiSliderRow"><label>横:3-4回戦間隔<input id="uiGapX3" type="range" min="0" max="400"
+                      value="0" /></label><span class="uiVal" id="uiGapX3V">0</span></div>
+                <div class="uiSliderRow"><label>横:4回戦〜間隔<input id="uiGapX4" type="range" min="0" max="400"
+                      value="0" /></label><span class="uiVal" id="uiGapX4V">0</span></div>
+                <div class="uiSliderRow"><label>ペア間(縦型のみ)<input id="uiMidGap" type="range" min="0" max="100"
+                      value="12" /></label><span class="uiVal" id="uiMidGapV">12</span></div>
+                <div class="uiSliderRow"><label>枝長さ(横型のみ)<input id="uiBranch" type="range" min="0" max="200"
+                      value="36" /></label><span class="uiVal" id="uiBranchV">36</span></div>
+                <div class="uiSliderRow"><label style="flex-direction:row;align-items:center;gap:6px;"><input
+                      type="checkbox" id="uiShowTime" checked style="width:14px;height:14px;margin:0;" />試合時間を表示</label>
+                </div>
+                <div class="uiSliderRow"><label>時間文字サイズ<input id="uiTimeFontSize" type="range" min="7" max="18"
+                      value="9" /></label><span class="uiVal" id="uiTimeFontSizeV">9</span></div>
+                <div class="uiSliderRow"><label>時間表示Y位置<input id="uiTimeY" type="range" min="-50" max="50"
+                      value="0" /></label><span class="uiVal" id="uiTimeYV">0</span></div>
+              </div>
+            </div>
+            <!-- ビューワー向け設定 -->
+            <div class="uiPanelSection">
+              <div class="uiPanelSectionLabel">◼ ビューワー用設定</div>
+              <div class="uiSliderGrid">
+                <div class="uiSliderRow"><label>進行中枠スケール<input id="uiLiveZoom" type="range" min="50" max="300"
+                      value="100" /></label><span class="uiVal" id="uiLiveZoomV">100</span></div>
+              </div>
+            </div>
+            <!-- 裏トーナメント用 -->
+            <div class="uiPanelSection" id="loserUiSection" style="display:none;">
+              <div class="uiPanelSectionLabel" style="color:#7c3aed;">◼ 裏トーナメント（独立設定）
+                <label
+                  style="flex-direction:row;align-items:center;gap:4px;font-weight:normal;color:var(--muted);margin-left:8px;">
+                  <input type="checkbox" id="loserUiEnabled" style="width:12px;height:12px;margin:0;" /> 個別調整を有効化
+                </label>
+              </div>
+              <div class="uiSliderGrid" id="loserUiSliders">
+                <div class="uiSliderRow"><label>テキスト<input id="luiFont" type="range" min="10" max="22"
+                      value="13" /></label><span class="uiVal" id="luiFontV">13</span></div>
+                <div class="uiSliderRow"><label>枠の幅<input id="luiW" type="range" min="60" max="400"
+                      value="130" /></label><span class="uiVal" id="luiWV">130</span></div>
+                <div class="uiSliderRow"><label>枠の高さ<input id="luiH" type="range" min="20" max="80"
+                      value="28" /></label><span class="uiVal" id="luiHV">28</span></div>
+                <div class="uiSliderRow"><label>R間隔(縦Y/横X)<input id="luiGapY" type="range" min="20" max="400"
+                      value="120" /></label><span class="uiVal" id="luiGapYV">120</span></div>
+                <div class="uiSliderRow"><label>縦:1-2回戦間隔<input id="luiGapY1" type="range" min="0" max="400"
+                      value="0" /></label><span class="uiVal" id="luiGapY1V">0</span></div>
+                <div class="uiSliderRow"><label>縦:2-3回戦間隔<input id="luiGapY2" type="range" min="0" max="400"
+                      value="0" /></label><span class="uiVal" id="luiGapY2V">0</span></div>
+                <div class="uiSliderRow"><label>縦:3-4回戦間隔<input id="luiGapY3" type="range" min="0" max="400"
+                      value="0" /></label><span class="uiVal" id="luiGapY3V">0</span></div>
+                <div class="uiSliderRow"><label>縦:4回戦〜間隔<input id="luiGapY4" type="range" min="0" max="400"
+                      value="0" /></label><span class="uiVal" id="luiGapY4V">0</span></div>
+                <div class="uiSliderRow"><label>試合間隔(縦X/横Y)<input id="luiGapX" type="range" min="0" max="100"
+                      value="8" /></label><span class="uiVal" id="luiGapXV">8</span></div>
+                <div class="uiSliderRow"><label>ペア間(縦型のみ)<input id="luiMidGap" type="range" min="0" max="100"
+                      value="12" /></label><span class="uiVal" id="luiMidGapV">12</span></div>
+                <div class="uiSliderRow"><label>枝長さ(横型のみ)<input id="luiBranch" type="range" min="0" max="200"
+                      value="36" /></label><span class="uiVal" id="luiBranchV">36</span></div>
+              </div>
+            </div>
+            <div class="small" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);">※ この端末のみに保存
+            </div>
+          </div>
+
+          <div class="bracketWrap">
+            <div id="bracket"></div>
+            <div id="timetable" class="hidden"></div>
+          </div>
+        </div>
+
+        <!-- 運営入力パネル -->
+        <div id="adminPanel" style="transition: width 0.3s; position: relative;">
+          <div class="row between" style="align-items: center; margin-bottom: 8px;">
+            <h3 style="margin: 0;">運営入力</h3>
+            <div class="row" style="gap: 4px;">
+              <button id="btnUndo" class="ghost small hidden" title="直前の操作を取り消す">↩️ 元に戻す</button>
+              <button id="btnToggleAdmin" class="ghost small">▶ 隠す</button>
+            </div>
+          </div>
+
+          <div id="adminPanelContent">
+
+            <div class="row" style="margin-bottom:8px;">
+              <label>ラウンド
+                <select id="roundSel">
+                  <option value="1">R1</option>
+                  <option value="2">R2</option>
+                  <option value="3">R3</option>
+                  <option value="4">R4</option>
+                  <option value="5">R5</option>
+                </select>
+              </label>
+            </div>
+
+            <div id="matchList"></div>
+
+            <hr />
+
+            <div class="small" id="pickInfo">試合を選択してください（ブラケットの枠クリックでもOK）</div>
+
+            <div class="row" id="scorePanel" style="margin-top:10px;">
+              <div class="box">
+                <div class="teamName" id="tA">-</div>
+                <label>Score <input id="sA" type="number" min="0" style="width:90px" /></label>
+              </div>
+              <div class="box">
+                <div class="teamName" id="tB">-</div>
+                <label>Score <input id="sB" type="number" min="0" style="width:90px" /></label>
+              </div>
+            </div>
+
+            <div class="row hidden" id="winlosePanel" style="margin-top:10px;">
+              <button id="btnWinA">上・左(A)の勝ち</button>
+              <button id="btnWinB">下・右(B)の勝ち</button>
+              <div class="small" id="winloseHint">※ 勝敗のみモード</div>
+            </div>
+
+            <div class="row" style="margin-top:10px;">
+              <button id="btnFinalize">✅ 勝敗確定 → 次へ</button>
+              <button id="btnClear" class="ghost">取り消し</button>
+            </div>
+            <div class="row" style="margin-top:6px;">
+              <button id="btnReshuffle" class="ghost">🔀 この競技を再抽選（R1のみ）</button>
+            </div>
+
+            <div class="small" id="timeInfo" style="margin-top:8px;"></div>
+          </div> <!-- end adminPanelContent -->
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ══════ EVENT SETTINGS MODAL ══════ -->
+  <div id="eventSettingsModal" class="modal hidden">
+    <div class="modalCard" style="max-width:320px;">
+      <div class="row between">
+        <div>
+          <div class="small">イベント個別設定</div>
+          <h3 id="esTitle">-</h3>
+        </div>
+        <button id="esClose" class="ghost">× 閉じる</button>
+      </div>
+
+      <div class="grid1" style="display:flex; flex-direction:column; margin-top:12px; gap:10px;">
+        <label>競技名 <input id="esName" style="width:100%" /></label>
+        <div class="row" style="gap:8px; justify-content:space-between;">
+          <label style="flex:1;">1試合(分) <input id="esMatchMin" type="number" min="1" style="width:100%" /></label>
+          <label style="flex:1;">インターバル(分) <input id="esIntervalMin" type="number" min="0" style="width:100%" /></label>
+        </div>
+        <div class="row" style="gap:8px; justify-content:space-between;">
+          <label style="flex:1;">コート名 <input id="esCourts" placeholder="A,B" style="width:100%" /></label>
+          <label style="flex:1;">開始時刻 <input id="esStartTime" type="time" style="width:100%" /></label>
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:16px;">
+        <button id="esSave" class="primary" style="width:100%">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════ LOSER SETUP MODAL ══════ -->
+  <div id="loserSetupModal" class="modal hidden">
+    <div class="modalCard" style="max-width:680px;">
+      <div class="row between" style="margin-bottom: 12px;">
+        <h3 style="margin:0;">🏳 裏トーナメント（敗者戦） 作成・再構築</h3>
+        <button id="lsClose" class="ghost">× 閉じる</button>
+      </div>
+      <div class="small" style="margin-bottom:12px; color:var(--muted);">
+        裏トーナメントの大会規模やスケジュール設定を指定して生成します。既に存在する場合は上書き対象になります。
+      </div>
+
+      <!-- ① 対象チーム数・スケジュール -->
+      <div style="background:var(--surface2); padding:10px; border-radius:4px; margin-bottom:12px;">
+        <div style="font-size:11px; font-weight:700; color:var(--muted); margin-bottom:8px; text-transform:uppercase; letter-spacing:.5px;">① ブラケット規模・スケジュール</div>
+        <div class="row" style="flex-wrap:wrap; gap:10px; margin-bottom:10px; align-items:center;">
+          <label>対象チーム数:
+            <select id="lsTeamCountSel" style="width:160px;">
+              <option value="auto">自動（敗者数から計算）</option>
+              <option value="4">4チーム枠</option>
+              <option value="8">8チーム枠</option>
+              <option value="16">16チーム枠</option>
+              <option value="32">32チーム枠</option>
+            </select>
+          </label>
+        </div>
+        <div class="row" style="gap:8px; justify-content:space-between; margin-bottom:10px;">
+          <label style="flex:1;">1試合(分) <input id="lsMatchMin" type="number" min="1" value="10" style="width:100%" /></label>
+          <label style="flex:1;">インターバル(分) <input id="lsIntervalMin" type="number" min="0" value="2" style="width:100%" /></label>
+        </div>
+        <div class="row" style="gap:8px; justify-content:space-between;">
+          <label style="flex:1;">コート名 <input id="lsCourts" value="A,B" placeholder="A,B" style="width:100%" /></label>
+          <label style="flex:1;">開始時刻 <input id="lsStartTime" type="time" value="13:00" style="width:100%" /></label>
+        </div>
+      </div>
+
+      <!-- ② シード初戦敗退→裏送り設定 -->
+      <div style="background:#faf5ff; border:1.5px solid #e9d5ff; padding:10px 12px; border-radius:4px; margin-bottom:16px;">
+        <div style="font-size:11px; font-weight:700; color:#7c3aed; margin-bottom:6px; text-transform:uppercase; letter-spacing:.5px;">② シード初戦の敗者を裏に送る設定</div>
+        <div class="small" style="color:var(--muted); margin-bottom:8px; line-height:1.5;">
+          シード（不戦勝で2回戦以降から登場）チームは通常、敗退しても裏トーナメントに入りません。<br>
+          下の試合にチェックを入れると、その試合で負けたチームが裏に自動で送られます。
+        </div>
+        <div id="lsSeedLoserList" style="display:flex; flex-wrap:wrap; gap:6px; min-height:32px;">
+          <span class="small" style="color:var(--subtle); padding:4px;">（シード試合がありません）</span>
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:4px; justify-content:flex-end; gap:8px;">
+        <button id="lsClose2" class="ghost">キャンセル</button>
+        <button id="btnExecGenerateLoser" class="primary">⚡ 生成する</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════ EDIT MATCHUPS MODAL ══════ -->
+  <div id="editMatchupsModal" class="modal hidden">
+    <div class="modalCard" style="max-width:600px; width:95%;">
+      <div class="row between" style="margin-bottom: 12px;">
+        <div>
+          <div class="small">ドラッグ＆ドロップで枠移動</div>
+          <h3 id="emTitle" style="margin:4px 0 0 0;">-</h3>
+        </div>
+        <button id="emClose" class="ghost">× 閉じる</button>
+      </div>
+
+      <div class="small"
+        style="margin-bottom:12px; line-height:1.5; color:var(--navy); background:var(--surface2); padding:8px; border-radius:4px;">
+        💡 <strong>操作方法:</strong> チームを直接ドラッグ＆ドロップして入れ替えます。<br>
+        ※ <strong>空の枠（グレー）</strong> は自動的に<strong>「不戦勝（シード枠）」</strong>になります。<br>
+        ※ シード枠の場所を変えたい場合は、チームを別の枠に移動させてください。
+      </div>
+
+      <!-- 操作ボタン -->
+      <div class="row" style="margin-bottom: 12px;">
+        <button id="emShuffle" class="secondary small"
+          style="width:100%; border:1px solid #cbd5e1; background:#f8fafc; color:#334155;">🎲
+          現在のシード（空枠）位置を維持してチームのみ再抽選</button>
+      </div>
+
+      <!-- プール領域: 外されたチームを一旦置く場所 -->
+      <div
+        style="margin-bottom: 16px; border: 1.5px dashed var(--border); padding: 8px; border-radius: var(--radius); min-height: 50px; background:#f8fafc;">
+        <div class="small" style="color:var(--muted); margin-bottom:4px; font-weight:bold;">📥 未割り当てプルーフ（出場させない、または一時退避）
+        </div>
+        <div id="emPool" class="dd-zone" style="display:flex; flex-wrap:wrap; gap:6px; min-height: 36px;"></div>
+      </div>
+
+      <!-- ツリー表示領域 -->
+      <div style="background:#f1f5f9; padding:12px; border-radius:8px; border:1px solid #e2e8f0; margin-bottom:16px;">
+        <div class="small" style="text-align:center; color:var(--muted); font-weight:bold; margin-bottom:8px;">🏆
+          トーナメントツリー 1回戦</div>
+        <div id="emList"
+          style="display:flex; flex-wrap:wrap; gap:8px; justify-content:center; max-height:45vh; overflow-y:auto; padding:4px;">
+          <!-- ここにJSでツリー状のD&Dスロットを生成 -->
+        </div>
+      </div>
+
+      <div class="row">
+        <button id="emSave" class="primary" style="width:100%; font-size:15px; padding:12px;">以上の組み合わせで保存する</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════ EDIT SCHEDULE MODAL ══════ -->
+  <div id="editScheduleModal" class="modal hidden">
+    <div class="modalCard" style="max-width:500px; width:95%;">
+      <div class="row between">
+        <div>
+          <div class="small">タイムテーブル・順序編集</div>
+          <h3 id="eschedTitle">-</h3>
+        </div>
+        <button id="eschedClose" class="ghost">× 閉じる</button>
+      </div>
+
+      <div id="eschedList"
+        style="display:flex; flex-direction:column; margin-top:12px; gap:8px; max-height:60vh; overflow-y:auto; padding-right:4px;">
+        <!-- ここにJSで各試合の時刻入力ボックスを生成 -->
+      </div>
+      <div class="small" style="margin-top:6px; color:var(--muted);">※ 時間とコート順で「第○試合」が自動で割り当てられます。時間を空にすると末尾になります。</div>
+
+      <div class="row" style="margin-top:16px; gap:10px;">
+        <button id="eschedSave" class="primary" style="flex:1;">保存して反映</button>
+        <button id="eschedAuto" class="ghost" style="flex:1;">自動再スケジュール（初期化）</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════ RESULT MODAL ══════ -->
+  <div id="resultModal" class="modal hidden">
+    <div class="modalCard">
+      <div class="row between">
+        <div>
+          <div class="small">結果入力</div>
+          <h3 id="mTitle">-</h3>
+        </div>
+        <button id="mClose" class="ghost">× 閉じる</button>
+      </div>
+
+      <div id="mScore" class="row" style="margin-top:12px; gap:14px; align-items:flex-start;">
+        <div class="box" style="flex:1;">
+          <div class="teamName" id="mTeamA" style="margin-bottom:8px;">-</div>
+          <div id="mScoreAWrap">
+            <label>Score <input id="mScoreA" type="number" min="0" style="width:80px" /></label>
+          </div>
+        </div>
+        <div class="box" style="flex:1;">
+          <div class="teamName" id="mTeamB" style="margin-bottom:8px;">-</div>
+          <div id="mScoreBWrap">
+            <label>Score <input id="mScoreB" type="number" min="0" style="width:80px" /></label>
+          </div>
+        </div>
+      </div>
+      <div id="mScoreSets" class="hidden"
+        style="margin-top:12px; display:flex; flex-direction:column; gap:8px; background:var(--surface2); padding:10px; border-radius:6px;">
+      </div>
+
+      <div id="mWinLose" class="row hidden" style="margin-top:12px;">
+        <button id="mWinA" class="primary">上・左(A)の勝ち</button>
+        <button id="mWinB" class="primary">下・右(B)の勝ち</button>
+      </div>
+
+      <!-- 新しいステータスボタン群 -->
+      <div class="row" style="margin-top:16px; gap:10px; border-top: 1px solid var(--border); padding-top:16px;">
+        <button id="mStatusCalling" class="ghost"
+          style="flex:1; color:#d97706; border-color:#fde68a; background:#fffbeb;">📢 招集中にする</button>
+        <button id="mStatusPlaying" class="ghost"
+          style="flex:1; color:#dc2626; border-color:#fca5a5; background:#fee2e2;">🏃 試合中にする</button>
+      </div>
+
+      <div class="row" style="margin-top:14px; gap:10px;">
+        <button id="mSave" class="primary" style="flex:2;">🏆 勝敗確定 / 保存</button>
+        <button id="mClear" class="ghost" style="flex:1; color:var(--danger); border-color:var(--danger-bg);">↩️
+          クリア</button>
+      </div>
+      <div class="small" id="mHint" style="margin-top:8px;text-align:center;">-</div>
+    </div>
+  </div>
+
+  <!-- ══════ ADVANCED SEEDING MODAL ══════ -->
+  <div id="advSeedingModal" class="overlay hidden" style="z-index: 2000;">
+    <div class="card" style="width:90%; max-width:800px; max-height:90vh; overflow-y:auto;">
+      <h3>🎯 詳細シード配置（生成前マッピング）</h3>
+      <p class="small" style="color:var(--navy);">
+        左のクラスリストから右の配置枠（スロット）へドラッグ＆ドロップしてマッピングします。<br />※ここで設定した順序が「⚡競技×男女を生成」時に自動的に使われます（シード設定を「なし」にしても反映されます）。</p>
+
+      <div class="row" style="gap:20px; align-items:stretch; margin-top:20px;">
+        <div
+          style="flex:1; background:var(--surface2); border-radius:8px; padding:12px; border:1px solid var(--border);">
+          <h4>未配置クラス</h4>
+          <div id="advSeedSource"
+            style="min-height:300px; display:flex; flex-direction:column; gap:8px; padding-bottom:20px;">
+            <!-- Draggable class list -->
+          </div>
+        </div>
+
+        <div style="flex:2; background:#fff; border-radius:8px; padding:12px; border:1px solid var(--border);">
+          <h4>配置枠 (スロット1〜)</h4>
+          <div class="small" style="margin-bottom:8px; color:var(--text); opacity:0.8;">※1回戦の対戦カードは「スロット1 vs
+            スロット2」「スロット3 vs スロット4」...となります。</div>
+          <div id="advSeedTarget" style="min-height:300px; display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+            <!-- Drop targets -->
+          </div>
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:20px; justify-content:flex-end; gap: 10px;">
+        <button id="btnAdvSeedSave" class="primary">この配置を保存</button>
+        <button id="btnAdvSeedCancel" class="ghost">キャンセル</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase SDK (compat) + 同期モジュール -->
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+  <script src="firebase-config.js"></script>
+  <script src="firebase-sync.js"></script>
+  <script src="admin.js"></script>
+</body>
+
+</html>

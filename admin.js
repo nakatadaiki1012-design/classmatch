@@ -108,7 +108,7 @@
 
   // ── Navigation ──────────────────────────────────────────────
   function show(viewId) {
-    for (const id of ["wizardView", "homeView", "setupView", "shareView", "eventView"]) {
+    for (const id of ["setupView", "shareView", "eventView"]) {
       const e = el(id);
       if (e) e.classList.add("hidden");
     }
@@ -595,8 +595,7 @@
     box.appendChild(tbl);
   }
 
-  // ── 進行中試合のハイライト ──
-  setInterval(updateOngoingMatches, 60000); // 1分ごと
+  // ── 進行中試合のハイライト（setIntervalはファイル末尾付近でまとめて管理） ──
 
   function updateOngoingMatches() {
     if (!currentEvent || !currentEvent.matches) return;
@@ -685,6 +684,14 @@
     }
     if (textEl) textEl.textContent = `${completed} / ${total} 試合完了 (${pct}%)`;
 
+    // スティッキー進捗バー更新
+    const stickyBar = el("matchProgressBar");
+    const stickyText = el("matchProgressText");
+    if (stickyBar && stickyText) {
+      stickyText.textContent = `${completed} / ${total} 試合完了`;
+      stickyBar.style.display = total > 0 ? "block" : "none";
+    }
+
     if (delayEl) {
       if (maxDelayMins > 15) {
         delayEl.textContent = `⚠ 約${maxDelayMins}分遅れで進行中`;
@@ -716,11 +723,8 @@
     }
   }
 
-  function isMatchOngoing(m, now, durationMin) {
-    if (!m.scheduledStart) return false;
-    if (m.state === "final" || m.isBye) return false;
-
-    // ISO文字列もしくは時刻文字列をDateでパースし、時刻のみ抽出して本日の日付にマッピング
+  // ISO文字列もしくは時刻文字列をDateでパースし、時刻のみ抽出して本日の日付にマッピング
+  function parseScheduledTime(m, now) {
     const parsed = new Date(m.scheduledStart);
     let hh = 0, mm = 0;
     if (!isNaN(parsed.getTime())) {
@@ -729,10 +733,16 @@
     } else if (typeof m.scheduledStart === "string" && m.scheduledStart.includes(":")) {
       [hh, mm] = m.scheduledStart.split(":").map(Number);
     }
-
     const startObj = new Date(now);
     startObj.setHours(hh, mm, 0, 0);
+    return startObj;
+  }
 
+  function isMatchOngoing(m, now, durationMin) {
+    if (!m.scheduledStart) return false;
+    if (m.state === "final" || m.isBye) return false;
+
+    const startObj = parseScheduledTime(m, now);
     // 開始時刻 <= 現在時刻 <= 開始時刻+所要時間
     const endObj = new Date(startObj.getTime() + durationMin * 60000);
     return now >= startObj && now < endObj;
@@ -803,9 +813,8 @@
       box.style.color = "var(--danger)";
     }
     const dis = probs.length > 0;
-    const g1 = el("btnGenerateAll"), g2 = el("wGenerate");
+    const g1 = el("btnGenerateAll");
     if (g1) g1.disabled = dis;
-    if (g2) g2.disabled = dis;
   }
 
   // ── Setup form ───────────────────────────────────────────────
@@ -913,29 +922,6 @@
     if (el("tWebhookUrl")) el("tWebhookUrl").value = t.webhookUrl || "";
     renderTeamColorList();
   }
-  function syncWizardFromState() {
-    const t = state.tournament || {};
-    const setV = (id, v) => { const e = el(id); if (e) e.value = v; };
-    setV("wTName", t.name || "");
-    setV("wClassList", (t.classes || []).join("\n"));
-    setV("wSportsList", (t.sports || []).map(s => s.name).join("\n"));
-    setV("wDate", t.date || "");
-    setV("wMatchMin", String(t.sports?.[0]?.matchMinutes ?? 10));
-    setV("wIntervalMin", String(t.sports?.[0]?.turnoverMinutes ?? 2));
-
-    // Also prepare for format selection if needed in the wizard later, but for now just sync mode
-    if (el("wInputMode")) el("wInputMode").value = t.inputMode || "score";
-    updateWizardClassCount();
-  }
-  function updateWizardClassCount() {
-    const ta = el("wClassList");
-    const cnt = el("wClassCount");
-    if (!ta || !cnt) return;
-    const n = parseLines(ta.value).length;
-    cnt.textContent = n + " クラス";
-    cnt.style.color = n < 2 ? "var(--danger)" : "var(--ok)";
-    updateBracketInfoBanner(n);
-  }
   function updateSetupClassCount() {
     const ta = el("classList");
     const cnt = el("setupClassCount");
@@ -943,13 +929,13 @@
     const n = parseLines(ta.value).length;
     cnt.textContent = n + " クラス";
     cnt.style.color = n < 2 ? "var(--danger)" : "var(--ok)";
+    updateBracketInfoBanner(n);
   }
 
   // ── Navigation bindings ──────────────────────────────────────
-  if (el("navWizard")) el("navWizard").onclick = () => { syncWizardFromState(); show("wizardView"); };
   if (el("navHome")) el("navHome").onclick = () => { renderEvents(); show("setupView"); };
   if (el("navSetup")) el("navSetup").onclick = () => {
-    syncFormFromState(); syncWizardFromState(); updateHeaderMeta();
+    syncFormFromState(); updateHeaderMeta();
     bindUiPanel(); bindResultModal();
     show("setupView");
   };
@@ -1037,73 +1023,7 @@
     recalcMatchTimes(ev);
   };
 
-  // ── Wizard ──────────────────────────────────────────────────
-  if (el("wNew")) el("wNew").onclick = () => {
-    if (!state?.tournament) state = makeNewState();
-
-    const eventName = (el("wTName")?.value || "").trim() || "新競技";
-    const classes = parseLines(el("wClassList")?.value || "");
-    const matchMin = Number(el("wMatchMin")?.value ?? 10);
-    const intMin = Number(el("wIntervalMin")?.value ?? 2);
-    const inputMode = (el("wInputMode")?.value || "score");
-    const wDate = el("wDate")?.value;
-    const wBSlots = el("wBracketSlots")?.value || "auto";
-
-    if (classes.length < 2) return alert("クラスを2つ以上入力してください");
-
-    // ウィザードで指定した枠数がチーム数未満ならエラー
-    if (wBSlots !== "auto") {
-      const bs = Number(wBSlots);
-      if (bs < classes.length) {
-        return alert(`ブラケット枠数（${bs}）が参加チーム数（${classes.length}）より少なくなっています。\n自動か、${bracketSize(classes.length)}枠以上を選んでください。`);
-      }
-    }
-
-    if (!state.tournament.name?.trim()) state.tournament.name = "クラスマッチ";
-    if (wDate) state.tournament.date = wDate;
-    if (!state.tournament.date) state.tournament.date = new Date().toISOString().slice(0, 10);
-    state.tournament.classes = classes;
-    state.tournament.inputMode = inputMode;
-
-    const sport = {
-      name: eventName,
-      matchMinutes: Number.isFinite(matchMin) && matchMin > 0 ? matchMin : 10,
-      turnoverMinutes: Number.isFinite(intMin) && intMin >= 0 ? intMin : 2,
-      courts: "A,B",
-      startTime: "09:00",
-      participants: classes.length,
-      bracketSlots: wBSlots === "auto" ? "auto" : Number(wBSlots),
-      format: "tournament" // wizard created events are always tournament for now
-    };
-
-    state.tournament.sports = state.tournament.sports || [];
-    const idx = state.tournament.sports.findIndex(s => s.name === sport.name);
-    if (idx >= 0) state.tournament.sports[idx] = sport;
-    else state.tournament.sports.push(sport);
-
-    state.events = state.events || [];
-    const baseId = Date.now();
-    state.events.push(makeEvent(`E${baseId}-b`, sport, "M", classes));
-    state.events.push(makeEvent(`E${baseId}-g`, sport, "F", classes));
-
-    saveState();
-    el("wState").textContent = `OK: ${eventName} / ${state.tournament.date}`;
-    renderHome();
-    updateHeaderMeta();
-    show("setupView");
-  };
-
-  if (el("wGenerate")) el("wGenerate").onclick = () => {
-    generateEvents();
-    saveState();
-    if (el("wGen")) el("wGen").textContent = "OK（生成済み）";
-    renderEvents();
-    show("setupView");
-  };
-
-  // Wizard class list live count
-  const wClassList = el("wClassList");
-  if (wClassList) wClassList.addEventListener("input", updateWizardClassCount);
+  // ── Setup class list live count ──────────────────────────────
   const classList = el("classList");
   if (classList) classList.addEventListener("input", updateSetupClassCount);
 
@@ -1274,16 +1194,16 @@
       "#ef4444", "#3b82f6", "#22c55e", "#f59e0b", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316"
     ];
 
-    classes.forEach((idxClasses, i) => {
+    classes.forEach((className, i) => {
       const item = document.createElement("div");
       item.style.cssText = "display:flex; align-items:center; gap:6px; background:var(--surface); padding:4px 8px; border-radius:4px; border:1px solid var(--border2);";
 
       const defaultColor = defaultColors[i % defaultColors.length];
-      const val = colors[idxClasses] || defaultColor;
+      const val = colors[className] || defaultColor;
 
       item.innerHTML = `
-          <input type="color" data-class="${escapeHtml(idxClasses)}" value="${val}" style="width:24px; height:24px; padding:0; border:none; border-radius:4px; cursor:pointer;" />
-          <span style="font-size:13px; font-weight:600; min-width:40px;">${escapeHtml(idxClasses)}</span>
+          <input type="color" data-class="${escapeHtml(className)}" value="${val}" style="width:24px; height:24px; padding:0; border:none; border-radius:4px; cursor:pointer;" />
+          <span style="font-size:13px; font-weight:600; min-width:40px;">${escapeHtml(className)}</span>
         `;
       listDiv.appendChild(item);
     });
@@ -4277,7 +4197,6 @@
             state = fbState;
             localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
             syncFormFromState();
-            syncWizardFromState();
             renderEvents();
             statusBar.textContent = `status: Firebaseからロード完了 🔥`;
           }
@@ -4286,11 +4205,9 @@
     }
   }
 
-  bindClassPicker("cpGrades", "cpPerGrade", "cpFormat", "cpPreview", "cpApply", "wClassList", "wClassCount");
   bindClassPicker("cpGradesS", "cpPerGradeS", "cpFormatS", "cpPreviewS", "cpApplyS", "classList", "setupClassCount");
 
   syncFormFromState();
-  syncWizardFromState();
   renderVersionLog();
   renderEvents();
   show("setupView");
@@ -4400,22 +4317,12 @@
     if (!m.scheduledStart) return false;
     if (m.state === "final" || m.isBye || m.state !== "playing") return false;
 
-    const parsed = new Date(m.scheduledStart);
-    let hh = 0, mm = 0;
-    if (!isNaN(parsed.getTime())) {
-      hh = parsed.getHours();
-      mm = parsed.getMinutes();
-    } else if (typeof m.scheduledStart === "string" && m.scheduledStart.includes(":")) {
-      [hh, mm] = m.scheduledStart.split(":").map(Number);
-    }
-
-    const startObj = new Date(now);
-    startObj.setHours(hh, mm, 0, 0);
-
+    const startObj = parseScheduledTime(m, now);
     const overtimeObj = new Date(startObj.getTime() + (durationMin + 5) * 60000);
     return now >= overtimeObj;
   }
 
+  // ── 定期更新ループ（進行中ハイライト + 延長チェック）──────────────
   setInterval(() => {
     if (!currentEvent) return;
     const now = new Date();
@@ -4433,7 +4340,9 @@
       }
     });
     if (changed) renderBracket();
-  }, 10000); // 30秒ごとにチェック
+    // 進行中ハイライト更新（1分ごとでよいが、ここで10秒ごとに統合）
+    updateOngoingMatches();
+  }, 10000); // 10秒ごとにチェック
 
   // ── 総合ランキング集計 ──────────────────────────────
   const btnSavePoints = el("btnSavePoints");
