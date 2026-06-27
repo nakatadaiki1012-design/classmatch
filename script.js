@@ -7540,72 +7540,87 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
     const maxP = Math.max(6, ...DAYS.map(d => maxPeriod(d)));
     const DAY_NAMES = { Mon: '月曜日', Tue: '火曜日', Wed: '水曜日', Thu: '木曜日', Fri: '金曜日' };
 
-    // Lead cols: A=name, B=homeroom/担当, C=role
-    const LEAD = 3;
+    const LEAD = 3; // A=name, B=homeroom, C=role
     const totalCols = LEAD + DAYS.length * maxP;
+    const dataStartRow = 3; // rows 0=title,1=day,2=period
 
-    // --- Build AOA (array-of-arrays) ---
+    // ── ボーダー定義 ──────────────────────────────────
+    const BK = '000000';
+    const thin = { style: 'thin',  color: { rgb: BK } };
+    const hair = { style: 'hair',  color: { rgb: BK } };
+    const none = {};
+
+    const mkBorder = (t, b, l, r) => ({ top: t, bottom: b, left: l, right: r });
+
+    // スロット列の左・右ボーダーを返す（曜日境界=thin、時限間=hair）
+    const slotLR = (colIdx) => {
+      // colIdx はLEAD起算の0-based インデックス
+      const posInDay = colIdx % maxP;
+      const l = posInDay === 0 ? thin : hair;
+      const r = posInDay === maxP - 1 ? thin : hair;
+      return { l, r };
+    };
+
+    // ── セルスタイル適用ヘルパー ──────────────────────
+    const setStyle = (ws, r, c, s) => {
+      const addr = XLSX.utils.encode_cell({ r, c });
+      if (!ws[addr]) ws[addr] = { t: 'z', v: '' };
+      ws[addr].s = s;
+    };
+
+    // ── AOA でデータ構築 ──────────────────────────────
     const aoa = [];
 
-    // Row 0: title
+    // Row 0: タイトル
     const titleRow = Array(totalCols).fill(null);
     titleRow[0] = axisType === 'teacher' ? '＜先生の授業時間割一覧＞' : '＜クラス時間割一覧＞';
     aoa.push(titleRow);
 
-    // Row 1: day headers
+    // Row 1: 曜日ヘッダー
     const dayRow = Array(totalCols).fill(null);
     let col = LEAD;
     for (const d of DAYS) { dayRow[col] = DAY_NAMES[d]; col += maxP; }
     aoa.push(dayRow);
 
-    // Row 2: period numbers
+    // Row 2: 時限番号
     const pRow = Array(totalCols).fill(null);
     col = LEAD;
-    for (const d of DAYS) {
-      for (let p = 1; p <= maxP; p++) { pRow[col++] = p; }
-    }
+    for (const d of DAYS) { for (let p = 1; p <= maxP; p++) pRow[col++] = p; }
     aoa.push(pRow);
 
-    // Entity rows (2 rows each)
+    // エンティティ行（2行×教員数）
     for (const key of keys) {
-      const rowA = Array(totalCols).fill(null); // class / subject (line 1)
-      const rowB = Array(totalCols).fill(null); // subject / teacher (line 2)
+      const rowA = Array(totalCols).fill(null);
+      const rowB = Array(totalCols).fill(null);
 
-      // Lead cells
-      rowA[0] = key; // name
+      rowA[0] = key;
       if (axisType === 'teacher') {
-        // Homeroom class for teacher
         const hrItem = Object.values(state.items).find(it =>
-          (it.teas || []).includes(key) && (it.subj || '').includes('HR')
-        );
-        const hrCls = hrItem ? (hrItem.cls || [])[0] || '' : '';
-        rowA[1] = hrCls;
+          (it.teas || []).includes(key) && (it.subj || '').includes('HR'));
+        rowA[1] = hrItem ? (hrItem.cls || [])[0] || '' : '';
         rowB[1] = '担';
-        const tcfg = state.teacherCfg[key] || {};
-        rowA[2] = tcfg.role || '';
+        rowA[2] = (state.teacherCfg[key] || {}).role || '';
       } else {
-        rowA[1] = key;
-        rowB[1] = '担';
-        rowA[2] = '';
+        rowA[1] = key; rowB[1] = '担'; rowA[2] = '';
       }
 
       col = LEAD;
       for (const d of DAYS) {
         for (let p = 1; p <= maxP; p++) {
-          if (p > maxPeriod(d)) { col++; continue; }
-          const ids = idsInCellForRow(axisType, key, d, p, idx) || [];
-          if (ids.length) {
-            const id = ids[0];
-            const it = state.items[id];
-            if (it) {
-              if (axisType === 'teacher') {
-                rowA[col] = (it.cls || []).join(',') || '';
+          if (p <= maxPeriod(d)) {
+            const ids = idsInCellForRow(axisType, key, d, p, idx) || [];
+            if (ids.length) {
+              const it = state.items[ids[0]];
+              if (it) {
                 const scfg = state.subjectCfg[it.subjKey] || {};
-                rowB[col] = (scfg.abbr || it.subj || it.subjKey || '').trim();
-              } else {
-                const scfg = state.subjectCfg[it.subjKey] || {};
-                rowA[col] = (scfg.abbr || it.subj || it.subjKey || '').trim();
-                rowB[col] = (it.teas || []).map(t => state.teacherCfg[t]?.abbr || t).join(',');
+                const abbr = (scfg.abbr || it.subj || it.subjKey || '').trim();
+                if (axisType === 'teacher') {
+                  rowA[col] = (it.cls || []).join(',') || '';
+                  rowB[col] = abbr;
+                } else {
+                  rowA[col] = abbr;
+                  rowB[col] = (it.teas || []).map(t => state.teacherCfg[t]?.abbr || t).join(',');
+                }
               }
             }
           }
@@ -7616,38 +7631,118 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       aoa.push(rowB);
     }
 
-    // Convert AOA to worksheet
     const ws = XLSX.utils.aoa_to_sheet(aoa);
 
-    // Merges
+    // ── マージ設定 ────────────────────────────────────
     const merges = [];
-    // Title row: A1 span full width
-    merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: totalCols - 1 } });
-    // Day headers (row 1): merge each day's columns
+    merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: totalCols - 1 } }); // タイトル行
+    // 曜日ヘッダーのマージ
     let mc = LEAD;
     for (const d of DAYS) {
       merges.push({ s: { r: 1, c: mc }, e: { r: 1, c: mc + maxP - 1 } });
       mc += maxP;
     }
-    // Lead col A/B/C merge over rows 1-2 (header block)
+    // ヘッダー左上（A-C, row1-2）マージ
     merges.push({ s: { r: 1, c: 0 }, e: { r: 2, c: 2 } });
-    // Entity row A col 0 (name) merges with row B col 0
-    // Entity row A col 2 (role) merges with row B col 2
-    const dataStartRow = 3;
+    // エンティティ行のA列（名前）とC列（役割）を2行マージ
     for (let i = 0; i < keys.length; i++) {
       const r = dataStartRow + i * 2;
-      merges.push({ s: { r: r, c: 0 }, e: { r: r + 1, c: 0 } }); // name
-      merges.push({ s: { r: r, c: 2 }, e: { r: r + 1, c: 2 } }); // role
+      merges.push({ s: { r, c: 0 }, e: { r: r + 1, c: 0 } });
+      merges.push({ s: { r, c: 2 }, e: { r: r + 1, c: 2 } });
     }
     ws['!merges'] = merges;
 
-    // Column widths
-    const cols = [];
-    cols.push({ wch: 8 });  // A: name
-    cols.push({ wch: 5 });  // B: homeroom
-    cols.push({ wch: 5 });  // C: role
-    for (let c = LEAD; c < totalCols; c++) cols.push({ wch: 7 });
-    ws['!cols'] = cols;
+    // ── 列幅 ─────────────────────────────────────────
+    const colWidths = [
+      { wch: 5.5 }, // A: 名前（原本と同じ）
+      { wch: 4.5 }, // B: HRクラス
+      { wch: 4.5 }, // C: 役割
+    ];
+    for (let c = 0; c < DAYS.length * maxP; c++) colWidths.push({ wch: 5.5 });
+    ws['!cols'] = colWidths;
+
+    // ── 行高さ ────────────────────────────────────────
+    const rowHeights = {};
+    rowHeights[0] = { hpt: 18 }; // タイトル
+    rowHeights[1] = { hpt: 18 }; // 曜日ヘッダー
+    rowHeights[2] = { hpt: 18 }; // 時限番号
+    for (let i = 0; i < keys.length; i++) {
+      rowHeights[dataStartRow + i * 2]     = { hpt: 16 }; // 上行
+      rowHeights[dataStartRow + i * 2 + 1] = { hpt: 16 }; // 下行
+    }
+    ws['!rows'] = rowHeights;
+
+    // ── スタイル適用 ──────────────────────────────────
+    const ctrVctr = { horizontal: 'center', vertical: 'center' };
+    const ctrVctrWrap = { horizontal: 'center', vertical: 'center', wrapText: true };
+
+    // Row 0: タイトル
+    setStyle(ws, 0, 0, { font: { bold: false, sz: 11 }, alignment: { vertical: 'center' } });
+
+    // Row 1-2: ヘッダーブロック（曜日・時限）
+    // Lead 3列（A-C）: 行1-2をまとめてスタイル
+    setStyle(ws, 1, 0, { border: mkBorder(thin, thin, thin, thin), alignment: ctrVctr });
+    setStyle(ws, 1, 1, { border: mkBorder(thin, thin, hair, hair), alignment: ctrVctr });
+    setStyle(ws, 1, 2, { border: mkBorder(thin, thin, none, thin), alignment: ctrVctr });
+
+    // 曜日ヘッダー行（row1）スロット列
+    let sc = 0;
+    for (const d of DAYS) {
+      for (let pi = 0; pi < maxP; pi++) {
+        const { l, r } = slotLR(sc);
+        // top=thin, bottom=thin for day-name row
+        setStyle(ws, 1, LEAD + sc, { border: mkBorder(thin, thin, l, r), alignment: ctrVctr });
+        sc++;
+      }
+    }
+
+    // 時限番号行（row2）スロット列
+    sc = 0;
+    for (const d of DAYS) {
+      for (let pi = 0; pi < maxP; pi++) {
+        const { l, r } = slotLR(sc);
+        setStyle(ws, 2, LEAD + sc, { border: mkBorder(thin, thin, l, r), alignment: ctrVctr });
+        sc++;
+      }
+    }
+
+    // エンティティ行スタイル
+    for (let i = 0; i < keys.length; i++) {
+      const rA = dataStartRow + i * 2;
+      const rB = rA + 1;
+
+      // Col A（名前）: 2行マージ → top=thin, bottom=thin（次の教員との境界）
+      setStyle(ws, rA, 0, {
+        border: mkBorder(thin, thin, thin, none),
+        alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+        font: { sz: 10 }
+      });
+      setStyle(ws, rB, 0, {
+        border: mkBorder(none, thin, thin, none),
+        alignment: { horizontal: 'center', vertical: 'center', wrapText: true }
+      });
+
+      // Col B（HRクラス/担当種別）
+      setStyle(ws, rA, 1, { border: mkBorder(thin, hair, hair, hair), alignment: ctrVctr, font: { sz: 10 } });
+      setStyle(ws, rB, 1, { border: mkBorder(hair, thin, hair, hair), alignment: ctrVctr, font: { sz: 10 } });
+
+      // Col C（役割）: 2行マージ
+      setStyle(ws, rA, 2, { border: mkBorder(thin, thin, none, thin), alignment: ctrVctr, font: { sz: 10 } });
+      setStyle(ws, rB, 2, { border: mkBorder(none, thin, none, thin), alignment: ctrVctr });
+
+      // スロット列
+      sc = 0;
+      for (const d of DAYS) {
+        for (let pi = 0; pi < maxP; pi++) {
+          const { l, r } = slotLR(sc);
+          // 上行: top=thin(教員境界), bottom=hair(2行内区切り)
+          setStyle(ws, rA, LEAD + sc, { border: mkBorder(thin, hair, l, r), alignment: ctrVctrWrap, font: { sz: 10 } });
+          // 下行: top=hair, bottom=thin(次の教員との境界)
+          setStyle(ws, rB, LEAD + sc, { border: mkBorder(hair, thin, l, r), alignment: ctrVctrWrap, font: { sz: 10 } });
+          sc++;
+        }
+      }
+    }
 
     return ws;
   }
