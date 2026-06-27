@@ -201,7 +201,7 @@
     const update = () => {
       const g = Math.max(1, Math.min(6, Number(el(gradesId)?.value || 3)));
       const p = Math.max(1, Math.min(12, Number(el(perGradeId)?.value || 8)));
-      const fmt = el(formatId)?.value || "alpha";
+      const fmt = el(formatId)?.value || "num";
       const names = generateClassNames(g, p, fmt);
       const prev = el(previewId);
       if (prev) prev.textContent = names.join("  ") + `  （計 ${names.length} クラス）`;
@@ -210,7 +210,7 @@
     const apply = () => {
       const g = Math.max(1, Math.min(6, Number(el(gradesId)?.value || 3)));
       const p = Math.max(1, Math.min(12, Number(el(perGradeId)?.value || 8)));
-      const fmt = el(formatId)?.value || "alpha";
+      const fmt = el(formatId)?.value || "num";
       const names = generateClassNames(g, p, fmt);
       const ta = el(targetTextareaId);
       if (ta) ta.value = names.join("\n");
@@ -231,7 +231,7 @@
 
   // ── State ────────────────────────────────────────────────────
   const STORAGE_KEY = "classmatch_local_v2_state";
-  const DEFAULT_CLASSES = generateClassNames(3, 8, "alpha"); // 24クラス
+  const DEFAULT_CLASSES = generateClassNames(3, 8, "num"); // 24クラス
 
   const DEFAULT_SPORTS = [
     { name: "バレー", matchMinutes: 10, turnoverMinutes: 2, courts: "A,B", startTime: "09:00", participants: 24 },
@@ -801,6 +801,22 @@
     });
     return probs;
   }
+  function updateSetupProgress() {
+    const t = state.tournament || {};
+    const step1Done = !!(t.name && t.date && t.pin);
+    const step2Done = (state.classes || []).length >= 2;
+    const step3Done = (state.sports || []).length >= 1;
+
+    const setDone = (id, done) => {
+      const e = el(id);
+      if (e) e.classList.toggle("done", done);
+    };
+    setDone("spStep1", step1Done);
+    setDone("spStep2", step2Done);
+    setDone("spStep3", step3Done);
+    setDone("spStep4", step1Done && step2Done && step3Done);
+  }
+
   function renderSetupChecklist() {
     const box = el("setupProblems");
     if (!box) return;
@@ -815,6 +831,7 @@
     const dis = probs.length > 0;
     const g1 = el("btnGenerateAll");
     if (g1) g1.disabled = dis;
+    updateSetupProgress();
   }
 
   // ── Setup form ───────────────────────────────────────────────
@@ -1701,12 +1718,12 @@
 
       card.innerHTML = `
         <div class="evName">${escapeHtml(e.sportName)} <span class="genderBadge ${gClass}">${gLabel}</span>${statusBadge}</div>
-        <div class="evId">${escapeHtml(e.id)} — ${doneM}/${totalM} 試合完了</div>
+        <div class="evId">${doneM}/${totalM} 試合</div>
         ${progressBar}
-        <div style="margin-top:10px; display:flex; gap:4px; flex-wrap:wrap;">
-          <button class="btnView primary" style="flex:1; min-width:80px;">開く</button>
-          <button class="btnSettings ghost" style="flex:1; min-width:80px;" title="設定">⚙ 設定</button>
-          <button class="btnDelete ghost" style="flex:0; padding:4px 8px; color:var(--danger); border-color:var(--danger-bg);" title="削除">🗑</button>
+        <div style="margin-top:8px; display:flex; gap:4px;">
+          <button class="btnView primary" style="flex:1;">開く</button>
+          <button class="btnSettings ghost" style="padding:4px 8px;" title="設定">⚙</button>
+          <button class="btnDelete ghost" style="padding:4px 8px; color:var(--danger); border-color:var(--danger-bg);" title="削除">🗑</button>
         </div>
       `;
       card.querySelector(".btnView").onclick = () => openEvent(e.id);
@@ -3395,6 +3412,26 @@
     return svg;
   }
 
+  function autoFitBracketUI(teamCount) {
+    const isSmall = teamCount <= 8;
+    const isMedium = teamCount <= 16;
+    return {
+      fontSize: isSmall ? 14 : isMedium ? 13 : 12,
+      totalW: isSmall ? 160 : isMedium ? 140 : 120,
+      boxH: isSmall ? 32 : isMedium ? 28 : 24,
+      gapX: 8,
+      roundGapY: isSmall ? 100 : isMedium ? 90 : 80,
+      midGap: 10,
+      branchLen: 36,
+      showTime: true,
+      timeFontSize: 9,
+      timeY: 0,
+      liveZoom: 100,
+      gapY1: 0, gapY2: 0, gapY3: 0, gapY4: 0,
+      gapX1: 0, gapX2: 0, gapX3: 0, gapX4: 0,
+    };
+  }
+
   function uiGet() { return (state.tournament.bracketUI = state.tournament.bracketUI || {}); }
   function loserUiGet() { return (state.tournament.loserBracketUI = state.tournament.loserBracketUI || {}); }
 
@@ -4233,6 +4270,16 @@
   }
 
   // ── Bracket Direction Toggle ──
+  if (el("btnAutoFit")) el("btnAutoFit").onclick = () => {
+    if (!currentEvent) return;
+    const n = (currentEvent.matches?.filter(m => m.round === 1 && !m.isBye).length || 4) * 2;
+    state.tournament.bracketUI = { ...state.tournament.bracketUI, ...autoFitBracketUI(n) };
+    saveState();
+    bindUiPanel();
+    renderBracket();
+    toast("ブラケットを自動調整しました", "info");
+  };
+
   const btnBracketDir = el("btnBracketDir");
   if (btnBracketDir) {
     btnBracketDir.onclick = () => {

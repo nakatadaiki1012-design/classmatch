@@ -6,6 +6,13 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>クラスマッチ トーナメント（管理）</title>
   <link rel="stylesheet" href="style.css" />
+  <style>
+.setupProgress { display:flex; align-items:center; gap:6px; margin-bottom:16px; padding:10px 14px; background:#f1f5f9; border-radius:8px; flex-wrap:wrap; }
+.spStep { padding:5px 12px; border-radius:20px; background:#e2e8f0; color:#64748b; font-size:13px; font-weight:600; transition:all .2s; }
+.spStep.done { background:#dcfce7; color:#16a34a; }
+.spStep.active { background:#dbeafe; color:#1d4ed8; }
+.spArrow { color:#cbd5e1; font-size:12px; }
+  </style>
 </head>
 
 <body>
@@ -27,6 +34,16 @@
     <!-- ══════ SETUP & GENERATE (統合) ══════ -->
     <section class="card" id="setupView">
       <h2>⚙ 設定・生成</h2>
+
+      <div class="setupProgress" id="setupProgress">
+        <div class="spStep" id="spStep1">① 大会情報</div>
+        <div class="spArrow">→</div>
+        <div class="spStep" id="spStep2">② クラス</div>
+        <div class="spArrow">→</div>
+        <div class="spStep" id="spStep3">③ 競技</div>
+        <div class="spArrow">→</div>
+        <div class="spStep" id="spStep4">⚡ 生成</div>
+      </div>
 
       <div id="setupChecklist">
         <b>チェック（未完があると生成できません）</b>
@@ -65,8 +82,8 @@
                 style="width:75px" /></label>
             <label>形式
               <select id="cpFormatS">
-                <option value="alpha">英字 (1-A, 1-B)</option>
                 <option value="num">数字 (1-1, 1-2)</option>
+                <option value="alpha">英字 (1-A, 1-B)</option>
                 <option value="kumi">組 (1年1組)</option>
                 <option value="num0">数字のみ (1, 2, 3…)</option>
               </select>
@@ -301,6 +318,7 @@
               <button id="btnAddExhibition" class="ghost small">➕ エキシビション</button>
               <button id="btnAddThirdPlace" class="ghost small">🥉 3位決定戦</button>
               <div class="toolbarSep"></div>
+              <button id="btnAutoFit" class="ghost small" title="チーム数に合わせてブラケット表示を自動調整">🔧 自動調整</button>
               <button id="btnBracketDir" class="ghost small" title="ブラケット方向切替">↕ 縦型</button>
               <button id="btnUi" class="ghost small">🎛 表示調整</button>
               <button id="btnFitBracket" class="ghost small">↔ 画面に収める</button>
