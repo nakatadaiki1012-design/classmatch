@@ -3079,18 +3079,12 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
           </label>
           <span class="muted small">${cfg.allowedMode ? '（緑○=出勤可、それ以外は不可）' : '（赤×=出勤不可コマ）'}</span>
         </div>
-        <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start">
-          <div>
-            <div class="muted small" style="margin-bottom:2px">${cfg.allowedMode ? '出勤可能コマ（○）' : '出勤不可コマ（×）'}</div>
-            ${cfg.allowedMode
-              ? miniCalendarHTML('tea', key, cfg.allowedSlots || {}, true)
-              : miniCalendarHTML('tea', key, cfg.unavailable || {})
-            }
-          </div>
-          <div>
-            <div class="muted small" style="margin-bottom:2px">☕ 休憩推奨コマ（警告のみ）</div>
-            ${miniCalendarHTML('tea-break', key, cfg.breakSlots || {})}
-          </div>
+        <div>
+          <div class="muted small" style="margin-bottom:2px">${cfg.allowedMode ? '出勤可能コマ（○）' : '出勤不可コマ（×）'}</div>
+          ${cfg.allowedMode
+            ? miniCalendarHTML('tea', key, cfg.allowedSlots || {}, true)
+            : miniCalendarHTML('tea', key, cfg.unavailable || {})
+          }
         </div>
       </div>
     `;
@@ -3112,8 +3106,6 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       } else {
         bindMiniCalendar(card, 'tea', key, 'unavailable');
       }
-      // v47-B1: bind breakSlots calendar
-      bindMiniCalendar(card, 'tea-break', key, 'breakSlots');
       box.appendChild(card);
     }
   }
@@ -5596,6 +5588,12 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       </div>
     `;
 
+      // ── ミニグリッドSVG矢印描画（DOMに挿入後に位置計測）──
+      try {
+        const gridsContainer = sugBox.querySelector('.idea-sug-grids');
+        if (gridsContainer) setTimeout(() => drawMiniGridArrows(gridsContainer), 30);
+      } catch (e) { }
+
       // ── イベントバインド ──
       // マトリクスセルクリック（シングル: スロット選択、ダブル: ベスト提案を即採用）
       sugBox.querySelectorAll('.js-matrix-cell').forEach(cell => {
@@ -6062,10 +6060,64 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
    * v42: 提案カード内に表示する簡易個人窓グリッド
    * 関係する教員(最大2名)の時間割をミニ表示し、移動元/先を色付け
    */
+  // After mini-grids are inserted into DOM, draw SVG arrows on each panel
+  function drawMiniGridArrows(containerEl) {
+    if (!containerEl) return;
+    containerEl.querySelectorAll('.smg-block').forEach((block, bi) => {
+      // remove any existing arrow SVG
+      block.querySelector('.smg-arrow-svg')?.remove();
+      const fromCells = [...block.querySelectorAll('.smg-from')];
+      const toCells   = [...block.querySelectorAll('.smg-to')];
+      if (!fromCells.length || !toCells.length) return;
+      // Get block position as reference
+      const bRect = block.getBoundingClientRect();
+      const color = '#ef4444';
+      let svgLines = '';
+      // draw one arrow per (from,to) pair
+      for (const fc of fromCells) {
+        for (const tc of toCells) {
+          const fr = fc.getBoundingClientRect();
+          const tr = tc.getBoundingClientRect();
+          // coordinates relative to block
+          const x1 = fr.left - bRect.left + fr.width / 2;
+          const y1 = fr.top  - bRect.top  + fr.height / 2;
+          const x2 = tr.left - bRect.left + tr.width / 2;
+          const y2 = tr.top  - bRect.top  + tr.height / 2;
+          const dx = x2 - x1, dy = y2 - y1;
+          const len = Math.sqrt(dx*dx + dy*dy) || 1;
+          // offset from cell center to edge
+          const off = 10;
+          const sx = x1 + dx/len * off, sy = y1 + dy/len * off;
+          const ex = x2 - dx/len * (off + 8), ey = y2 - dy/len * (off + 8);
+          svgLines += `<line x1="${sx.toFixed(1)}" y1="${sy.toFixed(1)}" x2="${ex.toFixed(1)}" y2="${ey.toFixed(1)}"
+            stroke="white" stroke-width="4" stroke-linecap="round" marker-end="url(#smga-arrow-w-${bi})"/>`;
+          svgLines += `<line x1="${sx.toFixed(1)}" y1="${sy.toFixed(1)}" x2="${ex.toFixed(1)}" y2="${ey.toFixed(1)}"
+            stroke="${color}" stroke-width="2.5" stroke-linecap="round" marker-end="url(#smga-arrow-${bi})"/>`;
+        }
+      }
+      if (!svgLines) return;
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.className = 'smg-arrow-svg';
+      svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+      svg.style.cssText = `position:absolute;top:0;left:0;width:${bRect.width}px;height:${bRect.height}px;pointer-events:none;overflow:visible`;
+      svg.innerHTML = `<defs>
+        <marker id="smga-arrow-w-${bi}" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0,8 3,0 6" fill="white"/>
+        </marker>
+        <marker id="smga-arrow-${bi}" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto">
+          <polygon points="0 0,7 2.5,0 5" fill="${color}"/>
+        </marker>
+      </defs>${svgLines}`;
+      // block must be position:relative
+      block.style.position = 'relative';
+      block.appendChild(svg);
+    });
+  }
+
   function buildSugMiniGridHTML(moves) {
     if (!moves || !moves.length) return '';
     try {
-      // 関係する教員を収集（最大2名）
+      // 関係する教員を収集（最大3名）
       const teas = [];
       for (const m of moves) {
         const it = state.items[m.id];
@@ -6073,7 +6125,7 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
         for (const t of it.teas || []) { if (!teas.includes(t)) teas.push(t); }
       }
       if (!teas.length) return '';
-      const showTeas = teas.slice(0, 2);
+      const showTeas = teas.slice(0, 3);
       const idx = buildIndex();
       const maxP = Math.max(...DAYS.map(d => maxPeriod(d)));
 
@@ -6177,13 +6229,22 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
           `</div>`
         ).join('');
 
+        // Compact FROM→TO summary below table
+        const summaryHTML = arrowPairs.map(ap =>
+          `<div class="smg-summary"><span class="smg-from-lbl">↑ ${escapeHtml(ap.subj)} ${escapeHtml(ap.from)}</span>` +
+          `<span class="smg-arr-lbl">▶</span>` +
+          `<span class="smg-to-lbl">${escapeHtml(ap.to)} ↓</span></div>`
+        ).join('');
+
         return `<div class="smg-block">
         <div class="smg-title smg-title-mover">📋 ${escapeHtml(abbr)}</div>
-        <table class="smg-table">
-          <thead><tr><th></th>${DAYS.map(d => `<th>${DAYJP[d]}</th>`).join('')}</tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
-        ${arrowHTML ? `<div class="smg-arrows">${arrowHTML}</div>` : ''}
+        <div style="position:relative">
+          <table class="smg-table">
+            <thead><tr><th></th>${DAYS.map(d => `<th>${DAYJP[d]}</th>`).join('')}</tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+        ${summaryHTML}
       </div>`;
       }).join('') + (() => {
         // ── どかされる教員の簡易時間割 ──

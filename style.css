@@ -1584,6 +1584,15 @@ body {
   box-shadow: 0 0 0 1px rgba(22, 163, 74, .3)
 }
 
+/* SVG arrow overlay inside smg-block */
+.smg-arrow-svg { position: absolute; top: 0; left: 0; pointer-events: none; overflow: visible; }
+
+/* Move summary below mini-grid */
+.smg-summary { display: flex; align-items: center; gap: 4px; padding: 3px 4px; font-size: 10px; margin-top: 3px; flex-wrap: wrap; }
+.smg-from-lbl { background: #fef2f2; border: 1px solid #ef4444; border-radius: 3px; padding: 1px 5px; color: #b91c1c; font-weight: 700; }
+.smg-to-lbl   { background: #f0fdf4; border: 1px solid #16a34a; border-radius: 3px; padding: 1px 5px; color: #15803d; font-weight: 700; }
+.smg-arr-lbl  { color: #94a3b8; font-size: 11px; }
+
 /* 退(退避) — 橙の二重線 */
 .smg-table .smg-displaced-cell {
   border: 3px double #f59e0b !important;
