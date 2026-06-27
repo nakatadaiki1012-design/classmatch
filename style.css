@@ -1585,7 +1585,6 @@ body {
 }
 
 /* SVG arrow overlay inside smg-block */
-.smg-arrow-svg { position: absolute; top: 0; left: 0; pointer-events: none; overflow: visible; }
 
 /* Move summary below mini-grid */
 .smg-summary { display: flex; align-items: center; gap: 4px; padding: 3px 4px; font-size: 10px; margin-top: 3px; flex-wrap: wrap; }
@@ -1612,12 +1611,31 @@ body {
 
 .splitter {
   background: linear-gradient(90deg, transparent, rgba(148, 163, 184, .45), transparent);
-  border-radius: 8px
+  border-radius: 8px;
+  transition: background 0.15s;
+  position: relative;
 }
-
+.splitter:hover, .splitter:active {
+  background: linear-gradient(90deg, transparent, rgba(59, 130, 246, .55), transparent);
+}
 .splitter.v {
-  width: 8px;
-  cursor: col-resize
+  width: 10px;
+  cursor: col-resize;
+  flex-shrink: 0;
+}
+.splitter.v::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 4px;
+  height: 40px;
+  border-radius: 2px;
+  background: rgba(148, 163, 184, 0.6);
+}
+.splitter.v:hover::after, .splitter.v:active::after {
+  background: rgba(59, 130, 246, 0.8);
 }
 
 .splitter.h {
@@ -1637,6 +1655,22 @@ body {
   line-height: 10px;
   letter-spacing: 3px
 }
+
+.input-tips-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  color: #64748b;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 3px 8px;
+  cursor: help;
+  user-select: none;
+  margin-bottom: 6px;
+}
+.input-tips-btn:hover { background: #e8f0fe; color: #1d4ed8; border-color: #93c5fd; }
 
 body.stock-top .edit-layout {
   display: grid;

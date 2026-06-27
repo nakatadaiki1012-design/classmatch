@@ -358,14 +358,10 @@
         </div>
       </div>
 
-      <div class="hint">
-        <div><strong>入力のコツ</strong></div>
-        <ul>
-          <li>複数指定： <code>1-7,1-8</code> / <code>葛山,柏倉</code> / <code>1-1,オーラル教室</code> のようにカンマ区切り（全角読点もOK）</li>
-          <li>CSVでカンマを含むセルは <code>"1-7,1-8"</code> のようにダブルクォートで囲む</li>
-          <li>「教科」を入れると、科目設定でまとめて扱えます（並び替えにも使えます）</li>
-        </ul>
-      </div>
+      <span class="input-tips-btn" tabindex="0"
+        title="入力のコツ&#10;&#10;複数指定： 1-7,1-8 / 田中,山田 / 1-1,オーラル教室 のようにカンマ区切り（全角読点もOK）&#10;CSVでカンマを含むセルは &quot;1-7,1-8&quot; のようにダブルクォートで囲む&#10;「教科」を入れると、科目設定でまとめて扱えます（並び替えにも使えます）">
+        ？入力のコツ
+      </span>
 
       <div class="table-wrap">
         <table class="data-table" id="input-table">
@@ -532,6 +528,11 @@
             <button id="btn-tea-sort-name" class="btn secondary">名前</button>
             <button id="btn-tea-sort-subj" class="btn secondary">教科</button>
             <button id="btn-tea-sort-manual" class="btn secondary" title="ドラッグで並べ替え">手動</button>
+          </div>
+
+          <div class="group">
+            <span class="label">色分け</span>
+            <button id="btn-color-mode" class="btn secondary" title="コマの色分けモードを切替（科目色/タイプ別/学年別）">🎨 色分け</button>
           </div>
 
           <div class="group">

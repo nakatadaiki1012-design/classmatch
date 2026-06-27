@@ -533,18 +533,27 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
      単独で動かせる → 科目色（デフォルト）
      連動（parallel or 複数教員 or 複数クラス or 2連）→ 連動色（紫） */
   const COLOR_TYPE_LINKED = '#7c3aed'; // violet-600（連動コマ）
+  // Palette for grade-based coloring (学年色)
+  const GRADE_COLORS = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899'];
+
   function getItemDisplayColor(id) {
     const it = state.items[id];
     if (!it) return '#94a3b8';
     const mode = state.ui?.colorMode || 'subject';
     if (mode === 'type') {
-      // 連動条件: 並列展開 / 複数教員 / 複数クラス / 2連コマ
-      const isLinked = it.parallel
-        || (it.teas && it.teas.length > 1)
-        || (it.cls && it.cls.length > 1)
-        || (it.span || 1) === 2;
-      if (isLinked) return COLOR_TYPE_LINKED;
-      // 単独: 科目色
+      const multiTea = it.teas && it.teas.length > 1;
+      const multiCls = it.cls && it.cls.length > 1;
+      if (multiTea && multiCls) return '#8b5cf6'; // 複数教員×複数クラス: 紫
+      if (multiTea) return '#f59e0b';              // 複数教員: 橙
+      if (multiCls || it.parallel) return '#10b981'; // 複数クラス/並列: 緑
+      if ((it.span || 1) === 2) return '#3b82f6';  // 2連: 青
+      return '#64748b';                             // 単独: グレー
+    }
+    if (mode === 'grade') {
+      const cls0 = (it.cls || [])[0] || '';
+      const grade = parseInt(cls0.charAt(0), 10);
+      if (grade >= 1 && grade <= 6) return GRADE_COLORS[grade - 1];
+      return '#94a3b8';
     }
     const scfg = state.subjectCfg[it.subjKey] || {};
     return scfg.color || pickColor(it.subjKey);
@@ -4689,6 +4698,27 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
         }
       } catch (e) { }
     };
+    el.oncontextmenu = (ev) => {
+      ev.preventDefault();
+      const it2 = state.items[id];
+      const abbr2 = (state.subjectCfg[it2?.subjKey]?.abbr || it2?.subj || id).slice(0, 12);
+      const plc2 = state.placements[id];
+      showCtxMenu([
+        { muted: true, label: abbr2 },
+        ...(plc2?.day ? [{ label: '在庫へ', act: 'to_stock', on: () => toStock(id) }] : []),
+        { label: '削除（在庫から除去）', act: 'del_stock', on: () => {
+          pushHistory('delStock');
+          if (plc2?.day) toStock(id);
+          delete state.items[id];
+          delete state.placements[id];
+          markDirty('items');
+          rerenderAll();
+        }},
+        { label: '提案を開く', act: 'sug', on: () => openPropSuggestions(id) },
+        { sep: true },
+        { label: '選択', act: 'sel', on: () => selectId(id, 'stock') },
+      ], ev.clientX, ev.clientY);
+    };
     // hover tip
     el.onmouseenter = (ev) => {
       try { showHoverTip(itemDetailText(id), ev.clientX, ev.clientY); } catch { }
@@ -5588,12 +5618,6 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       </div>
     `;
 
-      // ── ミニグリッドSVG矢印描画（DOMに挿入後に位置計測）──
-      try {
-        const gridsContainer = sugBox.querySelector('.idea-sug-grids');
-        if (gridsContainer) setTimeout(() => drawMiniGridArrows(gridsContainer), 30);
-      } catch (e) { }
-
       // ── イベントバインド ──
       // マトリクスセルクリック（シングル: スロット選択、ダブル: ベスト提案を即採用）
       sugBox.querySelectorAll('.js-matrix-cell').forEach(cell => {
@@ -6060,60 +6084,6 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
    * v42: 提案カード内に表示する簡易個人窓グリッド
    * 関係する教員(最大2名)の時間割をミニ表示し、移動元/先を色付け
    */
-  // After mini-grids are inserted into DOM, draw SVG arrows on each panel
-  function drawMiniGridArrows(containerEl) {
-    if (!containerEl) return;
-    containerEl.querySelectorAll('.smg-block').forEach((block, bi) => {
-      // remove any existing arrow SVG
-      block.querySelector('.smg-arrow-svg')?.remove();
-      const fromCells = [...block.querySelectorAll('.smg-from')];
-      const toCells   = [...block.querySelectorAll('.smg-to')];
-      if (!fromCells.length || !toCells.length) return;
-      // Get block position as reference
-      const bRect = block.getBoundingClientRect();
-      const color = '#ef4444';
-      let svgLines = '';
-      // draw one arrow per (from,to) pair
-      for (const fc of fromCells) {
-        for (const tc of toCells) {
-          const fr = fc.getBoundingClientRect();
-          const tr = tc.getBoundingClientRect();
-          // coordinates relative to block
-          const x1 = fr.left - bRect.left + fr.width / 2;
-          const y1 = fr.top  - bRect.top  + fr.height / 2;
-          const x2 = tr.left - bRect.left + tr.width / 2;
-          const y2 = tr.top  - bRect.top  + tr.height / 2;
-          const dx = x2 - x1, dy = y2 - y1;
-          const len = Math.sqrt(dx*dx + dy*dy) || 1;
-          // offset from cell center to edge
-          const off = 10;
-          const sx = x1 + dx/len * off, sy = y1 + dy/len * off;
-          const ex = x2 - dx/len * (off + 8), ey = y2 - dy/len * (off + 8);
-          svgLines += `<line x1="${sx.toFixed(1)}" y1="${sy.toFixed(1)}" x2="${ex.toFixed(1)}" y2="${ey.toFixed(1)}"
-            stroke="white" stroke-width="4" stroke-linecap="round" marker-end="url(#smga-arrow-w-${bi})"/>`;
-          svgLines += `<line x1="${sx.toFixed(1)}" y1="${sy.toFixed(1)}" x2="${ex.toFixed(1)}" y2="${ey.toFixed(1)}"
-            stroke="${color}" stroke-width="2.5" stroke-linecap="round" marker-end="url(#smga-arrow-${bi})"/>`;
-        }
-      }
-      if (!svgLines) return;
-      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-      svg.className = 'smg-arrow-svg';
-      svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-      svg.style.cssText = `position:absolute;top:0;left:0;width:${bRect.width}px;height:${bRect.height}px;pointer-events:none;overflow:visible`;
-      svg.innerHTML = `<defs>
-        <marker id="smga-arrow-w-${bi}" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
-          <polygon points="0 0,8 3,0 6" fill="white"/>
-        </marker>
-        <marker id="smga-arrow-${bi}" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto">
-          <polygon points="0 0,7 2.5,0 5" fill="${color}"/>
-        </marker>
-      </defs>${svgLines}`;
-      // block must be position:relative
-      block.style.position = 'relative';
-      block.appendChild(svg);
-    });
-  }
-
   function buildSugMiniGridHTML(moves) {
     if (!moves || !moves.length) return '';
     try {
@@ -12992,6 +12962,20 @@ function buildIndex(){
     if (btnTeaSortName) btnTeaSortName.onclick = () => { state.ui.teacherSort = 'name'; renderGrid(); };
     if (btnTeaSortSubj) btnTeaSortSubj.onclick = () => { state.ui.teacherSort = 'subject'; renderGrid(); };
     if (btnTeaSortManual) btnTeaSortManual.onclick = () => { state.ui.teacherSort = 'manual'; state.ui.teacherOrder = getAxisKeys('teacher'); markDirty('ui'); renderGrid(); flash('手動並び替え: 行見出しをドラッグ'); };
+
+    const btnColorMode = safeGet('#btn-color-mode');
+    if (btnColorMode) btnColorMode.onclick = (ev) => {
+      const cur = state.ui.colorMode || 'subject';
+      const modes = [
+        { label: '科目色（デフォルト）', value: 'subject' },
+        { label: 'タイプ別色（単独/複数教員/複数クラス/2連）', value: 'type' },
+        { label: '学年別色（クラスの先頭数字）', value: 'grade' },
+      ];
+      showCtxMenu(modes.map(m => ({
+        label: (m.value === cur ? '✓ ' : '　') + m.label,
+        on: () => { state.ui.colorMode = m.value; markDirty('ui'); rerenderAll(); }
+      })), ev.clientX, ev.clientY);
+    };
 
     const btnClearSelection = safeGet('#btn-clear-selection');
     if (btnClearSelection) btnClearSelection.onclick = () => { state.ui.selectedId = null; state.ui.selectedFrom = ''; rerenderEdit(); };
