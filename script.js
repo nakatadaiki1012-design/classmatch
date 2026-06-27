@@ -632,6 +632,9 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       selectedId: null,
       selectedFrom: '', // stock/grid
       colorMode: 'subject', // subject / type
+      gridMultiSel: null, // Set of ids selected in grid (Ctrl+click)
+      constraintOverlay: false, // show placement validity overlay
+      itemSearchQuery: '', // global item search
     },
     autosave: { dirty: false, saving: false, lastSaved: 0, error: '' },
     snapshots: [] // [{name, savedAt, data:{placements}}]
@@ -729,6 +732,7 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
   const HISTORY_MAX = 60;
   let historyPast = [];
   let historyFuture = [];
+  let historyMeta = []; // parallel array: {reason, time} for each historyPast entry
   function snapshotForHistory() {
     return deepClone({
       rawRows: state.rawRows,
@@ -755,7 +759,8 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
   }
   function pushHistory(reason = '') {
     historyPast.push(snapshotForHistory());
-    if (historyPast.length > HISTORY_MAX) historyPast.shift();
+    historyMeta.push({ reason: reason || '操作', time: Date.now() });
+    if (historyPast.length > HISTORY_MAX) { historyPast.shift(); historyMeta.shift(); }
     historyFuture = [];
     // console.log('pushHistory',reason,historyPast.length)
   }
@@ -763,6 +768,7 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
     if (!historyPast.length) { flash('Undoできません'); return; }
     const cur = snapshotForHistory();
     const prev = historyPast.pop();
+    historyMeta.pop();
     historyFuture.push(cur);
     restoreFromHistory(prev);
     markDirty('undo');
@@ -1049,7 +1055,7 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
           idx.cls[c][day][p].push(id);
         }
         // room
-        for (const r of (it.rooms.length ? it.rooms : ['(未)'])) {
+        for (const r of ((it.rooms?.length) ? it.rooms : ['(未)'])) {
           idx.room[r] ??= {}; idx.room[r][day] ??= {}; idx.room[r][day][p] ??= [];
           idx.room[r][day][p].push(id);
         }
@@ -2564,6 +2570,10 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
     try { _atwRefreshAll(); } catch (e) { }
     // v49: 配置進捗バー更新
     try { updatePlacementProgress(); } catch (e) { }
+    // F3: 検索ハイライト
+    try { if (state.ui.itemSearchQuery) requestAnimationFrame(applyItemSearchHighlight); } catch (e) {}
+    // F6: 制約オーバーレイ
+    try { if (state.ui.constraintOverlay) requestAnimationFrame(applyConstraintOverlay); } catch (e) {}
   }
 
   // v49 B-1: 配置進捗バー (ヘッダー常時表示)
@@ -3921,9 +3931,9 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
     const color = getItemDisplayColor(id);
     const abbr = (scfg.abbr || it.subj || '').trim();
 
-    const teaLabel = it.teas.map(t => state.teacherCfg[t]?.abbr || normalizeAbbr(t, 12) || t).join(',');
-    const clsLabel = it.cls.join(',');
-    const roomLabel = it.rooms.join(',');
+    const teaLabel = (it.teas||[]).map(t => state.teacherCfg[t]?.abbr || normalizeAbbr(t, 12) || t).join(',');
+    const clsLabel = (it.cls||[]).join(',');
+    const roomLabel = (it.rooms||[]).join(',');
 
     // Continuation card (2nd period of 2-span lesson)
     if (isCont) {
@@ -4034,7 +4044,17 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       const tdEl = ev.target.closest('td[data-day]');
       if (tdEl) { const dday = tdEl.dataset.day; const dp = parseInt(tdEl.dataset.p, 10); if (dday && dp) placeItem(dropId, dday, dp, { mode: state.ui.drop || 'safe' }); }
     };
-    el.onclick = (ev) => { ev.stopPropagation(); selectId(id, 'grid'); };
+    el.onclick = (ev) => {
+      ev.stopPropagation();
+      if (ev.ctrlKey || ev.metaKey) {
+        const sel = state.ui.gridMultiSel = state.ui.gridMultiSel || new Set();
+        if (sel.has(id)) { sel.delete(id); el.classList.remove('grid-multi-sel'); }
+        else { sel.add(id); el.classList.add('grid-multi-sel'); }
+        _updateGridMultiBar();
+      } else {
+        selectId(id, 'grid');
+      }
+    };
     el.ondblclick = (ev) => { ev.stopPropagation(); openPropSuggestions(id); };
 
     el.oncontextmenu = (ev) => {
@@ -4044,7 +4064,9 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
         { label: '在庫へ', act: 'to_stock', on: () => toStock(id) },
         { label: (plc.locked ? 'ロック解除' : 'ロック'), act: 'lock', on: () => toggleLock(id) },
         { label: '配置/移動の提案', act: 'sug', on: () => openPropSuggestions(id) },
+        { label: 'コピー（複製）', act: 'copy', on: () => copyItem(id) },
         { sep: true },
+        { label: 'Ctrl+クリックで複数選択', muted: true },
         { label: '選択', act: 'sel', on: () => selectId(id, 'grid') }
       ];
       showCtxMenu(menu, ev.clientX, ev.clientY);
@@ -4107,6 +4129,8 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
 
     // Show/hide quick action bar (v34.4)
     renderQuickActionBar();
+    // F6: constraint overlay if active
+    try { if (state.ui.constraintOverlay) applyConstraintOverlay(); } catch (e) {}
   }
 
   /* =======================
@@ -4718,6 +4742,7 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
           markDirty('items');
           rerenderAll();
         }},
+        { label: 'コピー（複製）', act: 'copy', on: () => copyItem(id) },
         { label: '提案を開く', act: 'sug', on: () => openPropSuggestions(id) },
         { sep: true },
         { label: '選択', act: 'sel', on: () => selectId(id, 'stock') },
@@ -4927,6 +4952,209 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
     if (!bar) return;
     bar.style.display = n > 0 ? 'flex' : 'none';
     if (countEl) countEl.textContent = `${n}コマ選択中 (Ctrl+クリックで追加)`;
+  }
+
+  /* ─── F1: グリッド複数選択バー ─── */
+  function _updateGridMultiBar() {
+    const bar = document.getElementById('grid-multi-bar');
+    const countEl = document.getElementById('grid-multi-count');
+    const sel = state.ui.gridMultiSel;
+    const n = sel?.size || 0;
+    if (!bar) return;
+    bar.style.display = n > 0 ? 'flex' : 'none';
+    if (countEl) countEl.textContent = `${n}コマ選択中`;
+  }
+  function clearGridMultiSel() {
+    if (state.ui.gridMultiSel) state.ui.gridMultiSel.clear();
+    document.querySelectorAll('.grid-multi-sel').forEach(e => e.classList.remove('grid-multi-sel'));
+    _updateGridMultiBar();
+  }
+
+  /* ─── F8: コピー（複製） ─── */
+  function copyItem(id) {
+    const it = state.items[id]; if (!it) return;
+    pushHistory('copy');
+    const newId = 'copy_' + id + '_' + Date.now().toString(36);
+    state.items[newId] = deepClone(it);
+    state.placements[newId] = null;
+    markDirty('items');
+    rerenderAll();
+    flash(`📋 「${it.subj || it.subjKey}」を複製しました（在庫へ）`);
+  }
+
+  /* ─── F2: 履歴パネル ─── */
+  function openHistoryPanel() {
+    let panel = document.getElementById('history-panel');
+    if (panel) { panel.classList.toggle('show'); return; }
+    panel = document.createElement('div');
+    panel.id = 'history-panel';
+    panel.className = 'history-panel show';
+    document.body.appendChild(panel);
+    _renderHistoryPanel(panel);
+  }
+  function _renderHistoryPanel(panel) {
+    const REASON_LABELS = {
+      ai: 'AI配置', undo: 'Undo', redo: 'Redo', place: 'コマ配置',
+      toStock: '在庫へ', swap: '入替', lock: 'ロック', delStock: '削除',
+      copy: 'コピー', projectImport: '読込', 'ai-run': 'AI探索',
+    };
+    const rows = historyPast.map((_, i) => {
+      const meta = historyMeta[i] || {};
+      const label = REASON_LABELS[meta.reason] || meta.reason || '操作';
+      const t = meta.time ? new Date(meta.time).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
+      return `<div class="hist-row" data-idx="${i}"><span class="hist-label">${escapeHtml(label)}</span><span class="hist-time">${t}</span></div>`;
+    }).reverse().join('') || '<div class="muted small" style="padding:8px">履歴なし</div>';
+    panel.innerHTML = `
+      <div class="hist-header"><strong>📜 操作履歴</strong>
+        <span class="muted small" style="flex:1;text-align:right">${historyPast.length}件</span>
+        <button id="hist-close" style="background:none;border:none;cursor:pointer;font-size:16px;color:#64748b">✕</button>
+      </div>
+      <div class="hist-note muted small">クリックでその時点に戻す</div>
+      <div class="hist-body">${rows}</div>`;
+    panel.querySelector('#hist-close').onclick = () => panel.classList.remove('show');
+    panel.querySelectorAll('.hist-row').forEach(row => {
+      row.onclick = () => {
+        const idx = parseInt(row.dataset.idx, 10);
+        // Undo to this index: pop until historyPast.length === idx+1
+        const targetLen = historyPast.length - idx;
+        for (let k = 0; k < targetLen - 1; k++) {
+          const cur = snapshotForHistory();
+          const prev = historyPast.pop(); historyMeta.pop();
+          historyFuture.push(cur);
+          restoreFromHistory(prev);
+        }
+        markDirty('history');
+        rerenderAll();
+        panel.classList.remove('show');
+        flash(`↩ ${historyMeta[idx]?.reason || '操作'} へ戻しました`);
+      };
+    });
+  }
+
+  /* ─── F3: コマ検索ハイライト ─── */
+  function applyItemSearchHighlight() {
+    const q = (state.ui.itemSearchQuery || '').trim().toLowerCase();
+    let count = 0;
+    document.querySelectorAll('.lesson, .stock-item').forEach(el => {
+      if (!q) { el.classList.remove('search-match', 'search-dim'); return; }
+      const id = el.dataset.id;
+      if (!id) return;
+      const it = state.items[id];
+      if (!it) return;
+      const text = [it.subj, it.subjKey, ...(it.teas || []), ...(it.cls || []), ...(it.rooms || [])].join(' ').toLowerCase();
+      const match = text.includes(q);
+      el.classList.toggle('search-match', match);
+      el.classList.toggle('search-dim', !match);
+      if (match) count++;
+    });
+    const countEl = document.getElementById('item-search-count');
+    if (countEl) countEl.textContent = q ? `${count}件` : '';
+  }
+
+  /* ─── F6: 制約オーバーレイ（配置可否） ─── */
+  function applyConstraintOverlay() {
+    const active = state.ui.constraintOverlay;
+    const selId = state.ui.selectedId;
+    // clear
+    document.querySelectorAll('.slot-ok, .slot-ng').forEach(e => { e.classList.remove('slot-ok', 'slot-ng'); });
+    if (!active || !selId) return;
+    const it = state.items[selId]; if (!it) return;
+    const idx = buildIndex();
+    document.querySelectorAll('td[data-day][data-p]').forEach(td => {
+      const day = td.dataset.day; const period = parseInt(td.dataset.p, 10);
+      if (!day || !period) return;
+      // temporary placement check
+      const ok = _canPlaceOnSlot(selId, it, day, period, idx);
+      td.classList.add(ok ? 'slot-ok' : 'slot-ng');
+    });
+  }
+  function _canPlaceOnSlot(id, it, day, period, idx) {
+    const span = it.span || 1;
+    const maxP = maxPeriod(day);
+    if (period < 1 || period > maxP) return false;
+    if (span === 2 && period === maxP) return false;
+    for (let dp = 0; dp < span; dp++) {
+      const p = period + dp;
+      if (typeof isForbiddenForSubject === 'function' && isForbiddenForSubject(it.subjKey, day, p)) return false;
+      for (const t of it.teas || []) {
+        if (typeof isUnavailableForTeacher === 'function' && isUnavailableForTeacher(t, day, p)) return false;
+        const occ = (idx.tea?.[t]?.[day]?.[p] || []).filter(x => x !== id);
+        if (occ.length) return false;
+      }
+      for (const c of it.cls || []) {
+        const occ = (idx.cls?.[c]?.[day]?.[p] || []).filter(x => x !== id);
+        if (occ.length) return false;
+      }
+    }
+    return true;
+  }
+
+  /* ─── F7: 競合ダッシュボード ─── */
+  function showDashboard() {
+    const idx = buildIdxFromPlacements(state.placements);
+    const allIds = Object.keys(state.items);
+    const placed = allIds.filter(id => state.placements[id]?.day);
+    const unplaced = allIds.filter(id => !state.placements[id]?.day);
+
+    // 教員負荷集計
+    const teaLoad = {}; // tea -> {total, byDay:{Mon:n,...}, conflicts:n}
+    for (const id of placed) {
+      const it = state.items[id]; if (!it) continue;
+      const plc = state.placements[id];
+      const span = it.span || 1;
+      for (const t of it.teas || []) {
+        if (!teaLoad[t]) teaLoad[t] = { total: 0, byDay: {}, conflicts: 0 };
+        teaLoad[t].total += span;
+        teaLoad[t].byDay[plc.day] = (teaLoad[t].byDay[plc.day] || 0) + span;
+      }
+    }
+    // 衝突カウント
+    for (const t in idx.tea) {
+      if (!teaLoad[t]) teaLoad[t] = { total: 0, byDay: {}, conflicts: 0 };
+      for (const d of DAYS) for (let p = 1; p <= maxPeriod(d); p++) {
+        const occ = idx.tea[t]?.[d]?.[p] || [];
+        if (occ.length > 1) teaLoad[t].conflicts += occ.length - 1;
+      }
+    }
+    // クラス充填率
+    const clsFill = {}; // cls -> {filled, total}
+    const classes = [...new Set(allIds.flatMap(id => state.items[id]?.cls || []))].sort();
+    for (const cls of classes) {
+      let total = 0, filled = 0;
+      for (const d of DAYS) { const mp = maxPeriod(d); total += mp; for (let p = 1; p <= mp; p++) { if ((idx.cls?.[cls]?.[d]?.[p] || []).length) filled++; } }
+      clsFill[cls] = { filled, total };
+    }
+
+    const teaSorted = Object.entries(teaLoad).sort((a, b) => b[1].total - a[1].total);
+    const teaRows = teaSorted.map(([t, l]) => {
+      const maxD = typeof teacherDailyMax === 'function' ? teacherDailyMax(t) : null;
+      const over = maxD && l.total > maxD * DAYS.length;
+      const conflStr = l.conflicts > 0 ? `<span style="color:#ef4444">衝突${l.conflicts}</span>` : '<span style="color:#10b981">✓</span>';
+      const dayStr = DAYS.map(d => `${DAYJP[d]}:${l.byDay[d]||0}`).join(' ');
+      return `<tr class="${over ? 'dash-over' : ''}"><td>${escapeHtml((state.teacherCfg[t]?.abbr||t).slice(0,8))}</td><td>${l.total}</td><td class="muted small">${dayStr}</td><td>${conflStr}</td></tr>`;
+    }).join('');
+
+    const clsRows = classes.map(cls => {
+      const f = clsFill[cls] || { filled: 0, total: 0 };
+      const pct = f.total ? Math.round(f.filled / f.total * 100) : 0;
+      const bar = `<div style="width:${pct}%;height:6px;background:${pct>=100?'#10b981':pct>=80?'#3b82f6':'#f59e0b'};border-radius:3px"></div>`;
+      return `<tr><td>${escapeHtml(cls)}</td><td>${f.filled}/${f.total}</td><td style="min-width:80px"><div style="background:#e5e7eb;border-radius:3px">${bar}</div></td><td class="muted small">${pct}%</td></tr>`;
+    }).join('');
+
+    const html = `
+      <div class="dash-wrap">
+        <div class="dash-summary">
+          <div class="dash-card"><div class="dash-num">${placed.length}</div><div class="dash-lbl">配置済み</div></div>
+          <div class="dash-card warn"><div class="dash-num">${unplaced.length}</div><div class="dash-lbl">未配置（在庫）</div></div>
+          <div class="dash-card"><div class="dash-num">${teaSorted.filter(([,l])=>l.conflicts>0).length}</div><div class="dash-lbl">衝突教員</div></div>
+          <div class="dash-card"><div class="dash-num">${classes.length}</div><div class="dash-lbl">クラス数</div></div>
+        </div>
+        <details open><summary class="dash-section-title">👩‍🏫 教員週コマ数</summary>
+        <div class="dash-scroll"><table class="dash-table"><thead><tr><th>教員</th><th>計</th><th>曜日別</th><th>衝突</th></tr></thead><tbody>${teaRows||'<tr><td colspan="4" class="muted">データなし</td></tr>'}</tbody></table></div></details>
+        <details open><summary class="dash-section-title">🏫 クラス充填率</summary>
+        <div class="dash-scroll"><table class="dash-table"><thead><tr><th>クラス</th><th>配置/合計</th><th>充填</th><th>率</th></tr></thead><tbody>${clsRows||'<tr><td colspan="4" class="muted">データなし</td></tr>'}</tbody></table></div></details>
+      </div>`;
+    showModalHTML('📊 競合・負荷ダッシュボード', html, null, '閉じる', null);
   }
 
   /* v45: 指定コマIDのリストをAI配置する */
@@ -8175,6 +8403,17 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
     const optBalance = !!$('#ai-balance')?.checked;
     const optNoConsec = !!$('#ai-noconsec')?.checked;
 
+    // F5: リアルタイム進捗表示
+    const _stEl = $('#ai-status');
+    const _pbEl = $('#ai-progress-bar');
+    const _aiStart = performance.now();
+    const _setGreedyStatus = (trial, total, bestPlaced, totalUnplaced) => {
+      const pct = Math.round(trial / total * 100);
+      if (_pbEl) _pbEl.style.width = pct + '%';
+      const elapsed = ((performance.now() - _aiStart) / 1000).toFixed(1);
+      if (_stEl) _stEl.textContent = `Greedy: 試行${trial}/${total} ベスト${bestPlaced}/${totalUnplaced} (${elapsed}s)`;
+    };
+
     const basePlacements = deepClone(state.placements);
     const allIds = Object.keys(state.items);
 
@@ -8790,6 +9029,9 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
     };
 
     for (let t = 0; t < tries; t++) {
+      // F5: 進捗更新（10試行ごと）
+      if (t % 5 === 0) _setGreedyStatus(t, tries, best?.placed || 0, unplaced0.length);
+
       const placements = deepClone(basePlacements);
 
       // ターゲット型シェイク: 前回試行で未配置が残った場合、ブロッカーを優先的に外す
@@ -10789,6 +11031,22 @@ function buildIndex(){
       const keys = getAxisKeys(kind);
       const matrixCellH = Math.max(24, Math.round(cellH * 0.7));
       area.innerHTML = buildMatrixHTML(kind, keys, idx, maxP, opt, layout, matrixCellH, fontSize);
+      return;
+    }
+
+    // 1頁1エンティティ モード
+    if (type === 'class-paged' || type === 'teacher-paged') {
+      const baseType = type === 'class-paged' ? 'class' : 'teacher';
+      const keys2 = getAxisKeys(baseType);
+      let html2 = '';
+      for (let i = 0; i < keys2.length; i++) {
+        const key = keys2[i];
+        html2 += `<div class="print-page-break" style="${i > 0 ? 'page-break-before:always;' : ''}margin-bottom:12px;">
+          <h3 class="print-card-title" style="font-family:${fontFamilyCSS0};font-size:${fontSize + 2}px;margin:0 0 6px">${escapeHtml(key)}</h3>
+          ${printTableHTML(baseType, key, idx, maxP, opt, layout, cellH, fontSize, 1)}
+        </div>`;
+      }
+      area.innerHTML = html2 || '<div class="card">データなし</div>';
       return;
     }
 
@@ -13926,6 +14184,65 @@ function buildIndex(){
         }
       };
     }
+
+    // ─── F1: グリッド複数選択 ───
+    document.getElementById('btn-grid-multi-stock')?.addEventListener('click', () => {
+      const sel = state.ui.gridMultiSel; if (!sel?.size) return;
+      pushHistory('gridMultiStock');
+      for (const id of sel) { if (state.placements[id]?.day) toStock(id); }
+      clearGridMultiSel(); rerenderAll();
+    });
+    document.getElementById('btn-grid-multi-lock')?.addEventListener('click', () => {
+      const sel = state.ui.gridMultiSel; if (!sel?.size) return;
+      pushHistory('gridMultiLock');
+      for (const id of sel) { if (state.placements[id]?.day) toggleLock(id); }
+      clearGridMultiSel(); rerenderAll();
+    });
+    document.getElementById('btn-grid-multi-copy')?.addEventListener('click', () => {
+      const sel = state.ui.gridMultiSel; if (!sel?.size) return;
+      pushHistory('gridMultiCopy');
+      for (const id of [...sel]) copyItem(id);
+      clearGridMultiSel();
+    });
+    document.getElementById('btn-grid-multi-del')?.addEventListener('click', () => {
+      const sel = state.ui.gridMultiSel; if (!sel?.size) return;
+      if (!confirm(`選択中の${sel.size}コマを削除しますか？`)) return;
+      pushHistory('gridMultiDel');
+      for (const id of sel) { toStock(id); delete state.items[id]; delete state.placements[id]; }
+      clearGridMultiSel(); markDirty('items'); rerenderAll();
+    });
+    document.getElementById('btn-grid-multi-clear')?.addEventListener('click', clearGridMultiSel);
+
+    // ─── F2: 履歴パネル ───
+    document.getElementById('btn-history')?.addEventListener('click', openHistoryPanel);
+
+    // ─── F3: コマ検索 ───
+    const itemSearchEl = document.getElementById('item-search');
+    if (itemSearchEl) {
+      itemSearchEl.oninput = () => {
+        state.ui.itemSearchQuery = itemSearchEl.value;
+        requestAnimationFrame(applyItemSearchHighlight);
+      };
+    }
+    document.getElementById('btn-item-search-clear')?.addEventListener('click', () => {
+      state.ui.itemSearchQuery = '';
+      if (itemSearchEl) itemSearchEl.value = '';
+      applyItemSearchHighlight();
+    });
+
+    // ─── F6: 制約オーバーレイ ───
+    document.getElementById('btn-constraint-overlay')?.addEventListener('click', () => {
+      state.ui.constraintOverlay = !state.ui.constraintOverlay;
+      const btn = document.getElementById('btn-constraint-overlay');
+      if (btn) btn.classList.toggle('active', state.ui.constraintOverlay);
+      if (state.ui.constraintOverlay) applyConstraintOverlay();
+      else document.querySelectorAll('.slot-ok, .slot-ng').forEach(e => { e.classList.remove('slot-ok', 'slot-ng'); });
+    });
+
+    // ─── F7: ダッシュボード ───
+    document.getElementById('btn-dashboard')?.addEventListener('click', () => {
+      try { showDashboard(); } catch (e) { console.error(e); flash('ダッシュボード表示エラー: ' + e.message); }
+    });
 
     console.log('[bindEvents] COMPLETE - All UI bindings finished successfully');
   }

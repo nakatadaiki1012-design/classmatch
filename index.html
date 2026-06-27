@@ -252,6 +252,8 @@
         ヒート外し</button>
       <button id="btn-undo" class="btn secondary" title="元に戻す (Ctrl+Z)">↩</button>
       <button id="btn-redo" class="btn secondary" title="やり直し (Ctrl+Y)">↪</button>
+      <button id="btn-history" class="btn secondary" title="操作履歴パネル">📜</button>
+      <button id="btn-dashboard" class="btn secondary" style="background:#7c3aed;color:#fff;border:none" title="競合・負荷ダッシュボード">📊 DB</button>
       <button id="btn-reset" class="btn danger" title="全リセット">⚠リセット</button>
     </div>
   </header>
@@ -541,6 +543,18 @@
           </div>
 
           <div class="group">
+            <span class="label">コマ検索</span>
+            <input id="item-search" class="mini-input" placeholder="🔍 科目/教員/クラス…" title="入力した文字を含むコマをグリッド・在庫でハイライト" style="min-width:160px" />
+            <button id="btn-item-search-clear" class="btn secondary" style="padding:2px 6px;font-size:11px" title="検索クリア">✕</button>
+            <span id="item-search-count" class="muted small" style="min-width:40px"></span>
+          </div>
+
+          <div class="group">
+            <span class="label">制約表示</span>
+            <button id="btn-constraint-overlay" class="btn secondary" title="選択中コマの配置可否オーバーレイ（緑=OK/赤=NG）">🚦 配置可否</button>
+          </div>
+
+          <div class="group">
             <span class="label">別窓</span>
             <button id="btn-pop-teacher" class="btn secondary">個人教員</button>
             <button id="btn-pop-class" class="btn secondary">個人クラス</button>
@@ -636,6 +650,14 @@
         <div id="split-stock" class="splitter v no-print" title="ドラッグで幅調整"></div>
 
         <section class="panel grid">
+          <div id="grid-multi-bar" class="grid-multi-bar" style="display:none">
+            <span id="grid-multi-count" class="small muted"></span>
+            <button id="btn-grid-multi-stock" class="btn secondary" style="padding:3px 10px;font-size:11px">📥 在庫へ</button>
+            <button id="btn-grid-multi-lock" class="btn secondary" style="padding:3px 10px;font-size:11px">🔒 ロック</button>
+            <button id="btn-grid-multi-copy" class="btn secondary" style="padding:3px 10px;font-size:11px">📋 コピー</button>
+            <button id="btn-grid-multi-del" class="btn danger" style="padding:3px 10px;font-size:11px">🗑 削除</button>
+            <button id="btn-grid-multi-clear" class="btn secondary" style="padding:3px 8px;font-size:11px">✕ 解除</button>
+          </div>
           <div id="grid-wrapper" class="grid-wrapper">
             <div id="grid" class="grid-root"></div>
           </div>
@@ -669,6 +691,8 @@
           <option value="class">全クラス</option>
           <option value="teacher">全教員</option>
           <option value="room">全教室</option>
+          <option value="class-paged">クラス別（1頁1クラス）</option>
+          <option value="teacher-paged">教員別（1頁1教員）</option>
           <option value="matrix-teacher">教員マトリクス</option>
           <option value="matrix-class">クラスマトリクス</option>
           <option value="matrix-room">教室マトリクス</option>

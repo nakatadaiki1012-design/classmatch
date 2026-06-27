@@ -6864,3 +6864,145 @@ body.sandbox-active .app-header {
   display: inline-block;
   padding: 8px 20px;
 }
+/* ═══════════════════════════════════════════
+   F1: グリッド複数選択
+   ═══════════════════════════════════════════ */
+.grid-multi-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: #1e40af;
+  color: #fff;
+  font-size: 12px;
+  border-radius: 0 0 6px 6px;
+}
+.lesson.grid-multi-sel {
+  outline: 3px solid #1d4ed8 !important;
+  outline-offset: -2px;
+  box-shadow: 0 0 0 4px rgba(59,130,246,0.35) !important;
+}
+
+/* ═══════════════════════════════════════════
+   F2: 履歴パネル
+   ═══════════════════════════════════════════ */
+.history-panel {
+  position: fixed;
+  top: 56px;
+  right: 80px;
+  width: 260px;
+  max-height: 400px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+  z-index: 9000;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(-8px);
+  pointer-events: none;
+  transition: opacity 0.15s, transform 0.15s;
+}
+.history-panel.show {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+.hist-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 12px 6px;
+  border-bottom: 1px solid #f1f5f9;
+}
+.hist-note {
+  padding: 3px 12px;
+  background: #f8fafc;
+  border-bottom: 1px solid #f1f5f9;
+}
+.hist-body {
+  overflow-y: auto;
+  flex: 1;
+}
+.hist-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 7px 14px;
+  cursor: pointer;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 12px;
+}
+.hist-row:hover { background: #eff6ff; }
+.hist-label { color: #1e293b; font-weight: 500; }
+.hist-time { color: #94a3b8; font-size: 10px; }
+
+/* ═══════════════════════════════════════════
+   F3: コマ検索ハイライト
+   ═══════════════════════════════════════════ */
+.lesson.search-match, .stock-item.search-match {
+  outline: 2px solid #f59e0b !important;
+  outline-offset: -1px;
+  z-index: 2;
+}
+.lesson.search-dim, .stock-item.search-dim {
+  opacity: 0.25;
+}
+
+/* ═══════════════════════════════════════════
+   F6: 制約オーバーレイ（配置可否）
+   ═══════════════════════════════════════════ */
+td.slot-ok {
+  background: rgba(16,185,129,0.15) !important;
+  box-shadow: inset 0 0 0 2px rgba(16,185,129,0.5);
+}
+td.slot-ng {
+  background: rgba(239,68,68,0.10) !important;
+  box-shadow: inset 0 0 0 2px rgba(239,68,68,0.3);
+}
+
+/* ═══════════════════════════════════════════
+   F7: ダッシュボード
+   ═══════════════════════════════════════════ */
+.dash-wrap { font-size: 13px; }
+.dash-summary {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.dash-card {
+  flex: 1;
+  min-width: 80px;
+  background: #f1f5f9;
+  border-radius: 8px;
+  padding: 10px 12px;
+  text-align: center;
+}
+.dash-card.warn { background: #fef2f2; }
+.dash-num { font-size: 22px; font-weight: 700; color: #1e293b; }
+.dash-card.warn .dash-num { color: #dc2626; }
+.dash-lbl { font-size: 10px; color: #64748b; margin-top: 2px; }
+.dash-section-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+  padding: 6px 2px;
+  cursor: pointer;
+  user-select: none;
+}
+.dash-scroll { max-height: 200px; overflow-y: auto; margin-top: 6px; }
+.dash-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.dash-table th { background: #f8fafc; border-bottom: 2px solid #e2e8f0; padding: 4px 8px; text-align: left; color: #64748b; font-size: 11px; }
+.dash-table td { padding: 4px 8px; border-bottom: 1px solid #f1f5f9; }
+.dash-table tr.dash-over td { background: #fef2f2; color: #dc2626; }
+
+/* ═══════════════════════════════════════════
+   F4: 1頁1クラス/教員 印刷
+   ═══════════════════════════════════════════ */
+@media print {
+  .print-page-break { page-break-before: always; }
+  .print-page-break:first-child { page-break-before: avoid; }
+}
