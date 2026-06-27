@@ -7652,20 +7652,32 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
     return ws;
   }
 
+  function _ensureXLSX(cb) {
+    if (typeof XLSX !== 'undefined') { cb(); return; }
+    // 動的ロード: xlsx.min.js が未読込の場合にスクリプトを挿入して待つ
+    const s = document.createElement('script');
+    s.src = 'xlsx.min.js';
+    s.onload = () => { if (typeof XLSX !== 'undefined') { cb(); } else { alert('xlsx.min.js の読み込みに失敗しました。ファイルが存在するか確認してください。'); } };
+    s.onerror = () => alert('xlsx.min.js が見つかりません。リポジトリに xlsx.min.js が含まれているか確認してください。');
+    document.head.appendChild(s);
+  }
+
   function exportTeacherMatrixXLSX() {
-    if (typeof XLSX === 'undefined') { alert('SheetJSが読み込まれていません'); return; }
-    const wb = XLSX.utils.book_new();
-    const ws = _buildXlsxMatrixSheet('teacher');
-    XLSX.utils.book_append_sheet(wb, ws, '教員時間割');
-    _xlsxDownload(wb, 'teachers_timetable.xlsx');
+    _ensureXLSX(() => {
+      const wb = XLSX.utils.book_new();
+      const ws = _buildXlsxMatrixSheet('teacher');
+      XLSX.utils.book_append_sheet(wb, ws, '教員時間割');
+      _xlsxDownload(wb, 'teachers_timetable.xlsx');
+    });
   }
 
   function exportClassMatrixXLSX() {
-    if (typeof XLSX === 'undefined') { alert('SheetJSが読み込まれていません'); return; }
-    const wb = XLSX.utils.book_new();
-    const ws = _buildXlsxMatrixSheet('class');
-    XLSX.utils.book_append_sheet(wb, ws, 'クラス時間割');
-    _xlsxDownload(wb, 'classes_timetable.xlsx');
+    _ensureXLSX(() => {
+      const wb = XLSX.utils.book_new();
+      const ws = _buildXlsxMatrixSheet('class');
+      XLSX.utils.book_append_sheet(wb, ws, 'クラス時間割');
+      _xlsxDownload(wb, 'classes_timetable.xlsx');
+    });
   }
 
   /* =======================
