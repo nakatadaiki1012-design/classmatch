@@ -7565,11 +7565,10 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
     const totalCols = LEAD + DAYS.length * maxP;
     const dataStartRow = 3; // rows 0=title,1=day,2=period
 
-    const BK = '000000';
-    const thin = { style: 'thin', color: { rgb: BK } };
-    const hair = { style: 'hair', color: { rgb: BK } };
+    // ボーダーオブジェクトは毎回新規生成（共有参照によるxlsx-js-style内部mutation回避）
+    const T = () => ({ style: 'thin', color: { rgb: '000000' } });
+    const H = () => ({ style: 'hair', color: { rgb: '000000' } });
 
-    // 全4辺を必ず指定（undefinedは省略）
     const bdr = (t, b, l, r) => {
       const o = {};
       if (t) o.top = t; if (b) o.bottom = b;
@@ -7577,16 +7576,16 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       return o;
     };
 
-    // セルスタイル適用（空セルも生成）
+    // セルスタイル適用（空セルは t:'s' で確実に書き込み）
     const setS = (ws, r, c, s) => {
       const addr = XLSX.utils.encode_cell({ r, c });
-      if (!ws[addr]) ws[addr] = { t: 'z', v: '' };
+      if (!ws[addr]) ws[addr] = { t: 's', v: '' };
       ws[addr].s = s;
     };
 
-    // 曜日境界=thin、時限間=hair
-    const slotL = (sc) => sc % maxP === 0 ? thin : hair;
-    const slotR = (sc) => sc % maxP === maxP - 1 ? thin : hair;
+    // 曜日境界=thin、時限間=hair（毎回新規オブジェクト）
+    const slotL = (sc) => sc % maxP === 0 ? T() : H();
+    const slotR = (sc) => sc % maxP === maxP - 1 ? T() : H();
 
     // ── AOA ──
     const aoa = [];
@@ -7647,18 +7646,14 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
     const ws = XLSX.utils.aoa_to_sheet(aoa);
 
     // ── マージ ──
+    // 曜日ヘッダー行のマージはxlsx-js-styleの列オフセットバグで正常に動作しないため使用しない。
+    // 名前・役割列（col 0, 2）の2行マージと、lead block（rows 1-2, cols 0-2）のみ設定する。
     const merges = [];
-    merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: totalCols - 1 } });
-    let mc = LEAD;
-    for (const d of DAYS) {
-      merges.push({ s: { r: 1, c: mc }, e: { r: 1, c: mc + maxP - 1 } });
-      mc += maxP;
-    }
-    merges.push({ s: { r: 1, c: 0 }, e: { r: 2, c: 2 } });
+    merges.push({ s: { r: 1, c: 0 }, e: { r: 2, c: 2 } }); // lead block rows1-2, cols0-2
     for (let i = 0; i < keys.length; i++) {
       const r = dataStartRow + i * 2;
-      merges.push({ s: { r, c: 0 }, e: { r: r + 1, c: 0 } });
-      merges.push({ s: { r, c: 2 }, e: { r: r + 1, c: 2 } });
+      merges.push({ s: { r, c: 0 }, e: { r: r + 1, c: 0 } }); // 名前列 2行マージ
+      merges.push({ s: { r, c: 2 }, e: { r: r + 1, c: 2 } }); // 役割列 2行マージ
     }
     ws['!merges'] = merges;
 
@@ -7686,20 +7681,18 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
     // Row 0: タイトル（罫線なし）
     setS(ws, 0, 0, { font: { sz: 11 }, alignment: { vertical: 'center' } });
 
-    // Rows 1-2: ヘッダー（lead部分はマージのため先頭セルのみに罫線）
-    // row1 cols 0-2 → マージされた1セルに thin全周
-    setS(ws, 1, 0, { border: bdr(thin, thin, thin, thin), alignment: ctr, font: sz10 });
-    setS(ws, 2, 0, { border: bdr(thin, thin, thin, thin), alignment: ctr, font: sz10 });
-    setS(ws, 1, 1, { border: bdr(thin, thin, hair, hair), alignment: ctr, font: sz10 });
-    setS(ws, 2, 1, { border: bdr(thin, thin, hair, hair), alignment: ctr, font: sz10 });
-    setS(ws, 1, 2, { border: bdr(thin, thin, hair, thin), alignment: ctr, font: sz10 });
-    setS(ws, 2, 2, { border: bdr(thin, thin, hair, thin), alignment: ctr, font: sz10 });
+    // Rows 1-2: ヘッダー lead 3列（マージ範囲内の全セルにも罫線を設定）
+    setS(ws, 1, 0, { border: bdr(T(),T(),T(),T()), alignment: ctr, font: sz10 });
+    setS(ws, 2, 0, { border: bdr(T(),T(),T(),T()), alignment: ctr, font: sz10 });
+    setS(ws, 1, 1, { border: bdr(T(),T(),H(),H()), alignment: ctr, font: sz10 });
+    setS(ws, 2, 1, { border: bdr(T(),T(),H(),H()), alignment: ctr, font: sz10 });
+    setS(ws, 1, 2, { border: bdr(T(),T(),H(),T()), alignment: ctr, font: sz10 });
+    setS(ws, 2, 2, { border: bdr(T(),T(),H(),T()), alignment: ctr, font: sz10 });
 
-    // row1-2 スロット列
+    // row1-2 スロット列（マージ内部セルを含む全セルに罫線）
     for (let sc = 0; sc < DAYS.length * maxP; sc++) {
-      const l = slotL(sc), r = slotR(sc);
-      setS(ws, 1, LEAD + sc, { border: bdr(thin, thin, l, r), alignment: ctr, font: sz10 });
-      setS(ws, 2, LEAD + sc, { border: bdr(thin, thin, l, r), alignment: ctr, font: sz10 });
+      setS(ws, 1, LEAD + sc, { border: bdr(T(),T(),slotL(sc),slotR(sc)), alignment: ctr, font: sz10 });
+      setS(ws, 2, LEAD + sc, { border: bdr(T(),T(),slotL(sc),slotR(sc)), alignment: ctr, font: sz10 });
     }
 
     // エンティティ行
@@ -7707,23 +7700,22 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       const rA = dataStartRow + i * 2;
       const rB = rA + 1;
 
-      // Col A: 2行マージ → top=thin, bot=thin, left=thin, right=hair
-      setS(ws, rA, 0, { border: bdr(thin, thin, thin, hair), alignment: ctrW, font: sz10 });
-      setS(ws, rB, 0, { border: bdr(thin, thin, thin, hair), alignment: ctrW, font: sz10 });
+      // Col A: 2行マージ
+      setS(ws, rA, 0, { border: bdr(T(),T(),T(),H()), alignment: ctrW, font: sz10 });
+      setS(ws, rB, 0, { border: bdr(T(),T(),T(),H()), alignment: ctrW, font: sz10 });
 
-      // Col B: top=thin/hair, bot=hair/thin, left=hair, right=hair
-      setS(ws, rA, 1, { border: bdr(thin, hair, hair, hair), alignment: ctr, font: sz10 });
-      setS(ws, rB, 1, { border: bdr(hair, thin, hair, hair), alignment: ctr, font: sz10 });
+      // Col B
+      setS(ws, rA, 1, { border: bdr(T(),H(),H(),H()), alignment: ctr, font: sz10 });
+      setS(ws, rB, 1, { border: bdr(H(),T(),H(),H()), alignment: ctr, font: sz10 });
 
-      // Col C: 2行マージ → top=thin, bot=thin, left=hair, right=thin
-      setS(ws, rA, 2, { border: bdr(thin, thin, hair, thin), alignment: ctr, font: sz10 });
-      setS(ws, rB, 2, { border: bdr(thin, thin, hair, thin), alignment: ctr, font: sz10 });
+      // Col C: 2行マージ
+      setS(ws, rA, 2, { border: bdr(T(),T(),H(),T()), alignment: ctr, font: sz10 });
+      setS(ws, rB, 2, { border: bdr(T(),T(),H(),T()), alignment: ctr, font: sz10 });
 
       // スロット列: rA=上半分(top=thin,bot=hair), rB=下半分(top=hair,bot=thin)
       for (let sc = 0; sc < DAYS.length * maxP; sc++) {
-        const l = slotL(sc), r = slotR(sc);
-        setS(ws, rA, LEAD + sc, { border: bdr(thin, hair, l, r), alignment: ctrW, font: sz10 });
-        setS(ws, rB, LEAD + sc, { border: bdr(hair, thin, l, r), alignment: ctrW, font: sz10 });
+        setS(ws, rA, LEAD + sc, { border: bdr(T(),H(),slotL(sc),slotR(sc)), alignment: ctrW, font: sz10 });
+        setS(ws, rB, LEAD + sc, { border: bdr(H(),T(),slotL(sc),slotR(sc)), alignment: ctrW, font: sz10 });
       }
     }
 
