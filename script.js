@@ -7525,7 +7525,7 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
        Col A = entity name (merged A/B), Col B = homeroom/担当, Col C = role (merged)
   ======================= */
   function _xlsxDownload(wb, filename) {
-    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array', cellStyles: true });
     const blob = new Blob([wbout], { type: 'application/octet-stream' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
