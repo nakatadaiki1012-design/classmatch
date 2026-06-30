@@ -648,6 +648,208 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
   const PROJECT_FORMAT = 'idea-timetable-project';
   const PROJECT_VERSION = '1.0';
 
+  /* =======================
+     イデアのAI時間割 ネイティブ .ide エクスポート（マスタデータ）
+  ======================= */
+  function exportIdeaFile() {
+    const schoolName = prompt('学校名を入力', state.settings.schoolName || '');
+    if (schoolName === null) return;
+
+    const now2 = new Date();
+    const dateStr = now2.toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '/');
+    const timeStr = now2.toTimeString().slice(0, 8);
+
+    // 曜日・時限設定
+    const DAY_JA = { Mon: '月曜日', Tue: '火曜日', Wed: '水曜日', Thu: '木曜日', Fri: '金曜日' };
+    const activeDays = DAYS.filter(d => (state.settings.periodsByDay[d] || 0) > 0);
+    const numDays = activeDays.length || 5;
+    const numPeriods = Math.max(...activeDays.map(d => state.settings.periodsByDay[d] || 6), 6);
+
+    // 可用性ビット列（全コマ利用可能）
+    // フォーマット: 各日 numPeriods+1 ビット（先頭0 + 各コマ1）を16ビット幅で表現
+    function availBits(allAvail) {
+      // "0001010101010101" style: 3 leading 0s, then pairs "10" per period
+      const bits = '000' + '10'.repeat(numPeriods <= 7 ? numPeriods : 7);
+      const padded = bits.padEnd(16, '0').slice(0, 16);
+      return allAvail ? padded : '0'.repeat(16);
+    }
+    const AVAIL_DAY = availBits(true);
+    const AVAIL_NONE = availBits(false);
+    const avail5 = Array(5).fill(AVAIL_DAY).join('-');
+    const avail5full = avail5 + '-CJ' + '0001010101010101'.repeat(1) + '010000000000000000';
+
+    // 行ビルダ
+    const lines = [];
+    const L = (...parts) => lines.push(parts.map(p => typeof p === 'string' && p !== '0' ? `"${p}"` : String(p)).join(','));
+    const R = (raw) => lines.push(raw);  // raw line (no quoting)
+
+    // ── バージョン行 ──
+    R(`2000,0,0,"${dateStr}","${timeStr}",0`);
+
+    // ── HEAD ──
+    const PAD14 = (arr, n) => { const a = arr.slice(); while (a.length < n) a.push('""'); return a.join(','); };
+    R('"HEAD:",0');
+    R(`0,0,1,0,0,0,"${schoolName}"`);
+    R(`"${schoolName || '時間割'}",4`);
+    const dayFields = activeDays.map(d => `"${DAY_JA[d] || d}"`);
+    R(`${numDays},${PAD14(dayFields, 14)}`);
+    const periodFields = ['１','２','３','４','５','６','７','８'].slice(0, numPeriods).map(n => `"${n}"`);
+    R(`${numPeriods},${PAD14(periodFields, 15)}`);
+    R(`"${Array(numDays).fill(AVAIL_DAY).join('-')}-CJ0001010101010101010000000000000000"`);
+
+    // ── OPTION ──
+    R('"OPTION:",0');
+    R('1');
+    R('0,0,0,0');
+    R('0,0,0,0');
+    R('18,0,1,4,4,1,0');
+    R(`-5,1,0,"${'0'.repeat(16)}-${'0'.repeat(16)}-${'0'.repeat(16)}-${'0'.repeat(16)}-${'0'.repeat(16)}-CJ${'0'.repeat(34)}","10","0"`);
+
+    // ── CLASS ──
+    // classmatch のクラス一覧を収集
+    const classSet = new Set();
+    for (const it of Object.values(state.items)) {
+      (it.cls || []).forEach(c => classSet.add(c));
+    }
+    const classList = Array.from(classSet).sort((a, b) => a.localeCompare(b, 'ja'));
+    R(`"CLASS:",${classList.length}`);
+    // エントリ0（空）
+    R('0,"","","","　　高　　　"');
+    R('0,1,"","",""');
+    R(`0,"${avail5}-CJ${'0'.repeat(34)}"`);
+    classList.forEach((cls, i) => {
+      const id = i + 1;
+      const short = cls.replace(/-/, '−');  // half→full width hyphen
+      const grade = cls.match(/^(\d)/) ? cls[0] + '年' : '';
+      R(`${id},"${short}","${cls}","${id}","　　高　　　"`);
+      R(`0,1,"${grade}","",""`);
+      R(`${id},"${AVAIL_DAY}-${AVAIL_DAY}-${AVAIL_DAY}-${AVAIL_DAY}-${AVAIL_DAY}-CJ${'0'.repeat(34)}"`);
+    });
+
+    // ── ROOM ──
+    R(`"ROOM:",${classList.length}`);
+    R('0,"","","","　　高　　　"');
+    R('0,1,"","",""');
+    R(`0,"${'0'.repeat(16)}-${AVAIL_DAY}-${AVAIL_DAY}-${AVAIL_DAY}-${AVAIL_DAY}-CJ${'0'.repeat(34)}"`);
+    classList.forEach((cls, i) => {
+      const id = i + 1;
+      const short = cls.replace(/-/, '−');
+      const grade = cls.match(/^(\d)/) ? cls[0] + '年' : '';
+      R(`${id},"${short}","${cls}","${id}","　　高　　　"`);
+      R(`0,1,"${grade}","",""`);
+      R(`${id},"${AVAIL_DAY}-${AVAIL_DAY}-${AVAIL_DAY}-${AVAIL_DAY}-${AVAIL_DAY}-CJ${'0'.repeat(34)}"`);
+    });
+
+    // ── LESSON ──
+    const subjEntries = Object.entries(state.subjectCfg).filter(([, v]) => v && v.abbr);
+    R(`"LESSON:",${subjEntries.length}`);
+    R('0,"","","","　　高　　　"');
+    R('0,0,"","",""');
+    R(`0,"${AVAIL_DAY}-${AVAIL_DAY}-${AVAIL_DAY}-${AVAIL_DAY}-${AVAIL_DAY}-CJ${'0'.repeat(34)}"`);
+    subjEntries.forEach(([key, v], i) => {
+      const id = i + 1;
+      const name = v.abbr || key;
+      const dept = v.dept ? v.dept + '科' : '';
+      R(`${id},"${name}","${name}","${name}","　　高　　　"`);
+      R(`0,1,"","${dept}",""`);
+      R(`${id},"${AVAIL_DAY}-${AVAIL_DAY}-${AVAIL_DAY}-${AVAIL_DAY}-${AVAIL_DAY}-CJ${'0'.repeat(34)}"`);
+    });
+
+    // ── TEACH ──
+    const teachEntries = Object.entries(state.teacherCfg).filter(([n]) => n);
+    R(`"TEACH:",${teachEntries.length}`);
+    R('0,"","","","　　高　　　"');
+    R('0,1,"","","","","","00-1"');
+    R(`0,0,0,0,"${AVAIL_DAY}-${AVAIL_DAY}-${AVAIL_DAY}-${AVAIL_DAY}-${AVAIL_DAY}-CJ${'0'.repeat(34)}"`);
+    teachEntries.forEach(([name, v], i) => {
+      const id = i + 1;
+      const abbr = v.abbr || name;
+      const dept = v.dept ? v.dept + '科' : '';
+      R(`${id},"${name}","${abbr}","${abbr}","　　高　　　"`);
+      R(`0,1,"","${dept}","","","","00-1"`);
+      R(`0,0,0,0,"${AVAIL_DAY}-${AVAIL_DAY}-${AVAIL_DAY}-${AVAIL_DAY}-${AVAIL_DAY}-CJ${'0'.repeat(34)}"`);
+    });
+
+    // ── SJYUGYO (空) ──
+    R('"SJYUGYO:",0');
+    R('0,"","",""');
+    R(`0,"${AVAIL_DAY}-${AVAIL_DAY}-${AVAIL_DAY}-${AVAIL_DAY}-${AVAIL_DAY}-CJ${'0'.repeat(34)}"`);
+    R('0');
+    R('0,0,0,0,"                                 ","同時展開            同時展開            同時展開            "');
+    R('0');
+
+    // ── JUGYO ──
+    // 教科→IDマップ
+    const subjIdMap = {};
+    subjEntries.forEach(([key], i) => { subjIdMap[key] = i + 1; });
+    // アイテムをJUGYO化（1アイテム=1コマ → 同一クラス+教科の繰り返し）
+    // まず (class, subjKey) でグループ化してcount計算
+    const jugyoMap = {};  // cls|subjKey -> {classId, lessonId, name, count}
+    classList.forEach((cls, ci) => {
+      const cid = ci + 1;
+      for (const it of Object.values(state.items)) {
+        if (!(it.cls || []).includes(cls)) continue;
+        const key = `${cls}|${it.subjKey || it.subj}`;
+        if (!jugyoMap[key]) {
+          jugyoMap[key] = { classId: cid, lessonId: subjIdMap[it.subjKey || it.subj] || 0, name: it.subj, count: 0, cls };
+        }
+        jugyoMap[key].count++;
+      }
+    });
+    const jugyoList = Object.values(jugyoMap);
+    R(`"JUGYO:",${jugyoList.length}`);
+    R('0,"","",""');
+    R(`0,"${AVAIL_DAY}-${AVAIL_DAY}-${AVAIL_DAY}-${AVAIL_DAY}-${AVAIL_DAY}-CJ${'0'.repeat(34)}"`);
+    R('0,0,0,0,"                                 "');
+    R('0');
+    jugyoList.forEach((j, i) => {
+      const id = i + 1;
+      const clsIdx = classList.indexOf(j.cls);
+      R(`${id},"${j.name}","${j.name}","${j.name}"`);
+      R(`0,"${AVAIL_DAY}-${AVAIL_DAY}-${AVAIL_DAY}-${AVAIL_DAY}-${AVAIL_DAY}-CJ${'0'.repeat(34)}"`);
+      R(`${clsIdx + 1},${j.lessonId || 0},${clsIdx + 1},0,"${'○'.repeat(Math.min(j.count, 8))}${'　'.repeat(Math.max(0, 8 - j.count))}                       "`);
+      R(String(j.count));
+      for (let p = 1; p <= j.count; p++) {
+        R(`0,0,10,${p},${p}`);
+      }
+    });
+
+    // ── J-CLASS / J-Room / J-Lesson / J-Teach (全ゼロ) ──
+    const zeroEntry = () => { R('0'); R('0,0,0,0'); R('0,0,0,0,0,0'); };
+    const slots = numDays * numPeriods;
+
+    R(`"J-CLASS:",${classList.length}`);
+    for (let c = 0; c <= classList.length; c++) for (let s = 0; s < slots; s++) zeroEntry();
+
+    R(`"J-Room:",${classList.length}`);
+    for (let c = 0; c <= classList.length; c++) for (let s = 0; s < slots; s++) zeroEntry();
+
+    R(`"J-Lesson:",${subjEntries.length}`);
+    for (let c = 0; c <= subjEntries.length; c++) for (let s = 0; s < slots; s++) zeroEntry();
+
+    R(`"J-Teach:",${teachEntries.length}`);
+    for (let c = 0; c <= teachEntries.length; c++) for (let s = 0; s < slots; s++) zeroEntry();
+
+    // ── Shift-JIS エンコード & ダウンロード ──
+    const content = lines.join('\r\n');
+    let bytes;
+    if (typeof Encoding !== 'undefined') {
+      bytes = Encoding.convert(content, { to: 'SJIS', from: 'UNICODE', type: 'array' });
+    } else {
+      // フォールバック: UTF-8
+      bytes = Array.from(new TextEncoder().encode(content));
+    }
+    const blob = new Blob([new Uint8Array(bytes)], { type: 'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
+    const ts2 = now2.toISOString().slice(0, 10);
+    const safeName = (schoolName || '時間割').replace(/[\\/:*?"<>|]/g, '_').slice(0, 30);
+    const a = document.createElement('a');
+    a.href = url; a.download = `${safeName}_${ts2}.ide`;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    flash(`📤 「${safeName}_${ts2}.ide」をイデア形式で出力しました`);
+  }
+
   function exportProjectFile() {
     const now2 = new Date();
     const ts = now2.toISOString().replace(/[:.]/g, '-').slice(0, 19);
@@ -14237,6 +14439,7 @@ function buildIndex(){
     $('#btn-set-manager')?.addEventListener('click', () => openSetManager());
     $('#btn-project-save')?.addEventListener('click', () => exportProjectFile());
     $('#btn-project-load')?.addEventListener('click', () => $('#project-load-file')?.click());
+    $('#btn-idea-export')?.addEventListener('click', () => exportIdeaFile());
     $('#project-load-file')?.addEventListener('change', async (ev) => {
       const f = ev.target.files?.[0]; if (!f) return;
       await importProjectFile(f);
