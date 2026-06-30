@@ -1344,6 +1344,7 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
           if (parsed.periodsByDay) Object.assign(state.settings.periodsByDay, parsed.periodsByDay);
           // 教室マスタ（classmatch に roomCfg があれば格納）
           if (parsed.roomCfg && state.roomCfg !== undefined) state.roomCfg = parsed.roomCfg;
+          invalidateIndex();
           markDirty('ideaImport');
           rerenderAll();
           saveNow();
