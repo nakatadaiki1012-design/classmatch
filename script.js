@@ -682,9 +682,240 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
     flash(`💾 「${filename}」を保存しました`);
   }
 
-  async function importProjectFile(file) {
+  /* イデアのAI時間割 ネイティブ .ide ファイル（Shift-JIS CSV形式）をパースして
+     classmatch の state に変換するユーティリティ関数群 */
+  function _parseIdeaNativeIde(buffer) {
+    // Shift-JIS デコード
     let text;
-    try { text = await file.text(); } catch (e) { showModal('読込失敗', 'ファイルを読めませんでした: ' + e.message); return; }
+    try {
+      text = new TextDecoder('shift-jis').decode(buffer);
+    } catch (e) {
+      text = new TextDecoder('shift_jis').decode(buffer);
+    }
+    const lines = text.split(/\r?\n/);
+
+    // CSV フィールドパーサ（引用符対応）
+    function parseLine(s) {
+      const fields = [];
+      let i = 0;
+      while (i < s.length) {
+        if (s[i] === '"') {
+          let end = s.indexOf('"', i + 1);
+          if (end === -1) end = s.length;
+          fields.push(s.slice(i + 1, end));
+          i = end + 1;
+          if (s[i] === ',') i++;
+        } else {
+          const comma = s.indexOf(',', i);
+          if (comma === -1) { fields.push(s.slice(i)); break; }
+          fields.push(s.slice(i, comma));
+          i = comma + 1;
+        }
+      }
+      return fields;
+    }
+
+    // セクション先頭行を検索 → { sectionName: lineIndex }
+    const sectionIdx = {};
+    for (let i = 0; i < lines.length; i++) {
+      const m = lines[i].match(/^"([A-Z\-]+):"/);
+      if (m) sectionIdx[m[1]] = i;
+    }
+
+    // ── HEAD パース (学校名・曜日数・時限数) ──
+    let schoolName = '', numDays = 5, numPeriods = 6;
+    if (sectionIdx['HEAD'] != null) {
+      const hi = sectionIdx['HEAD'];
+      const row2 = parseLine(lines[hi + 2] || '');   // 曜日リスト
+      const row3 = parseLine(lines[hi + 3] || '');   // 時限リスト
+      // row2: numDays, "月曜日", ...
+      numDays = parseInt(row2[0]) || 5;
+      numPeriods = parseInt(row3[0]) || 6;
+      const row1 = parseLine(lines[hi + 1] || '');
+      schoolName = row1[6] || '';
+    }
+    const DAY_KEYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].slice(0, numDays);
+    const periodsByDay = {};
+    DAY_KEYS.forEach(d => { periodsByDay[d] = numPeriods; });
+
+    // ── CLASS パース ──
+    const classes = {};  // id -> { short, full }
+    if (sectionIdx['CLASS'] != null) {
+      const ci = sectionIdx['CLASS'];
+      const count = parseInt(parseLine(lines[ci])[1]) || 0;
+      let idx = ci + 1;
+      for (let c = 0; c <= count; c++) {
+        if (idx >= lines.length) break;
+        const f1 = parseLine(lines[idx]);
+        const id = parseInt(f1[0]);
+        const short = (f1[1] || '').replace(/[　\s]/g, '').replace(/[１２３４５６７８９０]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0)).replace(/[−ー]/g, '-');
+        const full = (f1[2] || '').replace(/[　\s]/g, '');
+        classes[id] = { short, full };
+        idx += 3;
+      }
+    }
+
+    // ── LESSON パース (教科) ──
+    const lessons = {};  // id -> { name, dept }
+    if (sectionIdx['LESSON'] != null) {
+      const li = sectionIdx['LESSON'];
+      const count = parseInt(parseLine(lines[li])[1]) || 0;
+      let idx = li + 1;
+      for (let c = 0; c <= count; c++) {
+        if (idx >= lines.length) break;
+        const f1 = parseLine(lines[idx]);
+        const f2 = parseLine(lines[idx + 1] || '');
+        const id = parseInt(f1[0]);
+        const name = f1[1] || '';
+        const abbr = f1[3] || f1[2] || name;
+        // dept は行2 の4列目（index=3）
+        const dept = (f2[3] || '').replace(/科$/, '');
+        lessons[id] = { name, abbr, dept };
+        idx += 3;
+      }
+    }
+
+    // ── TEACH パース (教員) ──
+    const teachers = {};  // id -> { name, abbr, dept, homeroom }
+    if (sectionIdx['TEACH'] != null) {
+      const ti = sectionIdx['TEACH'];
+      const count = parseInt(parseLine(lines[ti])[1]) || 0;
+      let idx = ti + 1;
+      for (let c = 0; c <= count; c++) {
+        if (idx >= lines.length) break;
+        const f1 = parseLine(lines[idx]);
+        const f2 = parseLine(lines[idx + 1] || '');
+        const id = parseInt(f1[0]);
+        const name = f1[1] || '';
+        const abbr = f1[2] || name;
+        const dept = (f2[3] || '').replace(/科$/, '');
+        const homeroom = (f2[4] || '').replace(/[　\s]/g, '').replace(/[１２３４５６７８９０]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0)).replace(/[−ー]/g, '-');
+        teachers[id] = { name, abbr, dept, homeroom };
+        idx += 3;
+      }
+    }
+
+    // ── JUGYO パース (授業単位) → classmatch items ──
+    // 各 JUGYO: 授業名, クラスID, 教科ID(LESSONの), 週コマ数
+    const items = {};
+    const rawRows = [];
+    let itemIdCounter = 0;
+
+    if (sectionIdx['JUGYO'] != null) {
+      const ji = sectionIdx['JUGYO'];
+      const count = parseInt(parseLine(lines[ji])[1]) || 0;
+      let idx = ji + 1;
+      for (let c = 0; c <= count; c++) {
+        if (idx >= lines.length) break;
+        const f1 = parseLine(lines[idx]);
+        const f2 = parseLine(lines[idx + 1] || '');
+        const f3 = parseLine(lines[idx + 2] || '');
+        const jid = parseInt(f1[0]);
+        const jname = f1[1] || '';
+        const classId = parseInt(f3[0]) || 0;
+        const lessonId = parseInt(f3[1]) || 0;
+        const l4 = lines[idx + 3] || '';
+        const periods = parseInt(l4.trim()) || 1;
+
+        if (jid > 0 && classId > 0) {
+          const cls = classes[classId];
+          const lesson = lessons[lessonId] || { name: jname, abbr: jname, dept: '' };
+          const clsName = cls ? (cls.full || cls.short) : String(classId);
+          const subjKey = lesson.name.replace(/\s/g, '_').slice(0, 20);
+
+          // 教員は JUGYO には格納されていないため未割当
+          for (let p = 0; p < periods; p++) {
+            const id = String(itemIdCounter++);
+            items[id] = {
+              id,
+              subj: lesson.abbr || lesson.name,
+              subjKey,
+              cls: [clsName],
+              teas: [],
+              rooms: [],
+              span: 1,
+            };
+          }
+
+          // rawRows (画面上のリスト表示用)
+          rawRows.push({
+            subj: lesson.abbr || lesson.name,
+            subjKey,
+            cls: [clsName],
+            teas: [],
+            rooms: [],
+            span: 1,
+            count: periods,
+          });
+        }
+        idx += 4 + periods;
+      }
+    }
+
+    // ── subjectCfg 構築 ──
+    const subjectCfg = {};
+    for (const lesson of Object.values(lessons)) {
+      if (!lesson.name) continue;
+      const key = lesson.name.replace(/\s/g, '_').slice(0, 20);
+      if (!subjectCfg[key]) {
+        subjectCfg[key] = { abbr: lesson.abbr || lesson.name, dept: lesson.dept || '' };
+      }
+    }
+
+    // ── teacherCfg 構築 ──
+    const teacherCfg = {};
+    for (const t of Object.values(teachers)) {
+      if (!t.name) continue;
+      teacherCfg[t.name] = { abbr: t.abbr || t.name, dept: t.dept || '' };
+    }
+
+    return { schoolName, periodsByDay, subjectCfg, teacherCfg, items, rawRows };
+  }
+
+  async function importProjectFile(file) {
+    let buffer;
+    try { buffer = await file.arrayBuffer(); } catch (e) { showModal('読込失敗', 'ファイルを読めませんでした: ' + e.message); return; }
+
+    // イデアのAI時間割 ネイティブ形式の検出（Shift-JIS, "HEAD:", が先頭付近に出現）
+    const head8 = new Uint8Array(buffer.slice(0, 100));
+    const headAscii = String.fromCharCode(...head8).replace(/\0/g, '');
+    const isIdeaNative = headAscii.includes('"HEAD:"');
+
+    if (isIdeaNative) {
+      let parsed;
+      try { parsed = _parseIdeaNativeIde(buffer); } catch (e) {
+        showModal('読込失敗', 'イデアファイルの解析に失敗しました: ' + e.message); return;
+      }
+      const clsCount = Object.values(parsed.items).length;
+      const teaCount = Object.keys(parsed.teacherCfg).length;
+      const subCount = Object.keys(parsed.subjectCfg).length;
+      showModal(
+        'イデアファイル読込',
+        `イデアのAI時間割ファイル「${file.name}」を読み込みます。\n\n` +
+        `  教員: ${teaCount}名　教科: ${subCount}科目　授業コマ: ${clsCount}コマ\n` +
+        `  ※ 教員と授業の対応はイデアファイルに含まれないため、配置後に手動で設定してください。\n\n` +
+        `現在の作業内容はすべて上書きされます。`,
+        () => {
+          pushHistory('ideaImport');
+          state.rawRows = parsed.rawRows;
+          state.subjectCfg = parsed.subjectCfg;
+          state.teacherCfg = parsed.teacherCfg;
+          state.items = parsed.items;
+          state.placements = {};
+          state.snapshots = [];
+          if (parsed.periodsByDay) Object.assign(state.settings.periodsByDay, parsed.periodsByDay);
+          markDirty('ideaImport');
+          rerenderAll();
+          saveNow();
+          flash(`📂 イデアファイルを読み込みました（授業: ${clsCount}コマ, 教員: ${teaCount}名）`);
+        }
+      );
+      return;
+    }
+
+    // JSON 形式（classmatch 独自形式）
+    let text;
+    try { text = new TextDecoder('utf-8').decode(buffer); } catch (e) { showModal('読込失敗', 'ファイルを読めませんでした: ' + e.message); return; }
 
     let data;
     try { data = JSON.parse(text); } catch (e) { showModal('読込失敗', 'JSONの解析に失敗しました: ' + e.message); return; }
@@ -693,7 +924,7 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
     if (data.format !== PROJECT_FORMAT && data.format !== 'classmatch-project') {
       // 旧形式（.classmatch / スナップショットのみJSONなど）も許容
       if (!Array.isArray(data) && !data.rawRows) {
-        showModal('形式エラー', 'このファイルはイデアプロジェクトファイル（.ide）ではありません。');
+        showModal('形式エラー', 'このファイルはサポートされていない形式です。classmatch (.ide JSON) またはイデアのAI時間割 (.ide) ファイルを選択してください。');
         return;
       }
     }
