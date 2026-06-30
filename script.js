@@ -1016,6 +1016,36 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       }
     }
 
+    // ── J-CLASS パース (クラス×時限→JUGYO配置) ──
+    // jugyo_id → [{day, period}] の配置リスト
+    const jugyoPlacements = {};
+    if (sectionIdx['J-CLASS'] != null) {
+      const jci = sectionIdx['J-CLASS'];
+      const classCount = parseInt(parseLine(lines[jci])[1]) || 0;
+      let idx = jci + 1;
+      for (let ci = 0; ci < classCount; ci++) {
+        for (let day = 0; day < numDays; day++) {
+          for (let period = 0; period < numPeriods; period++) {
+            if (idx >= lines.length) break;
+            const slotCount = parseInt((lines[idx] || '').trim().split(',')[0]) || 0;
+            if (slotCount === 0) {
+              idx += 3;
+            } else {
+              const entryCount = parseInt((lines[idx + 1] || '').split(',')[0]) || 0;
+              for (let e = 0; e < entryCount; e++) {
+                const jugyoId = parseInt((lines[idx + 2 + e] || '').split(',')[0]) || 0;
+                if (jugyoId > 0) {
+                  if (!jugyoPlacements[jugyoId]) jugyoPlacements[jugyoId] = [];
+                  jugyoPlacements[jugyoId].push({ day: DAY_KEYS[day], period: period + 1 });
+                }
+              }
+              idx += 2 + entryCount + 1;
+            }
+          }
+        }
+      }
+    }
+
     // ── J-Teach パース (教員→JUGYO割当) ──
     // jugyo_id → 担当教員名リスト（J-Teach セクションが存在する場合のみ）
     const jugyoToTeachers = {};
@@ -1061,6 +1091,8 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
     const items = {};
     const rawRows = [];
     let itemIdCounter = 0;
+    // jugyo_id → [item_id, ...] (配置対応用)
+    const jugyoItemIds = {};
 
     for (const [jidStr, meta] of Object.entries(jugyoMeta)) {
       const jid = parseInt(jidStr);
@@ -1070,7 +1102,6 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       const cls = classes[classId];
       const lesson = lessons[lessonId] || { name: jname, abbr: jname, dept: '' };
       const clsName = cls ? (cls.full || cls.short) : String(classId);
-      // rawRows / items ともにフルネームを subj として使う（subjKey もフルネーム）
       const subjName = lesson.name || jname;
       const subjAbbr = lesson.abbr || subjName;
       const dept = lesson.dept || '';
@@ -1078,8 +1109,10 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       const tea = teacherNames.join(',');
       const teaAbbr = teacherNames.map(n => teacherAbbrByName[n] || n).join(',');
 
+      jugyoItemIds[jid] = [];
       for (let p = 0; p < weeklyCount; p++) {
         const id = String(itemIdCounter++);
+        jugyoItemIds[jid].push(id);
         items[id] = {
           id,
           subj: subjName,
@@ -1119,7 +1152,24 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       teacherCfg[t.name] = { abbr: t.abbr || t.name, dept: t.dept || '' };
     }
 
-    return { schoolName, periodsByDay, subjectCfg, teacherCfg, items, rawRows };
+    // ── placements 構築 (J-CLASS の配置データがある場合) ──
+    const placements = {};
+    let placedCount = 0;
+    for (const [jidStr, slots] of Object.entries(jugyoPlacements)) {
+      const jid = parseInt(jidStr);
+      const itemIds = jugyoItemIds[jid];
+      if (!itemIds) continue;
+      // 配置スロットを曜日・時限順にソートしてitem IDと順序対応
+      const sorted = [...slots].sort((a, b) =>
+        DAY_KEYS.indexOf(a.day) - DAY_KEYS.indexOf(b.day) || a.period - b.period
+      );
+      for (let i = 0; i < Math.min(sorted.length, itemIds.length); i++) {
+        placements[itemIds[i]] = { day: sorted[i].day, period: sorted[i].period, locked: false };
+        placedCount++;
+      }
+    }
+
+    return { schoolName, periodsByDay, subjectCfg, teacherCfg, items, rawRows, placements, placedCount };
   }
 
   async function importProjectFile(file) {
@@ -1140,14 +1190,19 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       const teaCount = Object.keys(parsed.teacherCfg).length;
       const subCount = Object.keys(parsed.subjectCfg).length;
       const hasTeacherAssign = Object.values(parsed.items).some(it => it.teas && it.teas.length > 0);
+      const placedCount = parsed.placedCount || 0;
       const teaNote = hasTeacherAssign
         ? `  ✓ J-Teachセクションから教員割当を読み込みました。`
         : `  ※ このファイルに教員割当データがないため、教員は未設定です。`;
+      const placeNote = placedCount > 0
+        ? `  ✓ J-CLASSセクションから時間割配置（${placedCount}コマ）を読み込みました。`
+        : `  ※ このファイルに配置データがないため、配置は空になります。`;
       showModal(
         'イデアファイル読込',
         `イデアのAI時間割ファイル「${file.name}」を読み込みます。\n\n` +
         `  教員: ${teaCount}名　教科: ${subCount}科目　授業コマ: ${clsCount}コマ\n` +
-        `${teaNote}\n\n` +
+        `${teaNote}\n` +
+        `${placeNote}\n\n` +
         `現在の作業内容はすべて上書きされます。`,
         () => {
           pushHistory('ideaImport');
@@ -1155,13 +1210,14 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
           state.subjectCfg = parsed.subjectCfg;
           state.teacherCfg = parsed.teacherCfg;
           state.items = parsed.items;
-          state.placements = {};
+          state.placements = parsed.placements || {};
           state.snapshots = [];
           if (parsed.periodsByDay) Object.assign(state.settings.periodsByDay, parsed.periodsByDay);
           markDirty('ideaImport');
           rerenderAll();
           saveNow();
-          flash(`📂 イデアファイルを読み込みました（授業: ${clsCount}コマ, 教員: ${teaCount}名）`);
+          const placeMsg = placedCount > 0 ? `、配置: ${placedCount}コマ` : '';
+          flash(`📂 イデアファイルを読み込みました（授業: ${clsCount}コマ, 教員: ${teaCount}名${placeMsg}）`);
         }
       );
       return;
