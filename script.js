@@ -920,7 +920,7 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
     // セクション先頭行を検索 → { sectionName: lineIndex }
     const sectionIdx = {};
     for (let i = 0; i < lines.length; i++) {
-      const m = lines[i].match(/^"([A-Z\-]+):"/);
+      const m = lines[i].match(/^"([A-Za-z\-]+):"/);
       if (m) sectionIdx[m[1]] = i;
     }
 
@@ -997,12 +997,8 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       }
     }
 
-    // ── JUGYO パース (授業単位) → classmatch items ──
-    // 各 JUGYO: 授業名, クラスID, 教科ID(LESSONの), 週コマ数
-    const items = {};
-    const rawRows = [];
-    let itemIdCounter = 0;
-
+    // ── JUGYO パース (授業単位) ── jugyo_id → {classId, lessonId, weeklyCount}
+    const jugyoMeta = {};  // jid -> { classId, lessonId, weeklyCount }
     if (sectionIdx['JUGYO'] != null) {
       const ji = sectionIdx['JUGYO'];
       const count = parseInt(parseLine(lines[ji])[1]) || 0;
@@ -1010,48 +1006,89 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       for (let c = 0; c <= count; c++) {
         if (idx >= lines.length) break;
         const f1 = parseLine(lines[idx]);
-        const f2 = parseLine(lines[idx + 1] || '');
         const f3 = parseLine(lines[idx + 2] || '');
         const jid = parseInt(f1[0]);
-        const jname = f1[1] || '';
         const classId = parseInt(f3[0]) || 0;
         const lessonId = parseInt(f3[1]) || 0;
-        const l4 = lines[idx + 3] || '';
-        const periods = parseInt(l4.trim()) || 1;
-
-        if (jid > 0 && classId > 0) {
-          const cls = classes[classId];
-          const lesson = lessons[lessonId] || { name: jname, abbr: jname, dept: '' };
-          const clsName = cls ? (cls.full || cls.short) : String(classId);
-          const subjKey = lesson.name.replace(/\s/g, '_').slice(0, 20);
-
-          // 教員は JUGYO には格納されていないため未割当
-          for (let p = 0; p < periods; p++) {
-            const id = String(itemIdCounter++);
-            items[id] = {
-              id,
-              subj: lesson.abbr || lesson.name,
-              subjKey,
-              cls: [clsName],
-              teas: [],
-              rooms: [],
-              span: 1,
-            };
-          }
-
-          // rawRows (画面上のリスト表示用)
-          rawRows.push({
-            subj: lesson.abbr || lesson.name,
-            subjKey,
-            cls: [clsName],
-            teas: [],
-            rooms: [],
-            span: 1,
-            count: periods,
-          });
-        }
-        idx += 4 + periods;
+        const weeklyCount = parseInt((lines[idx + 3] || '').trim()) || 0;
+        jugyoMeta[jid] = { classId, lessonId, weeklyCount, name: f1[1] || '' };
+        idx += weeklyCount > 0 ? 5 : 4;
       }
+    }
+
+    // ── J-Teach パース (教員→JUGYO割当) ──
+    // jugyo_id → 担当教員名リスト（J-Teach セクションが存在する場合のみ）
+    const jugyoToTeachers = {};
+    if (sectionIdx['J-Teach'] != null) {
+      const jti = sectionIdx['J-Teach'];
+      const teachCount = parseInt(parseLine(lines[jti])[1]) || 0;
+      let idx = jti + 1;
+      for (let t = 0; t < teachCount; t++) {
+        const teachId = t + 1;
+        const teacher = teachers[teachId];
+        const teacherName = teacher ? teacher.name : null;
+        for (let day = 0; day < numDays; day++) {
+          for (let period = 0; period < numPeriods; period++) {
+            if (idx >= lines.length) break;
+            const slotCount = parseInt((lines[idx] || '').trim().split(',')[0]) || 0;
+            if (slotCount === 0) {
+              idx += 3;
+            } else {
+              const entryCount = parseInt((lines[idx + 1] || '').split(',')[0]) || 0;
+              for (let e = 0; e < entryCount; e++) {
+                const jugyoId = parseInt(((lines[idx + 2 + e] || '').split(',')[0])) || 0;
+                if (jugyoId > 0 && teacherName) {
+                  if (!jugyoToTeachers[jugyoId]) jugyoToTeachers[jugyoId] = [];
+                  if (!jugyoToTeachers[jugyoId].includes(teacherName)) {
+                    jugyoToTeachers[jugyoId].push(teacherName);
+                  }
+                }
+              }
+              idx += 2 + entryCount + 1;
+            }
+          }
+        }
+      }
+    }
+
+    // ── items / rawRows 構築 ──
+    const items = {};
+    const rawRows = [];
+    let itemIdCounter = 0;
+
+    for (const [jidStr, meta] of Object.entries(jugyoMeta)) {
+      const jid = parseInt(jidStr);
+      const { classId, lessonId, weeklyCount, name: jname } = meta;
+      if (jid === 0 || classId === 0 || weeklyCount === 0) continue;
+
+      const cls = classes[classId];
+      const lesson = lessons[lessonId] || { name: jname, abbr: jname, dept: '' };
+      const clsName = cls ? (cls.full || cls.short) : String(classId);
+      const subjKey = lesson.name.replace(/\s/g, '_').slice(0, 20);
+      const teas = jugyoToTeachers[jid] || [];
+
+      for (let p = 0; p < weeklyCount; p++) {
+        const id = String(itemIdCounter++);
+        items[id] = {
+          id,
+          subj: lesson.abbr || lesson.name,
+          subjKey,
+          cls: [clsName],
+          teas,
+          rooms: [],
+          span: 1,
+        };
+      }
+
+      rawRows.push({
+        subj: lesson.abbr || lesson.name,
+        subjKey,
+        cls: [clsName],
+        teas,
+        rooms: [],
+        span: 1,
+        count: weeklyCount,
+      });
     }
 
     // ── subjectCfg 構築 ──
@@ -1091,11 +1128,15 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       const clsCount = Object.values(parsed.items).length;
       const teaCount = Object.keys(parsed.teacherCfg).length;
       const subCount = Object.keys(parsed.subjectCfg).length;
+      const hasTeacherAssign = Object.values(parsed.items).some(it => it.teas && it.teas.length > 0);
+      const teaNote = hasTeacherAssign
+        ? `  ✓ J-Teachセクションから教員割当を読み込みました。`
+        : `  ※ このファイルに教員割当データがないため、教員は未設定です。`;
       showModal(
         'イデアファイル読込',
         `イデアのAI時間割ファイル「${file.name}」を読み込みます。\n\n` +
         `  教員: ${teaCount}名　教科: ${subCount}科目　授業コマ: ${clsCount}コマ\n` +
-        `  ※ 教員と授業の対応はイデアファイルに含まれないため、配置後に手動で設定してください。\n\n` +
+        `${teaNote}\n\n` +
         `現在の作業内容はすべて上書きされます。`,
         () => {
           pushHistory('ideaImport');
