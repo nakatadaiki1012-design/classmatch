@@ -924,21 +924,79 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       if (m) sectionIdx[m[1]] = i;
     }
 
-    // ── HEAD パース (学校名・曜日数・時限数) ──
+    // ── HEAD パース (学校名・曜日数・時限数・可用性) ──
     let schoolName = '', numDays = 5, numPeriods = 6;
+    let headDayBlocks = [];  // 曜日ごとの可用性ブロック（禁則計算に使用）
+
+    // 可用性文字列を探すヘルパー: "00..." / "01..." で始まる行を検索
+    function findAvailStr(startLine, maxLines) {
+      for (let i = startLine; i < startLine + maxLines && i < lines.length; i++) {
+        const m = lines[i].match(/"(0[01][0-9-]+CJ[^"]*|0[01][0-9-]+)"/);
+        if (m) return m[1];
+      }
+      return '';
+    }
+
     if (sectionIdx['HEAD'] != null) {
       const hi = sectionIdx['HEAD'];
-      const row2 = parseLine(lines[hi + 2] || '');   // 曜日リスト
-      const row3 = parseLine(lines[hi + 3] || '');   // 時限リスト
-      // row2: numDays, "月曜日", ...
-      numDays = parseInt(row2[0]) || 5;
-      numPeriods = parseInt(row3[0]) || 6;
       const row1 = parseLine(lines[hi + 1] || '');
       schoolName = row1[6] || '';
+
+      // 曜日リスト・時限リスト行を探す（特殊ファイルで余分な行がある場合に対応）
+      let daysRow = null, perRow = null;
+      for (let off = 2; off <= 5; off++) {
+        const r = parseLine(lines[hi + off] || '');
+        const n = parseInt(r[0]);
+        if (!isNaN(n) && n >= 1 && n <= 7 && r[1] && r[1].includes('曜') && !daysRow) {
+          daysRow = r; numDays = n;
+        } else if (!isNaN(n) && n >= 1 && n <= 10 && r[1] && !daysRow && !perRow) {
+          // 時限リストかも
+        }
+        if (!isNaN(n) && n >= 1 && n <= 10 && !daysRow && !perRow) {
+          // check next line
+        }
+      }
+      // より確実に: 数字で始まり２番目要素が曜日名 or 数字名の行を探す
+      for (let off = 2; off <= 6; off++) {
+        const raw = lines[hi + off] || '';
+        const r = parseLine(raw);
+        const n = parseInt(r[0]);
+        if (isNaN(n)) continue;
+        if (!daysRow && n >= 1 && n <= 7 && r.slice(1).some(s => s.includes('曜') || s.match(/^[月火水木金土日]/))) {
+          daysRow = r; numDays = n;
+        } else if (!perRow && n >= 1 && n <= 12 && daysRow && r.slice(1).some(s => s.match(/^[１２３４５６７８９０\d]/))) {
+          perRow = r; numPeriods = n;
+        }
+      }
+      if (!daysRow) numDays = 5;
+      if (!perRow) numPeriods = 6;
+
+      // HEAD 可用性文字列から曜日ごとの実時限数を取得
+      const headAvail = findAvailStr(hi + 1, 8);
+      if (headAvail) {
+        const mainPart = headAvail.includes('CJ') ? headAvail.split('CJ')[0].replace(/-$/, '') : headAvail;
+        headDayBlocks = mainPart.split('-').slice(0, numDays);
+        // 各ブロックで '01' ペアの数 = その曜日の実時限数
+        // ブロック先頭2文字は曜日ヘッダー, 以降2文字ずつが各時限
+        numPeriods = Math.max(numPeriods, headDayBlocks.reduce((mx, b) => {
+          let cnt = 0;
+          for (let p = 0; p < 12; p++) { if (b.slice(2 + p * 2, 4 + p * 2) === '01') cnt++; }
+          return Math.max(mx, cnt);
+        }, 0));
+      }
     }
+
     const DAY_KEYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].slice(0, numDays);
     const periodsByDay = {};
-    DAY_KEYS.forEach(d => { periodsByDay[d] = numPeriods; });
+    DAY_KEYS.forEach((d, di) => {
+      const block = headDayBlocks[di] || '';
+      // 可用性ブロックが取得できていれば実時限数を使用、なければ numPeriods
+      let cnt = 0;
+      for (let p = 0; p < numPeriods + 2; p++) {
+        if (block.slice(2 + p * 2, 4 + p * 2) === '01') cnt++;
+      }
+      periodsByDay[d] = cnt > 0 ? cnt : numPeriods;
+    });
 
     // ── CLASS パース ──
     const classes = {};  // id -> { short, full }
@@ -957,8 +1015,30 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       }
     }
 
+    // 可用性ブロックから禁則時限を取得するヘルパー
+    // availStr: "0001...CJ..." 形式, headBlocks: HEAD の曜日ブロック配列
+    // forbidden: HEAD が '01'（授業あり）なのに対象が '00' or '90' のコマ
+    function parseFixedForbid(availStr, headBlocks, forbidden_values) {
+      const forbid = {};
+      const mainPart = availStr.includes('CJ') ? availStr.split('CJ')[0].replace(/-$/, '') : availStr;
+      const dayBlocks = mainPart.split('-');
+      DAY_KEYS.forEach((dayKey, di) => {
+        const hb = headBlocks[di] || '';
+        const db = dayBlocks[di] || '';
+        const maxP = periodsByDay[dayKey] || numPeriods;
+        const badPeriods = [];
+        for (let p = 0; p < maxP; p++) {
+          const hp = hb.slice(2 + p * 2, 4 + p * 2);
+          const dp = db.slice(2 + p * 2, 4 + p * 2);
+          if (hp === '01' && forbidden_values.includes(dp)) badPeriods.push(p + 1);
+        }
+        if (badPeriods.length) forbid[dayKey] = badPeriods;
+      });
+      return forbid;
+    }
+
     // ── LESSON パース (教科) ──
-    const lessons = {};  // id -> { name, dept }
+    const lessons = {};  // id -> { name, dept, fixedForbid }
     if (sectionIdx['LESSON'] != null) {
       const li = sectionIdx['LESSON'];
       const count = parseInt(parseLine(lines[li])[1]) || 0;
@@ -970,15 +1050,20 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
         const id = parseInt(f1[0]);
         const name = f1[1] || '';
         const abbr = f1[3] || f1[2] || name;
-        // dept は行2 の4列目（index=3）
         const dept = (f2[3] || '').replace(/科$/, '');
-        lessons[id] = { name, abbr, dept };
+        // 可用性文字列から禁則取得 ('00' = 明示的禁則コマ)
+        const availLine = lines[idx + 2] || '';
+        const availMatch = availLine.match(/"([0-9][^"]+)"/);
+        const fixedForbid = availMatch && headDayBlocks.length
+          ? parseFixedForbid(availMatch[1], headDayBlocks, ['00'])
+          : {};
+        lessons[id] = { name, abbr, dept, fixedForbid };
         idx += 3;
       }
     }
 
     // ── TEACH パース (教員) ──
-    const teachers = {};  // id -> { name, abbr, dept, homeroom }
+    const teachers = {};  // id -> { name, abbr, dept, homeroom, unavailable }
     if (sectionIdx['TEACH'] != null) {
       const ti = sectionIdx['TEACH'];
       const count = parseInt(parseLine(lines[ti])[1]) || 0;
@@ -992,7 +1077,30 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
         const abbr = f1[2] || name;
         const dept = (f2[3] || '').replace(/科$/, '');
         const homeroom = (f2[4] || '').replace(/[　\s]/g, '').replace(/[１２３４５６７８９０]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0)).replace(/[−ー]/g, '-');
-        teachers[id] = { name, abbr, dept, homeroom };
+        // 可用性文字列から出勤不可コマを取得 ('90' = 非勤務)
+        const availLine = lines[idx + 2] || '';
+        const availMatch = availLine.match(/"([0-9][^"]+)"/);
+        const unavailable = availMatch && headDayBlocks.length
+          ? parseFixedForbid(availMatch[1], headDayBlocks, ['90', '09', '99'])
+          : {};
+        teachers[id] = { name, abbr, dept, homeroom, unavailable };
+        idx += 3;
+      }
+    }
+
+    // ── ROOM パース (教室) ──
+    const rooms = {};  // id -> { name, abbr }
+    if (sectionIdx['ROOM'] != null) {
+      const ri = sectionIdx['ROOM'];
+      const count = parseInt(parseLine(lines[ri])[1]) || 0;
+      let idx = ri + 1;
+      for (let c = 0; c <= count; c++) {
+        if (idx >= lines.length) break;
+        const f1 = parseLine(lines[idx]);
+        const id = parseInt(f1[0]);
+        const name = (f1[1] || '').replace(/[　\s]/g, '').replace(/[１２３４５６７８９０]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0)).replace(/[−ー]/g, '-');
+        const abbr = (f1[2] || name).replace(/[　\s]/g, '');
+        if (id > 0 && name) rooms[id] = { name, abbr };
         idx += 3;
       }
     }
@@ -1136,12 +1244,19 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       });
     }
 
-    // ── subjectCfg 構築（キー = フルネーム、r.subj と一致させる）──
+    // ── subjectCfg 構築（キー = フルネーム、fixedForbid を含む）──
     const subjectCfg = {};
     for (const lesson of Object.values(lessons)) {
       if (!lesson.name) continue;
       if (!subjectCfg[lesson.name]) {
-        subjectCfg[lesson.name] = { abbr: lesson.abbr || lesson.name, dept: lesson.dept || '' };
+        subjectCfg[lesson.name] = {
+          abbr: lesson.abbr || lesson.name,
+          dept: lesson.dept || '',
+          fixedForbid: lesson.fixedForbid || {},
+          noSameDay: false,
+          noConsec: false,
+          maxPerDay: null,
+        };
       }
     }
 
@@ -1149,7 +1264,20 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
     const teacherCfg = {};
     for (const t of Object.values(teachers)) {
       if (!t.name) continue;
-      teacherCfg[t.name] = { abbr: t.abbr || t.name, dept: t.dept || '' };
+      teacherCfg[t.name] = {
+        abbr: t.abbr || t.name,
+        dept: t.dept || '',
+        unavailable: t.unavailable || {},
+        maxDaily: null,
+        maxConsec: null,
+      };
+    }
+
+    // ── roomCfg 構築 (教室マスタ) ──
+    const roomCfg = {};
+    for (const r of Object.values(rooms)) {
+      if (!r.name) continue;
+      roomCfg[r.name] = { abbr: r.abbr || r.name };
     }
 
     // ── placements 構築 (J-CLASS の配置データがある場合) ──
@@ -1169,7 +1297,7 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       }
     }
 
-    return { schoolName, periodsByDay, subjectCfg, teacherCfg, items, rawRows, placements, placedCount };
+    return { schoolName, periodsByDay, subjectCfg, teacherCfg, roomCfg, items, rawRows, placements, placedCount };
   }
 
   async function importProjectFile(file) {
@@ -1212,7 +1340,10 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
           state.items = parsed.items;
           state.placements = parsed.placements || {};
           state.snapshots = [];
+          // 曜日ごとの時限数（可用性文字列から正確に取得）
           if (parsed.periodsByDay) Object.assign(state.settings.periodsByDay, parsed.periodsByDay);
+          // 教室マスタ（classmatch に roomCfg があれば格納）
+          if (parsed.roomCfg && state.roomCfg !== undefined) state.roomCfg = parsed.roomCfg;
           markDirty('ideaImport');
           rerenderAll();
           saveNow();
