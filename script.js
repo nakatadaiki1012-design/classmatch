@@ -1051,6 +1051,12 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       }
     }
 
+    // 教員名→略名 逆引きマップ
+    const teacherAbbrByName = {};
+    for (const t of Object.values(teachers)) {
+      if (t.name) teacherAbbrByName[t.name] = t.abbr || t.name;
+    }
+
     // ── items / rawRows 構築 ──
     const items = {};
     const rawRows = [];
@@ -1064,40 +1070,45 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       const cls = classes[classId];
       const lesson = lessons[lessonId] || { name: jname, abbr: jname, dept: '' };
       const clsName = cls ? (cls.full || cls.short) : String(classId);
-      const subjKey = lesson.name.replace(/\s/g, '_').slice(0, 20);
-      const teas = jugyoToTeachers[jid] || [];
+      // rawRows / items ともにフルネームを subj として使う（subjKey もフルネーム）
+      const subjName = lesson.name || jname;
+      const subjAbbr = lesson.abbr || subjName;
+      const dept = lesson.dept || '';
+      const teacherNames = jugyoToTeachers[jid] || [];
+      const tea = teacherNames.join(',');
+      const teaAbbr = teacherNames.map(n => teacherAbbrByName[n] || n).join(',');
 
       for (let p = 0; p < weeklyCount; p++) {
         const id = String(itemIdCounter++);
         items[id] = {
           id,
-          subj: lesson.abbr || lesson.name,
-          subjKey,
+          subj: subjName,
+          subjKey: subjName,
           cls: [clsName],
-          teas,
+          teas: teacherNames,
           rooms: [],
           span: 1,
         };
       }
 
       rawRows.push({
-        subj: lesson.abbr || lesson.name,
-        subjKey,
-        cls: [clsName],
-        teas,
-        rooms: [],
-        span: 1,
+        cls: clsName,
+        subj: subjName,
+        subjAbbr,
+        dept,
+        tea,
+        teaAbbr,
         count: weeklyCount,
+        span: 1,
       });
     }
 
-    // ── subjectCfg 構築 ──
+    // ── subjectCfg 構築（キー = フルネーム、r.subj と一致させる）──
     const subjectCfg = {};
     for (const lesson of Object.values(lessons)) {
       if (!lesson.name) continue;
-      const key = lesson.name.replace(/\s/g, '_').slice(0, 20);
-      if (!subjectCfg[key]) {
-        subjectCfg[key] = { abbr: lesson.abbr || lesson.name, dept: lesson.dept || '' };
+      if (!subjectCfg[lesson.name]) {
+        subjectCfg[lesson.name] = { abbr: lesson.abbr || lesson.name, dept: lesson.dept || '' };
       }
     }
 
