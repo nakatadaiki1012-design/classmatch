@@ -12220,7 +12220,9 @@ function buildIndex(){
     const fontSizes = [8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 20, 24];
     const baseIdx = 3; // default = 46px / 12px
     const cellH = cellSizes[clamp(baseIdx + cellStep, 0, cellSizes.length - 1)];
-    const fontSize = fontSizes[clamp(baseIdx + fontStep, 0, fontSizes.length - 1)];
+    const fontStepSize = fontSizes[clamp(baseIdx + fontStep, 0, fontSizes.length - 1)];
+    // 直接フォントサイズ指定があればそれを優先
+    const fontSize = (state.ui.printFontSizePx && state.ui.printFontSizePx > 0) ? state.ui.printFontSizePx : fontStepSize;
     const labels = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL', '4XL'];
     const stepToLabel = s => labels[clamp(s + 2, 0, labels.length - 1)];
     const cl = $('#print-cell-label'); if (cl) cl.textContent = stepToLabel(cellStep);
@@ -12286,6 +12288,7 @@ function buildIndex(){
       const keys = getAxisKeys(kind);
       const matrixCellH = Math.max(24, Math.round(cellH * 0.7));
       area.innerHTML = buildMatrixHTML(kind, keys, idx, maxP, opt, layout, matrixCellH, fontSize);
+      initPrintResize();
       return;
     }
 
@@ -12302,6 +12305,7 @@ function buildIndex(){
         </div>`;
       }
       area.innerHTML = html2 || '<div class="card">データなし</div>';
+      initPrintResize();
       return;
     }
 
@@ -12334,6 +12338,121 @@ function buildIndex(){
     // print-cols イベント登録（初回のみ）
     const printColsSel = $('#print-cols');
     if (printColsSel && !printColsSel._bound) { printColsSel._bound = true; printColsSel.onchange = renderPrint; }
+    initPrintResize();
+  }
+
+  /* ── ドラッグによる列幅・行高さ変更 ── */
+  function initPrintResize() {
+    const area = document.getElementById('print-area');
+    if (!area) return;
+    state.ui.printColWidths ||= {};
+    state.ui.printRowHeights ||= {};
+
+    const tables = Array.from(area.querySelectorAll('table.t2'));
+    if (!tables.length) return;
+
+    tables.forEach(table => {
+      const cols = Array.from(table.querySelectorAll('col'));
+
+      // 保存済み列幅を適用
+      let hasColOverride = false;
+      cols.forEach((col, ci) => {
+        if (state.ui.printColWidths[ci] != null) {
+          col.style.width = state.ui.printColWidths[ci] + 'px';
+          hasColOverride = true;
+        }
+      });
+      if (hasColOverride) { table.style.tableLayout = 'fixed'; table.style.width = 'auto'; }
+
+      // 保存済み行高さを適用
+      const bodyRows = Array.from(table.querySelectorAll('tbody tr'));
+      bodyRows.forEach((tr, ri) => {
+        if (state.ui.printRowHeights[ri] != null) {
+          const h = state.ui.printRowHeights[ri];
+          tr.querySelectorAll('td,th').forEach(cell => { cell.style.height = h + 'px'; });
+        }
+      });
+
+      if (table._prResizeInit) return;
+      table._prResizeInit = true;
+
+      // ── 列幅リサイズハンドル（ヘッダ th の右端） ──
+      const headThs = Array.from(table.querySelectorAll('thead tr:first-child th'));
+      headThs.forEach((th, ci) => {
+        th.style.position = 'relative';
+        const h = document.createElement('div');
+        h.className = 'pr-col-handle';
+        th.appendChild(h);
+
+        h.addEventListener('mousedown', e => {
+          e.preventDefault(); e.stopPropagation();
+          const col = cols[ci];
+          const startX = e.clientX;
+          const startW = col ? (col.offsetWidth || th.offsetWidth) : th.offsetWidth;
+          tables.forEach(t => { t.style.tableLayout = 'fixed'; t.style.width = 'auto'; });
+
+          const onMove = e => {
+            const newW = Math.max(24, startW + (e.clientX - startX));
+            state.ui.printColWidths[ci] = newW;
+            tables.forEach(t => {
+              const c = t.querySelectorAll('col')[ci];
+              if (c) c.style.width = newW + 'px';
+            });
+          };
+          const onUp = () => { markDirty('ui'); window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+          window.addEventListener('mousemove', onMove);
+          window.addEventListener('mouseup', onUp);
+        });
+      });
+
+      // ── 行高さリサイズハンドル（tbody 行の th 下端） ──
+      bodyRows.forEach((tr, ri) => {
+        const th = tr.querySelector('th');
+        if (!th) return;
+        th.style.position = 'relative';
+        const h = document.createElement('div');
+        h.className = 'pr-row-handle';
+        th.appendChild(h);
+
+        h.addEventListener('mousedown', e => {
+          e.preventDefault(); e.stopPropagation();
+          const startY = e.clientY;
+          const startH = tr.offsetHeight;
+
+          const onMove = e => {
+            const newH = Math.max(16, startH + (e.clientY - startY));
+            state.ui.printRowHeights[ri] = newH;
+            tables.forEach(t => {
+              const rows = t.querySelectorAll('tbody tr');
+              const targetTr = rows[ri];
+              if (targetTr) targetTr.querySelectorAll('td,th').forEach(cell => { cell.style.height = newH + 'px'; });
+            });
+          };
+          const onUp = () => { markDirty('ui'); window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+          window.addEventListener('mousemove', onMove);
+          window.addEventListener('mouseup', onUp);
+        });
+      });
+    });
+
+    // 直接フォントサイズ入力の表示を同期
+    const fsInput = document.getElementById('print-font-size-px');
+    if (fsInput && !fsInput._focused) {
+      const fontSizes = [8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 20, 24];
+      const baseIdx = 3;
+      const fontStep = clamp(Number(state.ui.printFontStep || 0), -4, 8);
+      const currentFs = state.ui.printFontSizePx || fontSizes[clamp(baseIdx + fontStep, 0, fontSizes.length - 1)];
+      fsInput.value = currentFs;
+    }
+  }
+
+  function resetPrintResize() {
+    state.ui.printColWidths = {};
+    state.ui.printRowHeights = {};
+    state.ui.printFontSizePx = null;
+    markDirty('ui');
+    renderPrint();
+    flash('サイズをリセットしました');
   }
   function printTableHTML(kind, key, idx, maxP, opt, layout, cellH = 46, fontSize = 12, printCols = 1, colW = 0) {
     const align = state.ui.printAlign || 'center';
@@ -15333,6 +15452,21 @@ function buildIndex(){
     $('#btn-export-teacher-sheets-xlsx')?.addEventListener('click', () => exportTeacherSheetsXLSX());
     $('#print-page-orient')?.addEventListener('change', renderPrint);
     $('#print-type').onchange = renderPrint;
+    // サイズリセット
+    $('#btn-print-reset-size')?.addEventListener('click', () => resetPrintResize());
+    // 直接フォントサイズ入力
+    const fsPxEl = $('#print-font-size-px');
+    if (fsPxEl) {
+      fsPxEl.addEventListener('focus', () => { fsPxEl._focused = true; });
+      fsPxEl.addEventListener('blur', () => { fsPxEl._focused = false; });
+      fsPxEl.addEventListener('change', () => {
+        const v = parseInt(fsPxEl.value, 10);
+        if (v > 0) { state.ui.printFontSizePx = v; markDirty('ui'); renderPrint(); }
+      });
+      fsPxEl.addEventListener('keydown', e => {
+        if (e.key === 'Enter') { fsPxEl.blur(); }
+      });
+    }
 
     // keyboard
     window.addEventListener('keydown', (ev) => {

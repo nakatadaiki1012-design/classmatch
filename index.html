@@ -728,11 +728,14 @@
         <button id="btn-print-font-down" class="btn secondary" style="padding:2px 8px">-</button>
         <span id="print-font-label" class="muted small">M</span>
         <button id="btn-print-font-up" class="btn secondary" style="padding:2px 8px">+</button>
+        <input id="print-font-size-px" type="number" min="6" max="48" step="1" title="文字サイズ（px直接入力）" style="width:46px;padding:1px 4px;border:1px solid #cbd5e1;border-radius:4px;text-align:right">
+        <span class="muted small" style="margin-left:-4px">px</span>
         <span class="muted small">列幅</span>
         <button id="btn-print-col-down" class="btn secondary" style="padding:2px 8px">-</button>
         <span id="print-col-label" class="muted small">M</span>
         <button id="btn-print-col-up" class="btn secondary" style="padding:2px 8px">+</button>
         <button id="btn-print-auto-fit" class="btn secondary" title="A4縦1枚に収まるよう自動調整">📐 自動フィット</button>
+        <button id="btn-print-reset-size" class="btn secondary" title="列幅・行高さ・フォントサイズのドラッグ変更をリセット">↺ サイズリセット</button>
         <span class="muted small">揃え</span>
         <select id="print-align" class="sel mini">
           <option value="left">左</option>
