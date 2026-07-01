@@ -734,8 +734,17 @@
         <button id="btn-print-col-down" class="btn secondary" style="padding:2px 8px">-</button>
         <span id="print-col-label" class="muted small">M</span>
         <button id="btn-print-col-up" class="btn secondary" style="padding:2px 8px">+</button>
-        <button id="btn-print-auto-fit" class="btn secondary" title="A4縦1枚に収まるよう自動調整">📐 自動フィット</button>
-        <button id="btn-print-reset-size" class="btn secondary" title="列幅・行高さ・フォントサイズのドラッグ変更をリセット">↺ サイズリセット</button>
+        <button id="btn-print-auto-fit" class="btn secondary" title="A4縦1枚に収まるよう自動調整（ステップ式）">📐 自動フィット</button>
+        <button id="btn-fit-a4-portrait" class="btn secondary" title="A4縦1枚にぴったり収まるよう列幅・行高さ・文字を自動設定">📐 A4縦フィット</button>
+        <button id="btn-equalize-cols" class="btn secondary" title="全曜日列を同じ幅に揃える">⇔ 列幅揃え</button>
+        <button id="btn-equalize-rows" class="btn secondary" title="全時限行を同じ高さに揃える">⇕ 行高揃え</button>
+        <button id="btn-print-reset-size" class="btn secondary" title="列幅・行高さ・フォントサイズのドラッグ変更をリセット">↺ リセット</button>
+        <span class="muted small">タイトル</span>
+        <input id="print-title-font-px" type="number" min="6" max="60" step="1" title="クラス名・教員名のフォントサイズ（px）" style="width:46px;padding:1px 4px;border:1px solid #cbd5e1;border-radius:4px;text-align:right">
+        <span class="muted small" style="margin-left:-4px">px</span>
+        <span class="muted small">ヘッダ</span>
+        <input id="print-header-font-px" type="number" min="6" max="36" step="1" title="曜日・時限数字のフォントサイズ（px）" style="width:46px;padding:1px 4px;border:1px solid #cbd5e1;border-radius:4px;text-align:right">
+        <span class="muted small" style="margin-left:-4px">px</span>
         <span class="muted small">揃え</span>
         <select id="print-align" class="sel mini">
           <option value="left">左</option>

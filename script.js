@@ -12292,6 +12292,17 @@ function buildIndex(){
       return;
     }
 
+    // タイトル（クラス名・教員名）フォントサイズ
+    const titleFontSize = (state.ui.printTitleFontSizePx && state.ui.printTitleFontSizePx > 0)
+      ? state.ui.printTitleFontSizePx : (fontSize + 2);
+    // タイトル入力を現在値に同期
+    const tfPxEl = document.getElementById('print-title-font-px');
+    if (tfPxEl && !tfPxEl._focused) tfPxEl.value = titleFontSize;
+    const hfPxEl = document.getElementById('print-header-font-px');
+    const headerFontSizeNow = (state.ui.printHeaderFontSizePx && state.ui.printHeaderFontSizePx > 0)
+      ? state.ui.printHeaderFontSizePx : fontSize;
+    if (hfPxEl && !hfPxEl._focused) hfPxEl.value = headerFontSizeNow;
+
     // 1頁1エンティティ モード
     if (type === 'class-paged' || type === 'teacher-paged') {
       const baseType = type === 'class-paged' ? 'class' : 'teacher';
@@ -12300,7 +12311,7 @@ function buildIndex(){
       for (let i = 0; i < keys2.length; i++) {
         const key = keys2[i];
         html2 += `<div class="print-page-break" style="${i > 0 ? 'page-break-before:always;' : ''}margin-bottom:12px;">
-          <h3 class="print-card-title" style="font-family:${fontFamilyCSS0};font-size:${fontSize + 2}px;margin:0 0 6px">${escapeHtml(key)}</h3>
+          <h3 class="print-card-title" style="font-family:${fontFamilyCSS0};font-size:${titleFontSize}px;margin:0 0 6px">${escapeHtml(key)}</h3>
           ${printTableHTML(baseType, key, idx, maxP, opt, layout, cellH, fontSize, 1, colW)}
         </div>`;
       }
@@ -12316,7 +12327,7 @@ function buildIndex(){
     if (printCols === 1) {
       for (const key of keys) {
         html += `<div class="card print-card" style="page-break-inside:avoid;margin-bottom:10px;">
-        <h3 class="print-card-title" style="font-family:${fontFamilyCSS0}">${escapeHtml(key)}</h3>
+        <h3 class="print-card-title" style="font-family:${fontFamilyCSS0};font-size:${titleFontSize}px">${escapeHtml(key)}</h3>
         ${printTableHTML(type, key, idx, maxP, opt, layout, cellH, fontSize, printCols, colW)}
       </div>`;
       }
@@ -12450,9 +12461,74 @@ function buildIndex(){
     state.ui.printColWidths = {};
     state.ui.printRowHeights = {};
     state.ui.printFontSizePx = null;
+    state.ui.printTitleFontSizePx = null;
+    state.ui.printHeaderFontSizePx = null;
     markDirty('ui');
     renderPrint();
     flash('サイズをリセットしました');
+  }
+
+  function equalizeColWidths() {
+    const area = document.getElementById('print-area');
+    const tables = Array.from(area?.querySelectorAll('table.t2') || []);
+    if (!tables.length) { flash('先に印刷タブで時間割を表示してください'); return; }
+    state.ui.printColWidths ||= {};
+    const cols = Array.from(tables[0].querySelectorAll('col'));
+    // 曜日列（index 1以降）の現在幅を集めて最大値を統一幅に
+    const dayWidths = cols.slice(1).map((c, i) => {
+      const saved = state.ui.printColWidths[i + 1];
+      return saved || c.offsetWidth || 70;
+    });
+    const target = Math.max(...dayWidths, 50);
+    cols.slice(1).forEach((_, i) => { state.ui.printColWidths[i + 1] = target; });
+    markDirty('ui');
+    renderPrint();
+    flash(`列幅を ${target}px に揃えました`);
+  }
+
+  function equalizeRowHeights() {
+    const area = document.getElementById('print-area');
+    const tables = Array.from(area?.querySelectorAll('table.t2') || []);
+    if (!tables.length) { flash('先に印刷タブで時間割を表示してください'); return; }
+    state.ui.printRowHeights ||= {};
+    const bodyRows = Array.from(tables[0].querySelectorAll('tbody tr'));
+    const heights = bodyRows.map((tr, i) => {
+      const saved = state.ui.printRowHeights[i];
+      return saved || tr.offsetHeight || 40;
+    });
+    const target = Math.max(...heights, 24);
+    bodyRows.forEach((_, i) => { state.ui.printRowHeights[i] = target; });
+    markDirty('ui');
+    renderPrint();
+    flash(`行高さを ${target}px に揃えました`);
+  }
+
+  function printFitA4Portrait() {
+    const adays = activeDays();
+    const maxP = Math.max(...adays.map(d => maxPeriod(d)));
+    if (!maxP || !adays.length) { flash('データがありません'); return; }
+    // A4 縦: 210×297mm。96dpi換算 794×1123px、マージン各10mm(38px)引き
+    const pageW = 794 - 76;  // 718px
+    const pageH = 1123 - 76; // 1047px
+    const periodColW = 28;
+    const headerRowH = 26;
+    const dayColW = Math.max(50, Math.floor((pageW - periodColW) / adays.length));
+    const rowH   = Math.max(18, Math.floor((pageH - headerRowH) / maxP));
+    const fs     = Math.max(7, Math.min(14, Math.floor(rowH * 0.32)));
+    // 列幅・行高さをドラッグリサイズ上書き形式で保存
+    state.ui.printColWidths = { 0: periodColW };
+    adays.forEach((_, i) => { state.ui.printColWidths[i + 1] = dayColW; });
+    state.ui.printRowHeights = {};
+    for (let i = 0; i < maxP; i++) { state.ui.printRowHeights[i] = rowH; }
+    state.ui.printFontSizePx = fs;
+    state.ui.printTitleFontSizePx = fs + 2;
+    state.ui.printHeaderFontSizePx = fs;
+    // ページ方向を縦に
+    const orientEl = document.getElementById('print-page-orient');
+    if (orientEl) orientEl.value = 'portrait';
+    markDirty('ui');
+    renderPrint();
+    flash(`A4縦フィット: 列幅${dayColW}px / 行高${rowH}px / 文字${fs}px`);
   }
   function printTableHTML(kind, key, idx, maxP, opt, layout, cellH = 46, fontSize = 12, printCols = 1, colW = 0) {
     const align = state.ui.printAlign || 'center';
@@ -12462,9 +12538,12 @@ function buildIndex(){
         : fontFam === 'rounded' ? '"Hiragino Maru Gothic Pro","BIZ UDRGothic",sans-serif'
           : fontFam === 'mono' ? '"Courier New",monospace'
             : 'inherit';
+    // ヘッダ（曜日・時限数字）専用フォントサイズ
+    const headerFontSize = (state.ui.printHeaderFontSizePx && state.ui.printHeaderFontSizePx > 0)
+      ? state.ui.printHeaderFontSizePx : fontSize;
+    const hStyle = `font-family:${fontFamilyCSS};font-size:${headerFontSize}px`;
     // v63.2: 枠サイズ固定/フレキシブル切替
     const isFlexible = (state.ui.printFixedSize || 'fixed') === 'flexible';
-    const tableLayout = isFlexible ? 'auto' : 'fixed';
     const cellHeightCSS = isFlexible ? `min-height:${cellH}px;height:auto` : `height:${cellH}px`;
     const cellStyle = `${cellHeightCSS};padding:2px 5px;text-align:${align};vertical-align:middle;`;
     const minW = Math.max(200, Math.round(680 / Math.max(1, printCols)));
@@ -12473,9 +12552,9 @@ function buildIndex(){
     const colgroupHTML = colW
       ? `<colgroup><col style="width:40px">${DAYS.map(() => `<col style="min-width:${colW}px">`).join('')}</colgroup>`
       : `<colgroup><col style="width:8%">${DAYS.map(() => `<col style="width:${dayColPct}%">`).join('')}</colgroup>`;
-    let html = `<table class="t2" style="min-width:${minW}px;width:100%;font-size:${fontSize}px;font-family:${fontFamilyCSS};table-layout:fixed">${colgroupHTML}<thead><tr><th style="font-family:${fontFamilyCSS}">時限</th>${DAYS.map(d => `<th style="font-family:${fontFamilyCSS}">${DAYJP[d]}</th>`).join('')}</tr></thead><tbody>`;
+    let html = `<table class="t2" style="min-width:${minW}px;width:100%;font-size:${fontSize}px;font-family:${fontFamilyCSS};table-layout:fixed">${colgroupHTML}<thead><tr><th style="${hStyle}">時限</th>${DAYS.map(d => `<th style="${hStyle}">${DAYJP[d]}</th>`).join('')}</tr></thead><tbody>`;
     for (let p = 1; p <= maxP; p++) {
-      html += `<tr><th style="font-family:${fontFamilyCSS}">${p}</th>`;
+      html += `<tr><th style="${hStyle}">${p}</th>`;
       for (const d of DAYS) {
         if (p > maxPeriod(d)) { html += `<td class="forbidden"></td>`; continue; }
         const ids = idsInCellForRow(kind, key, d, p, idx).filter(id => !isSpanFill(id, d, p));
@@ -15454,19 +15533,24 @@ function buildIndex(){
     $('#print-type').onchange = renderPrint;
     // サイズリセット
     $('#btn-print-reset-size')?.addEventListener('click', () => resetPrintResize());
-    // 直接フォントサイズ入力
-    const fsPxEl = $('#print-font-size-px');
-    if (fsPxEl) {
-      fsPxEl.addEventListener('focus', () => { fsPxEl._focused = true; });
-      fsPxEl.addEventListener('blur', () => { fsPxEl._focused = false; });
-      fsPxEl.addEventListener('change', () => {
-        const v = parseInt(fsPxEl.value, 10);
-        if (v > 0) { state.ui.printFontSizePx = v; markDirty('ui'); renderPrint(); }
+    $('#btn-equalize-cols')?.addEventListener('click', () => equalizeColWidths());
+    $('#btn-equalize-rows')?.addEventListener('click', () => equalizeRowHeights());
+    $('#btn-fit-a4-portrait')?.addEventListener('click', () => printFitA4Portrait());
+    // フォントサイズ直接入力ヘルパー
+    const bindFontPxInput = (id, stateKey) => {
+      const el = $('#' + id);
+      if (!el) return;
+      el.addEventListener('focus', () => { el._focused = true; });
+      el.addEventListener('blur', () => { el._focused = false; });
+      el.addEventListener('change', () => {
+        const v = parseInt(el.value, 10);
+        if (v > 0) { state.ui[stateKey] = v; markDirty('ui'); renderPrint(); }
       });
-      fsPxEl.addEventListener('keydown', e => {
-        if (e.key === 'Enter') { fsPxEl.blur(); }
-      });
-    }
+      el.addEventListener('keydown', e => { if (e.key === 'Enter') el.blur(); });
+    };
+    bindFontPxInput('print-font-size-px', 'printFontSizePx');
+    bindFontPxInput('print-title-font-px', 'printTitleFontSizePx');
+    bindFontPxInput('print-header-font-px', 'printHeaderFontSizePx');
 
     // keyboard
     window.addEventListener('keydown', (ev) => {
