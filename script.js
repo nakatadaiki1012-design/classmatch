@@ -7590,13 +7590,13 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
     const rowCount = maxP + 1; // +1 for header
     const targetCellH = Math.floor((pageH / rowCount) - 2); // -2px for borders
 
-    const cellSizes = [28, 34, 40, 46, 52, 58, 66, 76, 88, 100];
-    const fontSizes = [8, 9, 10, 11, 12, 13, 14, 15, 16, 18];
+    const cellSizes = [28, 34, 40, 46, 52, 58, 66, 76, 88, 100, 120, 140];
+    const fontSizes = [8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 20, 24];
     const baseIdx = 3;
 
     // cellStep: cellSizes[baseIdx+step] <= targetCellH
     let bestCellStep = -4;
-    for (let s = -4; s <= 4; s++) {
+    for (let s = -4; s <= 8; s++) {
       if (cellSizes[clamp(baseIdx + s, 0, cellSizes.length - 1)] <= targetCellH) bestCellStep = s;
     }
 
@@ -8420,6 +8420,118 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       const ws = _buildXlsxMatrixSheet('class');
       XLSX.utils.book_append_sheet(wb, ws, 'クラス時間割');
       _xlsxDownload(wb, 'classes_timetable.xlsx');
+    });
+  }
+
+  function _buildEntityTimetableSheet(kind, key, idx) {
+    const adays = DAYS.filter(d => maxPeriod(d) > 0);
+    const maxP = Math.max(...adays.map(d => maxPeriod(d)));
+
+    const T = () => ({ style: 'thin', color: { rgb: '000000' } });
+    const H = () => ({ style: 'hair', color: { rgb: '000000' } });
+    const bdr = (t, b, l, r) => { const o = {}; if(t) o.top=t; if(b) o.bottom=b; if(l) o.left=l; if(r) o.right=r; return o; };
+    const setS = (ws, r, c, s) => { const addr = XLSX.utils.encode_cell({r, c}); if(!ws[addr]) ws[addr] = {t:'s',v:''}; ws[addr].s = s; };
+    const ctr = { horizontal: 'center', vertical: 'center', wrapText: true };
+    const sz9 = { sz: 9 };
+
+    const aoa = [];
+    // Row 0: title
+    const titleRow = Array(1 + adays.length).fill(null);
+    titleRow[0] = key;
+    aoa.push(titleRow);
+    // Row 1: day headers
+    const dayRow = Array(1 + adays.length).fill(null);
+    dayRow[0] = '時限';
+    adays.forEach((d, i) => { dayRow[1 + i] = {Mon:'月',Tue:'火',Wed:'水',Thu:'木',Fri:'金',Sat:'土',Sun:'日'}[d] || d; });
+    aoa.push(dayRow);
+    // Data rows
+    for (let p = 1; p <= maxP; p++) {
+      const rowA = Array(1 + adays.length).fill(null);
+      const rowB = Array(1 + adays.length).fill(null);
+      rowA[0] = p;
+      adays.forEach((d, di) => {
+        if (p > maxPeriod(d)) return;
+        const ids = (kind === 'class'
+          ? (idx.cls?.[key]?.[d]?.[p] || [])
+          : (idx.tea?.[key]?.[d]?.[p] || [])
+        ).filter(id => !isSpanFill(id, d, p));
+        if (!ids.length) return;
+        const it = state.items[ids[0]];
+        if (!it) return;
+        const scfg = state.subjectCfg[it.subjKey] || {};
+        const subjAbbr = scfg.abbr || it.subj || '';
+        if (kind === 'class') {
+          rowA[1 + di] = subjAbbr;
+          rowB[1 + di] = it.teas.map(t => state.teacherCfg[t]?.abbr || t).join(',') + (it.rooms.length ? ' ' + it.rooms.join(',') : '');
+        } else {
+          rowA[1 + di] = (it.cls || []).join(',');
+          rowB[1 + di] = subjAbbr + (it.rooms.length ? ' ' + it.rooms.join(',') : '');
+        }
+      });
+      aoa.push(rowA);
+      aoa.push(rowB);
+    }
+
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    const totalCols = 1 + adays.length;
+
+    ws['!cols'] = [{ wch: 5 }, ...adays.map(() => ({ wch: 10 }))];
+    ws['!rows'] = aoa.map(() => ({ hpt: 14 }));
+
+    const merges = [];
+    for (let p = 0; p < maxP; p++) {
+      const r = 2 + p * 2;
+      merges.push({ s: {r, c: 0}, e: {r: r+1, c: 0} });
+    }
+    ws['!merges'] = merges;
+
+    setS(ws, 0, 0, { font: { sz: 11, bold: true }, alignment: { vertical: 'center' } });
+    for (let c = 0; c < totalCols; c++) {
+      setS(ws, 1, c, { border: bdr(T(),T(),T(),T()), alignment: ctr, font: { ...sz9, bold: true } });
+    }
+    for (let p = 0; p < maxP; p++) {
+      const rA = 2 + p * 2, rB = rA + 1;
+      setS(ws, rA, 0, { border: bdr(T(),T(),T(),T()), alignment: ctr, font: sz9 });
+      setS(ws, rB, 0, { border: bdr(T(),T(),T(),T()), alignment: ctr, font: sz9 });
+      for (let di = 0; di < adays.length; di++) {
+        const c = 1 + di;
+        setS(ws, rA, c, { border: bdr(T(),H(),T(),T()), alignment: ctr, font: sz9 });
+        setS(ws, rB, c, { border: bdr(H(),T(),T(),T()), alignment: ctr, font: sz9 });
+      }
+    }
+
+    return ws;
+  }
+
+  function exportClassSheetsXLSX() {
+    _ensureXLSX(() => {
+      const idx = buildIndex();
+      const keys = getAxisKeys('class');
+      if (!keys.length) { flash('クラスがありません'); return; }
+      const wb = XLSX.utils.book_new();
+      for (const key of keys) {
+        const ws = _buildEntityTimetableSheet('class', key, idx);
+        const sheetName = key.replace(/[:\\\/\?\*\[\]]/g, '').slice(0, 31);
+        XLSX.utils.book_append_sheet(wb, ws, sheetName || 'Sheet');
+      }
+      _xlsxDownload(wb, 'classes_sheets.xlsx');
+      flash(`📊 クラス別シートXLSX（${keys.length}クラス）を出力しました`);
+    });
+  }
+
+  function exportTeacherSheetsXLSX() {
+    _ensureXLSX(() => {
+      const idx = buildIndex();
+      const keys = getAxisKeys('teacher');
+      if (!keys.length) { flash('教員がありません'); return; }
+      const wb = XLSX.utils.book_new();
+      for (const key of keys) {
+        const ws = _buildEntityTimetableSheet('teacher', key, idx);
+        const sheetName = key.replace(/[:\\\/\?\*\[\]]/g, '').slice(0, 31);
+        XLSX.utils.book_append_sheet(wb, ws, sheetName || 'Sheet');
+      }
+      _xlsxDownload(wb, 'teachers_sheets.xlsx');
+      flash(`📊 教員別シートXLSX（${keys.length}名）を出力しました`);
     });
   }
 
@@ -12102,17 +12214,27 @@ function buildIndex(){
     }
 
     // v32.6: cell height / font size steps
-    const cellStep = clamp(Number(state.ui.printCellStep || 0), -4, 4);
-    const fontStep = clamp(Number(state.ui.printFontStep || 0), -4, 4);
-    const cellSizes = [28, 34, 40, 46, 52, 58, 66, 76, 88, 100];
-    const fontSizes = [8, 9, 10, 11, 12, 13, 14, 15, 16, 18];
+    const cellStep = clamp(Number(state.ui.printCellStep || 0), -4, 8);
+    const fontStep = clamp(Number(state.ui.printFontStep || 0), -4, 8);
+    const cellSizes = [28, 34, 40, 46, 52, 58, 66, 76, 88, 100, 120, 140];
+    const fontSizes = [8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 20, 24];
     const baseIdx = 3; // default = 46px / 12px
     const cellH = cellSizes[clamp(baseIdx + cellStep, 0, cellSizes.length - 1)];
     const fontSize = fontSizes[clamp(baseIdx + fontStep, 0, fontSizes.length - 1)];
-    const labels = ['XS', 'S', 'M', 'L', 'XL'];
-    const stepToLabel = s => labels[clamp(s + 2, 0, 4)];
+    const labels = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL', '4XL'];
+    const stepToLabel = s => labels[clamp(s + 2, 0, labels.length - 1)];
     const cl = $('#print-cell-label'); if (cl) cl.textContent = stepToLabel(cellStep);
     const fl = $('#print-font-label'); if (fl) fl.textContent = stepToLabel(fontStep);
+    // col width step
+    const colStep = clamp(Number(state.ui.printColStep || 0), -4, 8);
+    const colWidths = [30, 40, 55, 70, 85, 100, 120, 140, 170, 200, 240, 280];
+    const colW = colWidths[clamp(baseIdx + colStep, 0, colWidths.length - 1)];
+    const wl = $('#print-col-label'); if (wl) wl.textContent = stepToLabel(colStep);
+    // page orientation
+    const orient = $('#print-page-orient')?.value || 'landscape';
+    let pStyle = document.getElementById('print-page-style');
+    if (!pStyle) { pStyle = document.createElement('style'); pStyle.id = 'print-page-style'; document.head.appendChild(pStyle); }
+    pStyle.textContent = `@media print { @page { size: A4 ${orient}; } }`;
 
     // v45.2: align + font family — UI select の値を state に読み込む（逆向きにしない）
     // state → UI への上書きは初回のみ（_initialized フラグで管理）
@@ -12176,7 +12298,7 @@ function buildIndex(){
         const key = keys2[i];
         html2 += `<div class="print-page-break" style="${i > 0 ? 'page-break-before:always;' : ''}margin-bottom:12px;">
           <h3 class="print-card-title" style="font-family:${fontFamilyCSS0};font-size:${fontSize + 2}px;margin:0 0 6px">${escapeHtml(key)}</h3>
-          ${printTableHTML(baseType, key, idx, maxP, opt, layout, cellH, fontSize, 1)}
+          ${printTableHTML(baseType, key, idx, maxP, opt, layout, cellH, fontSize, 1, colW)}
         </div>`;
       }
       area.innerHTML = html2 || '<div class="card">データなし</div>';
@@ -12191,7 +12313,7 @@ function buildIndex(){
       for (const key of keys) {
         html += `<div class="card print-card" style="page-break-inside:avoid;margin-bottom:10px;">
         <h3 class="print-card-title" style="font-family:${fontFamilyCSS0}">${escapeHtml(key)}</h3>
-        ${printTableHTML(type, key, idx, maxP, opt, layout, cellH, fontSize, printCols)}
+        ${printTableHTML(type, key, idx, maxP, opt, layout, cellH, fontSize, printCols, colW)}
       </div>`;
       }
     } else {
@@ -12202,7 +12324,7 @@ function buildIndex(){
         for (const key of chunk) {
           html += `<div class="card print-card" style="flex:1;min-width:0;page-break-inside:avoid;">
           <h3 class="print-card-title" style="font-size:${Math.max(10, fontSize - 1)}px;margin:0 0 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(key)}</h3>
-          ${printTableHTML(type, key, idx, maxP, opt, layout, Math.max(24, Math.round(cellH * (printCols === 2 ? 0.85 : 0.7))), Math.max(8, Math.round(fontSize * (printCols === 2 ? 0.9 : 0.75))), printCols)}
+          ${printTableHTML(type, key, idx, maxP, opt, layout, Math.max(24, Math.round(cellH * (printCols === 2 ? 0.85 : 0.7))), Math.max(8, Math.round(fontSize * (printCols === 2 ? 0.9 : 0.75))), printCols, colW)}
         </div>`;
         }
         html += `</div>`;
@@ -12213,7 +12335,7 @@ function buildIndex(){
     const printColsSel = $('#print-cols');
     if (printColsSel && !printColsSel._bound) { printColsSel._bound = true; printColsSel.onchange = renderPrint; }
   }
-  function printTableHTML(kind, key, idx, maxP, opt, layout, cellH = 46, fontSize = 12, printCols = 1) {
+  function printTableHTML(kind, key, idx, maxP, opt, layout, cellH = 46, fontSize = 12, printCols = 1, colW = 0) {
     const align = state.ui.printAlign || 'center';
     const fontFam = state.ui.printFontFamily || 'system';
     const fontFamilyCSS = fontFam === 'gothic' ? '"Hiragino Sans","Yu Gothic","Meiryo",sans-serif'
@@ -12229,7 +12351,9 @@ function buildIndex(){
     const minW = Math.max(200, Math.round(680 / Math.max(1, printCols)));
     // v63.3: colgroup で時限列(狭め)+曜日列(均等幅)を明示的に指定
     const dayColPct = Math.floor((100 - 8) / DAYS.length); // 8%=時限列, 残りを均等分配
-    const colgroupHTML = `<colgroup><col style="width:8%">${DAYS.map(() => `<col style="width:${dayColPct}%">`).join('')}</colgroup>`;
+    const colgroupHTML = colW
+      ? `<colgroup><col style="width:40px">${DAYS.map(() => `<col style="min-width:${colW}px">`).join('')}</colgroup>`
+      : `<colgroup><col style="width:8%">${DAYS.map(() => `<col style="width:${dayColPct}%">`).join('')}</colgroup>`;
     let html = `<table class="t2" style="min-width:${minW}px;width:100%;font-size:${fontSize}px;font-family:${fontFamilyCSS};table-layout:fixed">${colgroupHTML}<thead><tr><th style="font-family:${fontFamilyCSS}">時限</th>${DAYS.map(d => `<th style="font-family:${fontFamilyCSS}">${DAYJP[d]}</th>`).join('')}</tr></thead><tbody>`;
     for (let p = 1; p <= maxP; p++) {
       html += `<tr><th style="font-family:${fontFamilyCSS}">${p}</th>`;
@@ -15173,13 +15297,15 @@ function buildIndex(){
     $('#btn-pdf-export')?.addEventListener('click', () => { try { exportPDF(); } catch (e) { console.error(e); flash('PDFエラー: ' + e.message); } });
     // print cell/font size
     const printStep = (key, delta) => {
-      state.ui[key] = clamp((state.ui[key] || 0) + delta, -4, 4);
+      state.ui[key] = clamp((state.ui[key] || 0) + delta, -4, 8);
       markDirty('ui'); renderPrint();
     };
     $('#btn-print-cell-down')?.addEventListener('click', () => printStep('printCellStep', -1));
     $('#btn-print-cell-up')?.addEventListener('click', () => printStep('printCellStep', 1));
     $('#btn-print-font-down')?.addEventListener('click', () => printStep('printFontStep', -1));
     $('#btn-print-font-up')?.addEventListener('click', () => printStep('printFontStep', 1));
+    $('#btn-print-col-down')?.addEventListener('click', () => printStep('printColStep', -1));
+    $('#btn-print-col-up')?.addEventListener('click', () => printStep('printColStep', 1));
     // v43: align and font family
     $('#print-align')?.addEventListener('change', renderPrint);
     $('#print-font-family')?.addEventListener('change', renderPrint);
@@ -15203,6 +15329,9 @@ function buildIndex(){
     if (btnExportTeaXlsx) btnExportTeaXlsx.onclick = () => exportTeacherMatrixXLSX();
     const btnExportClsXlsx = $('#btn-export-class-xlsx');
     if (btnExportClsXlsx) btnExportClsXlsx.onclick = () => exportClassMatrixXLSX();
+    $('#btn-export-class-sheets-xlsx')?.addEventListener('click', () => exportClassSheetsXLSX());
+    $('#btn-export-teacher-sheets-xlsx')?.addEventListener('click', () => exportTeacherSheetsXLSX());
+    $('#print-page-orient')?.addEventListener('change', renderPrint);
     $('#print-type').onchange = renderPrint;
 
     // keyboard

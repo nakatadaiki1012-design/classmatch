@@ -689,6 +689,10 @@
     <!-- print -->
     <section class="view" id="view-print" style="display:none;">
       <div class="toolbar no-print">
+        <select id="print-page-orient" class="sel mini">
+          <option value="landscape">A4 横</option>
+          <option value="portrait">A4 縦</option>
+        </select>
         <select id="print-type" class="sel">
           <option value="class">全クラス</option>
           <option value="teacher">全教員</option>
@@ -724,6 +728,10 @@
         <button id="btn-print-font-down" class="btn secondary" style="padding:2px 8px">-</button>
         <span id="print-font-label" class="muted small">M</span>
         <button id="btn-print-font-up" class="btn secondary" style="padding:2px 8px">+</button>
+        <span class="muted small">列幅</span>
+        <button id="btn-print-col-down" class="btn secondary" style="padding:2px 8px">-</button>
+        <span id="print-col-label" class="muted small">M</span>
+        <button id="btn-print-col-up" class="btn secondary" style="padding:2px 8px">+</button>
         <button id="btn-print-auto-fit" class="btn secondary" title="A4縦1枚に収まるよう自動調整">📐 自動フィット</button>
         <span class="muted small">揃え</span>
         <select id="print-align" class="sel mini">
@@ -757,6 +765,8 @@
         <button id="btn-export-class-matrix" class="btn secondary">全クラスCSV</button>
         <button id="btn-export-teacher-xlsx" class="btn secondary" style="background:#217346;color:#fff;border:none">📊 教員別XLSX</button>
         <button id="btn-export-class-xlsx" class="btn secondary" style="background:#217346;color:#fff;border:none">📊 クラス別XLSX</button>
+        <button id="btn-export-class-sheets-xlsx" class="btn secondary" style="background:#1d6f42;color:#fff;border:none">📊 クラス別シート</button>
+        <button id="btn-export-teacher-sheets-xlsx" class="btn secondary" style="background:#1d6f42;color:#fff;border:none">📊 教員別シート</button>
       </div>
 
       <div class="print-layout no-print">
