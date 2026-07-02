@@ -1119,7 +1119,8 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
         const classId = parseInt(f3[0]) || 0;
         const lessonId = parseInt(f3[1]) || 0;
         const weeklyCount = parseInt((lines[idx + 3] || '').trim()) || 0;
-        jugyoMeta[jid] = { classId, lessonId, weeklyCount, name: f1[1] || '' };
+        const jugyoSpan = parseInt(f1[5]) === 2 ? 2 : 1;
+        jugyoMeta[jid] = { classId, lessonId, weeklyCount, name: f1[1] || '', span: jugyoSpan };
         idx += weeklyCount > 0 ? 5 : 4;
       }
     }
@@ -1189,6 +1190,38 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       }
     }
 
+    // ── J-Room パース (教室→JUGYO割当) ──
+    const jugyoRooms = {}; // jugyoId → roomName[]
+    if (sectionIdx['J-Room'] != null) {
+      const jri = sectionIdx['J-Room'];
+      const roomCount = parseInt(parseLine(lines[jri])[1]) || 0;
+      let idx = jri + 1;
+      for (let ri = 0; ri < roomCount; ri++) {
+        const roomId = ri + 1;
+        const room = rooms[roomId];
+        const roomName = room ? room.name : null;
+        for (let day = 0; day < numDays; day++) {
+          for (let period = 0; period < numPeriods; period++) {
+            if (idx >= lines.length) break;
+            const slotCount = parseInt((lines[idx] || '').trim().split(',')[0]) || 0;
+            if (slotCount === 0) {
+              idx += 3;
+            } else {
+              const entryCount = parseInt((lines[idx + 1] || '').split(',')[0]) || 0;
+              for (let e = 0; e < entryCount; e++) {
+                const jugyoId = parseInt((lines[idx + 2 + e] || '').split(',')[0]) || 0;
+                if (jugyoId > 0 && roomName) {
+                  if (!jugyoRooms[jugyoId]) jugyoRooms[jugyoId] = [];
+                  if (!jugyoRooms[jugyoId].includes(roomName)) jugyoRooms[jugyoId].push(roomName);
+                }
+              }
+              idx += 2 + entryCount + 1;
+            }
+          }
+        }
+      }
+    }
+
     // 教員名→略名 逆引きマップ
     const teacherAbbrByName = {};
     for (const t of Object.values(teachers)) {
@@ -1217,6 +1250,7 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       const tea = teacherNames.join(',');
       const teaAbbr = teacherNames.map(n => teacherAbbrByName[n] || n).join(',');
 
+      const span = parseInt(meta.span || 1) || 1;
       jugyoItemIds[jid] = [];
       for (let p = 0; p < weeklyCount; p++) {
         const id = String(itemIdCounter++);
@@ -1227,8 +1261,8 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
           subjKey: subjName,
           cls: [clsName],
           teas: teacherNames,
-          rooms: [],
-          span: 1,
+          rooms: jugyoRooms[jid] || [],
+          span,
         };
       }
 
@@ -1240,7 +1274,7 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
         tea,
         teaAbbr,
         count: weeklyCount,
-        span: 1,
+        span,
       });
     }
 
@@ -2962,6 +2996,14 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
   }
 
   function clampInt(v, lo, hi) { return Math.max(lo, Math.min(hi, v | 0)); }
+
+  function _printFontCSS(fontFam) {
+    if (fontFam === 'gothic')  return '"Hiragino Sans","Yu Gothic","Meiryo",sans-serif';
+    if (fontFam === 'mincho')  return '"Yu Mincho","Hiragino Mincho Pro","Noto Serif CJK JP","Times New Roman",serif';
+    if (fontFam === 'rounded') return '"Hiragino Maru Gothic Pro","BIZ UDRGothic","Rounded Mplus 1c",sans-serif';
+    if (fontFam === 'mono')    return '"Courier New",monospace';
+    return 'inherit';
+  }
 
   // v49 A-1 + C-1: 1コマ即配置 — 最高スコアの空き枠に自動配置
   function quickAutoPlace(id) {
@@ -9382,8 +9424,23 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
         }
       }
     }
-    const score = (optBalance ? bias : 0) + (optNoConsec ? consec * 4 : 0);
-    return { bias, consec, score };
+    // noSameDay penalty: same subject in same class on same day twice
+    let noSameDayPenalty = 0;
+    const dayCounts = {};
+    for (const id in placements) {
+      const plc = placements[id]; if (!plc?.day) continue;
+      const it = state.items[id]; if (!it) continue;
+      const sc = state.subjectCfg[it.subjKey] || {};
+      if (!sc.noSameDay) continue;
+      for (const c of (it.cls || [])) {
+        const key = `${c}|${it.subjKey}|${plc.day}`;
+        dayCounts[key] = (dayCounts[key] || 0) + 1;
+        if (dayCounts[key] === 2) noSameDayPenalty += 5000;
+        else if (dayCounts[key] > 2) noSameDayPenalty += 8000;
+      }
+    }
+    const score = (optBalance ? bias : 0) + (optNoConsec ? consec * 4 : 0) + noSameDayPenalty;
+    return { bias, consec, noSameDayPenalty, score };
   }
 
   function hardViolationsFromPlacements(placements) {
@@ -10855,13 +10912,16 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
 
   function initSAState(placements, ctx) {
     const ev = ctx.evalPlacement(placements);
+    const itemCount = Object.keys(state.items).length;
+    const T0 = Math.max(60, Math.min(400, itemCount * 1.2));
+    const alpha = itemCount > 200 ? 0.9998 : itemCount > 100 ? 0.9996 : 0.9993;
     return {
       placements: Object.assign({}, placements),
       bestPlacements: Object.assign({}, placements),
       cost: ev.total, bestCost: ev.total,
       eval: ev, bestEval: ev,
-      T: 80,      // 初期温度
-      alpha: 0.9995, // 冷却率
+      T: T0,     // 初期温度（問題サイズに応じて自動調整）
+      alpha,     // 冷却率（問題サイズに応じて自動調整）
       step: 0,
       improved: false,
     };
@@ -12261,11 +12321,7 @@ function buildIndex(){
 
     // v63.2: fontFamilyCSS をここで算出して #print-area 自体にも設定
     const fontFam0 = state.ui.printFontFamily || 'system';
-    const fontFamilyCSS0 = fontFam0 === 'gothic' ? '"Hiragino Sans","Yu Gothic","Meiryo",sans-serif'
-      : fontFam0 === 'mincho' ? '"Yu Mincho","Hiragino Mincho Pro","Times New Roman",serif'
-        : fontFam0 === 'rounded' ? '"Hiragino Maru Gothic Pro","BIZ UDRGothic",sans-serif'
-          : fontFam0 === 'mono' ? '"Courier New",monospace'
-            : 'inherit';
+    const fontFamilyCSS0 = _printFontCSS(fontFam0);
     if (areaBox) areaBox.style.fontFamily = fontFamilyCSS0;
 
     // v63.2: 枠サイズ固定/フレキシブル
@@ -12533,11 +12589,7 @@ function buildIndex(){
   function printTableHTML(kind, key, idx, maxP, opt, layout, cellH = 46, fontSize = 12, printCols = 1, colW = 0) {
     const align = state.ui.printAlign || 'center';
     const fontFam = state.ui.printFontFamily || 'system';
-    const fontFamilyCSS = fontFam === 'gothic' ? '"Hiragino Sans","Yu Gothic","Meiryo",sans-serif'
-      : fontFam === 'mincho' ? '"Yu Mincho","Hiragino Mincho Pro","Times New Roman",serif'
-        : fontFam === 'rounded' ? '"Hiragino Maru Gothic Pro","BIZ UDRGothic",sans-serif'
-          : fontFam === 'mono' ? '"Courier New",monospace'
-            : 'inherit';
+    const fontFamilyCSS = _printFontCSS(fontFam);
     // ヘッダ（曜日・時限数字）専用フォントサイズ
     const headerFontSize = (state.ui.printHeaderFontSizePx && state.ui.printHeaderFontSizePx > 0)
       ? state.ui.printHeaderFontSizePx : fontSize;
@@ -14362,11 +14414,7 @@ function buildIndex(){
   function buildMatrixHTML(kind, keys, idx, maxP, opt, layout, cellH = 32, fontSize = 9) {
     const align = state.ui.printAlign || 'center';
     const fontFam = state.ui.printFontFamily || 'system';
-    const fontFamilyCSS = fontFam === 'gothic' ? '"Hiragino Sans","Yu Gothic","Meiryo",sans-serif'
-      : fontFam === 'mincho' ? '"Yu Mincho","Hiragino Mincho Pro","Times New Roman",serif'
-        : fontFam === 'rounded' ? '"Hiragino Maru Gothic Pro","BIZ UDRGothic",sans-serif'
-          : fontFam === 'mono' ? '"Courier New",monospace'
-            : 'inherit';
+    const fontFamilyCSS = _printFontCSS(fontFam);
     const colW = Math.max(28, clamp(cellH, 28, 80));
     const rowH = cellH;
     const mFS = Math.max(7, fontSize - 1);
@@ -14941,7 +14989,7 @@ function buildIndex(){
       applyDensity();
     };
 
-    const btnTeaSortName = safeGet('#btn-tea-sort-name');
+    const btnTeaSortName = safeGet('#btn-tea-sort-name-edit');
     const btnTeaSortSubj = safeGet('#btn-tea-sort-subj');
     const btnTeaSortManual = safeGet('#btn-tea-sort-manual');
 
@@ -15500,8 +15548,6 @@ function buildIndex(){
     };
     $('#btn-print-cell-down')?.addEventListener('click', () => printStep('printCellStep', -1));
     $('#btn-print-cell-up')?.addEventListener('click', () => printStep('printCellStep', 1));
-    $('#btn-print-font-down')?.addEventListener('click', () => printStep('printFontStep', -1));
-    $('#btn-print-font-up')?.addEventListener('click', () => printStep('printFontStep', 1));
     $('#btn-print-col-down')?.addEventListener('click', () => printStep('printColStep', -1));
     $('#btn-print-col-up')?.addEventListener('click', () => printStep('printColStep', 1));
     // v43: align and font family
@@ -15512,7 +15558,6 @@ function buildIndex(){
     $('#print-pattern')?.addEventListener('change', renderPrint);
     $('#print-border-width')?.addEventListener('input', renderPrint);
     // v39: 自動フィット・コントラスト
-    $('#btn-print-auto-fit')?.addEventListener('click', printAutoFit);
     $('#print-pattern-contrast')?.addEventListener('input', () => {
       const v = parseFloat($('#print-pattern-contrast')?.value || 30) / 100;
       const areaBox = $('#print-area');

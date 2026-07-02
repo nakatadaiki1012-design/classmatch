@@ -534,7 +534,7 @@
 
           <div class="group">
             <span class="label">教員並替</span>
-            <button id="btn-tea-sort-name" class="btn secondary">名前</button>
+            <button id="btn-tea-sort-name-edit" class="btn secondary">名前</button>
             <button id="btn-tea-sort-subj" class="btn secondary">教科</button>
             <button id="btn-tea-sort-manual" class="btn secondary" title="ドラッグで並べ替え">手動</button>
           </div>
@@ -720,21 +720,17 @@
           <option value="stripe">縞模様</option>
           <option value="checker">チェス</option>
         </select>
-        <span class="muted small">セル高</span>
+        <span class="toolbar-sep" style="display:inline-block;width:1px;height:20px;background:#e2e8f0;margin:0 4px;vertical-align:middle"></span>
+        <span class="muted small">行高</span>
         <button id="btn-print-cell-down" class="btn secondary" style="padding:2px 8px">-</button>
         <span id="print-cell-label" class="muted small">M</span>
         <button id="btn-print-cell-up" class="btn secondary" style="padding:2px 8px">+</button>
-        <span class="muted small">文字</span>
-        <button id="btn-print-font-down" class="btn secondary" style="padding:2px 8px">-</button>
-        <span id="print-font-label" class="muted small">M</span>
-        <button id="btn-print-font-up" class="btn secondary" style="padding:2px 8px">+</button>
         <input id="print-font-size-px" type="number" min="6" max="48" step="1" title="文字サイズ（px直接入力）" style="width:46px;padding:1px 4px;border:1px solid #cbd5e1;border-radius:4px;text-align:right">
         <span class="muted small" style="margin-left:-4px">px</span>
         <span class="muted small">列幅</span>
         <button id="btn-print-col-down" class="btn secondary" style="padding:2px 8px">-</button>
         <span id="print-col-label" class="muted small">M</span>
         <button id="btn-print-col-up" class="btn secondary" style="padding:2px 8px">+</button>
-        <button id="btn-print-auto-fit" class="btn secondary" title="A4縦1枚に収まるよう自動調整（ステップ式）">📐 自動フィット</button>
         <button id="btn-fit-a4-portrait" class="btn secondary" title="A4縦1枚にぴったり収まるよう列幅・行高さ・文字を自動設定">📐 A4縦フィット</button>
         <button id="btn-equalize-cols" class="btn secondary" title="全曜日列を同じ幅に揃える">⇔ 列幅揃え</button>
         <button id="btn-equalize-rows" class="btn secondary" title="全時限行を同じ高さに揃える">⇕ 行高揃え</button>
@@ -773,6 +769,7 @@
           <option value="fixed" selected>固定</option>
           <option value="flexible">フレキシブル</option>
         </select>
+        <span class="toolbar-sep" style="display:inline-block;width:1px;height:20px;background:#e2e8f0;margin:0 4px;vertical-align:middle"></span>
         <button id="btn-export-teacher-matrix" class="btn secondary">全教員CSV</button>
         <button id="btn-export-class-matrix" class="btn secondary">全クラスCSV</button>
         <button id="btn-export-teacher-xlsx" class="btn secondary" style="background:#217346;color:#fff;border:none">📊 教員別XLSX</button>
