@@ -1371,7 +1371,7 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
           state.rawRows = parsed.rawRows;
           state.subjectCfg = parsed.subjectCfg;
           state.teacherCfg = parsed.teacherCfg;
-          state.items = parsed.items;
+          state.items = normalizeItems(parsed.items);
           state.placements = parsed.placements || {};
           state.snapshots = [];
           // 曜日ごとの時限数（可用性文字列から正確に取得）
@@ -1422,7 +1422,7 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
           Object.assign(state.settings, data.settings);
         }
         if (data.placements && typeof data.placements === 'object') state.placements = data.placements;
-        if (data.items && typeof data.items === 'object') state.items = data.items;
+        if (data.items && typeof data.items === 'object') state.items = normalizeItems(data.items);
         if (Array.isArray(data.snapshots)) state.snapshots = data.snapshots;
 
         markDirty('projectImport');
@@ -1431,6 +1431,20 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
         flash(`📂 「${name}」を読み込みました（保存日時: ${savedAt}）`);
       }
     );
+  }
+
+  // 外部データ（プロジェクト/スナップショット/localStorage）から復元したitemsに
+  // teas/cls/rooms 配列が欠けていると print/export 等で .join が落ちるため正規化する
+  function normalizeItems(items) {
+    if (!items || typeof items !== 'object') return {};
+    for (const id in items) {
+      const it = items[id];
+      if (!it || typeof it !== 'object') continue;
+      if (!Array.isArray(it.teas)) it.teas = it.teas != null ? [].concat(it.teas) : [];
+      if (!Array.isArray(it.cls)) it.cls = it.cls != null ? [].concat(it.cls) : [];
+      if (!Array.isArray(it.rooms)) it.rooms = it.rooms != null ? [].concat(it.rooms) : [];
+    }
+    return items;
   }
 
   /* =======================
@@ -12196,10 +12210,13 @@ function buildIndex(){
     const subjAbbr = (sc.abbr || it.subj || '').trim();
     const subjFull = (it.subj || it.subjKey || '').trim();
     const dept = (sc.dept || '').trim();
-    const teaFull = it.teas.join(',');
-    const teaAbbr = it.teas.map(t => state.teacherCfg[t]?.abbr || t).join(',');
-    const cls = it.cls.join(',');
-    const room = it.rooms.join(',');
+    const teas = Array.isArray(it.teas) ? it.teas : [];
+    const clsArr = Array.isArray(it.cls) ? it.cls : [];
+    const roomsArr = Array.isArray(it.rooms) ? it.rooms : [];
+    const teaFull = teas.join(',');
+    const teaAbbr = teas.map(t => state.teacherCfg[t]?.abbr || t).join(',');
+    const cls = clsArr.join(',');
+    const room = roomsArr.join(',');
     if (tok === 'subjFull') return subjFull;
     if (tok === 'subjAbbr') return subjAbbr;
     if (tok === 'dept') return dept;
@@ -15832,7 +15849,7 @@ function buildIndex(){
         // accept if it looks like our schema
         if (obj && (obj.rawRows || obj.items || obj.placements)) {
           state.rawRows = obj.rawRows || state.rawRows || [];
-          state.items = obj.items || state.items || {};
+          state.items = normalizeItems(obj.items || state.items || {});
           state.placements = obj.placements || state.placements || {};
           state.subjectCfg = obj.subjectCfg || state.subjectCfg || {};
           state.teacherCfg = obj.teacherCfg || state.teacherCfg || {};
