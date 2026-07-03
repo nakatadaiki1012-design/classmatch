@@ -11206,7 +11206,12 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
         ct(idx.tea); ct(idx.cls); if (state.settings.roomConflict) ct(idx.room);
         newHard = h;
       }
-      const newSoft = optNoConsec ? softMetricsFromPlacements(placements, false, true).score : _cache.soft;
+      // soft は placements から算出されるため、移動を反映した一時placementsで評価する。
+      // （evalMove は idx のみ一時変更し placements は変えないため、以前は soft 差分が常に0だった）
+      const tmpPlc = Object.assign({}, placements);
+      tmpPlc[id] = newPlc;
+      if (swapId && newSwapPlc) tmpPlc[swapId] = newSwapPlc;
+      const newSoft = softMetricsFromPlacements(tmpPlc, optBalance, optNoConsec).score;
       const newTotal = newHard * 100000 + newSoft + _cache.remain * 50000;
 
       // 元に戻す
@@ -11288,7 +11293,7 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
     const slots = ctx.validSlotsCache[id];
     if (!slots.length) return;
 
-    let ev, moveType = 'move', swapId = null;
+    let ev, moveType = 'move', swapId = null, moveSlot = null;
 
     if (Math.random() < 0.5) {
       const others = movable.filter(x => x !== id);
@@ -11302,8 +11307,10 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       }
     }
     if (!ev) {
-      const slot = slots[Math.floor(Math.random() * slots.length)];
-      ev = dc.evalMove(id, slot.day, slot.period);
+      // 評価したスロットをそのまま適用する（評価と適用でスロットがズレると
+      // Metropolis受理判定が実際の手と対応せず探索が破綻するため）
+      moveSlot = slots[Math.floor(Math.random() * slots.length)];
+      ev = dc.evalMove(id, moveSlot.day, moveSlot.period);
       moveType = 'move'; swapId = null;
     }
 
@@ -11314,8 +11321,7 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
     if (accept) {
       if (moveType === 'swap') { dc.applySwap(id, swapId); }
       else {
-        const slot = slots[Math.floor(Math.random() * slots.length)];
-        dc.applyMove(id, slot.day, slot.period);
+        dc.applyMove(id, moveSlot.day, moveSlot.period);
       }
       const c = dc.getCache();
       saState.cost = c.total;
@@ -15271,8 +15277,12 @@ function buildIndex(){
         const pushHistoryOnce = (tag) => { if (__aiHistoryPushed) return; __aiHistoryPushed = true; pushHistory(tag || 'ai'); };
         const allIds = Object.keys(state.items);
         const unplaced0 = allIds.filter(id => !basePlacements[id]);
-        if (!unplaced0.length) {
-          flash('未配置なし');
+        // 全コマ配置済みでも、ハード違反やソフトコストが残っていれば
+        // SA/入替による最適化（仕上げ探索）を実行できるようにする。
+        // 未配置ゼロ かつ 違反ゼロ のときのみ「実行不要」として終了する。
+        const hardVio0 = hardViolationsFromPlacements(basePlacements);
+        if (!unplaced0.length && hardVio0 === 0) {
+          flash('未配置・違反ともにありません（探索不要）');
           aiRunner.running = false;
           btnRun.textContent = 'AI探索開始'; btnRun.classList.remove('danger'); btnRun.disabled = false;
           return;
