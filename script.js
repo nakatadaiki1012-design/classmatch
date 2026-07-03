@@ -9422,47 +9422,68 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
     return stats;
   }
 
-  function softMetricsFromPlacements(placements, optBalance = true, optNoConsec = true) {
-    const stats = buildDeptStatsFromPlacements(placements);
-    let bias = 0;
-    for (const c in stats.clsDept) {
-      for (const d in stats.clsDept[c]) {
-        const st = stats.clsDept[c][d];
-        if (st.cnt > 0) bias += (st.sum * st.sum) / st.cnt;
-      }
-    }
-    // consecutive
-    const idx = buildIdxFromPlacements(placements);
-    const deptOfId = (id) => (state.subjectCfg[state.items[id]?.subjKey]?.dept) || '';
-    let consec = 0;
-    for (const c in idx.cls) {
-      for (const day of DAYS) {
-        const maxP = maxPeriod(day);
-        for (let p = 1; p < maxP; p++) {
-          const a = (idx.cls[c][day]?.[p] || [])[0];
-          const b = (idx.cls[c][day]?.[p + 1] || [])[0];
-          if (!a || !b) continue;
-          if (a === b && (state.items[a]?.span || 1) === 2) continue;
-          const da = deptOfId(a);
-          const db = deptOfId(b);
-          if (da && da === db) consec += 1;
-        }
-      }
-    }
-    // noSameDay penalty: same subject in same class on same day twice
-    let noSameDayPenalty = 0;
-    const dayCounts = {};
-    for (const id in placements) {
-      const plc = placements[id]; if (!plc?.day) continue;
+  // クラス→そのクラスを含むitem idの一覧（itemsは探索中不変なのでキャッシュ）
+  let _itemsByClassCache = null, _itemsByClassKey = null;
+  function getItemsByClass() {
+    // state.items の参照が変わったら作り直す（import/編集時）
+    if (_itemsByClassCache && _itemsByClassKey === state.items) return _itemsByClassCache;
+    const map = {};
+    for (const id in state.items) {
       const it = state.items[id]; if (!it) continue;
-      const sc = state.subjectCfg[it.subjKey] || {};
-      if (!sc.noSameDay) continue;
-      for (const c of (it.cls || [])) {
-        const key = `${c}|${it.subjKey}|${plc.day}`;
-        dayCounts[key] = (dayCounts[key] || 0) + 1;
-        if (dayCounts[key] === 2) noSameDayPenalty += 5000;
-        else if (dayCounts[key] > 2) noSameDayPenalty += 8000;
+      for (const c of (it.cls || [])) { (map[c] || (map[c] = [])).push(id); }
+    }
+    _itemsByClassCache = map; _itemsByClassKey = state.items;
+    return map;
+  }
+  const _softTimeScore = (p) => (p === 1 ? -2 : p === 2 ? -1 : p === 3 ? 0 : p === 4 ? 0 : p === 5 ? 1 : p === 6 ? 2 : 3);
+
+  // 1クラス分のソフト指標（bias/consec/noSameDay）の生値を算出。
+  // 全体のソフト指標はクラス単位で完全に分解できるため、これを合算すると
+  // softMetricsFromPlacements と一致する（差分評価との整合を保証）。
+  function classSoftContribution(placements, c, ids) {
+    const deptOf = (id) => (state.subjectCfg[state.items[id]?.subjKey]?.dept) || '';
+    const deptAgg = {};   // dept -> {sum, cnt}
+    const cell = {};      // day -> period -> 先頭item id
+    const noSame = {};    // `c|subjKey|day` -> count
+    for (const id of ids) {
+      const plc = placements[id]; if (!plc || !plc.day) continue;
+      const it = state.items[id]; if (!it) continue;
+      const dept = deptOf(id);
+      const span = it.span || 1;
+      for (let dp = 0; dp < span; dp++) {
+        const p = plc.period + dp;
+        if (dept) { const a = deptAgg[dept] || (deptAgg[dept] = { sum: 0, cnt: 0 }); a.sum += _softTimeScore(p); a.cnt += 1; }
+        const dd = cell[plc.day] || (cell[plc.day] = {});
+        if (dd[p] === undefined) dd[p] = id; // 先頭優先
       }
+      const sc = state.subjectCfg[it.subjKey] || {};
+      if (sc.noSameDay) { const key = `${c}|${it.subjKey}|${plc.day}`; noSame[key] = (noSame[key] || 0) + 1; }
+    }
+    let bias = 0;
+    for (const d in deptAgg) { const a = deptAgg[d]; if (a.cnt > 0) bias += (a.sum * a.sum) / a.cnt; }
+    let consec = 0;
+    for (const day in cell) {
+      const maxP = maxPeriod(day);
+      const row = cell[day];
+      for (let p = 1; p < maxP; p++) {
+        const a = row[p], b = row[p + 1];
+        if (a === undefined || b === undefined) continue;
+        if (a === b && (state.items[a]?.span || 1) === 2) continue;
+        const da = deptOf(a), db = deptOf(b);
+        if (da && da === db) consec += 1;
+      }
+    }
+    let noSameDay = 0;
+    for (const k in noSame) { const n = noSame[k]; if (n >= 2) noSameDay += 5000 + (n - 2) * 8000; }
+    return { bias, consec, noSameDay };
+  }
+
+  function softMetricsFromPlacements(placements, optBalance = true, optNoConsec = true) {
+    const itemsByClass = getItemsByClass();
+    let bias = 0, consec = 0, noSameDayPenalty = 0;
+    for (const c in itemsByClass) {
+      const r = classSoftContribution(placements, c, itemsByClass[c]);
+      bias += r.bias; consec += r.consec; noSameDayPenalty += r.noSameDay;
     }
     const score = (optBalance ? bias : 0) + (optNoConsec ? consec * 4 : 0) + noSameDayPenalty;
     return { bias, consec, noSameDayPenalty, score };
@@ -11090,15 +11111,21 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
     let idx = buildIdxFromPlacements(placements);
 
     // ── インデックス操作ヘルパー ──────────────────
+    // 衝突総数(_conflT)をidx操作と同時に増分維持する（roomはroomConflict時のみ計上）
+    const _roomConf = !!state.settings.roomConflict;
+    let _conflT = 0, _dailyT = 0;
     function _del(type, key, day, p, id) {
       const arr = idx[type]?.[key]?.[day]?.[p]; if (!arr) return;
-      const i = arr.indexOf(id); if (i >= 0) arr.splice(i, 1);
+      const i = arr.indexOf(id); if (i < 0) return;
+      const before = arr.length; arr.splice(i, 1);
+      if (type !== 'room' || _roomConf) _conflT += (arr.length > 1 ? arr.length - 1 : 0) - (before > 1 ? before - 1 : 0);
     }
     function _add(type, key, day, p, id) {
       if (!idx[type][key]) idx[type][key] = {};
       if (!idx[type][key][day]) idx[type][key][day] = {};
-      if (!idx[type][key][day][p]) idx[type][key][day][p] = [];
-      idx[type][key][day][p].push(id);
+      const cell = idx[type][key][day][p] || (idx[type][key][day][p] = []);
+      const before = cell.length; cell.push(id);
+      if (type !== 'room' || _roomConf) _conflT += (cell.length > 1 ? cell.length - 1 : 0) - (before > 1 ? before - 1 : 0);
     }
     function _removeFromIdx(id, plc) {
       if (!plc) return;
@@ -11123,95 +11150,108 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       }
     }
 
-    // ── 衝突カウント（特定day×periodのみ） ─────────
-    function _cellConflicts(day, periods) {
-      let h = 0;
-      for (const p of periods) {
-        for (const k in idx.tea) { const a = idx.tea[k]?.[day]?.[p]; if (a && a.length > 1) h += a.length - 1; }
-        for (const k in idx.cls) { const a = idx.cls[k]?.[day]?.[p]; if (a && a.length > 1) h += a.length - 1; }
-        if (state.settings.roomConflict) for (const k in idx.room) { const a = idx.room[k]?.[day]?.[p]; if (a && a.length > 1) h += a.length - 1; }
+    // ── ハードコスト ──
+    // 衝突総数(_conflT)は _add/_del で増分維持。教員1日上限(_dailyT)は
+    // 影響する (教員,曜日) のみ再計算する。初期化時のみ全走査する。
+    function _dailyVio(tea, day) {
+      const maxD = teacherDailyMax(tea); if (maxD == null) return 0;
+      const dayMap = idx.tea[tea]?.[day]; if (!dayMap) return 0;
+      const items = new Set();
+      for (const p in dayMap) { for (const id of (dayMap[p] || [])) items.add(id); }
+      return items.size > maxD ? items.size - maxD : 0;
+    }
+    // 移動/入替で影響する (教員,曜日) の集合を "tea day" 形式で収集
+    function _affectedTeaDays(ids) {
+      const set = new Set();
+      for (const { id, days } of ids) {
+        const it = state.items[id]; if (!it) continue;
+        for (const t of it.teas || []) for (const d of days) if (d) set.add(t + ' ' + d);
       }
-      return h;
+      return set;
+    }
+    function _sumDaily(set) {
+      let s = 0; for (const k of set) { const i = k.indexOf(' '); s += _dailyVio(k.slice(0, i), k.slice(i + 1)); } return s;
+    }
+    // 初期化: 全走査で _conflT, _dailyT を確定
+    function _recomputeHardInit() {
+      let conf = 0;
+      const ct = (m, isRoom) => { if (isRoom && !_roomConf) return; for (const k in m) for (const d in m[k]) for (const p in m[k][d]) { const a = m[k][d][p]; if (a.length > 1) conf += a.length - 1; } };
+      ct(idx.tea, false); ct(idx.cls, false); ct(idx.room, true);
+      let daily = 0;
+      for (const tea in idx.tea) { for (const day of DAYS) daily += _dailyVio(tea, day); }
+      _conflT = conf; _dailyT = daily;
+      return conf + daily;
     }
 
-    // ── soft: 連続違反の差分 ────────────────────────
-    function _consecPenaltyForCell(c, day, p) {
-      // pの前後を確認
-      let pen = 0;
-      const deptOf = (id) => (state.subjectCfg[state.items[id]?.subjKey]?.dept || '');
-      const get = (pp) => (idx.cls?.[c]?.[day]?.[pp] || [])[0];
-      const cur = get(p);
-      if (!cur) return 0;
-      const prev = get(p - 1), next = get(p + 1);
-      if (prev && prev !== cur) { const d1 = deptOf(prev), d2 = deptOf(cur); if (d1 && d1 === d2) pen += 4; }
-      if (next && next !== cur) { const d1 = deptOf(cur), d2 = deptOf(next); if (d1 && d1 === d2) pen += 4; }
-      return pen;
+    // ── ソフトコスト: クラス単位でキャッシュし、影響クラスのみ再計算 ──
+    const _itemsByClass = getItemsByClass();
+    const _scBias = {}, _scConsec = {}, _scNoSame = {};
+    let _biasT = 0, _consecT = 0, _noSameT = 0;
+    function _initSoftCaches() {
+      _biasT = 0; _consecT = 0; _noSameT = 0;
+      for (const c in _itemsByClass) {
+        const r = classSoftContribution(placements, c, _itemsByClass[c]);
+        _scBias[c] = r.bias; _scConsec[c] = r.consec; _scNoSame[c] = r.noSameDay;
+        _biasT += r.bias; _consecT += r.consec; _noSameT += r.noSameDay;
+      }
     }
+    function _flaggedSoft() { return (optBalance ? _biasT : 0) + (optNoConsec ? _consecT * 4 : 0) + _noSameT; }
+    function _updateSoftForClasses(classes) {
+      for (const c of classes) {
+        const r = classSoftContribution(placements, c, _itemsByClass[c] || []);
+        _biasT += r.bias - (_scBias[c] || 0);
+        _consecT += r.consec - (_scConsec[c] || 0);
+        _noSameT += r.noSameDay - (_scNoSame[c] || 0);
+        _scBias[c] = r.bias; _scConsec[c] = r.consec; _scNoSame[c] = r.noSameDay;
+      }
+    }
+    const _clsOf = (id) => (state.items[id]?.cls || []);
 
-    // ── 全コスト（初期・再計算用）total = hard×100000 + remain×50000 + soft ──
+    // ── 全コスト（初期・再同期用）total = hard×100000 + remain×50000 + soft ──
     function _fullCost() {
-      const sm = softMetricsFromPlacements(placements, optBalance, optNoConsec);
-      const idx2 = buildIdxFromPlacements(placements);
-      let h = 0;
-      const ct = (m) => { for (const k in m) for (const d in m[k]) for (const p in m[k][d]) { const a = m[k][d][p]; if (a.length > 1) h += a.length - 1; } };
-      ct(idx2.tea); ct(idx2.cls); if (state.settings.roomConflict) ct(idx2.room);
-      // 教員1日上限超過をhardに追加
-      for (const tea in idx2.tea) {
-        const maxD = teacherDailyMax(tea);
-        if (maxD == null) continue;
-        for (const day of DAYS) {
-          const dayMap = idx2.tea[tea]?.[day]; if (!dayMap) continue;
-          const items = new Set();
-          for (const p in dayMap) { for (const id of (dayMap[p] || [])) items.add(id); }
-          if (items.size > maxD) h += (items.size - maxD);
-        }
-      }
+      _initSoftCaches();
+      const h = _recomputeHardInit();
       const rem = allIds.filter(id => !placements[id]).length;
-      return {
-        hard: h, soft: sm.score, bias: sm.bias, consec: sm.consec, remain: rem,
-        total: h * 100000 + rem * 50000 + sm.score
-      };
+      const soft = _flaggedSoft();
+      return { hard: h, soft, bias: _biasT, consec: _consecT, remain: rem, total: h * 100000 + rem * 50000 + soft };
     }
 
     let _cache = _fullCost();
 
-    /* ── 差分評価: 移動コストをO(k)で計算 ──────────── */
+    /* ── 差分評価: 影響クラスのソフトのみ再計算（ハードはO(セル数)）──── */
     function evalMove(id, newDay, newPeriod, swapId = null) {
       const it = state.items[id]; if (!it) return { deltaTotal: 1e9 };
       const oldPlc = placements[id];
-      const span = it.span || 1;
-
-      // 影響するperiods
-      const affectedOld = oldPlc ? Array.from({ length: span }, (_, i) => oldPlc.period + i) : [];
-      const affectedNew = Array.from({ length: span }, (_, i) => newPeriod + i);
       const swapOldPlc = swapId ? placements[swapId] : null;
-      const swapSpan = swapId ? (state.items[swapId]?.span || 1) : 0;
-      const affectedSwap = swapOldPlc ? Array.from({ length: swapSpan }, (_, i) => swapOldPlc.period + i) : [];
+      const newPlc = { day: newDay, period: newPeriod, locked: false };
+      const newSwapPlc = swapId && oldPlc ? { day: oldPlc.day, period: oldPlc.period, locked: false } : null;
 
-      // 一時的に変更
+      // 影響する (教員,曜日) と現状の1日上限違反を先に確定
+      const affTD = _affectedTeaDays([
+        { id, days: [oldPlc && oldPlc.day, newDay] },
+        ...(swapId ? [{ id: swapId, days: [swapOldPlc && swapOldPlc.day, oldPlc && oldPlc.day] }] : [])
+      ]);
+      const oldDaily = _sumDaily(affTD);
+
+      // idx と placements を一時的に変更（_conflT は _add/_del が増分維持）
       _removeFromIdx(id, oldPlc);
       if (swapId && swapOldPlc) _removeFromIdx(swapId, swapOldPlc);
-      const newPlc = { day: newDay, period: newPeriod, locked: false };
       _addToIdx(id, newPlc);
-      const newSwapPlc = swapId && oldPlc ? { day: oldPlc.day, period: oldPlc.period, locked: false } : null;
       if (swapId && newSwapPlc) _addToIdx(swapId, newSwapPlc);
+      placements[id] = newPlc;
+      if (swapId && newSwapPlc) placements[swapId] = newSwapPlc;
 
-      // コスト差を計算（影響セルのみ）
-      const allAffectedDays = new Set([newDay, ...(oldPlc ? [oldPlc.day] : []), ...(swapOldPlc ? [swapOldPlc.day] : [])]);
-      let newHard = _cache.hard;
-      // 粗い近似: 全hard再計算（差分が複雑なので安全側）
-      {
-        let h = 0;
-        const ct = (m) => { for (const k in m) for (const d in m[k]) for (const p in m[k][d]) { const a = m[k][d][p]; if (a.length > 1) h += a.length - 1; } };
-        ct(idx.tea); ct(idx.cls); if (state.settings.roomConflict) ct(idx.room);
-        newHard = h;
+      const newHard = _conflT + _dailyT - oldDaily + _sumDaily(affTD);
+      // 影響クラスのソフト差分
+      const affected = new Set([..._clsOf(id), ...(swapId ? _clsOf(swapId) : [])]);
+      let dB = 0, dC = 0, dN = 0;
+      for (const c of affected) {
+        const r = classSoftContribution(placements, c, _itemsByClass[c] || []);
+        dB += r.bias - (_scBias[c] || 0);
+        dC += r.consec - (_scConsec[c] || 0);
+        dN += r.noSameDay - (_scNoSame[c] || 0);
       }
-      // soft は placements から算出されるため、移動を反映した一時placementsで評価する。
-      // （evalMove は idx のみ一時変更し placements は変えないため、以前は soft 差分が常に0だった）
-      const tmpPlc = Object.assign({}, placements);
-      tmpPlc[id] = newPlc;
-      if (swapId && newSwapPlc) tmpPlc[swapId] = newSwapPlc;
-      const newSoft = softMetricsFromPlacements(tmpPlc, optBalance, optNoConsec).score;
+      const newSoft = _flaggedSoft() + (optBalance ? dB : 0) + (optNoConsec ? dC * 4 : 0) + dN;
       const newTotal = newHard * 100000 + newSoft + _cache.remain * 50000;
 
       // 元に戻す
@@ -11219,6 +11259,8 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       if (swapId && newSwapPlc) _removeFromIdx(swapId, newSwapPlc);
       _addToIdx(id, oldPlc);
       if (swapId && swapOldPlc) _addToIdx(swapId, swapOldPlc);
+      placements[id] = oldPlc;
+      if (swapId && swapOldPlc) placements[swapId] = swapOldPlc;
 
       return {
         hard: newHard, soft: newSoft, remain: _cache.remain, total: newTotal,
@@ -11229,20 +11271,32 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
     /* ── 移動を実際に適用 ──────────────────────────── */
     function applyMove(id, newDay, newPeriod) {
       const oldPlc = placements[id];
+      const affTD = _affectedTeaDays([{ id, days: [oldPlc && oldPlc.day, newDay] }]);
+      const oldDaily = _sumDaily(affTD);
       _removeFromIdx(id, oldPlc);
       const newPlc = { day: newDay, period: newPeriod, locked: false };
       placements[id] = newPlc;
       _addToIdx(id, newPlc);
-      _cache = _fullCost();
+      _dailyT += _sumDaily(affTD) - oldDaily;
+      _updateSoftForClasses(_clsOf(id));
+      const h = _conflT + _dailyT;
+      const soft = _flaggedSoft();
+      _cache = { hard: h, soft, bias: _biasT, consec: _consecT, remain: _cache.remain, total: h * 100000 + _cache.remain * 50000 + soft };
     }
     function applySwap(id, swapId) {
       const a = placements[id], b = placements[swapId];
       if (!a || !b) return;
+      const affTD = _affectedTeaDays([{ id, days: [a.day, b.day] }, { id: swapId, days: [b.day, a.day] }]);
+      const oldDaily = _sumDaily(affTD);
       _removeFromIdx(id, a); _removeFromIdx(swapId, b);
       placements[id] = { day: b.day, period: b.period, locked: false };
       placements[swapId] = { day: a.day, period: a.period, locked: false };
       _addToIdx(id, placements[id]); _addToIdx(swapId, placements[swapId]);
-      _cache = _fullCost();
+      _dailyT += _sumDaily(affTD) - oldDaily;
+      _updateSoftForClasses(new Set([..._clsOf(id), ..._clsOf(swapId)]));
+      const h = _conflT + _dailyT;
+      const soft = _flaggedSoft();
+      _cache = { hard: h, soft, bias: _biasT, consec: _consecT, remain: _cache.remain, total: h * 100000 + _cache.remain * 50000 + soft };
     }
 
     function getCache() { return _cache; }
@@ -11253,6 +11307,67 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       _idx: idx, _placements: placements
     };
   }
+
+  // 差分評価(buildDeltaCtx)の正当性検証: ランダムな move/swap について
+  // 差分で求めた total と、全再計算した total が一致するか確認する。
+  // window.__deltaFuzz(trials) で実行し {maxEvalDiff, maxApplyDiff} を返す（0が正しい）。
+  function _deltaCtxSelfTest(trials = 300) {
+    const base = deepClone(state.placements);
+    const ctx = buildAiCtx(base);
+    const dc = buildDeltaCtx(deepClone(base), ctx);
+    const plc = dc._placements;
+    const bruteTotal = (p) => {
+      const hard = hardViolationsFromPlacements(p);
+      const soft = softMetricsFromPlacements(p, ctx.optBalance, ctx.optNoConsec).score;
+      const remain = ctx.allIds.filter(id => !p[id]).length;
+      return hard * 100000 + remain * 50000 + soft;
+    };
+    let maxEvalDiff = 0, maxApplyDiff = 0, n = 0;
+    for (let i = 0; i < trials; i++) {
+      const movable = ctx.allIds.filter(id => plc[id] && !plc[id].locked);
+      if (movable.length < 2) break;
+      const id = movable[Math.floor(Math.random() * movable.length)];
+      const doSwap = Math.random() < 0.5;
+      if (doSwap) {
+        let sid; do { sid = movable[Math.floor(Math.random() * movable.length)]; } while (sid === id);
+        const ev = dc.evalMove(id, plc[sid].day, plc[sid].period, sid);
+        const p2 = deepClone(plc); const a = p2[id], b = p2[sid];
+        p2[id] = { day: b.day, period: b.period, locked: false }; p2[sid] = { day: a.day, period: a.period, locked: false };
+        maxEvalDiff = Math.max(maxEvalDiff, Math.abs(ev.total - bruteTotal(p2)));
+        dc.applySwap(id, sid);
+      } else {
+        const slots = ctx.validSlotsCache[id]; if (!slots || !slots.length) continue;
+        const s = slots[Math.floor(Math.random() * slots.length)];
+        const ev = dc.evalMove(id, s.day, s.period);
+        const p2 = deepClone(plc); p2[id] = { day: s.day, period: s.period, locked: false };
+        maxEvalDiff = Math.max(maxEvalDiff, Math.abs(ev.total - bruteTotal(p2)));
+        dc.applyMove(id, s.day, s.period);
+      }
+      maxApplyDiff = Math.max(maxApplyDiff, Math.abs(dc.getCache().total - bruteTotal(plc)));
+      n++;
+    }
+    return { maxEvalDiff, maxApplyDiff, trials: n };
+  }
+  try { window.__deltaFuzz = _deltaCtxSelfTest; } catch (e) { }
+  // 差分評価 vs 全再計算 のスループット比較（開発検証用）
+  function _deltaCtxBench(n = 20000) {
+    const base = deepClone(state.placements);
+    const ctx = buildAiCtx(base);
+    const dc = buildDeltaCtx(deepClone(base), ctx);
+    const plc = dc._placements;
+    const movable = ctx.allIds.filter(id => plc[id] && !plc[id].locked);
+    const pick = () => movable[Math.floor(Math.random() * movable.length)];
+    // delta evalMove
+    let t0 = performance.now();
+    for (let i = 0; i < n; i++) { const id = pick(); const s = ctx.validSlotsCache[id]; if (s && s.length) dc.evalMove(id, s[0].day, s[0].period); }
+    const deltaMs = performance.now() - t0;
+    // full softMetrics (旧: 1手ごとに全再計算していたコスト相当)
+    t0 = performance.now();
+    for (let i = 0; i < n; i++) { softMetricsFromPlacements(plc, ctx.optBalance, ctx.optNoConsec); }
+    const fullMs = performance.now() - t0;
+    return { n, deltaMs: Math.round(deltaMs), fullSoftMs: Math.round(fullMs), speedup: +(fullMs / deltaMs).toFixed(1) };
+  }
+  try { window.__deltaBench = _deltaCtxBench; } catch (e) { }
 
   /* ── DeltaCtx を使った高速SA ──────────────────────── */
   function initSAStateFast(basePlacements, ctx) {
