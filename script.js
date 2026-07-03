@@ -9489,6 +9489,10 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
     return { bias, consec, noSameDayPenalty, score };
   }
 
+  // 未配置ペナルティ重み。配置数維持モードではハード違反(×100000)より重くして、
+  // AIがコマを在庫へ外して違反を減らす動きを抑制し、全配置のまま違反最小化する。
+  function aiRemainWeight() { return state.settings.aiKeepPlaced ? 200000 : 50000; }
+
   function hardViolationsFromPlacements(placements) {
     const idx = buildIdxFromPlacements(placements);
     let v = 0;
@@ -10621,7 +10625,7 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       const remain = allIds.filter(id => !placements[id]).length;
       return {
         hard, soft: sm.score, bias: sm.bias, consec: sm.consec, remain,
-        total: hard * 100000 + remain * 50000 + sm.score
+        total: hard * 100000 + remain * aiRemainWeight() + sm.score
       };
     }
 
@@ -11113,6 +11117,7 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
     // ── インデックス操作ヘルパー ──────────────────
     // 衝突総数(_conflT)をidx操作と同時に増分維持する（roomはroomConflict時のみ計上）
     const _roomConf = !!state.settings.roomConflict;
+    const _remainW = aiRemainWeight(); // 探索中は不変（配置数維持モードの重み）
     let _conflT = 0, _dailyT = 0;
     function _del(type, key, day, p, id) {
       const arr = idx[type]?.[key]?.[day]?.[p]; if (!arr) return;
@@ -11213,7 +11218,7 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       const h = _recomputeHardInit();
       const rem = allIds.filter(id => !placements[id]).length;
       const soft = _flaggedSoft();
-      return { hard: h, soft, bias: _biasT, consec: _consecT, remain: rem, total: h * 100000 + rem * 50000 + soft };
+      return { hard: h, soft, bias: _biasT, consec: _consecT, remain: rem, total: h * 100000 + rem * _remainW + soft };
     }
 
     let _cache = _fullCost();
@@ -11252,7 +11257,7 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
         dN += r.noSameDay - (_scNoSame[c] || 0);
       }
       const newSoft = _flaggedSoft() + (optBalance ? dB : 0) + (optNoConsec ? dC * 4 : 0) + dN;
-      const newTotal = newHard * 100000 + newSoft + _cache.remain * 50000;
+      const newTotal = newHard * 100000 + newSoft + _cache.remain * _remainW;
 
       // 元に戻す
       _removeFromIdx(id, newPlc);
@@ -11281,7 +11286,7 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       _updateSoftForClasses(_clsOf(id));
       const h = _conflT + _dailyT;
       const soft = _flaggedSoft();
-      _cache = { hard: h, soft, bias: _biasT, consec: _consecT, remain: _cache.remain, total: h * 100000 + _cache.remain * 50000 + soft };
+      _cache = { hard: h, soft, bias: _biasT, consec: _consecT, remain: _cache.remain, total: h * 100000 + _cache.remain * _remainW + soft };
     }
     function applySwap(id, swapId) {
       const a = placements[id], b = placements[swapId];
@@ -11296,7 +11301,7 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       _updateSoftForClasses(new Set([..._clsOf(id), ..._clsOf(swapId)]));
       const h = _conflT + _dailyT;
       const soft = _flaggedSoft();
-      _cache = { hard: h, soft, bias: _biasT, consec: _consecT, remain: _cache.remain, total: h * 100000 + _cache.remain * 50000 + soft };
+      _cache = { hard: h, soft, bias: _biasT, consec: _consecT, remain: _cache.remain, total: h * 100000 + _cache.remain * _remainW + soft };
     }
 
     function getCache() { return _cache; }
@@ -11320,7 +11325,7 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       const hard = hardViolationsFromPlacements(p);
       const soft = softMetricsFromPlacements(p, ctx.optBalance, ctx.optNoConsec).score;
       const remain = ctx.allIds.filter(id => !p[id]).length;
-      return hard * 100000 + remain * 50000 + soft;
+      return hard * 100000 + remain * aiRemainWeight() + soft;
     };
     let maxEvalDiff = 0, maxApplyDiff = 0, n = 0;
     for (let i = 0; i < trials; i++) {
@@ -11544,35 +11549,47 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
 
     gaState.step++;
 
-    // generationInterval毎にクロスオーバー
+    // generationInterval毎に交叉（トーナメント選択＋一様交叉、子2体）
     if (gaState.step % gaState.genInterval === 0) {
-      gaState.population.sort((a, b) => a.cost - b.cost);
-      const p1 = gaState.population[0], p2 = gaState.population[1];
-      const child = { placements: {} };
-      // 1点クロスオーバー: ランダムな分割点でallIds[0..k]はp1, [k..]はp2から取得
-      const splitIdx = Math.floor(Math.random() * ctx.allIds.length);
-      for (let i = 0; i < ctx.allIds.length; i++) {
-        const id = ctx.allIds[i];
-        child.placements[id] = i < splitIdx ? p1.placements[id] : p2.placements[id];
-      }
-      // 衝突解消: 後から配置されたコマが衝突する場合はnullに
-      const seen = {};
-      for (const id of ctx.allIds) {
-        const plc = child.placements[id]; if (!plc) continue;
-        const it = state.items[id]; if (!it) continue;
-        const span = it.span || 1; let conflict = false;
-        for (let dp = 0; dp < span && !conflict; dp++) {
-          for (const t of it.teas || []) { const k = `t:${t}:${plc.day}:${plc.period + dp}`; if (seen[k]) { conflict = true; } else seen[k] = id; }
-          for (const c of it.cls || []) { const k = `c:${c}:${plc.day}:${plc.period + dp}`; if (seen[k]) { conflict = true; } else seen[k] = id; }
+      const pop = gaState.population;
+      // トーナメント選択: ランダムに3体選び最良を親に（多様性を確保）
+      const tournament = () => {
+        let best = null;
+        for (let t = 0; t < 3; t++) {
+          const c = pop[Math.floor(Math.random() * pop.length)];
+          if (!best || c.cost < best.cost) best = c;
         }
-        if (conflict) child.placements[id] = null;
+        return best;
+      };
+      const keepPlaced = !!state.settings.aiKeepPlaced;
+      const makeChild = () => {
+        const p1 = tournament(), p2 = tournament();
+        const plc = {};
+        // 一様交叉: 遺伝子ごとにどちらかの親から継承（allIds順に依存しない混合）
+        for (const id of ctx.allIds) plc[id] = (Math.random() < 0.5 ? p1 : p2).placements[id];
+        // 衝突解消: 後勝ちで衝突するコマは在庫へ（配置数維持モードでは在庫化せず衝突を許容）
+        if (!keepPlaced) {
+          const seen = {};
+          for (const id of ctx.allIds) {
+            const p = plc[id]; if (!p) continue;
+            const it = state.items[id]; if (!it) continue;
+            const span = it.span || 1; let conflict = false;
+            for (let dp = 0; dp < span && !conflict; dp++) {
+              for (const t of it.teas || []) { const k = `t:${t}:${p.day}:${p.period + dp}`; if (seen[k]) conflict = true; else seen[k] = id; }
+              for (const c of it.cls || []) { const k = `c:${c}:${p.day}:${p.period + dp}`; if (seen[k]) conflict = true; else seen[k] = id; }
+            }
+            if (conflict) plc[id] = null;
+          }
+        }
+        const ev = ctx.evalPlacement(plc);
+        return { placements: plc, cost: ev.total, eval: ev };
+      };
+      // 子を2体つくり、悪い個体を置換（エリートは保持）
+      for (const child of [makeChild(), makeChild()]) {
+        pop.sort((a, b) => a.cost - b.cost);
+        const worst = pop[pop.length - 1];
+        if (child.cost < worst.cost) pop[pop.length - 1] = child;
       }
-      const childEv = ctx.evalPlacement(child.placements);
-      child.cost = childEv.total; child.eval = childEv;
-      // 最悪個体と置換
-      gaState.population.sort((a, b) => a.cost - b.cost);
-      if (child.cost < gaState.population[gaState.population.length - 1].cost)
-        gaState.population[gaState.population.length - 1] = child;
     }
 
     gaState.population.sort((a, b) => a.cost - b.cost);
@@ -15314,6 +15331,12 @@ function buildIndex(){
       selectId(nextId, 'stock');
       setTimeout(() => { const el = document.querySelector(`.stock-item[data-id="${CSS.escape(nextId)}"]`); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 100);
     });
+    // 配置数維持モード: チェックボックス→state.settings 同期（初期値も反映）
+    const _keepPlacedEl = $('#ai-keep-placed');
+    if (_keepPlacedEl) {
+      _keepPlacedEl.checked = !!state.settings.aiKeepPlaced;
+      _keepPlacedEl.addEventListener('change', () => { state.settings.aiKeepPlaced = !!_keepPlacedEl.checked; markDirty('aiKeepPlaced'); });
+    }
     $('#btn-ai-wizard')?.addEventListener('click', () => { try { openAiWizard(); } catch (e) { console.error(e); } });
     // v40: AIログボタン
     $('#btn-ai-log')?.addEventListener('click', () => { try { ensureAiLogPanel(); } catch (e) { } });
@@ -15409,7 +15432,10 @@ function buildIndex(){
         const baseSoft0 = softMetricsFromPlacements(basePlacements, optBal2, optNC2);
         let appliedKey = { vio: hardViolationsFromPlacements(basePlacements), remain: unplaced0.length, soft: baseSoft0.score, bias: baseSoft0.bias, consec: baseSoft0.consec };
         // BUG FIX: betterKey closed properly; applyPlacementsAll hoisted OUT of betterKey
+        const _keepPlaced = !!state.settings.aiKeepPlaced;
         const betterKey = (a, b) => {
+          // 配置数維持モードでは未配置数を最優先（違反より先に判定）
+          if (_keepPlaced && a.remain !== b.remain) return a.remain < b.remain;
           if (a.vio !== b.vio) return a.vio < b.vio;
           if (a.remain !== b.remain) return a.remain < b.remain;
           if (a.soft !== b.soft) return a.soft < b.soft;
