@@ -7044,3 +7044,102 @@ td.slot-ng {
 .print-area table.t2 tbody th {
   overflow: visible;
 }
+
+/* ── ヘッダのグループ区切りと「その他」ドロップダウン ── */
+.hdr-sep {
+  display: inline-block;
+  width: 1px;
+  align-self: stretch;
+  min-height: 20px;
+  margin: 0 4px;
+  background: rgba(148, 163, 184, .4);
+}
+.hdr-more {
+  position: relative;
+  display: inline-block;
+}
+.hdr-more > summary {
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+}
+.hdr-more > summary::-webkit-details-marker { display: none; }
+.hdr-more-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  min-width: 180px;
+  background: var(--panel, #1e293b);
+  border: 1px solid rgba(148, 163, 184, .35);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .35);
+}
+.hdr-more-item {
+  width: 100%;
+  text-align: left !important;
+  justify-content: flex-start;
+}
+
+/* ── 印刷 全体プレビュー（全ページ縮小一覧） ── */
+.print-overview-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 5000;
+  background: rgba(15, 23, 42, .72);
+  overflow: auto;
+  padding: 0 0 40px;
+}
+.print-overview-bar {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: #0f172a;
+  border-bottom: 1px solid rgba(148, 163, 184, .35);
+  color: #e2e8f0;
+}
+.print-overview-bar .spacer { flex: 1; }
+.print-overview-bar > button { margin-left: auto; }
+.print-overview-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  padding: 20px;
+  align-items: flex-start;
+  justify-content: center;
+}
+.print-overview-thumb {
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .35);
+  padding: 8px;
+}
+.print-overview-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #334155;
+  margin-bottom: 6px;
+  max-width: 300px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.print-overview-frame {
+  position: relative;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid #cbd5e1;
+}
+.print-overview-inner {
+  transform-origin: top left;
+  background: #fff;
+  color: #111;
+}

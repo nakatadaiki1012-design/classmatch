@@ -1407,10 +1407,21 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
 
     const savedAt = data.savedAt ? new Date(data.savedAt).toLocaleString('ja-JP') : '不明';
     const name = data.projectName || file.name;
+    const ext = (file.name.split('.').pop() || '').toLowerCase();
+    const kindLabel = ext === 'ide'
+      ? 'classmatchプロジェクト（.ide / JSON形式）'
+      : ext === 'classmatch' ? 'classmatchプロジェクト（.classmatch）'
+      : 'classmatchプロジェクト（JSON形式）';
+    const pItems = (data.items && typeof data.items === 'object') ? Object.keys(data.items).length : 0;
+    const pPlaced = (data.placements && typeof data.placements === 'object') ? Object.keys(data.placements).length : 0;
 
     showModal(
       'プロジェクト読込',
-      `「${name}」（保存日時: ${savedAt}）を読み込みますか？\n\n現在の作業内容はすべて上書きされます。`,
+      `📁 種別: ${kindLabel}\n` +
+      `ファイル名: ${file.name}\n\n` +
+      `「${name}」（保存日時: ${savedAt}）を読み込みますか？\n` +
+      `  授業コマ: ${pItems}　配置済み: ${pPlaced}\n\n` +
+      `現在の作業内容はすべて上書きされます。`,
       () => {
         pushHistory('projectImport');
         // データ復元
@@ -12255,6 +12266,71 @@ function buildIndex(){
     return `<div class="pi" style="${inlineStyle}">${h1 ? `<div class="l1" style="${inlineStyle}">${h1}</div>` : ''}${h2 ? `<div class="l2" style="${inlineStyle}">${h2}</div>` : ''}</div>`;
   }
 
+  // 🔍 全ページ縮小プレビュー一覧：print-areaの各ページを縮小サムネイルで一覧表示
+  function showPrintOverview() {
+    const area = document.getElementById('print-area');
+    if (!area) return;
+    // 最新の内容を確実に反映
+    try { renderPrint(); } catch (e) { }
+    const blocks = Array.from(area.children).filter(el => (el.textContent || '').trim() && el.tagName !== 'STYLE');
+    if (!blocks.length) { flash('先に印刷内容を表示してください'); return; }
+    // 既存のオーバーレイを除去
+    document.getElementById('print-overview-overlay')?.remove();
+    const orient = document.getElementById('print-page-orient')?.value || 'landscape';
+    const pageW = orient === 'portrait' ? 794 : 1123; // A4 96dpi 相当
+    const thumbW = 300;
+    const scale = thumbW / pageW;
+
+    const overlay = document.createElement('div');
+    overlay.id = 'print-overview-overlay';
+    overlay.className = 'print-overview-overlay';
+    const bar = document.createElement('div');
+    bar.className = 'print-overview-bar';
+    bar.innerHTML = `<strong>🔍 全体プレビュー</strong><span class="muted small">全 ${blocks.length} ページ</span>`;
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'btn secondary';
+    closeBtn.textContent = '✕ 閉じる';
+    closeBtn.onclick = () => overlay.remove();
+    bar.appendChild(closeBtn);
+    overlay.appendChild(bar);
+
+    const grid = document.createElement('div');
+    grid.className = 'print-overview-grid';
+    blocks.forEach((b, i) => {
+      const thumb = document.createElement('div');
+      thumb.className = 'print-overview-thumb';
+      const label = document.createElement('div');
+      label.className = 'print-overview-label';
+      const titleEl = b.querySelector('.print-card-title, h3');
+      label.textContent = `${i + 1}. ${titleEl ? (titleEl.textContent || '').trim() : 'ページ' + (i + 1)}`;
+      const inner = document.createElement('div');
+      inner.className = 'print-overview-inner';
+      inner.style.width = pageW + 'px';
+      inner.style.transform = `scale(${scale})`;
+      inner.innerHTML = b.outerHTML;
+      const frame = document.createElement('div');
+      frame.className = 'print-overview-frame';
+      frame.style.width = thumbW + 'px';
+      // 高さはブロックの実測から算出（描画後に補正）
+      frame.appendChild(inner);
+      thumb.appendChild(label);
+      thumb.appendChild(frame);
+      grid.appendChild(thumb);
+    });
+    overlay.appendChild(grid);
+    overlay.addEventListener('click', (ev) => { if (ev.target === overlay) overlay.remove(); });
+    document.body.appendChild(overlay);
+    // 各サムネイルの枠高さを実際の縮小後高さに合わせる
+    requestAnimationFrame(() => {
+      grid.querySelectorAll('.print-overview-frame').forEach((frame) => {
+        const inner = frame.querySelector('.print-overview-inner');
+        if (inner) frame.style.height = (inner.getBoundingClientRect().height) + 'px';
+      });
+    });
+    const esc = (ev) => { if (ev.key === 'Escape') { overlay.remove(); window.removeEventListener('keydown', esc, true); } };
+    window.addEventListener('keydown', esc, true);
+  }
+
   function renderPrint() {
     const area = $('#print-area'); if (!area) return;
     // v32.2: ensure print layout selects are populated
@@ -15083,7 +15159,8 @@ function buildIndex(){
         const t = ev?.target?.closest ? ev.target.closest('#btn-rand-unplace, #btn-rand-unplace-heat') : null;
         if (!t) return;
         try {
-          if (t.id === 'btn-rand-unplace-heat') randomUnplaceHeatOnly(ev);
+          const mode = document.getElementById('rand-unplace-mode')?.value || 'hot';
+          if (t.id === 'btn-rand-unplace-heat' || mode === 'heat') randomUnplaceHeatOnly(ev);
           else randomUnplaceHot(ev);
         }
         catch (e) {
@@ -15091,6 +15168,17 @@ function buildIndex(){
           try { showModal('エラー', 'ランダム外しでエラー: ' + String(e?.message || e)); } catch { }
           flash('ランダム外しでエラー');
         }
+      });
+    }
+    // ⚙ その他メニュー：項目クリック or 外側クリックで閉じる
+    if (!document.__hdrMoreBound) {
+      document.__hdrMoreBound = true;
+      document.addEventListener('click', (ev) => {
+        document.querySelectorAll('details.hdr-more[open]').forEach((more) => {
+          const inItem = ev.target.closest && ev.target.closest('.hdr-more-item');
+          const inThisSummary = ev.target.closest && more.querySelector('summary') === ev.target.closest('summary');
+          if (inItem || (!inThisSummary && !more.contains(ev.target))) more.open = false;
+        });
       });
     }
     // v49 A-3: 未配置バッジクリックで次へジャンプ
@@ -15592,6 +15680,7 @@ function buildIndex(){
     $('#btn-export-class-sheets-xlsx')?.addEventListener('click', () => exportClassSheetsXLSX());
     $('#btn-export-teacher-sheets-xlsx')?.addEventListener('click', () => exportTeacherSheetsXLSX());
     $('#print-page-orient')?.addEventListener('change', renderPrint);
+    $('#btn-print-overview')?.addEventListener('click', () => { try { showPrintOverview(); } catch (e) { console.error(e); flash('プレビュー生成でエラー'); } });
     $('#print-type').onchange = renderPrint;
     // サイズリセット
     $('#btn-print-reset-size')?.addEventListener('click', () => resetPrintResize());

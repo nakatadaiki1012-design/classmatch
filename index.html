@@ -224,38 +224,50 @@
       <button id="btn-ai-wizard" class="btn secondary" style="background:#dc2626;color:#fff;border:none;"
         title="AI問題提案ウィザード（優先度順に提案）">🤖 解決</button>
       <button id="btn-heatmap" class="btn secondary" title="違反ヒートマップ ON/OFF">🌡️</button>
-      <button id="btn-elite" class="btn secondary" title="エリートアーカイブ">🏆</button>
-      <button id="btn-conv" class="btn secondary" title="収束グラフ">📈</button>
-      <button id="btn-ai-log" class="btn secondary" style="background:#0f172a;color:#94a3b8;border:none;"
-        title="AI探索ログ表示">🔍</button>
+      <span class="hdr-sep" aria-hidden="true"></span>
       <button id="btn-all-teachers" class="btn secondary" title="全教員一覧（タイル表示）"
         style="background:#0e7490;border:none;">👥 教員一覧</button>
       <button id="btn-all-classes" class="btn secondary" title="全クラス一覧（タイル表示）"
         style="background:#0f766e;border:none;">🏫 クラス一覧</button>
-      <button id="btn-sandbox-start" class="btn secondary" style="background:#0f766e;color:#fff;border:none"
-        title="仮配置モード：変更が保存されないサンドボックスで試せる">🧪 仮配置</button>
-      <button id="btn-set-manager" class="btn secondary" style="background:#7c3aed;color:#fff;border:none"
-        title="時間割セット管理（複数時間割の切り替え）">📋 セット</button>
+      <span class="hdr-sep" aria-hidden="true"></span>
       <button id="btn-project-save" class="btn secondary" style="background:#059669;color:#fff;border:none"
         title="プロジェクト全体（データ登録・科目/教員設定・配置）をファイルに保存">💾 保存</button>
       <button id="btn-project-load" class="btn secondary" style="background:#0369a1;color:#fff;border:none"
         title="保存したプロジェクトファイルを読み込む">📂 読込</button>
       <input id="project-load-file" type="file" accept=".ide,.classmatch,.json" hidden />
-      <button id="btn-idea-export" class="btn secondary" style="background:#b45309;color:#fff;border:none"
-        title="イデアのAI時間割形式（.ide）でマスタデータをエクスポート">📤 イデア出力</button>
+      <span class="hdr-sep" aria-hidden="true"></span>
       <button id="btn-lock-all" class="btn secondary" title="配置済みのコマをすべてロック">🔒 全ロック</button>
       <button id="btn-unlock-all" class="btn secondary" title="すべてのロックを解除">🔓 全解除</button>
       <button id="btn-fix-dup-all" class="btn secondary" title="二重（教員/クラス/教室）をまとめて解消：片方を在庫へ退避">🧹 二重解消</button>
-      <button id="btn-rand-unplace" class="btn secondary"
-        title="🎲 ランダム外し：温度(ヒート)・1日過多(5コマ超など)が高い場所ほど外れやすい。スコアが高いコマは外れにくい。Shift=多め / Alt=少なめ / Ctrl=ロック含む">🎲
-        ランダム外し</button>
-      <button id="btn-rand-unplace-heat" class="btn secondary"
-        title="🔥 ヒート外し：ヒートマップで色が付く(温度>0)セルに乗っているコマだけを、セル単位で『一部だけ』在庫へ退避。Shift=多め / Alt=厳選(熱2以上) / Ctrl=ロック含む">🔥
-        ヒート外し</button>
+      <span class="rand-unplace-group" style="display:inline-flex;align-items:stretch;gap:0">
+        <button id="btn-rand-unplace" class="btn secondary" style="border-top-right-radius:0;border-bottom-right-radius:0"
+          title="コマを一部ランダムに在庫へ外す。モードは右の選択で切替。Shift=多め / Alt=少なめ・厳選 / Ctrl=ロック含む">🎲 ランダム外し</button>
+        <select id="rand-unplace-mode" class="btn secondary" title="🎲温度ベース：温度・1日過多が高い場所ほど外れやすい ／ 🔥ヒートのみ：ヒートマップで色が付くセルのコマだけを一部退避"
+          style="border-top-left-radius:0;border-bottom-left-radius:0;border-left:1px solid rgba(255,255,255,.25);padding:0 4px">
+          <option value="hot">🎲 温度ベース</option>
+          <option value="heat">🔥 ヒートのみ</option>
+        </select>
+      </span>
+      <span class="hdr-sep" aria-hidden="true"></span>
       <button id="btn-undo" class="btn secondary" title="元に戻す (Ctrl+Z)">↩</button>
       <button id="btn-redo" class="btn secondary" title="やり直し (Ctrl+Y)">↪</button>
-      <button id="btn-history" class="btn secondary" title="操作履歴パネル">📜</button>
-      <button id="btn-dashboard" class="btn secondary" style="background:#7c3aed;color:#fff;border:none" title="競合・負荷ダッシュボード">📊 DB</button>
+      <span class="hdr-sep" aria-hidden="true"></span>
+      <details class="hdr-more" id="hdr-more">
+        <summary class="btn secondary" title="その他のツール">⚙ その他 ▾</summary>
+        <div class="hdr-more-panel">
+          <button id="btn-elite" class="btn secondary hdr-more-item" title="エリートアーカイブ">🏆 エリート</button>
+          <button id="btn-conv" class="btn secondary hdr-more-item" title="収束グラフ">📈 収束グラフ</button>
+          <button id="btn-ai-log" class="btn secondary hdr-more-item" title="AI探索ログ表示">🔍 AI探索ログ</button>
+          <button id="btn-sandbox-start" class="btn secondary hdr-more-item"
+            title="仮配置モード：変更が保存されないサンドボックスで試せる">🧪 仮配置</button>
+          <button id="btn-set-manager" class="btn secondary hdr-more-item"
+            title="時間割セット管理（複数時間割の切り替え）">📋 セット管理</button>
+          <button id="btn-idea-export" class="btn secondary hdr-more-item"
+            title="イデアのAI時間割形式（.ide）でマスタデータをエクスポート">📤 イデア出力</button>
+          <button id="btn-history" class="btn secondary hdr-more-item" title="操作履歴パネル">📜 操作履歴</button>
+          <button id="btn-dashboard" class="btn secondary hdr-more-item" title="競合・負荷ダッシュボード">📊 ダッシュボード</button>
+        </div>
+      </details>
       <button id="btn-reset" class="btn danger" title="全リセット">⚠リセット</button>
     </div>
   </header>
@@ -558,11 +570,16 @@
 
           <div class="group">
             <span class="label">別窓</span>
-            <button id="btn-pop-teacher" class="btn secondary">個人教員</button>
-            <button id="btn-pop-class" class="btn secondary">個人クラス</button>
-            <button id="btn-pop-room" class="btn secondary">個人教室</button>
-            <button id="btn-pop-stock" class="btn secondary">在庫</button>
-            <button id="btn-close-all-floats" class="btn secondary" title="全ての個人窓を閉じる">✕全窓</button>
+            <details class="hdr-more" id="float-more">
+              <summary class="btn secondary" title="個人窓を開く">🗔 別窓 ▾</summary>
+              <div class="hdr-more-panel">
+                <button id="btn-pop-teacher" class="btn secondary hdr-more-item">👥 個人教員</button>
+                <button id="btn-pop-class" class="btn secondary hdr-more-item">🏫 個人クラス</button>
+                <button id="btn-pop-room" class="btn secondary hdr-more-item">🚪 個人教室</button>
+                <button id="btn-pop-stock" class="btn secondary hdr-more-item">📦 在庫</button>
+                <button id="btn-close-all-floats" class="btn secondary hdr-more-item" title="全ての個人窓を閉じる">✕ 全窓を閉じる</button>
+              </div>
+            </details>
           </div>
 
           <div class="group highlight">
@@ -706,6 +723,7 @@
         <button id="btn-print" class="btn primary">印刷 / PDF</button>
         <button id="btn-pdf-export" class="btn secondary" title="print-areaをPDFとして直接保存（html2canvas + jsPDF）">📄
           PDF保存</button>
+        <button id="btn-print-overview" class="btn secondary" title="全ページを縮小サムネイルで一覧表示（印刷前の確認用）">🔍 全体プレビュー</button>
         <label class="chk"><input id="print-show-tea" type="checkbox" checked>教員</label>
         <label class="chk"><input id="print-show-cls" type="checkbox" checked>クラス</label>
         <label class="chk"><input id="print-show-room" type="checkbox">教室</label>
