@@ -9437,6 +9437,41 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
   }
   const _softTimeScore = (p) => (p === 1 ? -2 : p === 2 ? -1 : p === 3 ? 0 : p === 4 ? 0 : p === 5 ? 1 : p === 6 ? 2 : 3);
 
+  // 教員→そのコマ一覧（空きコマ最小化用, itemsは探索中不変なのでキャッシュ）
+  let _itemsByTeaCache = null, _itemsByTeaKey = null;
+  function getItemsByTeacher() {
+    if (_itemsByTeaCache && _itemsByTeaKey === state.items) return _itemsByTeaCache;
+    const map = {};
+    for (const id in state.items) {
+      const it = state.items[id]; if (!it) continue;
+      for (const t of (it.teas || [])) { (map[t] || (map[t] = [])).push(id); }
+    }
+    _itemsByTeaCache = map; _itemsByTeaKey = state.items;
+    return map;
+  }
+  // 空きコマ最小化の設定と1ギャップあたりの重み
+  function aiMinGapOn() { return !!state.settings.aiMinGap; }
+  const TEACHER_GAP_W = 8;
+  // 1教員分の空きコマ（中抜け）数: 各曜日で最初〜最後の授業の間の空き時限数を合算
+  function teacherGapContribution(placements, tea, ids) {
+    const byDay = {};
+    for (const id of ids) {
+      const plc = placements[id]; if (!plc || !plc.day) continue;
+      const it = state.items[id]; if (!it) continue;
+      const span = it.span || 1;
+      const s = byDay[plc.day] || (byDay[plc.day] = new Set());
+      for (let dp = 0; dp < span; dp++) s.add(plc.period + dp);
+    }
+    let gaps = 0;
+    for (const day in byDay) {
+      const ps = byDay[day]; if (ps.size < 2) continue;
+      let mn = Infinity, mx = -Infinity;
+      for (const p of ps) { if (p < mn) mn = p; if (p > mx) mx = p; }
+      gaps += (mx - mn + 1) - ps.size;
+    }
+    return gaps;
+  }
+
   // 1クラス分のソフト指標（bias/consec/noSameDay）の生値を算出。
   // 全体のソフト指標はクラス単位で完全に分解できるため、これを合算すると
   // softMetricsFromPlacements と一致する（差分評価との整合を保証）。
@@ -9485,8 +9520,14 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       const r = classSoftContribution(placements, c, itemsByClass[c]);
       bias += r.bias; consec += r.consec; noSameDayPenalty += r.noSameDay;
     }
-    const score = (optBalance ? bias : 0) + (optNoConsec ? consec * 4 : 0) + noSameDayPenalty;
-    return { bias, consec, noSameDayPenalty, score };
+    let teaGap = 0;
+    const gapOn = aiMinGapOn();
+    if (gapOn) {
+      const itemsByTea = getItemsByTeacher();
+      for (const t in itemsByTea) teaGap += teacherGapContribution(placements, t, itemsByTea[t]);
+    }
+    const score = (optBalance ? bias : 0) + (optNoConsec ? consec * 4 : 0) + noSameDayPenalty + (gapOn ? teaGap * TEACHER_GAP_W : 0);
+    return { bias, consec, noSameDayPenalty, teaGap, score };
   }
 
   // 未配置ペナルティ重み。配置数維持モードではハード違反(×100000)より重くして、
@@ -11188,19 +11229,22 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       return conf + daily;
     }
 
-    // ── ソフトコスト: クラス単位でキャッシュし、影響クラスのみ再計算 ──
+    // ── ソフトコスト: クラス単位(bias/consec/noSameDay)＋教員単位(空きコマ)をキャッシュし、影響分のみ再計算 ──
     const _itemsByClass = getItemsByClass();
-    const _scBias = {}, _scConsec = {}, _scNoSame = {};
-    let _biasT = 0, _consecT = 0, _noSameT = 0;
+    const _itemsByTea = getItemsByTeacher();
+    const _gapOn = aiMinGapOn();
+    const _scBias = {}, _scConsec = {}, _scNoSame = {}, _scGap = {};
+    let _biasT = 0, _consecT = 0, _noSameT = 0, _gapT = 0;
     function _initSoftCaches() {
-      _biasT = 0; _consecT = 0; _noSameT = 0;
+      _biasT = 0; _consecT = 0; _noSameT = 0; _gapT = 0;
       for (const c in _itemsByClass) {
         const r = classSoftContribution(placements, c, _itemsByClass[c]);
         _scBias[c] = r.bias; _scConsec[c] = r.consec; _scNoSame[c] = r.noSameDay;
         _biasT += r.bias; _consecT += r.consec; _noSameT += r.noSameDay;
       }
+      if (_gapOn) for (const t in _itemsByTea) { const g = teacherGapContribution(placements, t, _itemsByTea[t]); _scGap[t] = g; _gapT += g; }
     }
-    function _flaggedSoft() { return (optBalance ? _biasT : 0) + (optNoConsec ? _consecT * 4 : 0) + _noSameT; }
+    function _flaggedSoft() { return (optBalance ? _biasT : 0) + (optNoConsec ? _consecT * 4 : 0) + _noSameT + (_gapOn ? _gapT * TEACHER_GAP_W : 0); }
     function _updateSoftForClasses(classes) {
       for (const c of classes) {
         const r = classSoftContribution(placements, c, _itemsByClass[c] || []);
@@ -11210,7 +11254,16 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
         _scBias[c] = r.bias; _scConsec[c] = r.consec; _scNoSame[c] = r.noSameDay;
       }
     }
+    function _updateGapForTeachers(teas) {
+      if (!_gapOn) return;
+      for (const t of teas) {
+        const g = teacherGapContribution(placements, t, _itemsByTea[t] || []);
+        _gapT += g - (_scGap[t] || 0);
+        _scGap[t] = g;
+      }
+    }
     const _clsOf = (id) => (state.items[id]?.cls || []);
+    const _teaOf = (id) => (state.items[id]?.teas || []);
 
     // ── 全コスト（初期・再同期用）total = hard×100000 + remain×50000 + soft ──
     function _fullCost() {
@@ -11256,7 +11309,13 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
         dC += r.consec - (_scConsec[c] || 0);
         dN += r.noSameDay - (_scNoSame[c] || 0);
       }
-      const newSoft = _flaggedSoft() + (optBalance ? dB : 0) + (optNoConsec ? dC * 4 : 0) + dN;
+      // 影響教員の空きコマ差分
+      let dG = 0;
+      if (_gapOn) {
+        const affTea = new Set([..._teaOf(id), ...(swapId ? _teaOf(swapId) : [])]);
+        for (const t of affTea) { const g = teacherGapContribution(placements, t, _itemsByTea[t] || []); dG += g - (_scGap[t] || 0); }
+      }
+      const newSoft = _flaggedSoft() + (optBalance ? dB : 0) + (optNoConsec ? dC * 4 : 0) + dN + (_gapOn ? dG * TEACHER_GAP_W : 0);
       const newTotal = newHard * 100000 + newSoft + _cache.remain * _remainW;
 
       // 元に戻す
@@ -11284,6 +11343,7 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       _addToIdx(id, newPlc);
       _dailyT += _sumDaily(affTD) - oldDaily;
       _updateSoftForClasses(_clsOf(id));
+      _updateGapForTeachers(_teaOf(id));
       const h = _conflT + _dailyT;
       const soft = _flaggedSoft();
       _cache = { hard: h, soft, bias: _biasT, consec: _consecT, remain: _cache.remain, total: h * 100000 + _cache.remain * _remainW + soft };
@@ -11299,6 +11359,7 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       _addToIdx(id, placements[id]); _addToIdx(swapId, placements[swapId]);
       _dailyT += _sumDaily(affTD) - oldDaily;
       _updateSoftForClasses(new Set([..._clsOf(id), ..._clsOf(swapId)]));
+      _updateGapForTeachers(new Set([..._teaOf(id), ..._teaOf(swapId)]));
       const h = _conflT + _dailyT;
       const soft = _flaggedSoft();
       _cache = { hard: h, soft, bias: _biasT, consec: _consecT, remain: _cache.remain, total: h * 100000 + _cache.remain * _remainW + soft };
@@ -15336,6 +15397,12 @@ function buildIndex(){
     if (_keepPlacedEl) {
       _keepPlacedEl.checked = !!state.settings.aiKeepPlaced;
       _keepPlacedEl.addEventListener('change', () => { state.settings.aiKeepPlaced = !!_keepPlacedEl.checked; markDirty('aiKeepPlaced'); });
+    }
+    // 空きコマ最小化モード: チェックボックス→state.settings 同期
+    const _minGapEl = $('#ai-min-gap');
+    if (_minGapEl) {
+      _minGapEl.checked = !!state.settings.aiMinGap;
+      _minGapEl.addEventListener('change', () => { state.settings.aiMinGap = !!_minGapEl.checked; markDirty('aiMinGap'); });
     }
     $('#btn-ai-wizard')?.addEventListener('click', () => { try { openAiWizard(); } catch (e) { console.error(e); } });
     // v40: AIログボタン
