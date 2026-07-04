@@ -560,8 +560,9 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
   }
   function splitList(s) {
     if (!s) return [];
+    // 区切り: 読点・カンマ・全角/半角プラス（合同授業/チームティーチングを「2-1+2-2」「T1+T2」で入力可能に）
     return String(s)
-      .replace(/[、，]/g, ',')
+      .replace(/[、，＋+]/g, ',')
       .split(',')
       .map(x => x.trim())
       .filter(Boolean);
