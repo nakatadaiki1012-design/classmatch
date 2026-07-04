@@ -1359,13 +1359,20 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       const placeNote = placedCount > 0
         ? `  ✓ J-CLASSセクションから時間割配置（${placedCount}コマ）を読み込みました。`
         : `  ※ このファイルに配置データがないため、配置は空になります。`;
-      showModal(
+      const lockOpt = placedCount > 0
+        ? `<label class="chk" style="display:flex;gap:6px;align-items:center;margin-top:10px;padding:8px;background:rgba(59,130,246,.08);border-radius:6px;cursor:pointer">
+             <input type="checkbox" id="ide-import-lock"> 読み込んだ配置を<strong>固定（ロック）</strong>して取り込む
+             <span class="muted small">（AIや操作で動かない固定コマになります）</span>
+           </label>`
+        : '';
+      let lockAll = false;
+      showModalHTML(
         'イデアファイル読込',
-        `イデアのAI時間割ファイル「${file.name}」を読み込みます。\n\n` +
-        `  教員: ${teaCount}名　教科: ${subCount}科目　授業コマ: ${clsCount}コマ\n` +
-        `${teaNote}\n` +
-        `${placeNote}\n\n` +
-        `現在の作業内容はすべて上書きされます。`,
+        `<div style="white-space:pre-wrap;line-height:1.6">` +
+        escapeHtml(`イデアのAI時間割ファイル「${file.name}」を読み込みます。\n\n` +
+          `  教員: ${teaCount}名　教科: ${subCount}科目　授業コマ: ${clsCount}コマ\n` +
+          `${teaNote}\n${placeNote}\n\n現在の作業内容はすべて上書きされます。`) +
+        `</div>` + lockOpt,
         () => {
           pushHistory('ideaImport');
           state.rawRows = parsed.rawRows;
@@ -1373,6 +1380,8 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
           state.teacherCfg = parsed.teacherCfg;
           state.items = normalizeItems(parsed.items);
           state.placements = parsed.placements || {};
+          // 固定として取込: 全配置をロック
+          if (lockAll) { for (const id in state.placements) { const p = state.placements[id]; if (p && p.day) p.locked = true; } }
           state.snapshots = [];
           // 曜日ごとの時限数（可用性文字列から正確に取得）
           if (parsed.periodsByDay) Object.assign(state.settings.periodsByDay, parsed.periodsByDay);
@@ -1382,9 +1391,11 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
           markDirty('ideaImport');
           rerenderAll();
           saveNow();
-          const placeMsg = placedCount > 0 ? `、配置: ${placedCount}コマ` : '';
+          const placeMsg = placedCount > 0 ? `、配置: ${placedCount}コマ${lockAll ? '（固定）' : ''}` : '';
           flash(`📂 イデアファイルを読み込みました（授業: ${clsCount}コマ, 教員: ${teaCount}名${placeMsg}）`);
-        }
+        },
+        '読み込む', 'キャンセル',
+        () => { const el = document.getElementById('ide-import-lock'); if (el) el.addEventListener('change', () => { lockAll = el.checked; }); }
       );
       return;
     }
@@ -1415,13 +1426,20 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
     const pItems = (data.items && typeof data.items === 'object') ? Object.keys(data.items).length : 0;
     const pPlaced = (data.placements && typeof data.placements === 'object') ? Object.keys(data.placements).length : 0;
 
-    showModal(
+    const lockOpt = pPlaced > 0
+      ? `<label class="chk" style="display:flex;gap:6px;align-items:center;margin-top:10px;padding:8px;background:rgba(59,130,246,.08);border-radius:6px;cursor:pointer">
+           <input type="checkbox" id="proj-import-lock"> 読み込んだ配置を<strong>固定（ロック）</strong>して取り込む
+           <span class="muted small">（AIや操作で動かない固定コマになります）</span>
+         </label>`
+      : '';
+    let lockAll = false;
+    showModalHTML(
       'プロジェクト読込',
-      `📁 種別: ${kindLabel}\n` +
-      `ファイル名: ${file.name}\n\n` +
-      `「${name}」（保存日時: ${savedAt}）を読み込みますか？\n` +
-      `  授業コマ: ${pItems}　配置済み: ${pPlaced}\n\n` +
-      `現在の作業内容はすべて上書きされます。`,
+      `<div style="white-space:pre-wrap;line-height:1.6">` +
+      escapeHtml(`📁 種別: ${kindLabel}\nファイル名: ${file.name}\n\n` +
+        `「${name}」（保存日時: ${savedAt}）を読み込みますか？\n` +
+        `  授業コマ: ${pItems}　配置済み: ${pPlaced}\n\n現在の作業内容はすべて上書きされます。`) +
+      `</div>` + lockOpt,
       () => {
         pushHistory('projectImport');
         // データ復元
@@ -1434,13 +1452,17 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
         }
         if (data.placements && typeof data.placements === 'object') state.placements = data.placements;
         if (data.items && typeof data.items === 'object') state.items = normalizeItems(data.items);
+        if (lockAll) { for (const id in state.placements) { const p = state.placements[id]; if (p && p.day) p.locked = true; } }
         if (Array.isArray(data.snapshots)) state.snapshots = data.snapshots;
 
+        invalidateIndex();
         markDirty('projectImport');
         rerenderAll();
         saveNow();
-        flash(`📂 「${name}」を読み込みました（保存日時: ${savedAt}）`);
-      }
+        flash(`📂 「${name}」を読み込みました${lockAll ? '（配置を固定）' : ''}`);
+      },
+      '読み込む', 'キャンセル',
+      () => { const el = document.getElementById('proj-import-lock'); if (el) el.addEventListener('change', () => { lockAll = el.checked; }); }
     );
   }
 
