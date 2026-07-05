@@ -8598,16 +8598,28 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
     return ws;
   }
 
+  // Excelのシート名は31文字以内・:\/?*[]禁止・重複不可。安全名を採番して返す
+  function _uniqueSheetName(rawKey, used) {
+    let base = String(rawKey || '').replace(/[:\\\/\?\*\[\]]/g, '').slice(0, 31) || 'Sheet';
+    let name = base, n = 2;
+    while (used.has(name)) {
+      const suffix = '_' + n++;
+      name = base.slice(0, 31 - suffix.length) + suffix;
+    }
+    used.add(name);
+    return name;
+  }
+
   function exportClassSheetsXLSX() {
     _ensureXLSX(() => {
       const idx = buildIndex();
       const keys = getAxisKeys('class');
       if (!keys.length) { flash('クラスがありません'); return; }
       const wb = XLSX.utils.book_new();
+      const used = new Set();
       for (const key of keys) {
         const ws = _buildEntityTimetableSheet('class', key, idx);
-        const sheetName = key.replace(/[:\\\/\?\*\[\]]/g, '').slice(0, 31);
-        XLSX.utils.book_append_sheet(wb, ws, sheetName || 'Sheet');
+        XLSX.utils.book_append_sheet(wb, ws, _uniqueSheetName(key, used));
       }
       _xlsxDownload(wb, 'classes_sheets.xlsx');
       flash(`📊 クラス別シートXLSX（${keys.length}クラス）を出力しました`);
@@ -8620,10 +8632,10 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       const keys = getAxisKeys('teacher');
       if (!keys.length) { flash('教員がありません'); return; }
       const wb = XLSX.utils.book_new();
+      const used = new Set();
       for (const key of keys) {
         const ws = _buildEntityTimetableSheet('teacher', key, idx);
-        const sheetName = key.replace(/[:\\\/\?\*\[\]]/g, '').slice(0, 31);
-        XLSX.utils.book_append_sheet(wb, ws, sheetName || 'Sheet');
+        XLSX.utils.book_append_sheet(wb, ws, _uniqueSheetName(key, used));
       }
       _xlsxDownload(wb, 'teachers_sheets.xlsx');
       flash(`📊 教員別シートXLSX（${keys.length}名）を出力しました`);
@@ -9621,7 +9633,8 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
     const allIds = Object.keys(state.items);
 
     const unplaced0 = allIds.filter(id => !basePlacements[id]);
-    if (!unplaced0.length) { flash('未配置なし'); return; }
+    // 全コマ配置済みでも違反が残っていれば最適化を実行（違反ゼロのときのみ実行不要）
+    if (!unplaced0.length && hardViolationsFromPlacements(basePlacements) === 0) { flash('未配置・違反ともにありません'); return; }
 
     const fixedIds = allIds.filter(id => basePlacements[id] && basePlacements[id].locked);
     const movablePlaced = allIds.filter(id => basePlacements[id] && !basePlacements[id].locked);
@@ -15954,8 +15967,12 @@ function buildIndex(){
       el.addEventListener('focus', () => { el._focused = true; });
       el.addEventListener('blur', () => { el._focused = false; });
       el.addEventListener('change', () => {
-        const v = parseInt(el.value, 10);
-        if (v > 0) { state.ui[stateKey] = v; markDirty('ui'); renderPrint(); }
+        let v = parseInt(el.value, 10);
+        if (v > 0) {
+          v = clamp(v, 5, 72); // 極端な値でレイアウトが崩れないよう制限
+          el.value = v;
+          state.ui[stateKey] = v; markDirty('ui'); renderPrint();
+        }
       });
       el.addEventListener('keydown', e => { if (e.key === 'Enter') el.blur(); });
     };
