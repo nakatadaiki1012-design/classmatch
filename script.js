@@ -2193,7 +2193,6 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
 
   function showConflictResolutionDialog(id, day, period, existingComaIds) {
     try {
-      console.log('Conflict dialog triggered:', { id, day, period, existingComaIds });
       const it = state.items[id];
       const scfg = state.subjectCfg[it.subjKey] || {};
       const abbr = scfg.abbr || it.subj || id;
@@ -2203,7 +2202,6 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
         return cfg.abbr || c?.subj || cid;
       }).join(', ');
 
-      console.log('Building solutions for:', { abbr, existingNames });
 
       // 禁制（固定禁則/教員不可など）は、強制配置でも上書き不可
       const absBlocks = absoluteBlocksOf((validatePlacement(id, day, period, 'safe', null) || { blocks: [] }).blocks);
@@ -2260,7 +2258,6 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
         if (solutions.filter(s => s.action === 'move').length >= 2) break;
       }
 
-      console.log('Solutions generated:', solutions.length);
 
       // Show dialog with solutions
       const modal = document.getElementById('modal');
@@ -2314,7 +2311,6 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
           const sol = solutions[idx];
           if (!sol) return;
 
-          console.log('Applying solution:', sol);
 
           if (sol.action === 'force') {
             // Force placement: remove existing items and place without validation
@@ -2356,7 +2352,6 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
             flash(`「${abbr}」を ${DAYJP[sol.day]}${sol.period} に配置しました`);
           }
 
-          console.log('Solution applied successfully');
           if (afterPlace) try { afterPlace(); } catch (e3) { }
         } catch (e) {
           console.error('Error applying solution:', e);
@@ -14476,15 +14471,12 @@ function buildIndex(){
   /* v33.0: Show fix suggestion for a specific analysis issue */
   function showIssueFixSuggestion(iss) {
     try {
-      console.log('showIssueFixSuggestion called with:', iss);
       if (!iss.fixableIds || !iss.fixableIds.length) {
         flash('この問題の自動修正提案はありません');
         return;
       }
       const firstId = iss.fixableIds[0];
-      console.log('Computing suggestion pack for:', firstId);
       const pack = computeSuggestionPack(firstId);
-      console.log('Pack computed:', pack);
       const allAlts = [
         ...(pack.empty || []).slice(0, 3),
         ...(pack.swap || []).slice(0, 3),
@@ -14572,7 +14564,6 @@ function buildIndex(){
         }
       }).join('');
 
-      console.log('About to show modal with', altsHTML.length, 'bytes');
       showModalHTML(
         `🔧 修正提案: 「${abbr}」(${curWhere})`,
         `<div style="max-height:60vh;overflow-y:auto;padding-right:4px">${altsHTML}</div>`,
@@ -14899,7 +14890,6 @@ function buildIndex(){
   exportPDF() — PDF直接保存
 
 デバッグ:
-  console.log(state)
   buildIndex()
   _wizardIssues = _buildWizardIssues(); console.log(_wizardIssues)
   localStorage: ultimate_tt_state_v271</div>
@@ -14966,7 +14956,6 @@ function buildIndex(){
      Wiring / Init
   ======================= */
   function bindEvents() {
-    console.log('[bindEvents] START - Beginning UI binding...');
 
     // Helper: safe selector with null check
     const safeGet = (sel) => {
@@ -14976,7 +14965,6 @@ function buildIndex(){
     };
 
     // tabs
-    console.log('[bindEvents] Binding tabs...');
     $$('.tab').forEach(b => b.onclick = () => switchTab(b.dataset.tab));
 
     // version info (click on header version number)
@@ -14984,7 +14972,6 @@ function buildIndex(){
     if (verEl) verEl.onclick = () => showVersionInfo();
 
     // undo redo reset
-    console.log('[bindEvents] Binding undo/redo/reset...');
     const btnUndo = safeGet('#btn-undo');
     const btnRedo = safeGet('#btn-redo');
     const btnReset = safeGet('#btn-reset');
@@ -15004,7 +14991,6 @@ function buildIndex(){
 
 
     // subject/teacher fold (tile)
-    console.log('[bindEvents] Binding fold handlers...');
     const subjContainer = safeGet('#subject-container');
     if (subjContainer) subjContainer.addEventListener('click', (ev) => {
       const btn = ev.target.closest('button[data-act="subj_fold"]');
@@ -15027,7 +15013,6 @@ function buildIndex(){
     });
 
     // input
-    console.log('[bindEvents] Binding input buttons...');
     const btnAddRow = safeGet('#btn-add-row');
     const btnReflect = safeGet('#btn-reflect');
     const btnDataAnalyze = safeGet('#btn-data-analyze');
@@ -15049,7 +15034,6 @@ function buildIndex(){
     };
 
     // school
-    console.log('[bindEvents] Binding school settings...');
     const btnSchoolDefault = safeGet('#btn-school-default');
     if (btnSchoolDefault) btnSchoolDefault.onclick = () => {
       pushHistory('schoolDefault');
@@ -15069,7 +15053,6 @@ function buildIndex(){
       });
 
     // teacher/subject global clear
-    console.log('[bindEvents] Binding subject/teacher buttons...');
     const btnSubClearall = safeGet('#btn-sub-clearall');
     if (btnSubClearall) btnSubClearall.onclick = () => {
       pushHistory('subClearAll');
@@ -15202,7 +15185,6 @@ function buildIndex(){
 
 
     // edit radios and controls
-    console.log('[bindEvents] Binding edit UI controls...');
     $$('input[name="viewmode"]').forEach(r => r.onchange = () => { state.ui.viewMode = r.value; markDirty('ui'); rerenderEdit(); });
     $$('input[name="tool"]').forEach(r => r.onchange = () => { state.ui.tool = r.value; });
     $$('input[name="drop"]').forEach(r => r.onchange = () => { state.ui.drop = r.value; });
@@ -15241,7 +15223,6 @@ function buildIndex(){
     if (rowFilter) rowFilter.oninput = () => { state.ui.rowFilter = rowFilter.value; renderGrid(); };
 
     // v32.3: stock item size controls
-    console.log('[bindEvents] Binding stock size controls...');
     const stockSizes = ['xs', 'sm', 'md', 'lg', 'xl'];
     const applyStockSize = () => {
       const sz = state.ui.stockSize || 'md';
@@ -15258,7 +15239,6 @@ function buildIndex(){
     });
     applyStockSize();
 
-    console.log('[bindEvents] Binding stock/prop buttons...');
     const btnStockLeft = safeGet('#btn-stock-left');
     const btnStockTop = safeGet('#btn-stock-top');
     const btnStockCompact = safeGet('#btn-stock-compact');
@@ -15269,7 +15249,6 @@ function buildIndex(){
     if (btnStockCompact) btnStockCompact.onclick = () => { state.ui.stockThin = !state.ui.stockThin; markDirty('ui'); rerenderEdit(); };
     if (btnPropToggle) btnPropToggle.onclick = () => { state.ui.propOn = !state.ui.propOn; markDirty('ui'); rerenderEdit(); };
 
-    console.log('[bindEvents] Binding fit/scroll buttons...');
     const btnFit = safeGet('#btn-fit');
     const btnScroll = safeGet('#btn-scroll');
 
@@ -15286,7 +15265,6 @@ function buildIndex(){
       markDirty('ui'); rerenderEdit(); flash('Scroll: 読みやすさ優先');
     };
 
-    console.log('[bindEvents] Binding font/cell/density buttons...');
     const btnFontDown = safeGet('#btn-font-down');
     const btnFontReset = safeGet('#btn-font-reset');
     const btnFontUp = safeGet('#btn-font-up');
@@ -15344,7 +15322,6 @@ function buildIndex(){
     if (btnClearSelection) btnClearSelection.onclick = () => { state.ui.selectedId = null; state.ui.selectedFrom = ''; rerenderEdit(); };
 
     // popouts
-    console.log('[bindEvents] Binding popout buttons...');
     const btnPopTeacher = safeGet('#btn-pop-teacher');
     const btnPopClass = safeGet('#btn-pop-class');
     const btnPopRoom = safeGet('#btn-pop-room');
@@ -16100,7 +16077,6 @@ function buildIndex(){
     });
 
     // 問題分析ボタン
-    console.log('[bindEvents] Binding analyze button...');
     const btnAnalyze = document.getElementById('btn-analyze');
     if (btnAnalyze) {
       btnAnalyze.onclick = () => {
@@ -16171,7 +16147,6 @@ function buildIndex(){
       try { showDashboard(); } catch (e) { console.error(e); flash('ダッシュボード表示エラー: ' + e.message); }
     });
 
-    console.log('[bindEvents] COMPLETE - All UI bindings finished successfully');
   }
 
   function loadState() {
@@ -17123,7 +17098,7 @@ function clearOverlays() {
     const it = state.items[id];
     if (!it) return [];
 
-    console.log(`🔍 改善版AI探索開始: ${id}`);
+    window._aiDebug && console.log(`🔍 改善版AI探索開始: ${id}`);
     const startTime = performance.now();
 
     const BEAM_WIDTH = 10;      // ビーム幅を拡大
@@ -17139,7 +17114,7 @@ function clearOverlays() {
       .slice(0, LOOKAHEAD_DEPTH)
       .map(x => x.id);
 
-    console.log(`  難しいコマ ${sortedUnplaced.length}個を先読み対象に`);
+    window._aiDebug && console.log(`  難しいコマ ${sortedUnplaced.length}個を先読み対象に`);
 
     // 初期候補を生成
     const initialCandidates = [];
@@ -17164,15 +17139,15 @@ function clearOverlays() {
     }
 
     if (initialCandidates.length === 0) {
-      console.log('  ❌ 配置可能な候補なし');
+      window._aiDebug && console.log('  ❌ 配置可能な候補なし');
       return [];
     }
 
-    console.log(`  初期候補: ${initialCandidates.length}個`);
+    window._aiDebug && console.log(`  初期候補: ${initialCandidates.length}個`);
 
     // スコア順 + 多様性を考慮してビーム候補を選択
     const beamCandidates = selectDiverseCandidates(initialCandidates, BEAM_WIDTH);
-    console.log(`  ビーム候補: ${beamCandidates.length}個`);
+    window._aiDebug && console.log(`  ビーム候補: ${beamCandidates.length}個`);
 
     // 各ビーム候補について先読み探索
     const results = [];
@@ -17217,8 +17192,8 @@ function clearOverlays() {
     results.sort((a, b) => b.score - a.score);
 
     const endTime = performance.now();
-    console.log(`  ✅ 探索完了: ${(endTime - startTime).toFixed(1)}ms`);
-    console.log(`  提案数: ${results.length}個（上位${TOP_RESULTS}個を返す）`);
+    window._aiDebug && console.log(`  ✅ 探索完了: ${(endTime - startTime).toFixed(1)}ms`);
+    window._aiDebug && console.log(`  提案数: ${results.length}個（上位${TOP_RESULTS}個を返す）`);
 
     return results.slice(0, TOP_RESULTS);
   }
@@ -17567,7 +17542,7 @@ function clearOverlays() {
    * 現在の時間割の問題を分析
    */
   function analyzeCurrentProblems() {
-    console.log('🔍 問題分析開始...');
+    window._aiDebug && console.log('🔍 問題分析開始...');
 
     const problems = {
       critical: [],    // 重大な問題（ブロッカー）
@@ -17674,10 +17649,10 @@ function clearOverlays() {
     problems.warnings.sort((a, b) => (a.score || 100) - (b.score || 100));
     problems.suggestions.sort((a, b) => (a.score || 100) - (b.score || 100));
 
-    console.log('✅ 問題分析完了');
-    console.log(`  重大: ${problems.critical.length}件`);
-    console.log(`  警告: ${problems.warnings.length}件`);
-    console.log(`  改善提案: ${problems.suggestions.length}件`);
+    window._aiDebug && console.log('✅ 問題分析完了');
+    window._aiDebug && console.log(`  重大: ${problems.critical.length}件`);
+    window._aiDebug && console.log(`  警告: ${problems.warnings.length}件`);
+    window._aiDebug && console.log(`  改善提案: ${problems.suggestions.length}件`);
 
     return problems;
   }
@@ -18636,6 +18611,6 @@ function clearOverlays() {
     window.showProblemAnalysisPanel = showProblemAnalysisPanel;
   }
 
-  console.log('✅ 高精度AI提案システム v2.0 読み込み完了');
+  window._aiDebug && console.log('✅ 高精度AI提案システム v2.0 読み込み完了');
 
 })();
