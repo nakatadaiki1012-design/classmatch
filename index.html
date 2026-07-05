@@ -56,7 +56,7 @@
   .notesub{text-align:center; color:var(--muted); font-size:13px; margin-bottom:12px}
   .keys{display:grid; grid-template-columns:repeat(6,1fr); gap:8px; margin:10px 0}
   .keys button{
-    padding:14px 0; border-radius:12px; border:1px solid var(--line);
+    padding:12px 0; border-radius:12px; border:1px solid var(--line);
     background:var(--panel2); color:var(--text); font-size:16px; font-weight:700;
   }
   .keys button.sharp{color:var(--muted); background:#12162f}
@@ -89,11 +89,11 @@
   .tuner-hint{color:var(--muted); font-size:12px; text-align:center; margin-top:10px; line-height:1.6}
 
   /* Harmony */
-  .chordgrid{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin:8px 0 4px}
-  .chordgrid button{padding:12px 4px; border-radius:12px; border:1px solid var(--line); background:var(--panel2); color:var(--text); font-size:13px; font-weight:600}
+  .chordgrid{display:grid; grid-template-columns:repeat(3,1fr); gap:7px; margin:8px 0 4px}
+  .chordgrid button{padding:11px 4px; border-radius:12px; border:1px solid var(--line); background:var(--panel2); color:var(--text); font-size:13px; font-weight:600}
   .chordgrid button.on{background:var(--accent2); color:#05221c; border-color:var(--accent2)}
-  .voices{margin:14px 0 4px}
-  .voice{display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:10px; background:var(--panel2); margin-bottom:6px}
+  .voices{margin:12px 0 4px}
+  .voice{display:flex; align-items:center; gap:10px; padding:7px 10px; border-radius:10px; background:var(--panel2); margin-bottom:5px}
   .voice .vn{font-size:16px; font-weight:700; min-width:52px}
   .voice .vc{font-size:12px; color:var(--muted); min-width:96px}
   .voice .bar{flex:1; height:8px; border-radius:6px; background:#0d1130; position:relative; overflow:hidden}
@@ -169,7 +169,7 @@
   <!-- ===== TUNER ===== -->
   <section class="view" id="view-tuner">
     <div class="card">
-      <div class="tuner-note" id="tNote">—</div>
+      <div class="tuner-note" id="tNote">♪</div>
       <div class="tuner-freq" id="tFreq">マイクをオンにしてください</div>
       <div class="meter"><canvas id="tCanvas"></canvas></div>
       <div class="cents" id="tCents">— cent</div>
@@ -189,14 +189,14 @@
       <div class="keys" id="harmKeys"></div>
       <div class="notesub" style="margin-top:6px">コードの種類</div>
       <div class="chordgrid" id="chordGrid"></div>
-      <div class="voices" id="voices"></div>
       <div class="togglerow">
         <span>平均律</span>
         <div class="switch on" id="jiSwitch"><i></i></div>
         <span>純正律</span>
       </div>
-      <div class="hz" style="margin-top:6px">純正律：第3音を低め・第5音をわずかに高めにして、うなりの無いハーモニーになります。</div>
-      <button class="playbtn" id="harmPlay">▶ 和音を鳴らす</button>
+      <button class="playbtn" id="harmPlay" style="margin-top:10px">▶ 和音を鳴らす</button>
+      <div class="voices" id="voices"></div>
+      <div class="hz">純正律：第3音を低め・第5音をわずかに高めにして、うなりの無いハーモニーになります。各音のセント値だけ寄せると濁りが消えます。</div>
     </div>
   </section>
 </main>
@@ -239,7 +239,8 @@ document.querySelectorAll(".tabs button").forEach(btn=>{
     btn.classList.add("on");
     Object.values(views).forEach(v=>document.getElementById(v).classList.remove("on"));
     document.getElementById(views[btn.dataset.tab]).classList.add("on");
-    if(btn.dataset.tab!=="tuner" && micOn) stopMic();
+    if(btn.dataset.tab==="tuner"){ requestAnimationFrame(()=>{ fitCanvas(); drawMeter(micOn?smoothCents:null); }); }
+    else if(micOn) stopMic();
   };
 });
 
@@ -353,7 +354,7 @@ function stopMic(){
   micOn=false; if(rafTuner) cancelAnimationFrame(rafTuner);
   if(micStream){ micStream.getTracks().forEach(t=>t.stop()); micStream=null; }
   const b=document.getElementById("micBtn"); b.textContent="🎤 マイクをオン"; b.classList.remove("on");
-  tNote.textContent="—"; tFreq.textContent="マイクをオンにしてください"; tCents.textContent="— cent"; tCents.className="cents";
+  tNote.textContent="♪"; tFreq.textContent="マイクをオンにしてください"; tCents.textContent="— cent"; tCents.className="cents";
   drawMeter(null);
 }
 document.getElementById("micBtn").onclick=()=> micOn?stopMic():startMic();
