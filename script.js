@@ -16248,6 +16248,8 @@ function buildIndex(){
       window.previewSuggestionMoves = previewSuggestionMoves;
       window.placeItem = placeItem;
       window.rebuildItems = rebuildMastersFromRaw;
+      window.validatePlacement = validatePlacement;
+      window.countForbid = countForbid;
     } catch (e) { }
   }
 
@@ -16738,6 +16740,10 @@ function clearOverlays() {
 }
 
 (function () {
+  // このIIFEは独立スコープのため、共通定数/ヘルパをローカルに定義（未定義参照を防ぐ）
+  const DAYJP = { Mon: '月', Tue: '火', Wed: '水', Thu: '木', Fri: '金', Sat: '土', Sun: '日' };
+  function maxPeriod(day) { const v = (window.state?.settings?.periodsByDay || {})[day]; return (v != null) ? v : 6; }
+  function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
   // ---- maxPeriodForItem: accept both (day,cls) and (item,day) calls without breaking older code
   const __maxPeriodForItem_orig = (typeof maxPeriodForItem === 'function') ? maxPeriodForItem : null;
   function maxPeriodForItemFlex(a, b) {
@@ -17045,8 +17051,8 @@ function clearOverlays() {
       }
     }
 
-    // 禁止枠を避けている場合はボーナス
-    const forbidCount = countForbid(it.subjKey) || 0;
+    // 禁止枠を避けている場合はボーナス（countForbidは別IIFEなのでwindow経由）
+    const forbidCount = (window.countForbid ? window.countForbid(it.subjKey) : 0) || 0;
     if (forbidCount > 0) {
       score += 3; // 禁止枠を回避できた
     }
@@ -17615,8 +17621,8 @@ function clearOverlays() {
         // 配置済み
         problems.statistics.placedItems++;
 
-        // バリデーション
-        const v = validatePlacement(id, plc.day, plc.period, 'safe', null);
+        // バリデーション（validatePlacementは別IIFEなのでwindow経由で参照）
+        const v = (window.validatePlacement ? window.validatePlacement(id, plc.day, plc.period, 'safe', null) : { blocks: [], warns: [] });
         const score = calculatePlacementScore(id, plc.day, plc.period, v);
         totalScore += score;
 
