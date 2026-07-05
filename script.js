@@ -1604,7 +1604,17 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
     } catch (e) {
       state.autosave.saving = false;
       state.autosave.error = String(e);
-      updateAutosaveUI('保存失敗');
+      // 容量超過は原因が分かりにくいので、ファイル保存を促す（一度だけ）
+      const isQuota = e && (e.name === 'QuotaExceededError' || /quota/i.test(String(e.message || e)));
+      if (isQuota) {
+        updateAutosaveUI('保存失敗(容量超過)');
+        if (!saveNow._quotaWarned) {
+          saveNow._quotaWarned = true;
+          try { flash('⚠ ブラウザ保存容量を超えました。「💾 保存」でファイルに書き出してください', 5000); } catch (e2) { }
+        }
+      } else {
+        updateAutosaveUI('保存失敗');
+      }
     }
   }
   let saveTimer = null;
@@ -14333,8 +14343,20 @@ function buildIndex(){
       if (first) first.scrollIntoView({ behavior: 'smooth', block: 'center' });
       flash(`問題のコマを赤枠でハイライトしました`);
     } else if (iss.fixTea && iss.fixDay) {
-      // Highlight teacher's day row cells
-      flash(`${iss.fixTea}の${DAYJP[iss.fixDay] || iss.fixDay}をハイライト（未実装：個別窓を開いてください）`);
+      // 教員ビューに切り替えて該当教員の当該曜日セルをハイライト
+      try { switchTab('edit'); } catch (e) { }
+      state.ui.viewMode = 'teacher';
+      try { rerenderAll(); } catch (e) { }
+      setTimeout(() => {
+        const row = document.querySelector(`.grid-wrapper tr[data-row="${CSS.escape(iss.fixTea)}"]`);
+        if (row) {
+          row.querySelectorAll(`td[data-day="${iss.fixDay}"]`).forEach(td => td.classList.add('issue-highlight'));
+          row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          flash(`${iss.fixTea} の ${DAYJP[iss.fixDay] || iss.fixDay} をハイライトしました`);
+        } else {
+          flash(`${iss.fixTea} の行が見つかりませんでした`);
+        }
+      }, 200);
     }
   }
 
@@ -16225,6 +16247,15 @@ function buildIndex(){
       window.rebuildItems = rebuildMastersFromRaw;
       window.validatePlacement = validatePlacement;
       window.countForbid = countForbid;
+      window.invalidateIndex = invalidateIndex;
+      // 別IIFE（AI提案/問題分析）が素の識別子で参照する第1IIFEヘルパを公開し、
+      // グローバル解決で未定義参照クラッシュを防ぐ
+      Object.assign(window, {
+        buildIndex, clampInt, deepClone, flash, isSpanFill,
+        teacherDailyMax, teacherConsecMax, teacherDayCount,
+        chainQualityScore, clearValidSlots, simulateMoves,
+        normalizeAbbr, showModal, showModalHTML
+      });
     } catch (e) { }
   }
 
@@ -16717,6 +16748,8 @@ function clearOverlays() {
 (function () {
   // このIIFEは独立スコープのため、共通定数/ヘルパをローカルに定義（未定義参照を防ぐ）
   const DAYJP = { Mon: '月', Tue: '火', Wed: '水', Thu: '木', Fri: '金', Sat: '土', Sun: '日' };
+  const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+  const invalidateIndex = () => { try { window.invalidateIndex && window.invalidateIndex(); } catch (e) { } };
   function maxPeriod(day) { const v = (window.state?.settings?.periodsByDay || {})[day]; return (v != null) ? v : 6; }
   function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
   // ---- maxPeriodForItem: accept both (day,cls) and (item,day) calls without breaking older code
