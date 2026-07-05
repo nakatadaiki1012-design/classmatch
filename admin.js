@@ -342,15 +342,36 @@
     };
   }
 
+  // BroadcastChannel: viewer.htmlなど同一オリジンの他タブにリアルタイム配信
+  const _liveCh = (typeof BroadcastChannel !== "undefined") ? new BroadcastChannel("classmatch-live") : null;
+
   function saveState() {
     state.tournament.updatedAt = new Date().toISOString();
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    // 同一オリジン他タブへブロードキャスト
+    try { _liveCh?.postMessage({ type: "state-update", state }); } catch {}
     // Firebase にも同期（有効な場合のみ）
     if (window.FirebaseSync?.enabled) {
       window.FirebaseSync.save(state).catch(e => console.error("Firebase save error:", e));
     }
     statusBar.textContent = `status: saved / events=${state.events.length}${window.FirebaseSync?.enabled ? ' / 🔥 Firebase同期中' : ''}`;
     renderSetupChecklist();
+    updateLiveShareBanner();
+  }
+
+  function updateLiveShareBanner() {
+    const banner = el("liveShareBanner");
+    if (!banner) return;
+    const ts = state.tournament?.updatedAt;
+    const timeStr = ts ? new Date(ts).toLocaleTimeString("ja-JP", {hour:"2-digit", minute:"2-digit", second:"2-digit"}) : "-";
+    const lsLink = el("liveShareLink");
+    if (lsLink) {
+      const base = location.href.replace(/admin\.html.*$/, "");
+      const code = encodeShare(state);
+      lsLink.value = `${base}viewer.html#share=${code}`;
+    }
+    const tsEl = el("liveShareTime");
+    if (tsEl) tsEl.textContent = `最終更新: ${timeStr}`;
   }
 
   // ── Match helpers ────────────────────────────────────────────
@@ -1241,6 +1262,24 @@
     el("shareCode").value = code;
     statusBar.textContent = "status: share ready";
   };
+  // ライブリンクのコピー＆viewer自動更新
+  if (el("btnCopyLiveLink")) el("btnCopyLiveLink").onclick = async () => {
+    updateLiveShareBanner();
+    const v = (el("liveShareLink")?.value || "").trim();
+    if (!v) { toast("リンクを生成できませんでした", "error"); return; }
+    try {
+      await navigator.clipboard.writeText(v);
+      toast("ライブリンクをコピーしました！ LINEなどで生徒に送ってください", "success", 4000);
+    } catch { toast("コピーに失敗しました（手動でコピーしてください）", "warn"); }
+  };
+  if (el("btnOpenViewer") && el("navShare")) {
+    el("navShare").addEventListener("click", () => {
+      updateLiveShareBanner();
+      const v = el("liveShareLink")?.value || "";
+      if (v) el("btnOpenViewer").href = v;
+    });
+  }
+
   el("btnCopyViewerLink").onclick = async () => {
     const v = (el("viewerLink").value || "").trim();
     if (!v) return alert("リンクが空です（共有リンクを作るを押して）");
@@ -2898,25 +2937,31 @@
       // R1であり、かつ試合が開始・確定していない場合のみチーム名単位ではなく試合枠単位でのスワップを検知するための処理
       // ただしA/B個別の枠（sideBox）に対してイベントを張る
 
-      // 勝者ハイライト
-      if (m.winner) {
-        const hl = document.createElementNS(ns, "rect");
-        hl.setAttribute("x", m.winner === "A" ? leftX(x) + 1 : rightX(x) + 1);
-        hl.setAttribute("y", y + 1);
-        hl.setAttribute("width", sideW - 2); hl.setAttribute("height", boxH - 2);
-        hl.setAttribute("rx", 6); hl.setAttribute("fill", "rgba(22,163,74,.12)");
-        matchG.appendChild(hl);
-      }
-
       const isOvertime = typeof isMatchOvertime === 'function' ? isMatchOvertime(m, new Date(), (currentEvent.settings?.matchMinutes || 10) + (currentEvent.settings?.turnoverMinutes || 2)) : false;
       let stClass = m.state === "calling" ? "match-calling" : m.state === "playing" ? "match-playing" : (m.state || "pending");
       if (isOvertime) stClass += " overtime-pulse";
+
+      const isFinalResult = m.state === "final" && m.winner;
+      const isChampion = isFinalResult && m.round === rounds;
+
+      // 勝者/敗者ボックスの色（CSS classに加えてfillも直接指定して確実に反映）
+      const fillWin  = isChampion ? "#bbf7d0" : "#dcfce7";
+      const fillLoss = "#f1f5f9";
+      const fillNeutral = m.state === "playing" ? "#fff1f2" : m.state === "calling" ? "#fffbeb" : "#f8fafc";
+
+      const fillA = isFinalResult ? (m.winner === "A" ? fillWin : fillLoss) : fillNeutral;
+      const fillB = isFinalResult ? (m.winner === "B" ? fillWin : fillLoss) : fillNeutral;
+      const strokeA = isFinalResult ? (m.winner === "A" ? "#16a34a" : "#e2e8f0") : (m.state === "playing" ? "#f43f5e" : m.state === "calling" ? "#f59e0b" : "#cbd5e1");
+      const strokeB = isFinalResult ? (m.winner === "B" ? "#16a34a" : "#e2e8f0") : strokeA;
 
       // Aボックス
       const rectA = document.createElementNS(ns, "rect");
       rectA.setAttribute("x", leftX(x)); rectA.setAttribute("y", y);
       rectA.setAttribute("width", sideW); rectA.setAttribute("height", boxH);
       rectA.setAttribute("rx", 6);
+      rectA.setAttribute("fill", fillA);
+      rectA.setAttribute("stroke", strokeA);
+      rectA.setAttribute("stroke-width", isFinalResult && m.winner === "A" ? "2" : "1");
       rectA.setAttribute("class", `sideBox ${stClass} ${selectedMatchKey === key ? "selected" : ""}`);
       // Drag events for A
       if (r === 1 && m.state === "pending") {
@@ -2940,6 +2985,9 @@
       rectB.setAttribute("x", rightX(x)); rectB.setAttribute("y", y);
       rectB.setAttribute("width", sideW); rectB.setAttribute("height", boxH);
       rectB.setAttribute("rx", 6);
+      rectB.setAttribute("fill", fillB);
+      rectB.setAttribute("stroke", strokeB);
+      rectB.setAttribute("stroke-width", isFinalResult && m.winner === "B" ? "2" : "1");
       rectB.setAttribute("class", `sideBox ${stClass} ${selectedMatchKey === key ? "selected" : ""}`);
       // Drag events for B
       if (r === 1 && m.state === "pending") {
@@ -2993,7 +3041,9 @@
       tA.setAttribute("dominant-baseline", "middle");
       tA.setAttribute("class", "teamTxtH" + (m.teamA ? "" : " subtle"));
       tA.setAttribute("font-size", String(fontSize));
-      tA.setAttribute("font-weight", hasCheckA ? "900" : "500");
+      tA.setAttribute("font-weight", hasCheckA ? "900" : isFinalResult && m.winner === "B" ? "400" : "600");
+      if (hasCheckA) tA.setAttribute("fill", isChampion ? "#15803d" : "#166534");
+      else if (isFinalResult) tA.setAttribute("fill", "#94a3b8");
       
       const textA = shorten(m.teamA, hasCheckA);
       if (textA.includes("\n")) {
@@ -3024,7 +3074,9 @@
       tB.setAttribute("dominant-baseline", "middle");
       tB.setAttribute("class", "teamTxtH" + (m.teamB ? "" : " subtle"));
       tB.setAttribute("font-size", String(fontSize));
-      tB.setAttribute("font-weight", hasCheckB ? "900" : "500");
+      tB.setAttribute("font-weight", hasCheckB ? "900" : isFinalResult && m.winner === "A" ? "400" : "600");
+      if (hasCheckB) tB.setAttribute("fill", isChampion ? "#15803d" : "#166534");
+      else if (isFinalResult) tB.setAttribute("fill", "#94a3b8");
       
       const textB = shorten(m.teamB, hasCheckB);
       if (textB.includes("\n")) {
@@ -3040,6 +3092,28 @@
         tB.textContent = textB;
       }
       matchG.appendChild(tB);
+
+      // 優勝バッジ（決勝勝者）
+      if (isChampion) {
+        const champW = 36, champH = 14;
+        const champX = m.winner === "A" ? leftX(x) + sideW / 2 - champW / 2 : rightX(x) + sideW / 2 - champW / 2;
+        const champY = y - 8;
+        const champBg = document.createElementNS(ns, "rect");
+        champBg.setAttribute("x", champX); champBg.setAttribute("y", champY);
+        champBg.setAttribute("width", champW); champBg.setAttribute("height", champH);
+        champBg.setAttribute("rx", 7); champBg.setAttribute("fill", "#fbbf24");
+        matchG.appendChild(champBg);
+        const champTxt = document.createElementNS(ns, "text");
+        champTxt.setAttribute("x", champX + champW / 2);
+        champTxt.setAttribute("y", champY + champH / 2 + 0.5);
+        champTxt.setAttribute("text-anchor", "middle");
+        champTxt.setAttribute("dominant-baseline", "middle");
+        champTxt.setAttribute("font-size", "9");
+        champTxt.setAttribute("font-weight", "800");
+        champTxt.setAttribute("fill", "#78350f");
+        champTxt.textContent = "🏆 優勝";
+        matchG.appendChild(champTxt);
+      }
 
       // 時刻ラベル（バッジスタイル）
       if ((time || m.matchNum) && ui.showTime !== false) {
@@ -4231,6 +4305,7 @@
   renderEvents();
   show("setupView");
   updateHeaderMeta();
+  updateLiveShareBanner();
 
   // ── Admin Panel Toggle ──
   const btnToggleAdmin = el("btnToggleAdmin");

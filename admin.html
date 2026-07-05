@@ -211,9 +211,25 @@
     <!-- ══════ SHARE ══════ -->
     <section class="card hidden" id="shareView">
       <h2>🔗 共有</h2>
-      <div class="small">
-        生徒に配るのは <b>viewer.html</b> のリンクです。<br />
-        「共有リンクを作る」を押すと、viewer.html に貼れるリンクと共有コードが生成されます。
+
+      <!-- ライブ共有バナー -->
+      <div id="liveShareBanner" style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:12px 16px; margin-bottom:14px; background:linear-gradient(90deg,#ecfdf5,#d1fae5); border:1.5px solid #6ee7b7; border-radius:10px; font-size:13px;">
+        <span class="lsb-dot" style="width:10px;height:10px;border-radius:50%;background:#16a34a;animation:liveDot .9s ease-in-out infinite;flex-shrink:0;"></span>
+        <span style="font-weight:700; color:#065f46;">🟢 ライブ配信中</span>
+        <span id="liveShareTime" style="color:#6b7280; font-size:12px;">-</span>
+        <div style="flex:1; min-width:220px;">
+          <div style="font-size:11px; color:#6b7280; margin-bottom:3px;">生徒はこのリンクを開くと常に最新のブラケットが見られます</div>
+          <div style="display:flex; gap:6px; align-items:center;">
+            <input id="liveShareLink" readonly style="flex:1; font-size:11px; padding:4px 8px; background:#fff; border:1px solid #a7f3d0;" />
+            <button id="btnCopyLiveLink" style="padding:4px 10px; font-size:12px; background:#16a34a; border:none; white-space:nowrap;">📋 コピー</button>
+          </div>
+        </div>
+        <a id="btnOpenViewer" href="#" target="_blank" style="padding:6px 14px; background:#065f46; color:#fff; border-radius:6px; font-size:12px; font-weight:700; text-decoration:none; white-space:nowrap;">▶ 開く</a>
+      </div>
+
+      <div class="small" style="margin-bottom:10px;">
+        ⚠️ 上の<b>ライブリンク</b>は試合結果を確定するたびに自動更新されます。生徒にこのリンクをLINEなどで送ってください。<br/>
+        （同一デバイスで開いている viewer.html は<b>即時</b>更新されます。別端末の場合はページリロードで反映）
       </div>
 
       <hr />
