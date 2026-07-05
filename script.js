@@ -1325,7 +1325,19 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       instList.sort((a, b) =>
         DAY_KEYS.indexOf(a.day) - DAY_KEYS.indexOf(b.day) || a.period - b.period
       );
-      for (let i = 0; i < Math.min(instList.length, itemIds.length); i++) {
+      // 選択科目等でweeklyCountより多くのインスタンス(曜日,時限)がある場合、
+      // 全て配置できるようitemを追加生成する（従来はcapで後半曜日を取りこぼしていた）。
+      const template = items[itemIds[0]];
+      while (itemIds.length < instList.length && template) {
+        const nid = String(itemIdCounter++);
+        items[nid] = {
+          id: nid, subj: template.subj, subjKey: template.subjKey,
+          cls: template.cls.slice(), teas: (template.teas || []).slice(),
+          rooms: (template.rooms || []).slice(), span: template.span,
+        };
+        itemIds.push(nid);
+      }
+      for (let i = 0; i < instList.length && i < itemIds.length; i++) {
         const r = instList[i];
         const it = items[itemIds[i]];
         placements[itemIds[i]] = { day: r.day, period: r.period, locked: false };
