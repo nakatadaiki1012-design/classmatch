@@ -1077,7 +1077,7 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
         const name = f1[1] || '';
         const abbr = f1[2] || name;
         const dept = (f2[3] || '').replace(/科$/, '');
-        const homeroom = (f2[4] || '').replace(/[　\s]/g, '').replace(/[１２３４５６７８９０]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0)).replace(/[−ー]/g, '-');
+        const homeroom = (f2[4] || '').replace(/[　\s]/g, '').replace(/[１２３４５６７８９０]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0)).replace(/[−ー－]/g, '-');
         // 可用性文字列から出勤不可コマを取得 ('90' = 非勤務)
         const availLine = lines[idx + 2] || '';
         const availMatch = availLine.match(/"([0-9][^"]+)"/);
@@ -1348,6 +1348,82 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
           if (r.rooms && r.rooms.size) it.rooms = Array.from(r.rooms);
         }
         placedCount++;
+      }
+    }
+
+    // ── SJYUGYO パース (同時展開授業: 総合的な探究の時間・LHR・校務分掌・選択講座) ──
+    // 各エントリ: header(id,name) / avail / memberCount / group-header / member×N / weeklyCount / 時限行×wc
+    //   member = [代表jugyoId, lessonId, roomId, teacherId] … teacherId→homeroomでクラス確定
+    //   時限行 = [曜日(1-5), 時限, 教室, 開始, 終了]
+    // 該当クラス全てにその授業を配置し、同セルのJ-CLASS由来の相乗り参照を上書きする。
+    if (sectionIdx['SJYUGYO'] != null) {
+      const sji = sectionIdx['SJYUGYO'];
+      const sjCount = parseInt(parseLine(lines[sji])[1]) || 0;
+      let sidx = sji + 1;
+      const sjCells = new Set();  // "class#day#period" 上書き対象
+      const sjPlace = [];         // {subj, cls, teas, day, period, span}
+      for (let c = 0; c <= sjCount; c++) {
+        if (sidx >= lines.length) break;
+        const hdr = parseLine(lines[sidx]);
+        const name = hdr[1] || '';
+        const memN = parseInt((lines[sidx + 2] || '').trim()) || 0;
+        const members = [];
+        for (let m = 0; m < memN; m++) members.push(parseLine(lines[sidx + 4 + m] || ''));
+        const wcLine = sidx + 4 + memN;
+        const wc = parseInt((lines[wcLine] || '').trim()) || 0;
+        const perPeriods = [];
+        for (let k = 0; k < wc; k++) perPeriods.push(parseLine(lines[wcLine + 1 + k] || ''));
+        sidx = wcLine + 1 + wc;
+        if (!memN || !wc) continue;
+        const lessonId = parseInt(members[0][1]) || 0;
+        const lesson = lessons[lessonId];
+        const subj = (lesson && lesson.name) || name;
+        if (!subj) continue;
+        // 学年一斉の「総合的な探究の時間」「LHR/ホームルーム」のみ対象。
+        // 選択講座はJ-CLASSに既にあり、校務分掌(進路G等)は生徒授業でないため除外する。
+        if (!(subj.includes('総合的な探究') || /LHR|ロングホーム|ホームルーム/.test(subj))) continue;
+        // メンバーのteacherId→homeroomクラス、クラスごとに担当教員をまとめる
+        const clsTeas = {};
+        for (const mem of members) {
+          const tid = parseInt(mem[3]) || 0;
+          const t = teachers[tid];
+          if (!t || !t.homeroom) continue;
+          (clsTeas[t.homeroom] || (clsTeas[t.homeroom] = new Set())).add(t.name);
+        }
+        for (const pp of perPeriods) {
+          const dnum = parseInt(pp[0], 10), pnum = parseInt(pp[1], 10);
+          const st = parseInt(pp[3], 10), en = parseInt(pp[4], 10);
+          const span = (!isNaN(st) && !isNaN(en) && en > st) ? (en - st + 1) : 1;
+          if (isNaN(dnum) || dnum < 1 || dnum > numDays || isNaN(pnum) || pnum < 1) continue;
+          const dayKey = DAY_KEYS[dnum - 1];
+          for (const cn in clsTeas) {
+            sjPlace.push({ subj, cls: [cn], teas: Array.from(clsTeas[cn]), day: dayKey, period: pnum, span });
+            for (let dp = 0; dp < span; dp++) sjCells.add(cn + '#' + dayKey + '#' + (pnum + dp));
+          }
+        }
+      }
+      // SJYUGYOが占有するセルと重なるJ-CLASS由来の配置を除去（相乗り参照の上書き）
+      for (const itemId in placements) {
+        const plc = placements[itemId]; if (!plc || !plc.day) continue;
+        const it = items[itemId]; if (!it) continue;
+        const span = it.span || 1;
+        let overlap = false;
+        for (const cn of (it.cls || [])) {
+          for (let dp = 0; dp < span && !overlap; dp++) if (sjCells.has(cn + '#' + plc.day + '#' + (plc.period + dp))) overlap = true;
+          if (overlap) break;
+        }
+        if (overlap) { placements[itemId] = null; placedCount--; }
+      }
+      // SJYUGYO配置をitem化して追加
+      for (const sp of sjPlace) {
+        const id = String(itemIdCounter++);
+        items[id] = { id, subj: sp.subj, subjKey: sp.subj, cls: sp.cls, teas: sp.teas, rooms: [], span: sp.span };
+        placements[id] = { day: sp.day, period: sp.period, locked: false };
+        placedCount++;
+      }
+      // SJYUGYO科目がsubjectCfgに無ければ追加
+      for (const sp of sjPlace) {
+        if (!subjectCfg[sp.subj]) subjectCfg[sp.subj] = { abbr: sp.subj, dept: '', fixedForbid: {}, noSameDay: false, noConsec: false, maxPerDay: null };
       }
     }
 
