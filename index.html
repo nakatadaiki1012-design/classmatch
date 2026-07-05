@@ -41,11 +41,12 @@
   .refbar .presets button{width:auto; padding:0 10px; height:34px; font-size:13px; font-weight:600}
   .refbar .presets button.on{background:var(--accent); border-color:var(--accent)}
 
-  .tabs{display:flex; gap:8px; margin-bottom:14px}
+  .tabs{display:flex; gap:6px; margin-bottom:14px}
   .tabs button{
-    flex:1; padding:12px 6px; border-radius:12px; border:1px solid var(--line);
-    background:var(--panel); color:var(--muted); font-size:14px; font-weight:600;
+    flex:1; padding:10px 2px; border-radius:12px; border:1px solid var(--line);
+    background:var(--panel); color:var(--muted); font-size:12.5px; font-weight:600; line-height:1.2;
   }
+  .tabs button .ico{display:block; font-size:16px; margin-bottom:2px}
   .tabs button.on{background:var(--accent); color:#fff; border-color:var(--accent); box-shadow:var(--shadow)}
 
   .card{background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:16px; box-shadow:var(--shadow)}
@@ -106,12 +107,27 @@
   .switch i{position:absolute; top:2px; left:2px; width:20px; height:20px; border-radius:50%; background:#fff; transition:.2s}
   .switch.on i{left:22px}
 
+  /* Exercise */
+  .sbtn{width:40px; height:40px; border-radius:10px; border:1px solid var(--line); background:var(--panel2); color:var(--text); font-size:22px; font-weight:700}
+  .chips{display:flex; flex-wrap:wrap; gap:6px; margin:12px 0; min-height:44px}
+  .chip{padding:7px 9px; border-radius:9px; background:var(--panel2); border:1px solid var(--line); font-size:15px; font-weight:700; color:var(--text); transition:.08s}
+  .chip.rest{color:var(--muted); font-weight:500}
+  .chip.on{background:var(--accent2); color:#05221c; border-color:var(--accent2); transform:translateY(-3px); box-shadow:0 4px 12px rgba(56,224,192,.4)}
+  .bpmbox{display:flex; align-items:center; gap:10px; justify-content:center; margin-top:4px}
+  .bpmbox .bpmval{font-size:22px; font-weight:800; min-width:110px; text-align:center}
+  .exrow{display:flex; gap:18px; align-items:center; justify-content:center; margin:10px 0 2px}
+  .chk{display:flex; align-items:center; gap:7px; font-size:13px; color:var(--muted)}
+  .ex-input{width:100%; min-height:66px; background:var(--panel2); color:var(--text); border:1px solid var(--line); border-radius:10px; padding:10px; font-size:14px; font-family:inherit; resize:vertical; margin-top:8px}
+  .ex-legend{font-size:11px; color:var(--muted); line-height:1.7; margin-top:6px}
+  .ex-legend code{background:#0d1130; padding:1px 5px; border-radius:5px; color:var(--accent2)}
+  details summary{cursor:pointer; color:var(--muted); font-size:13px; padding:4px 0}
+
   footer{position:fixed; left:0; right:0; bottom:0; padding:8px 14px calc(8px + env(safe-area-inset-bottom)); text-align:center; font-size:11px; color:var(--muted); background:linear-gradient(180deg,rgba(15,18,38,0),var(--bg) 40%)}
 </style>
 
 <header>
   <h1>吹奏楽チューナー</h1>
-  <p>基準ピッチ・ドローン・チューナー・純正律ハーモニー</p>
+  <p>ドローン・チューナー・純正律ハーモニー・教本パターン</p>
 </header>
 
 <main>
@@ -129,9 +145,10 @@
   </div>
 
   <div class="tabs">
-    <button data-tab="drone" class="on">🎵 音出し</button>
-    <button data-tab="tuner">🎯 チューナー</button>
-    <button data-tab="harmony">🎼 ハーモニー</button>
+    <button data-tab="drone" class="on"><span class="ico">🎵</span>音出し</button>
+    <button data-tab="tuner"><span class="ico">🎯</span>チューナー</button>
+    <button data-tab="harmony"><span class="ico">🎼</span>ハモリ</button>
+    <button data-tab="exercise"><span class="ico">🎶</span>教本</button>
   </div>
 
   <!-- ===== DRONE ===== -->
@@ -199,6 +216,35 @@
       <div class="hz">純正律：第3音を低め・第5音をわずかに高めにして、うなりの無いハーモニーになります。各音のセント値だけ寄せると濁りが消えます。</div>
     </div>
   </section>
+
+  <!-- ===== EXERCISE ===== -->
+  <section class="view" id="view-exercise">
+    <div class="card">
+      <div class="notesub" style="margin-bottom:6px">教本のスケール・チューニングを音源として流します（実音）</div>
+      <select id="exPreset" style="width:100%"></select>
+      <div class="chips" id="exChips"></div>
+      <div class="bpmbox">
+        <button class="sbtn" id="bpmDown">−</button>
+        <span class="bpmval"><span id="bpmVal">76</span> <small style="font-size:12px;color:var(--muted)">BPM</small></span>
+        <button class="sbtn" id="bpmUp">＋</button>
+      </div>
+      <input type="range" id="bpmRange" min="40" max="160" value="76" style="width:100%; margin:8px 0 2px">
+      <div class="exrow">
+        <label class="chk">くり返し <span class="switch on" id="loopSwitch"><i></i></span></label>
+        <label class="chk">クリック音 <span class="switch" id="clickSwitch"><i></i></span></label>
+      </div>
+      <button class="playbtn" id="exPlay">▶ 再生</button>
+      <details style="margin-top:12px">
+        <summary>自分で入力・編集する ✎</summary>
+        <textarea class="ex-input" id="exInput" spellcheck="false"></textarea>
+        <div class="ex-legend">
+          スペース区切りで <code>音名＋オクターブ</code>（例 <code>Bb3 C4 D4 Eb4 F4</code>）。<br>
+          <code>/4</code>＝4拍のばす・<code>-</code>でも1拍のばす、<code>R</code>＝休符、<code>|</code>は小節の区切り（自由）。<br>
+          ♭は <code>b</code>、♯は <code>#</code>。オクターブ省略時は4。すべて実音（コンサート）です。
+        </div>
+      </details>
+    </div>
+  </section>
 </main>
 
 <footer>Web Audio対応ブラウザで動作 ・ Bluetoothスピーカー接続時はそのまま出力されます</footer>
@@ -232,7 +278,7 @@ document.getElementById("refDown").onclick = ()=>setRef(state.a4-1);
 presetBtns.forEach(b=> b.onclick = ()=>setRef(+b.dataset.hz));
 
 /* ---------- tabs ---------- */
-const views = {drone:"view-drone",tuner:"view-tuner",harmony:"view-harmony"};
+const views = {drone:"view-drone",tuner:"view-tuner",harmony:"view-harmony",exercise:"view-exercise"};
 document.querySelectorAll(".tabs button").forEach(btn=>{
   btn.onclick = ()=>{
     document.querySelectorAll(".tabs button").forEach(b=>b.classList.remove("on"));
@@ -241,6 +287,7 @@ document.querySelectorAll(".tabs button").forEach(btn=>{
     document.getElementById(views[btn.dataset.tab]).classList.add("on");
     if(btn.dataset.tab==="tuner"){ requestAnimationFrame(()=>{ fitCanvas(); drawMeter(micOn?smoothCents:null); }); }
     else if(micOn) stopMic();
+    if(btn.dataset.tab!=="exercise" && exPlaying) stopPattern();
   };
 });
 
@@ -520,6 +567,131 @@ function stopHarmony(){
 }
 document.getElementById("harmPlay").onclick=()=> harmPlaying?stopHarmony():playHarmony();
 refreshHarm();
+
+/* ================= EXERCISE (教本パターン再生) ================= */
+const EX_PRESETS = {
+  jbc:      {name:"教本チューニング（B♭）", pat:"Bb3 C4 D4 Eb4 F4/4 | F4 G4 A4 Bb4/4 | Bb4 A4 G4 F4/4 | F4 Eb4 D4 C4 Bb3/4 | Bb3 F4 C4 A3 Bb3 F4 Bb3 F4 Bb3/4"},
+  bbup:     {name:"B♭スケール（上行）", pat:"Bb3 C4 D4 Eb4 F4 G4 A4 Bb4/4"},
+  bbupdown: {name:"B♭スケール（上行＋下行）", pat:"Bb3 C4 D4 Eb4 F4 G4 A4 Bb4/2 A4 G4 F4 Eb4 D4 C4 Bb3/4"},
+  bbchord:  {name:"B♭アルペジオ（B♭ D F B♭）", pat:"Bb3 D4 F4 Bb4/2 F4 D4 Bb3/4"},
+  longtone: {name:"ロングトーン（B♭→F→B♭）", pat:"Bb3/4 F4/4 Bb4/4 F4/4 Bb3/4"},
+  eb:       {name:"E♭スケール（上行＋下行）", pat:"Eb4 F4 G4 Ab4 Bb4 C5 D5 Eb5/2 D5 C5 Bb4 Ab4 G4 F4 Eb4/4"},
+  f:        {name:"Fスケール（上行＋下行）", pat:"F3 G3 A3 Bb3 C4 D4 E4 F4/2 E4 D4 C4 Bb3 A3 G3 F3/4"},
+  chroma:   {name:"半音階（B♭→B♭）", pat:"Bb3 B3 C4 C#4 D4 D#4 E4 F4 F#4 G4 G#4 A4 Bb4/4"},
+};
+const PCMAP={C:0,D:2,E:4,F:5,G:7,A:9,B:11};
+function noteToMidi(tok){
+  const m=tok.match(/^([A-Ga-g])([#b]?)(-?\d+)?$/); if(!m) return null;
+  let pc=PCMAP[m[1].toUpperCase()]; if(pc===undefined) return null;
+  if(m[2]==="#")pc++; else if(m[2]==="b")pc--;
+  const oct=m[3]!==undefined?parseInt(m[3],10):4;
+  return (oct+1)*12+pc;
+}
+function normEx(s){
+  return s.replace(/[Ａ-Ｚａ-ｚ０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0))
+    .replace(/♭/g,"b").replace(/[＃♯]/g,"#").replace(/[ー－―—]/g,"-").replace(/　/g," ");
+}
+function parsePattern(str){
+  const raw=normEx(str).replace(/\|/g," ").split(/\s+/).filter(Boolean);
+  const out=[];
+  for(let tok of raw){
+    if(/^[-~]+$/.test(tok)){ if(out.length) out[out.length-1].beats+=tok.length; continue; }
+    let extra=0; const dm=tok.match(/[-~]+$/); if(dm){ extra=dm[0].length; tok=tok.slice(0,-extra); }
+    let beats=1; const bm=tok.match(/\/(\d+(?:\.\d+)?)$/); if(bm){ beats=parseFloat(bm[1]); tok=tok.slice(0,tok.length-bm[0].length); }
+    if(!tok) continue;
+    if(/^R$/i.test(tok)){ out.push({midi:null,beats:beats+extra}); continue; }
+    const midi=noteToMidi(tok); if(midi===null) continue;
+    out.push({midi,beats:beats+extra});
+  }
+  return out;
+}
+function exFreq(m){ return state.a4*Math.pow(2,(m-69)/12); }
+
+const exInput=document.getElementById("exInput");
+const exPreset=document.getElementById("exPreset");
+const exChips=document.getElementById("exChips");
+const bpmRange=document.getElementById("bpmRange");
+const bpmVal=document.getElementById("bpmVal");
+const loopSwitch=document.getElementById("loopSwitch");
+const clickSwitch=document.getElementById("clickSwitch");
+let exNotes=[], exChipEls=[], exPlaying=false, exTimers=[], exMaster=null;
+
+function renderChips(){
+  exNotes=parsePattern(exInput.value);
+  exChips.innerHTML=""; exChipEls=[];
+  exNotes.forEach(n=>{
+    const el=document.createElement("span");
+    if(n.midi===null){ el.className="chip rest"; el.textContent="休"; }
+    else{
+      el.className="chip";
+      const oct=Math.floor(n.midi/12)-1;
+      el.innerHTML=noteLabel(n.midi%12)+'<small style="opacity:.55;font-size:11px">'+oct+"</small>"+
+        (n.beats>1?'<small style="opacity:.5;font-size:10px;margin-left:2px">·'+n.beats+"</small>":"");
+    }
+    exChips.appendChild(el); exChipEls.push(el);
+  });
+}
+function highlight(i){ exChipEls.forEach((e,j)=>e.classList.toggle("on",j===i)); }
+function scheduleNote(c,dest,freq,start,dur){
+  const g=c.createGain(); g.connect(dest);
+  const o=c.createOscillator(); o.type="triangle"; o.frequency.value=freq; o.connect(g);
+  const o2=c.createOscillator(); o2.type="sine"; o2.frequency.value=freq*2;
+  const g2=c.createGain(); g2.gain.value=0.14; o2.connect(g2); g2.connect(g);
+  const a=0.015, r=Math.min(0.22,dur*0.35), peak=0.85, sus=0.72, end=start+dur;
+  g.gain.setValueAtTime(0.0001,start);
+  g.gain.linearRampToValueAtTime(peak,start+a);
+  g.gain.linearRampToValueAtTime(sus*peak,start+Math.min(dur*0.5,a+0.12));
+  g.gain.setValueAtTime(sus*peak,Math.max(start+a,end-r));
+  g.gain.linearRampToValueAtTime(0.0001,end);
+  o.start(start); o2.start(start); o.stop(end+0.05); o2.stop(end+0.05);
+}
+function scheduleClick(c,dest,at){
+  const o=c.createOscillator(); o.type="square"; o.frequency.value=1600;
+  const g=c.createGain(); g.gain.value=0; o.connect(g); g.connect(dest);
+  g.gain.setValueAtTime(0.0001,at); g.gain.linearRampToValueAtTime(0.18,at+0.001);
+  g.gain.exponentialRampToValueAtTime(0.0001,at+0.045);
+  o.start(at); o.stop(at+0.06);
+}
+function clearExTimers(){ exTimers.forEach(clearTimeout); exTimers=[]; }
+function playPattern(){
+  renderChips(); if(!exNotes.length) return;
+  const c=ac();
+  if(exMaster){ try{exMaster.disconnect()}catch(e){} }
+  const spb=60/(+bpmRange.value);
+  const master=c.createGain(); master.gain.value=0.9; master.connect(c.destination); exMaster=master;
+  const t0=c.currentTime+0.14; let t=t0, total=0;
+  const doClick=clickSwitch.classList.contains("on");
+  exNotes.forEach((n,i)=>{
+    const dur=n.beats*spb;
+    if(n.midi!==null) scheduleNote(c,master,exFreq(n.midi),t,dur);
+    exTimers.push(setTimeout(()=>highlight(i),Math.max(0,(t-c.currentTime)*1000)));
+    t+=dur; total+=dur;
+  });
+  if(doClick){ for(let b=0;b<Math.round(total);b++) scheduleClick(c,master,t0+b*spb); }
+  const loop=loopSwitch.classList.contains("on");
+  exTimers.push(setTimeout(()=>{ if(loop&&exPlaying) playPattern(); else stopPattern(); }, total*1000+140));
+  exPlaying=true;
+  const b=document.getElementById("exPlay"); b.textContent="■ 停止"; b.classList.add("playing");
+}
+function stopPattern(){
+  clearExTimers(); highlight(-1);
+  if(exMaster){ const c=ac(); exMaster.gain.cancelScheduledValues(c.currentTime);
+    exMaster.gain.setValueAtTime(exMaster.gain.value,c.currentTime);
+    exMaster.gain.linearRampToValueAtTime(0,c.currentTime+0.06); exMaster=null; }
+  exPlaying=false;
+  const b=document.getElementById("exPlay"); b.textContent="▶ 再生"; b.classList.remove("playing");
+}
+exPreset.innerHTML=Object.entries(EX_PRESETS).map(([k,v])=>`<option value="${k}">${v.name}</option>`).join("");
+exInput.value=EX_PRESETS.jbc.pat;
+exInput.oninput=()=>{ renderChips(); };
+exPreset.onchange=()=>{ exInput.value=EX_PRESETS[exPreset.value].pat; if(exPlaying) stopPattern(); renderChips(); };
+bpmRange.oninput=()=>{ bpmVal.textContent=bpmRange.value; };
+document.getElementById("bpmUp").onclick=()=>{ bpmRange.value=Math.min(160,+bpmRange.value+2); bpmVal.textContent=bpmRange.value; };
+document.getElementById("bpmDown").onclick=()=>{ bpmRange.value=Math.max(40,+bpmRange.value-2); bpmVal.textContent=bpmRange.value; };
+loopSwitch.onclick=function(){ this.classList.toggle("on"); };
+clickSwitch.onclick=function(){ this.classList.toggle("on"); };
+document.getElementById("exPlay").onclick=()=> exPlaying?stopPattern():playPattern();
+renderChips();
 
 /* prevent double-tap zoom on iOS buttons handled via touch-action */
 document.addEventListener("gesturestart",e=>e.preventDefault());
