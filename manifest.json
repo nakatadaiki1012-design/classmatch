@@ -1,0 +1,19 @@
+{
+  "name": "吹奏楽チューナー",
+  "short_name": "吹奏楽チューナー",
+  "description": "基準ピッチのドローン・チューナー・純正律ハーモニーを1つにまとめた吹奏楽部向けチューニングアプリ",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f1226",
+  "theme_color": "#0f1226",
+  "lang": "ja",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='512' height='512'%3E%3Crect width='512' height='512' rx='96' fill='%230f1226'/%3E%3Ctext x='256' y='340' font-size='300' text-anchor='middle' fill='%235b8cff'%3E%F0%9F%8E%B5%3C/text%3E%3C/svg%3E",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

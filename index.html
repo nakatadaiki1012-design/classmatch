@@ -1,0 +1,525 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#0f1226">
+<title>吹奏楽チューナー | Band Tuner</title>
+<link rel="manifest" href="manifest.json">
+<style>
+  :root{
+    --bg:#0f1226; --panel:#191d3a; --panel2:#232a52;
+    --line:#2f3767; --text:#eef1ff; --muted:#9aa3d4;
+    --accent:#5b8cff; --accent2:#38e0c0; --good:#3ad686; --warn:#ffd24a;
+    --bad:#ff6b6b; --shadow:0 8px 30px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  html,body{margin:0; height:100%}
+  body{
+    background:radial-gradient(1200px 600px at 50% -10%,#1b2150,#0f1226 60%);
+    color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Hiragino Kaku Gothic ProN","Segoe UI",Roboto,sans-serif;
+    display:flex; flex-direction:column; min-height:100%;
+    -webkit-user-select:none; user-select:none;
+  }
+  header{
+    padding:14px 16px 8px; text-align:center;
+  }
+  header h1{margin:0; font-size:18px; letter-spacing:.5px}
+  header p{margin:2px 0 0; font-size:12px; color:var(--muted)}
+  main{flex:1; padding:0 14px 96px; max-width:560px; width:100%; margin:0 auto}
+
+  /* Reference pitch bar */
+  .refbar{
+    display:flex; align-items:center; gap:10px; justify-content:center;
+    background:var(--panel); border:1px solid var(--line); border-radius:14px;
+    padding:10px 12px; margin:6px 0 14px;
+  }
+  .refbar .lbl{font-size:12px; color:var(--muted)}
+  .refbar .val{font-size:20px; font-weight:700; min-width:78px; text-align:center}
+  .refbar button{
+    width:38px; height:38px; border-radius:10px; border:1px solid var(--line);
+    background:var(--panel2); color:var(--text); font-size:20px; font-weight:700;
+  }
+  .refbar .presets{display:flex; gap:6px; margin-left:6px}
+  .refbar .presets button{width:auto; padding:0 10px; height:34px; font-size:13px; font-weight:600}
+  .refbar .presets button.on{background:var(--accent); border-color:var(--accent)}
+
+  .tabs{display:flex; gap:8px; margin-bottom:14px}
+  .tabs button{
+    flex:1; padding:12px 6px; border-radius:12px; border:1px solid var(--line);
+    background:var(--panel); color:var(--muted); font-size:14px; font-weight:600;
+  }
+  .tabs button.on{background:var(--accent); color:#fff; border-color:var(--accent); box-shadow:var(--shadow)}
+
+  .card{background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:16px; box-shadow:var(--shadow)}
+  .view{display:none} .view.on{display:block}
+
+  /* Note picker */
+  .notename{text-align:center; font-size:52px; font-weight:800; letter-spacing:1px; margin:2px 0}
+  .notesub{text-align:center; color:var(--muted); font-size:13px; margin-bottom:12px}
+  .keys{display:grid; grid-template-columns:repeat(6,1fr); gap:8px; margin:10px 0}
+  .keys button{
+    padding:14px 0; border-radius:12px; border:1px solid var(--line);
+    background:var(--panel2); color:var(--text); font-size:16px; font-weight:700;
+  }
+  .keys button.sharp{color:var(--muted); background:#12162f}
+  .keys button.on{background:var(--accent2); color:#05221c; border-color:var(--accent2)}
+  .row{display:flex; align-items:center; gap:10px; margin:12px 0}
+  .row .lbl{font-size:13px; color:var(--muted); min-width:64px}
+  .octctrl{display:flex; align-items:center; gap:10px; margin-left:auto}
+  .octctrl button{width:40px; height:40px; border-radius:10px; border:1px solid var(--line); background:var(--panel2); color:var(--text); font-size:22px; font-weight:700}
+  select,input[type=range]{accent-color:var(--accent)}
+  select{background:var(--panel2); color:var(--text); border:1px solid var(--line); border-radius:10px; padding:8px 10px; font-size:14px}
+  input[type=range]{flex:1}
+
+  .playbtn{
+    width:100%; margin-top:14px; padding:18px; border-radius:16px; border:none;
+    background:linear-gradient(180deg,var(--accent),#3f6fe0); color:#fff;
+    font-size:20px; font-weight:800; letter-spacing:1px; box-shadow:var(--shadow);
+  }
+  .playbtn.playing{background:linear-gradient(180deg,var(--bad),#e04f4f)}
+  .hz{text-align:center; color:var(--muted); font-size:12px; margin-top:8px}
+
+  /* Tuner */
+  .tuner-note{text-align:center; font-size:64px; font-weight:800; line-height:1}
+  .tuner-freq{text-align:center; color:var(--muted); font-size:14px; margin-top:4px}
+  .meter{position:relative; height:120px; margin:18px 0 6px}
+  .meter canvas{width:100%; height:100%}
+  .cents{text-align:center; font-size:22px; font-weight:700}
+  .cents.flat{color:var(--warn)} .cents.sharp{color:var(--warn)} .cents.ok{color:var(--good)}
+  .micbtn{width:100%; margin-top:10px; padding:16px; border-radius:16px; border:none; background:linear-gradient(180deg,var(--accent2),#22b79c); color:#05221c; font-size:18px; font-weight:800}
+  .micbtn.on{background:linear-gradient(180deg,var(--bad),#e04f4f); color:#fff}
+  .tuner-hint{color:var(--muted); font-size:12px; text-align:center; margin-top:10px; line-height:1.6}
+
+  /* Harmony */
+  .chordgrid{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin:8px 0 4px}
+  .chordgrid button{padding:12px 4px; border-radius:12px; border:1px solid var(--line); background:var(--panel2); color:var(--text); font-size:13px; font-weight:600}
+  .chordgrid button.on{background:var(--accent2); color:#05221c; border-color:var(--accent2)}
+  .voices{margin:14px 0 4px}
+  .voice{display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:10px; background:var(--panel2); margin-bottom:6px}
+  .voice .vn{font-size:16px; font-weight:700; min-width:52px}
+  .voice .vc{font-size:12px; color:var(--muted); min-width:96px}
+  .voice .bar{flex:1; height:8px; border-radius:6px; background:#0d1130; position:relative; overflow:hidden}
+  .voice .bar i{position:absolute; top:0; bottom:0; width:2px; left:50%; background:var(--muted)}
+  .voice .bar b{position:absolute; top:0; bottom:0; width:6px; border-radius:3px; background:var(--accent2)}
+  .voice .vhz{font-size:11px; color:var(--muted); min-width:54px; text-align:right}
+  .togglerow{display:flex; align-items:center; gap:8px; justify-content:center; margin-top:10px; color:var(--muted); font-size:13px}
+  .switch{position:relative; width:46px; height:26px; border-radius:20px; background:var(--panel2); border:1px solid var(--line); transition:.2s}
+  .switch.on{background:var(--accent)}
+  .switch i{position:absolute; top:2px; left:2px; width:20px; height:20px; border-radius:50%; background:#fff; transition:.2s}
+  .switch.on i{left:22px}
+
+  footer{position:fixed; left:0; right:0; bottom:0; padding:8px 14px calc(8px + env(safe-area-inset-bottom)); text-align:center; font-size:11px; color:var(--muted); background:linear-gradient(180deg,rgba(15,18,38,0),var(--bg) 40%)}
+</style>
+
+<header>
+  <h1>吹奏楽チューナー</h1>
+  <p>基準ピッチ・ドローン・チューナー・純正律ハーモニー</p>
+</header>
+
+<main>
+  <!-- Reference pitch (shared) -->
+  <div class="refbar">
+    <span class="lbl">A=</span>
+    <button id="refDown" aria-label="下げる">−</button>
+    <span class="val"><span id="refVal">442</span> Hz</span>
+    <button id="refUp" aria-label="上げる">+</button>
+    <span class="presets">
+      <button data-hz="440">440</button>
+      <button data-hz="442" class="on">442</button>
+      <button data-hz="443">443</button>
+    </span>
+  </div>
+
+  <div class="tabs">
+    <button data-tab="drone" class="on">🎵 音出し</button>
+    <button data-tab="tuner">🎯 チューナー</button>
+    <button data-tab="harmony">🎼 ハーモニー</button>
+  </div>
+
+  <!-- ===== DRONE ===== -->
+  <section class="view on" id="view-drone">
+    <div class="card">
+      <div class="notename" id="droneNote">B♭</div>
+      <div class="notesub" id="droneSub">実音 B♭4 ・ B♭管の「ド」</div>
+      <div class="keys" id="droneKeys"></div>
+      <div class="row">
+        <span class="lbl">オクターブ</span>
+        <div class="octctrl">
+          <button id="octDown">−</button>
+          <span id="octVal" style="font-weight:700; min-width:24px; text-align:center">4</span>
+          <button id="octUp">＋</button>
+        </div>
+      </div>
+      <div class="row">
+        <span class="lbl">音色</span>
+        <select id="droneWave">
+          <option value="rich" selected>リッチ（倍音あり・合わせやすい）</option>
+          <option value="sine">サイン（純音）</option>
+          <option value="triangle">トライアングル</option>
+          <option value="sawtooth">ソウ（明るい）</option>
+        </select>
+      </div>
+      <div class="row">
+        <span class="lbl">音量</span>
+        <input type="range" id="droneVol" min="0" max="100" value="55">
+      </div>
+      <button class="playbtn" id="dronePlay">▶ 鳴らす</button>
+      <div class="hz" id="droneHz"></div>
+    </div>
+  </section>
+
+  <!-- ===== TUNER ===== -->
+  <section class="view" id="view-tuner">
+    <div class="card">
+      <div class="tuner-note" id="tNote">—</div>
+      <div class="tuner-freq" id="tFreq">マイクをオンにしてください</div>
+      <div class="meter"><canvas id="tCanvas"></canvas></div>
+      <div class="cents" id="tCents">— cent</div>
+      <button class="micbtn" id="micBtn">🎤 マイクをオン</button>
+      <div class="tuner-hint">
+        近くで一定の音を伸ばすと、音名と基準からのズレ（セント）を表示します。<br>
+        針が真ん中（緑）でピッタリ。左=低い / 右=高い。
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== HARMONY ===== -->
+  <section class="view" id="view-harmony">
+    <div class="card">
+      <div class="notename" id="harmRootName" style="font-size:40px">B♭</div>
+      <div class="notesub">和音の根音（ルート）を選ぶ</div>
+      <div class="keys" id="harmKeys"></div>
+      <div class="notesub" style="margin-top:6px">コードの種類</div>
+      <div class="chordgrid" id="chordGrid"></div>
+      <div class="voices" id="voices"></div>
+      <div class="togglerow">
+        <span>平均律</span>
+        <div class="switch on" id="jiSwitch"><i></i></div>
+        <span>純正律</span>
+      </div>
+      <div class="hz" style="margin-top:6px">純正律：第3音を低め・第5音をわずかに高めにして、うなりの無いハーモニーになります。</div>
+      <button class="playbtn" id="harmPlay">▶ 和音を鳴らす</button>
+    </div>
+  </section>
+</main>
+
+<footer>Web Audio対応ブラウザで動作 ・ Bluetoothスピーカー接続時はそのまま出力されます</footer>
+
+<script>
+"use strict";
+/* ---------- shared audio ---------- */
+let AC = null;
+function ac(){ if(!AC) AC = new (window.AudioContext||window.webkitAudioContext)(); if(AC.state==="suspended") AC.resume(); return AC; }
+
+const NOTE_SHARP = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+const NOTE_DISP  = ["C","C♯","D","E♭","E","F","F♯","G","A♭","A","B♭","B"]; // 見やすい表記
+// 実音→B♭管の運指（読み替え）: concert C = B♭ inst's D (長2度上げ)
+const state = { a4: 442 };
+
+function midiToFreq(m){ return state.a4 * Math.pow(2,(m-69)/12); }
+function noteLabel(pc){ return NOTE_DISP[((pc%12)+12)%12]; }
+
+/* ---------- reference pitch bar ---------- */
+const refVal = document.getElementById("refVal");
+const presetBtns = [...document.querySelectorAll(".presets button")];
+function setRef(hz){
+  hz = Math.min(446, Math.max(430, Math.round(hz)));
+  state.a4 = hz; refVal.textContent = hz;
+  presetBtns.forEach(b=>b.classList.toggle("on", +b.dataset.hz===hz));
+  updateDroneHz(); if(dronePlaying) retuneDrone();
+  buildVoices(); if(harmPlaying) retuneHarmony();
+}
+document.getElementById("refUp").onclick   = ()=>setRef(state.a4+1);
+document.getElementById("refDown").onclick = ()=>setRef(state.a4-1);
+presetBtns.forEach(b=> b.onclick = ()=>setRef(+b.dataset.hz));
+
+/* ---------- tabs ---------- */
+const views = {drone:"view-drone",tuner:"view-tuner",harmony:"view-harmony"};
+document.querySelectorAll(".tabs button").forEach(btn=>{
+  btn.onclick = ()=>{
+    document.querySelectorAll(".tabs button").forEach(b=>b.classList.remove("on"));
+    btn.classList.add("on");
+    Object.values(views).forEach(v=>document.getElementById(v).classList.remove("on"));
+    document.getElementById(views[btn.dataset.tab]).classList.add("on");
+    if(btn.dataset.tab!=="tuner" && micOn) stopMic();
+  };
+});
+
+/* ================= DRONE ================= */
+const droneState = { pc:10, oct:4 }; // default B♭4
+let dronePlaying=false, droneNodes=null;
+const droneKeys = document.getElementById("droneKeys");
+const droneNoteEl = document.getElementById("droneNote");
+const droneSubEl = document.getElementById("droneSub");
+const droneHzEl = document.getElementById("droneHz");
+
+// build 12 note keys
+NOTE_DISP.forEach((name,pc)=>{
+  const b=document.createElement("button");
+  b.textContent=name;
+  if(NOTE_SHARP[pc].includes("#")) b.classList.add("sharp");
+  b.onclick=()=>{ droneState.pc=pc; refreshDrone(); if(dronePlaying) retuneDrone(); };
+  droneKeys.appendChild(b);
+});
+function bbInstrumentName(pc){
+  // 実音pc → B♭管での音名（長2度上）
+  return noteLabel(pc+2);
+}
+function refreshDrone(){
+  [...droneKeys.children].forEach((b,i)=>b.classList.toggle("on", i===droneState.pc));
+  droneNoteEl.textContent = noteLabel(droneState.pc);
+  droneSubEl.textContent = `実音 ${noteLabel(droneState.pc)}${droneState.oct} ・ B♭管では ${bbInstrumentName(droneState.pc)}`;
+  document.getElementById("octVal").textContent = droneState.oct;
+  updateDroneHz();
+}
+function droneMidi(){ return (droneState.oct+1)*12 + droneState.pc; }
+function updateDroneHz(){ droneHzEl.textContent = midiToFreq(droneMidi()).toFixed(2)+" Hz"; }
+document.getElementById("octUp").onclick   = ()=>{ droneState.oct=Math.min(7,droneState.oct+1); refreshDrone(); if(dronePlaying) retuneDrone(); };
+document.getElementById("octDown").onclick = ()=>{ droneState.oct=Math.max(1,droneState.oct-1); refreshDrone(); if(dronePlaying) retuneDrone(); };
+
+function makeVoice(freq, wave, dest){
+  const c=ac();
+  if(wave==="rich"){
+    // fundamental + a few harmonics for a reed-like, easy-to-tune tone
+    const g=c.createGain(); g.connect(dest);
+    const parts=[[1,1],[2,0.35],[3,0.18],[4,0.08]];
+    const oscs=parts.map(([mult,amp])=>{
+      const o=c.createOscillator(); o.type="sine"; o.frequency.value=freq*mult;
+      const og=c.createGain(); og.gain.value=amp; o.connect(og); og.connect(g); o.start();
+      return o;
+    });
+    return {gain:g, oscs, base:freq};
+  } else {
+    const o=c.createOscillator(); o.type=wave; o.frequency.value=freq;
+    const g=c.createGain(); o.connect(g); g.connect(dest); o.start();
+    return {gain:g, oscs:[o], base:freq, wave};
+  }
+}
+function retuneDrone(){
+  if(!droneNodes) return;
+  const f=midiToFreq(droneMidi());
+  if(droneNodes.wave===undefined && droneNodes.oscs.length>1){
+    [1,2,3,4].forEach((mult,i)=> droneNodes.oscs[i] && (droneNodes.oscs[i].frequency.value=f*mult));
+  } else {
+    droneNodes.oscs[0].frequency.value=f;
+  }
+}
+function startDrone(){
+  const c=ac();
+  const master=c.createGain();
+  master.gain.value=0; master.connect(c.destination);
+  const wave=document.getElementById("droneWave").value;
+  droneNodes = makeVoice(midiToFreq(droneMidi()), wave, master);
+  droneNodes.master=master; droneNodes.wave = wave==="rich"?undefined:wave;
+  const vol=(+document.getElementById("droneVol").value)/100*0.6;
+  master.gain.linearRampToValueAtTime(vol, c.currentTime+0.05);
+  dronePlaying=true;
+  const btn=document.getElementById("dronePlay");
+  btn.textContent="■ 停止"; btn.classList.add("playing");
+}
+function stopDrone(){
+  if(!droneNodes) return;
+  const c=ac(), m=droneNodes.master;
+  m.gain.cancelScheduledValues(c.currentTime);
+  m.gain.setValueAtTime(m.gain.value,c.currentTime);
+  m.gain.linearRampToValueAtTime(0,c.currentTime+0.08);
+  const nodes=droneNodes; droneNodes=null; dronePlaying=false;
+  setTimeout(()=>{ nodes.oscs.forEach(o=>{try{o.stop()}catch(e){}}); },140);
+  const btn=document.getElementById("dronePlay");
+  btn.textContent="▶ 鳴らす"; btn.classList.remove("playing");
+}
+document.getElementById("dronePlay").onclick = ()=> dronePlaying?stopDrone():startDrone();
+document.getElementById("droneVol").oninput = e=>{
+  if(droneNodes){ const c=ac(); droneNodes.master.gain.setTargetAtTime((+e.target.value)/100*0.6, c.currentTime, 0.02); }
+};
+document.getElementById("droneWave").onchange = ()=>{ if(dronePlaying){ stopDrone(); setTimeout(startDrone,160); } };
+refreshDrone();
+
+/* ================= TUNER ================= */
+let micOn=false, micStream=null, analyser=null, rafTuner=0;
+const tNote=document.getElementById("tNote"), tFreq=document.getElementById("tFreq"), tCents=document.getElementById("tCents");
+const canvas=document.getElementById("tCanvas"); const cctx=canvas.getContext("2d");
+function fitCanvas(){ const r=canvas.getBoundingClientRect(); canvas.width=r.width*devicePixelRatio; canvas.height=r.height*devicePixelRatio; }
+window.addEventListener("resize", fitCanvas);
+
+async function startMic(){
+  try{
+    micStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,autoGainControl:false,noiseSuppression:false}});
+  }catch(e){ tFreq.textContent="マイクを使用できません（許可が必要です）"; return; }
+  const c=ac(); const src=c.createMediaStreamSource(micStream);
+  analyser=c.createAnalyser(); analyser.fftSize=2048; src.connect(analyser);
+  micOn=true; const b=document.getElementById("micBtn"); b.textContent="■ マイクをオフ"; b.classList.add("on");
+  fitCanvas(); tunerLoop();
+}
+function stopMic(){
+  micOn=false; if(rafTuner) cancelAnimationFrame(rafTuner);
+  if(micStream){ micStream.getTracks().forEach(t=>t.stop()); micStream=null; }
+  const b=document.getElementById("micBtn"); b.textContent="🎤 マイクをオン"; b.classList.remove("on");
+  tNote.textContent="—"; tFreq.textContent="マイクをオンにしてください"; tCents.textContent="— cent"; tCents.className="cents";
+  drawMeter(null);
+}
+document.getElementById("micBtn").onclick=()=> micOn?stopMic():startMic();
+
+const buf=new Float32Array(2048);
+function autoCorrelate(buf, sr){
+  let rms=0; for(let i=0;i<buf.length;i++) rms+=buf[i]*buf[i];
+  rms=Math.sqrt(rms/buf.length); if(rms<0.008) return -1; // too quiet
+  let r1=0,r2=buf.length-1,thr=0.2;
+  for(let i=0;i<buf.length/2;i++){ if(Math.abs(buf[i])<thr){r1=i;break;} }
+  for(let i=1;i<buf.length/2;i++){ if(Math.abs(buf[buf.length-i])<thr){r2=buf.length-i;break;} }
+  const b=buf.slice(r1,r2); const n=b.length;
+  const c=new Array(n).fill(0);
+  for(let lag=0;lag<n;lag++) for(let i=0;i<n-lag;i++) c[lag]+=b[i]*b[i+lag];
+  let d=0; while(d<n-1 && c[d]>c[d+1]) d++;
+  let max=-1,pos=-1;
+  for(let i=d;i<n;i++){ if(c[i]>max){max=c[i];pos=i;} }
+  if(pos<=0) return -1;
+  // parabolic interpolation
+  const x1=c[pos-1]||0,x2=c[pos],x3=c[pos+1]||0;
+  const a=(x1+x3-2*x2)/2, bb=(x3-x1)/2;
+  if(a) pos = pos - bb/(2*a);
+  return sr/pos;
+}
+function freqToNote(f){
+  const midi = 69 + 12*Math.log2(f/state.a4);
+  const rounded=Math.round(midi);
+  const cents=Math.round((midi-rounded)*100);
+  return {pc:((rounded%12)+12)%12, oct:Math.floor(rounded/12)-1, cents};
+}
+let smoothCents=0;
+function tunerLoop(){
+  if(!micOn) return;
+  analyser.getFloatTimeDomainData(buf);
+  const f=autoCorrelate(buf, ac().sampleRate);
+  if(f>0){
+    const {pc,oct,cents}=freqToNote(f);
+    tNote.textContent=noteLabel(pc);
+    tFreq.textContent=`${f.toFixed(1)} Hz ・ ${noteLabel(pc)}${oct}`;
+    smoothCents += (cents-smoothCents)*0.35;
+    const cc=Math.round(smoothCents);
+    tCents.textContent=(cc>0?"+":"")+cc+" cent";
+    tCents.className="cents "+(Math.abs(cc)<=5?"ok":(cc<0?"flat":"sharp"));
+    drawMeter(smoothCents);
+  }
+  rafTuner=requestAnimationFrame(tunerLoop);
+}
+function drawMeter(cents){
+  const w=canvas.width,h=canvas.height; cctx.clearRect(0,0,w,h);
+  const cx=w/2, mid=h*0.62;
+  // scale ticks -50..+50
+  cctx.strokeStyle="#2f3767"; cctx.lineWidth=2*devicePixelRatio;
+  for(let c=-50;c<=50;c+=10){
+    const x=cx + (c/50)*(w*0.42);
+    const big=(c===0);
+    cctx.beginPath(); cctx.moveTo(x,mid-(big?26:16)*devicePixelRatio); cctx.lineTo(x,mid+(big?26:16)*devicePixelRatio);
+    cctx.strokeStyle=big?"#3ad686":"#2f3767"; cctx.stroke();
+  }
+  // green center zone
+  cctx.fillStyle="rgba(58,214,134,.12)";
+  cctx.fillRect(cx-(5/50)*(w*0.42), mid-30*devicePixelRatio, (10/50)*(w*0.42), 60*devicePixelRatio);
+  if(cents===null) return;
+  const cc=Math.max(-50,Math.min(50,cents));
+  const x=cx + (cc/50)*(w*0.42);
+  const col=Math.abs(cc)<=5?"#3ad686":"#ffd24a";
+  cctx.strokeStyle=col; cctx.lineWidth=4*devicePixelRatio;
+  cctx.beginPath(); cctx.moveTo(x,mid-40*devicePixelRatio); cctx.lineTo(x,mid+34*devicePixelRatio); cctx.stroke();
+  cctx.fillStyle=col; cctx.beginPath(); cctx.arc(x,mid-44*devicePixelRatio,6*devicePixelRatio,0,7); cctx.fill();
+}
+
+/* ================= HARMONY (just intonation) ================= */
+// chord = list of {name, ratio(just), et(semitones)}
+const CHORDS = {
+  "major":   {label:"メジャー",   tones:[[0,"1"],[386.31,"3"],[701.96,"5"]], et:[0,4,7]},
+  "minor":   {label:"マイナー",   tones:[[0,"1"],[315.64,"♭3"],[701.96,"5"]], et:[0,3,7]},
+  "maj7":    {label:"メジャー7",  tones:[[0,"1"],[386.31,"3"],[701.96,"5"],[1088.27,"7"]], et:[0,4,7,11]},
+  "dom7":    {label:"ドミナント7",tones:[[0,"1"],[386.31,"3"],[701.96,"5"],[968.83,"♭7"]], et:[0,4,7,10]},
+  "min7":    {label:"マイナー7",  tones:[[0,"1"],[315.64,"♭3"],[701.96,"5"],[1017.60,"♭7"]], et:[0,3,7,10]},
+  "sus4":    {label:"サス4",      tones:[[0,"1"],[498.04,"4"],[701.96,"5"]], et:[0,5,7]},
+  "aug":     {label:"オーグメント",tones:[[0,"1"],[386.31,"3"],[772.63,"♯5"]], et:[0,4,8]},
+  "dim":     {label:"ディミニッシュ",tones:[[0,"1"],[315.64,"♭3"],[631.28,"♭5"]], et:[0,3,6]},
+  "power":   {label:"5度(パワー)",tones:[[0,"1"],[701.96,"5"]], et:[0,7]},
+};
+const harmState = { rootPc:10, oct:3, chord:"major", ji:true };
+let harmPlaying=false, harmVoices=[];
+const harmKeys=document.getElementById("harmKeys");
+NOTE_DISP.forEach((name,pc)=>{
+  const b=document.createElement("button"); b.textContent=name;
+  if(NOTE_SHARP[pc].includes("#")) b.classList.add("sharp");
+  b.onclick=()=>{ harmState.rootPc=pc; refreshHarm(); if(harmPlaying) retuneHarmony(); };
+  harmKeys.appendChild(b);
+});
+const chordGrid=document.getElementById("chordGrid");
+Object.entries(CHORDS).forEach(([key,c])=>{
+  const b=document.createElement("button"); b.textContent=c.label;
+  b.onclick=()=>{ harmState.chord=key; refreshHarm(); if(harmPlaying){ stopHarmony(); setTimeout(playHarmony,160);} };
+  b.dataset.key=key; chordGrid.appendChild(b);
+});
+document.getElementById("jiSwitch").onclick=function(){
+  harmState.ji=!harmState.ji; this.classList.toggle("on",harmState.ji);
+  buildVoices(); if(harmPlaying) retuneHarmony();
+};
+function rootMidi(){ return (harmState.oct+1)*12 + harmState.rootPc; }
+function harmFreqs(){
+  const rf=midiToFreq(rootMidi());
+  const chord=CHORDS[harmState.chord];
+  return chord.tones.map((t,i)=>{
+    const jiCents=t[0];
+    const etCents=chord.et[i]*100;
+    const cents = harmState.ji ? jiCents : etCents;
+    return { freq: rf*Math.pow(2,cents/1200), label:t[1], dev: cents-etCents, name:noteLabel(harmState.rootPc+chord.et[i]) };
+  });
+}
+function refreshHarm(){
+  [...harmKeys.children].forEach((b,i)=>b.classList.toggle("on",i===harmState.rootPc));
+  [...chordGrid.children].forEach(b=>b.classList.toggle("on",b.dataset.key===harmState.chord));
+  document.getElementById("harmRootName").textContent=noteLabel(harmState.rootPc);
+  buildVoices();
+}
+function buildVoices(){
+  const el=document.getElementById("voices"); el.innerHTML="";
+  harmFreqs().forEach(v=>{
+    const dev=Math.round(v.dev);
+    const row=document.createElement("div"); row.className="voice";
+    const pos=50 + Math.max(-1,Math.min(1,dev/25))*44;
+    row.innerHTML=`<span class="vn">${v.name}</span>
+      <span class="vc">第${v.label}音 ${dev===0?"±0":(dev>0?"+"+dev:dev)}¢</span>
+      <span class="bar"><i></i><b style="left:calc(${pos}% - 3px)"></b></span>
+      <span class="vhz">${v.freq.toFixed(1)}Hz</span>`;
+    el.appendChild(row);
+  });
+}
+function playHarmony(){
+  const c=ac();
+  const master=c.createGain(); master.gain.value=0; master.connect(c.destination);
+  const freqs=harmFreqs();
+  harmVoices=freqs.map(v=>{
+    const o=c.createOscillator(); o.type="triangle"; o.frequency.value=v.freq;
+    const g=c.createGain(); g.gain.value=1/Math.max(2,freqs.length); o.connect(g); g.connect(master); o.start();
+    return {o};
+  });
+  harmVoices.master=master;
+  master.gain.linearRampToValueAtTime(0.5, c.currentTime+0.06);
+  harmPlaying=true;
+  const btn=document.getElementById("harmPlay"); btn.textContent="■ 停止"; btn.classList.add("playing");
+}
+function retuneHarmony(){
+  if(!harmPlaying) return;
+  const freqs=harmFreqs();
+  if(harmVoices.length!==freqs.length){ stopHarmony(); setTimeout(playHarmony,120); return; }
+  const c=ac();
+  freqs.forEach((v,i)=> harmVoices[i].o.frequency.setTargetAtTime(v.freq,c.currentTime,0.03));
+  buildVoices();
+}
+function stopHarmony(){
+  if(!harmPlaying) return;
+  const c=ac(), m=harmVoices.master;
+  m.gain.cancelScheduledValues(c.currentTime); m.gain.setValueAtTime(m.gain.value,c.currentTime);
+  m.gain.linearRampToValueAtTime(0,c.currentTime+0.1);
+  const vs=harmVoices; harmVoices=[]; harmPlaying=false;
+  setTimeout(()=> vs.forEach(v=>{try{v.o.stop()}catch(e){}}),160);
+  const btn=document.getElementById("harmPlay"); btn.textContent="▶ 和音を鳴らす"; btn.classList.remove("playing");
+}
+document.getElementById("harmPlay").onclick=()=> harmPlaying?stopHarmony():playHarmony();
+refreshHarm();
+
+/* prevent double-tap zoom on iOS buttons handled via touch-action */
+document.addEventListener("gesturestart",e=>e.preventDefault());
+</script>
