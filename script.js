@@ -15459,6 +15459,18 @@ function buildIndex(){
       _balLoadEl.checked = !!state.settings.aiBalanceLoad;
       _balLoadEl.addEventListener('change', () => { state.settings.aiBalanceLoad = !!_balLoadEl.checked; markDirty('aiBalanceLoad'); });
     }
+    // AI設定の永続化（アルゴリズム/試行/秒数）— リロードで既定値に戻らないように
+    [['ai-algo', 'aiAlgo'], ['ai-tries', 'aiTries'], ['ai-seconds', 'aiSeconds']].forEach(([id, key]) => {
+      const el = $('#' + id); if (!el) return;
+      if (state.settings[key] != null && state.settings[key] !== '') el.value = state.settings[key];
+      el.addEventListener('change', () => { state.settings[key] = el.value; markDirty(key); });
+    });
+    // AIチェックボックス（偏り抑制/同教科連続回避）の永続化
+    [['ai-balance', 'aiBalance'], ['ai-noconsec', 'aiNoConsec']].forEach(([id, key]) => {
+      const el = $('#' + id); if (!el) return;
+      if (state.settings[key] != null) el.checked = !!state.settings[key];
+      el.addEventListener('change', () => { state.settings[key] = !!el.checked; markDirty(key); });
+    });
     $('#btn-ai-wizard')?.addEventListener('click', () => { try { openAiWizard(); } catch (e) { console.error(e); } });
     // v40: AIログボタン
     $('#btn-ai-log')?.addEventListener('click', () => { try { ensureAiLogPanel(); } catch (e) { } });
@@ -15955,6 +15967,12 @@ function buildIndex(){
     $('#print-page-orient')?.addEventListener('change', renderPrint);
     $('#btn-print-overview')?.addEventListener('click', () => { try { showPrintOverview(); } catch (e) { console.error(e); flash('プレビュー生成でエラー'); } });
     $('#print-type').onchange = renderPrint;
+    // 印刷の向き・種別を永続化（リロードで既定値に戻らないように）
+    [['print-page-orient', 'printOrient'], ['print-type', 'printType']].forEach(([id, key]) => {
+      const el = $('#' + id); if (!el) return;
+      if (state.settings[key] != null && state.settings[key] !== '') el.value = state.settings[key];
+      el.addEventListener('change', () => { state.settings[key] = el.value; markDirty(key); });
+    });
     // サイズリセット
     $('#btn-print-reset-size')?.addEventListener('click', () => resetPrintResize());
     $('#btn-equalize-cols')?.addEventListener('click', () => equalizeColWidths());
