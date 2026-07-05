@@ -1120,108 +1120,101 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
         const classId = parseInt(f3[0]) || 0;
         const lessonId = parseInt(f3[1]) || 0;
         const weeklyCount = parseInt((lines[idx + 3] || '').trim()) || 0;
-        const jugyoSpan = parseInt(f1[5]) === 2 ? 2 : 1;
+        // span(連続コマ)は時限行の「開始,終了」フィールド(末尾2つ)で表現される。
+        // 例: "5,4,23,1,2" → 開始1・終了2 = 2連。f1[5]は実ファイルに存在しないため使えない。
+        let jugyoSpan = 1;
+        for (let k = 0; k < weeklyCount; k++) {
+          const pl = parseLine(lines[idx + 4 + k] || '');
+          const st = parseInt(pl[3], 10), en = parseInt(pl[4], 10);
+          if (!isNaN(st) && !isNaN(en) && en > st) jugyoSpan = Math.max(jugyoSpan, en - st + 1);
+        }
         jugyoMeta[jid] = { classId, lessonId, weeklyCount, name: f1[1] || '', span: jugyoSpan };
-        idx += weeklyCount > 0 ? 5 : 4;
+        // 1エントリ = ヘッダ4行 + weeklyCount本の時限行。従来は固定5行でズレていた。
+        idx += 4 + (weeklyCount > 0 ? weeklyCount : 0);
+      }
+    }
+
+    // 指定セクションの次に来るセクションの開始行（本体の終端）を返す
+    function nextSectionLine(startIdx) {
+      let best = lines.length;
+      for (const k in sectionIdx) { const v = sectionIdx[k]; if (v > startIdx && v < best) best = v; }
+      return best;
+    }
+
+    // ── J-* 配置ブロック共通パーサ ──
+    // イデアは各エンティティ(クラス/教員/教室)ごとに固定グリッド
+    //   (numDays+1) 日ブロック × (numPeriods+1) 時限スロット
+    // を持ち、日index0・時限index0はパディング（実データは1始まり）。
+    // 従来は numDays×numPeriods を仮定してストリームがズレ、配置を取りこぼしていた。
+    // cb(entityIdx, jugyoId, dayKey, period) を各配置スロットで呼ぶ。
+    function walkJSection(sectionName, cb) {
+      const start = sectionIdx[sectionName];
+      if (start == null) return;
+      const end = nextSectionLine(start);
+      const gridP = numPeriods + 1;              // 時限スロット数（padding込み）
+      const perEntity = (numDays + 1) * gridP;   // 1エンティティのスロット数
+      let idx = start + 1, s = 0, ent = 0;
+      while (idx < end) {
+        const first = (lines[idx] || '').trim().split(',')[0];
+        const slotCount = parseInt(first, 10);
+        if (isNaN(slotCount)) break;
+        const dayIdx = Math.floor(s / gridP);
+        const perIdx = s % gridP;
+        if (slotCount === 0) {
+          idx += 3;
+        } else {
+          const entryCount = parseInt((lines[idx + 1] || '').split(',')[0], 10) || 0;
+          if (dayIdx >= 1 && dayIdx <= numDays && perIdx >= 1 && perIdx <= numPeriods) {
+            const seen = new Set();
+            for (let e = 0; e < entryCount; e++) {
+              const jugyoId = parseInt((lines[idx + 2 + e] || '').split(',')[0], 10) || 0;
+              if (jugyoId > 0 && !seen.has(jugyoId)) { seen.add(jugyoId); cb(ent, jugyoId, DAY_KEYS[dayIdx - 1], perIdx); }
+            }
+          }
+          idx += 2 + entryCount + 1;
+        }
+        s++; if (s >= perEntity) { s = 0; ent++; }
       }
     }
 
     // ── J-CLASS パース (クラス×時限→JUGYO配置) ──
-    // jugyo_id → [{day, period}] の配置リスト
-    const jugyoPlacements = {};
-    if (sectionIdx['J-CLASS'] != null) {
-      const jci = sectionIdx['J-CLASS'];
-      const classCount = parseInt(parseLine(lines[jci])[1]) || 0;
-      let idx = jci + 1;
-      for (let ci = 0; ci < classCount; ci++) {
-        for (let day = 0; day < numDays; day++) {
-          for (let period = 0; period < numPeriods; period++) {
-            if (idx >= lines.length) break;
-            const slotCount = parseInt((lines[idx] || '').trim().split(',')[0]) || 0;
-            if (slotCount === 0) {
-              idx += 3;
-            } else {
-              const entryCount = parseInt((lines[idx + 1] || '').split(',')[0]) || 0;
-              for (let e = 0; e < entryCount; e++) {
-                const jugyoId = parseInt((lines[idx + 2 + e] || '').split(',')[0]) || 0;
-                if (jugyoId > 0) {
-                  if (!jugyoPlacements[jugyoId]) jugyoPlacements[jugyoId] = [];
-                  jugyoPlacements[jugyoId].push({ day: DAY_KEYS[day], period: period + 1 });
-                }
-              }
-              idx += 2 + entryCount + 1;
-            }
-          }
-        }
-      }
-    }
+    // 配置は (jugyo, 曜日, 時限) 単位のインスタンス。同一インスタンスに複数クラスが
+    // 乗る場合が合同授業。クラス集合はインスタンス単位で保持する（jugyo全体で束ねると
+    // 別クラスのコマを誤って別クラスへ配置してしまうため）。
+    const jugyoInstances = {}; // jugyo_id → { "day#period": {day, period, classes, teachers, rooms} }
+    walkJSection('J-CLASS', (ent, jugyoId, dayKey, period) => {
+      const inst = jugyoInstances[jugyoId] || (jugyoInstances[jugyoId] = {});
+      const key = dayKey + '#' + period;
+      const rec = inst[key] || (inst[key] = { day: dayKey, period, classes: new Set(), teachers: new Set(), rooms: new Set() });
+      const cls = classes[ent];
+      if (cls) { const nm = cls.full || cls.short; if (nm) rec.classes.add(nm); }
+    });
 
-    // ── J-Teach パース (教員→JUGYO割当) ──
-    // jugyo_id → 担当教員名リスト（J-Teach セクションが存在する場合のみ）
-    const jugyoToTeachers = {};
-    if (sectionIdx['J-Teach'] != null) {
-      const jti = sectionIdx['J-Teach'];
-      const teachCount = parseInt(parseLine(lines[jti])[1]) || 0;
-      let idx = jti + 1;
-      for (let t = 0; t < teachCount; t++) {
-        const teachId = t + 1;
-        const teacher = teachers[teachId];
-        const teacherName = teacher ? teacher.name : null;
-        for (let day = 0; day < numDays; day++) {
-          for (let period = 0; period < numPeriods; period++) {
-            if (idx >= lines.length) break;
-            const slotCount = parseInt((lines[idx] || '').trim().split(',')[0]) || 0;
-            if (slotCount === 0) {
-              idx += 3;
-            } else {
-              const entryCount = parseInt((lines[idx + 1] || '').split(',')[0]) || 0;
-              for (let e = 0; e < entryCount; e++) {
-                const jugyoId = parseInt(((lines[idx + 2 + e] || '').split(',')[0])) || 0;
-                if (jugyoId > 0 && teacherName) {
-                  if (!jugyoToTeachers[jugyoId]) jugyoToTeachers[jugyoId] = [];
-                  if (!jugyoToTeachers[jugyoId].includes(teacherName)) {
-                    jugyoToTeachers[jugyoId].push(teacherName);
-                  }
-                }
-              }
-              idx += 2 + entryCount + 1;
-            }
-          }
-        }
-      }
-    }
+    // ── J-Teach パース (教員→JUGYO割当) ── entityIdx = teacherId
+    // 教員/教室もクラス同様インスタンス(jugyo,曜日,時限)単位で割当てる。jugyo全体で
+    // 束ねると、インスタンスごとに担当が違う場合に別担当を全コマへ誤付与し二重予約になる。
+    const jugyoToTeachers = {};  // 表示・未配置item用の全体集合（フォールバック）
+    walkJSection('J-Teach', (ent, jugyoId, dayKey, period) => {
+      const teacher = teachers[ent];
+      const teacherName = teacher ? teacher.name : null;
+      if (!teacherName) return;
+      const arr = jugyoToTeachers[jugyoId] || (jugyoToTeachers[jugyoId] = []);
+      if (!arr.includes(teacherName)) arr.push(teacherName);
+      const rec = jugyoInstances[jugyoId] && jugyoInstances[jugyoId][dayKey + '#' + period];
+      if (rec) rec.teachers.add(teacherName);
+    });
 
-    // ── J-Room パース (教室→JUGYO割当) ──
-    const jugyoRooms = {}; // jugyoId → roomName[]
-    if (sectionIdx['J-Room'] != null) {
-      const jri = sectionIdx['J-Room'];
-      const roomCount = parseInt(parseLine(lines[jri])[1]) || 0;
-      let idx = jri + 1;
-      for (let ri = 0; ri < roomCount; ri++) {
-        const roomId = ri + 1;
-        const room = rooms[roomId];
-        const roomName = room ? room.name : null;
-        for (let day = 0; day < numDays; day++) {
-          for (let period = 0; period < numPeriods; period++) {
-            if (idx >= lines.length) break;
-            const slotCount = parseInt((lines[idx] || '').trim().split(',')[0]) || 0;
-            if (slotCount === 0) {
-              idx += 3;
-            } else {
-              const entryCount = parseInt((lines[idx + 1] || '').split(',')[0]) || 0;
-              for (let e = 0; e < entryCount; e++) {
-                const jugyoId = parseInt((lines[idx + 2 + e] || '').split(',')[0]) || 0;
-                if (jugyoId > 0 && roomName) {
-                  if (!jugyoRooms[jugyoId]) jugyoRooms[jugyoId] = [];
-                  if (!jugyoRooms[jugyoId].includes(roomName)) jugyoRooms[jugyoId].push(roomName);
-                }
-              }
-              idx += 2 + entryCount + 1;
-            }
-          }
-        }
-      }
-    }
+    // ── J-Room パース (教室→JUGYO割当) ── entityIdx = roomId
+    const jugyoRooms = {};
+    walkJSection('J-Room', (ent, jugyoId, dayKey, period) => {
+      const room = rooms[ent];
+      const roomName = room ? room.name : null;
+      if (!roomName) return;
+      const arr = jugyoRooms[jugyoId] || (jugyoRooms[jugyoId] = []);
+      if (!arr.includes(roomName)) arr.push(roomName);
+      const rec = jugyoInstances[jugyoId] && jugyoInstances[jugyoId][dayKey + '#' + period];
+      if (rec) rec.rooms.add(roomName);
+    });
 
     // 教員名→略名 逆引きマップ
     const teacherAbbrByName = {};
@@ -1244,6 +1237,7 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       const cls = classes[classId];
       const lesson = lessons[lessonId] || { name: jname, abbr: jname, dept: '' };
       const clsName = cls ? (cls.full || cls.short) : String(classId);
+      const clsList = [clsName]; // 既定は単一クラス。合同授業は配置時にインスタンスのクラス集合で上書き
       const subjName = lesson.name || jname;
       const subjAbbr = lesson.abbr || subjName;
       const dept = lesson.dept || '';
@@ -1260,7 +1254,7 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
           id,
           subj: subjName,
           subjKey: subjName,
-          cls: [clsName],
+          cls: clsList.slice(),
           teas: teacherNames,
           rooms: jugyoRooms[jid] || [],
           span,
@@ -1268,7 +1262,7 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       }
 
       rawRows.push({
-        cls: clsName,
+        cls: clsList.join(','),
         subj: subjName,
         subjAbbr,
         dept,
@@ -1318,16 +1312,29 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
     // ── placements 構築 (J-CLASS の配置データがある場合) ──
     const placements = {};
     let placedCount = 0;
-    for (const [jidStr, slots] of Object.entries(jugyoPlacements)) {
+    for (const [jidStr, inst] of Object.entries(jugyoInstances)) {
       const jid = parseInt(jidStr);
       const itemIds = jugyoItemIds[jid];
       if (!itemIds) continue;
-      // 配置スロットを曜日・時限順にソートしてitem IDと順序対応
-      const sorted = [...slots].sort((a, b) =>
+      let instList = Object.values(inst);
+      // 2連コマは J-CLASS に連続2時限として現れる。開始時限だけ残して1配置に畳む
+      if (jugyoMeta[jid] && jugyoMeta[jid].span >= 2) {
+        const keySet = new Set(instList.map(r => r.day + '#' + r.period));
+        instList = instList.filter(r => !keySet.has(r.day + '#' + (r.period - 1)));
+      }
+      instList.sort((a, b) =>
         DAY_KEYS.indexOf(a.day) - DAY_KEYS.indexOf(b.day) || a.period - b.period
       );
-      for (let i = 0; i < Math.min(sorted.length, itemIds.length); i++) {
-        placements[itemIds[i]] = { day: sorted[i].day, period: sorted[i].period, locked: false };
+      for (let i = 0; i < Math.min(instList.length, itemIds.length); i++) {
+        const r = instList[i];
+        const it = items[itemIds[i]];
+        placements[itemIds[i]] = { day: r.day, period: r.period, locked: false };
+        // このインスタンスのクラス/教員/教室をitemへ反映（合同授業・インスタンス別担当に対応）
+        if (it) {
+          if (r.classes && r.classes.size) it.cls = Array.from(r.classes);
+          if (r.teachers && r.teachers.size) it.teas = Array.from(r.teachers);
+          if (r.rooms && r.rooms.size) it.rooms = Array.from(r.rooms);
+        }
         placedCount++;
       }
     }
@@ -1387,7 +1394,7 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
           // 曜日ごとの時限数（可用性文字列から正確に取得）
           if (parsed.periodsByDay) Object.assign(state.settings.periodsByDay, parsed.periodsByDay);
           // 教室マスタ（classmatch に roomCfg があれば格納）
-          if (parsed.roomCfg && state.roomCfg !== undefined) state.roomCfg = parsed.roomCfg;
+          if (parsed.roomCfg) state.roomCfg = parsed.roomCfg;
           invalidateIndex();
           markDirty('ideaImport');
           rerenderAll();
