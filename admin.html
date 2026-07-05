@@ -20,11 +20,10 @@
     <div class="title">
       <h1>🏆 クラスマッチ <span>管理</span></h1>
       <div id="headerMeta">-</div>
-      <div id="statusBar">status: -</div>
+      <div id="statusBar" style="display:none;"></div>
     </div>
     <nav class="nav">
       <button id="navSetup">⚙ 設定・生成</button>
-      <button id="navHome">📋 一覧</button>
       <button id="navShare">🔗 共有</button>
     </nav>
   </header>
@@ -63,9 +62,6 @@
               <option value="winlose">勝敗のみ</option>
             </select>
           </label>
-          <label>1試合(分) <input id="wMatchMin" type="number" min="1" value="10" style="width:70px" /></label>
-          <label>インターバル(分) <input id="wIntervalMin" type="number" min="0" value="2" style="width:70px" /></label>
-          <label>PIN <input id="adminPin" placeholder="例：1234" style="width:80px" /></label>
           <button id="btnSaveMeta">保存</button>
         </div>
       </div>
@@ -101,23 +97,25 @@
           <button id="btnSaveClasses">クラス保存</button>
           <button id="btnAdvancedSeeding" class="ghost small">🎯 詳細シード配置（手動）</button>
         </div>
-        <!-- シードオプション -->
-        <div class="seedOptionsPanel" id="seedOptionsPanel">
-          <div class="small" style="font-weight:600; color:var(--navy); margin-bottom:6px;">🎯 シード設定（不戦勝チームの指定）</div>
-          <div class="row" style="gap:14px; flex-wrap:wrap; align-items:flex-start;">
-            <label style="flex-direction:row; align-items:center; gap:6px; cursor:pointer;">
-              <input type="radio" name="seedMode" id="seedNone" value="none" checked /> シードなし（完全ランダム）
-            </label>
-            <label style="flex-direction:row; align-items:center; gap:6px; cursor:pointer;">
-              <input type="radio" name="seedMode" id="seedEnabled" value="seeded" /> シード有り（先頭Nチームが不戦勝）
-            </label>
-            <div id="seedCountWrap" class="hidden" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-              <label>不戦勝チーム数 <input id="seedCount" type="number" min="1" max="32" value="2"
-                  style="width:70px" /></label>
-              <span class="small seedHint" style="color:var(--ok);"></span>
+        <!-- シードオプション（折りたたみ） -->
+        <details style="margin-top:8px;">
+          <summary style="cursor:pointer; font-size:13px; color:var(--muted); font-weight:600;">🎯 シード設定（不戦勝チームの指定）</summary>
+          <div class="seedOptionsPanel" id="seedOptionsPanel" style="margin-top:8px;">
+            <div class="row" style="gap:14px; flex-wrap:wrap; align-items:flex-start;">
+              <label style="flex-direction:row; align-items:center; gap:6px; cursor:pointer;">
+                <input type="radio" name="seedMode" id="seedNone" value="none" checked /> シードなし（完全ランダム）
+              </label>
+              <label style="flex-direction:row; align-items:center; gap:6px; cursor:pointer;">
+                <input type="radio" name="seedMode" id="seedEnabled" value="seeded" /> シード有り（先頭Nチームが不戦勝）
+              </label>
+              <div id="seedCountWrap" class="hidden" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                <label>不戦勝チーム数 <input id="seedCount" type="number" min="1" max="32" value="2"
+                    style="width:70px" /></label>
+                <span class="small seedHint" style="color:var(--ok);"></span>
+              </div>
             </div>
           </div>
-        </div>
+        </details>
       </div>
 
       <!-- 競技設定 -->
@@ -148,8 +146,13 @@
       <!-- 詳細設定 -->
       <details class="advancedSettingsCard"
         style="margin-bottom:14px; background:var(--surface2); padding:10px; border-radius:var(--radius); border:1px solid var(--border);">
-        <summary style="font-weight:bold; cursor:pointer; color:var(--navy);">⚙️ 詳細設定（テロップ・チームカラー）</summary>
+        <summary style="font-weight:bold; cursor:pointer; color:var(--navy);">⚙️ 詳細設定（PIN・テロップ・チームカラー）</summary>
         <div style="margin-top:10px;">
+          <h4>🔑 運営PIN（3文字以上）</h4>
+          <div class="row" style="margin-bottom:12px; gap:8px; align-items:center;">
+            <input id="adminPin" placeholder="例：1234" style="width:120px" />
+            <div class="small" style="color:var(--muted);">※ 共有コード出力・データ取込時に使用</div>
+          </div>
           <h4>📺 TVモード用テロップ（流れる文字）</h4>
           <textarea id="tTickerText" rows="2" style="width:100%;" placeholder="例：第3試合の選手は本部前に集合してください"></textarea>
           <div class="small" style="margin-bottom:12px;">※ 入力するとTVモード表示時に画面下部にスクロール表示されます。</div>
@@ -171,9 +174,11 @@
       <div class="row" style="margin-top:4px; flex-wrap:wrap; gap:10px; align-items:center;">
         <button id="btnGenerateAll">⚡ ブラケット生成（競技×男女）</button>
         <button id="btnGoEvents" class="secondary">📋 イベント一覧へ</button>
-        <button id="btnReset">⚠ 全消去して新規</button>
       </div>
       <div class="small" style="margin-top:6px;">生成後は下のイベント一覧から各ブラケットを開けます。</div>
+      <div style="margin-top:16px; padding-top:12px; border-top:2px dashed #fca5a5;">
+        <button id="btnReset" style="background:#fee2e2; color:#dc2626; border:1.5px solid #fca5a5; font-size:12px; padding:5px 12px;">⚠ 全消去して最初からやり直す</button>
+      </div>
 
       <hr style="margin: 24px 0;" />
 
@@ -259,8 +264,11 @@
     <section class="card hidden" id="eventView">
       <div id="eventNavChips" class="eventNavChips print-hide"></div>
       <!-- 試合進捗スティッキーバー -->
-      <div id="matchProgressBar" class="print-hide" style="position:sticky; top:0; z-index:10; background:var(--surface); border-bottom:1px solid var(--border); padding:6px 12px; font-size:13px; font-weight:600; color:var(--navy); display:none;">
-        <span id="matchProgressText">0 / 0 試合完了</span>
+      <div id="matchProgressBar" class="print-hide" style="position:sticky; top:0; z-index:10; background:var(--surface); border-bottom:1px solid var(--border); padding:6px 14px; font-size:13px; display:none; align-items:center; gap:12px; flex-wrap:wrap;">
+        <span id="matchProgressText" style="font-weight:700; color:var(--navy);">0 / 0 試合完了</span>
+        <progress id="dashboardProgress" value="0" max="100" style="flex:1; min-width:100px; height:8px;"></progress>
+        <span id="dashboardDelay" class="badge" style="font-size:12px; white-space:nowrap;">-</span>
+        <span id="dashboardText" style="font-size:12px; color:var(--muted);"></span>
       </div>
       <div class="row between">
         <div>
@@ -276,21 +284,7 @@
 
       <div id="debugBar"></div>
 
-      <!-- 運営用 ダッシュボード -->
-      <div id="dashboardBox" class="card print-hide"
-        style="margin-bottom:12px; padding:12px; border-left:4px solid var(--blue);">
-        <div class="row between" style="align-items:center;">
-          <b style="color:var(--navy);">📊 進行度・遅延ダッシュボード</b>
-          <span id="dashboardDelay" class="badge" style="font-size:12px;">判定中...</span>
-        </div>
-        <div style="margin-top:8px;">
-          <div class="row between small" style="margin-bottom:4px; font-weight:bold;">
-            <span>全体進行度</span>
-            <span id="dashboardText">0 / 0 試合完了 (0%)</span>
-          </div>
-          <progress id="dashboardProgress" value="0" max="100" style="width:100%; height:12px;"></progress>
-        </div>
-      </div>
+      <!-- 進行状況は上部スティッキーバーに統合 -->
 
       <div class="grid2">
         <div>
@@ -309,23 +303,27 @@
               </div>
             </div>
             <div class="bracketToolbar print-hide">
+              <!-- よく使うボタン -->
               <button id="btnEditMatchups" class="ghost small">✏️ 組み合せ</button>
-              <div class="row" style="align-items:center; gap:4px;">
-                <button id="btnOpenLoserModal" class="ghost small">🏳 裏トーナメント設定</button>
-                <button id="btnEditLoserMatchups" class="ghost small hidden">✏️ 裏組み合せ</button>
-              </div>
               <button id="btnEditSchedule" class="ghost small">⏳ 時間・順序</button>
-              <button id="btnAddExhibition" class="ghost small">➕ エキシビション</button>
-              <button id="btnAddThirdPlace" class="ghost small">🥉 3位決定戦</button>
-              <div class="toolbarSep"></div>
               <button id="btnAutoFit" class="ghost small" title="チーム数に合わせてブラケット表示を自動調整">🔧 自動調整</button>
-              <button id="btnBracketDir" class="ghost small" title="ブラケット方向切替">↕ 縦型</button>
-              <button id="btnUi" class="ghost small">🎛 表示調整</button>
-              <button id="btnFitBracket" class="ghost small">↔ 画面に収める</button>
-              <div class="toolbarSep"></div>
-              <button id="btnCopyTable" class="ghost small">📋 表コピー</button>
-              <button id="btnExportCSV" class="ghost small">📄 CSV</button>
               <button id="btnPrint" class="ghost small" title="A4縦印刷">🖨️ 印刷</button>
+              <div class="toolbarSep"></div>
+              <!-- 折りたたみ（その他） -->
+              <details style="display:inline-block; position:relative;">
+                <summary class="ghost small" style="cursor:pointer; list-style:none; padding:3px 8px; border:1px solid var(--border2); border-radius:4px; font-size:12px; background:var(--surface2);">▾ その他</summary>
+                <div style="position:absolute; right:0; top:100%; background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:6px; z-index:100; display:flex; flex-direction:column; gap:4px; min-width:160px; box-shadow:0 4px 12px rgba(0,0,0,.1);">
+                  <button id="btnOpenLoserModal" class="ghost small" style="text-align:left;">🏳 裏トーナメント設定</button>
+                  <button id="btnEditLoserMatchups" class="ghost small hidden" style="text-align:left;">✏️ 裏組み合せ</button>
+                  <button id="btnAddThirdPlace" class="ghost small" style="text-align:left;">🥉 3位決定戦</button>
+                  <button id="btnAddExhibition" class="ghost small" style="text-align:left;">➕ エキシビション</button>
+                  <button id="btnBracketDir" class="ghost small" title="ブラケット方向切替" style="text-align:left;">↕ 縦型/横型切替</button>
+                  <button id="btnUi" class="ghost small" style="text-align:left;">🎛 表示調整</button>
+                  <button id="btnFitBracket" class="ghost small" style="text-align:left;">↔ 画面に収める</button>
+                  <button id="btnCopyTable" class="ghost small" style="text-align:left;">📋 表コピー</button>
+                  <button id="btnExportCSV" class="ghost small" style="text-align:left;">📄 CSV</button>
+                </div>
+              </details>
             </div>
           </div>
 
@@ -444,11 +442,11 @@
             <div class="row" style="margin-bottom:8px;">
               <label>ラウンド
                 <select id="roundSel">
-                  <option value="1">R1</option>
-                  <option value="2">R2</option>
-                  <option value="3">R3</option>
-                  <option value="4">R4</option>
-                  <option value="5">R5</option>
+                  <option value="1">1回戦</option>
+                  <option value="2">2回戦</option>
+                  <option value="3">準々決勝</option>
+                  <option value="4">準決勝</option>
+                  <option value="5">決勝</option>
                 </select>
               </label>
             </div>

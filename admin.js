@@ -635,10 +635,10 @@
   }
 
   function renderDashboard() {
-    const box = el("dashboardBox");
-    if (!box) return;
+    // スティッキーバーに統合（dashboardBoxは廃止）
+    const stickyBar = el("matchProgressBar");
+    if (!stickyBar) return;
 
-    // 現在のイベントか、イベント全体を対象にするか（ここでは現在開いているイベントがあればそれ、なければ全体）
     let allMatches = [];
     if (state.events) {
       state.events.forEach(e => {
@@ -648,10 +648,9 @@
     }
 
     if (allMatches.length === 0) {
-      box.classList.add("hidden");
+      stickyBar.style.display = "none";
       return;
     }
-    box.classList.remove("hidden");
 
     let total = 0, completed = 0;
     const now = new Date();
@@ -663,62 +662,39 @@
       if (m.state === "final" && m.winner) {
         completed++;
       } else if (m.state === "playing" && m.scheduledStart) {
-        // 進行中の試合があれば、遅延状況を確認する
         const sch = new Date(m.scheduledStart);
         if (!isNaN(sch.getTime())) {
-          const delayMs = now.getTime() - sch.getTime();
-          const delayMins = Math.floor(delayMs / 60000);
+          const delayMins = Math.floor((now - sch) / 60000);
           if (delayMins > maxDelayMins) maxDelayMins = delayMins;
         }
       }
     });
 
+    const pct = total === 0 ? 0 : Math.round((completed / total) * 100);
+    stickyBar.style.display = total > 0 ? "flex" : "none";
+
     const progEl = el("dashboardProgress");
     const textEl = el("dashboardText");
+    const stickyText = el("matchProgressText");
     const delayEl = el("dashboardDelay");
 
-    const pct = total === 0 ? 0 : Math.round((completed / total) * 100);
-    if (progEl) {
-      progEl.value = pct;
-      progEl.max = 100;
-    }
-    if (textEl) textEl.textContent = `${completed} / ${total} 試合完了 (${pct}%)`;
-
-    // スティッキー進捗バー更新
-    const stickyBar = el("matchProgressBar");
-    const stickyText = el("matchProgressText");
-    if (stickyBar && stickyText) {
-      stickyText.textContent = `${completed} / ${total} 試合完了`;
-      stickyBar.style.display = total > 0 ? "block" : "none";
-    }
+    if (progEl) { progEl.value = pct; progEl.max = 100; }
+    if (stickyText) stickyText.textContent = `${completed} / ${total} 試合完了`;
+    if (textEl) textEl.textContent = `(${pct}%)`;
 
     if (delayEl) {
-      if (maxDelayMins > 15) {
-        delayEl.textContent = `⚠ 約${maxDelayMins}分遅れで進行中`;
-        delayEl.className = "badge danger";
-        delayEl.style.background = "#fee2e2";
-        delayEl.style.color = "#dc2626";
-        delayEl.style.borderColor = "#fca5a5";
-      } else if (maxDelayMins > 0) {
-        delayEl.textContent = `約${maxDelayMins}分遅れで進行中`;
-        delayEl.className = "badge warn";
-        delayEl.style.background = "#fef3c7";
-        delayEl.style.color = "#d97706";
-        delayEl.style.borderColor = "#fde68a";
-      } else {
-        delayEl.textContent = "✅ スケジュール通り";
-        delayEl.className = "badge ok";
-        delayEl.style.background = "#dcfce7";
-        delayEl.style.color = "#16a34a";
-        delayEl.style.borderColor = "#86efac";
-      }
-
       if (completed === total && total > 0) {
         delayEl.textContent = "🏆 全日程終了";
-        delayEl.className = "badge";
-        delayEl.style.background = "#cbd5e1";
-        delayEl.style.color = "#334155";
-        delayEl.style.borderColor = "#94a3b8";
+        delayEl.style.cssText = "background:#cbd5e1;color:#334155;border-color:#94a3b8;";
+      } else if (maxDelayMins > 15) {
+        delayEl.textContent = `⚠ 約${maxDelayMins}分遅れ`;
+        delayEl.style.cssText = "background:#fee2e2;color:#dc2626;border-color:#fca5a5;";
+      } else if (maxDelayMins > 0) {
+        delayEl.textContent = `約${maxDelayMins}分遅れ`;
+        delayEl.style.cssText = "background:#fef3c7;color:#d97706;border-color:#fde68a;";
+      } else {
+        delayEl.textContent = "✅ 順調";
+        delayEl.style.cssText = "background:#dcfce7;color:#16a34a;border-color:#86efac;";
       }
     }
   }
@@ -950,7 +926,7 @@
   }
 
   // ── Navigation bindings ──────────────────────────────────────
-  if (el("navHome")) el("navHome").onclick = () => { renderEvents(); show("setupView"); };
+  // navHome は HTML から削除済み（navSetup と同じ画面のため）
   if (el("navSetup")) el("navSetup").onclick = () => {
     syncFormFromState(); updateHeaderMeta();
     bindUiPanel(); bindResultModal();
@@ -1691,7 +1667,13 @@
     if (!area) return;
     area.innerHTML = "";
     if (!state.events.length) {
-      hint.textContent = "イベントがありません。「かんたん作成」→ 大会を作成 を押してください。";
+      area.innerHTML = `
+        <div style="text-align:center; padding:32px 16px; color:var(--muted); background:var(--surface2); border-radius:var(--radius); border:2px dashed var(--border);">
+          <div style="font-size:32px; margin-bottom:8px;">⚡</div>
+          <div style="font-weight:700; font-size:15px; color:var(--navy); margin-bottom:4px;">ブラケットがまだありません</div>
+          <div style="font-size:13px;">上の① ② ③ を入力して「⚡ ブラケット生成」を押してください</div>
+        </div>`;
+      if (hint) hint.textContent = "";
       return;
     }
     hint.textContent = "";
