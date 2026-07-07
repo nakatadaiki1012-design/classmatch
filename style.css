@@ -49,6 +49,9 @@ a { color: var(--primary); }
 .row { display: flex; align-items: flex-start; gap: 8px; flex-wrap: wrap; }
 .row.between { justify-content: space-between; }
 .grid2 { display: grid; grid-template-columns: 1fr 320px; gap: 16px; }
+/* グリッドのblowout防止: min-width:auto だと広いブラケットでカラムが膨張し
+   ページ全体が横に伸びてしまう。0にして .bracketWrap の overflow-x を効かせる */
+.grid2 > * { min-width: 0; }
 @media (max-width: 820px) { .grid2 { grid-template-columns: 1fr; } }
 .grid1 { display: grid; grid-template-columns: 1fr; gap: 16px; }
 .hidden { display: none !important; }
@@ -341,6 +344,10 @@ label > input, label > select, label > textarea { margin-top: 2px; }
 
 /* ── Bracket wrap ────────────────────────────────── */
 .bracketWrap { overflow-x: auto; padding: 8px 0; }
+#bracket svg { max-width: none; }
+/* 「画面に収める」ON時：SVGをコンテナ幅にスケール（viewBoxで縦横比維持） */
+#bracket.fit-bracket { overflow-x: hidden; }
+#bracket.fit-bracket svg { width: 100% !important; height: auto !important; max-width: 100%; }
 .bracketToolbar {
   display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
 }

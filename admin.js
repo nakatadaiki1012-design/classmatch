@@ -800,18 +800,26 @@
   }
   function updateSetupProgress() {
     const t = state.tournament || {};
-    const step1Done = !!(t.name && t.date && t.pin);
-    const step2Done = (state.classes || []).length >= 2;
-    const step3Done = (state.sports || []).length >= 1;
+    const step1Done = !!(t.name && t.date && t.adminPin && t.adminPin.length >= 3);
+    const step2Done = (t.classes || []).length >= 2;
+    const step3Done = (t.sports || []).length >= 1
+      && (t.sports || []).every(s => s.name && s.matchMinutes >= 1);
+    const allDone = step1Done && step2Done && step3Done;
 
-    const setDone = (id, done) => {
-      const e = el(id);
-      if (e) e.classList.toggle("done", done);
-    };
-    setDone("spStep1", step1Done);
-    setDone("spStep2", step2Done);
-    setDone("spStep3", step3Done);
-    setDone("spStep4", step1Done && step2Done && step3Done);
+    const steps = [
+      { id: "spStep1", done: step1Done },
+      { id: "spStep2", done: step2Done },
+      { id: "spStep3", done: step3Done },
+      { id: "spStep4", done: allDone },
+    ];
+    // 最初の未完了ステップを「現在地」としてハイライト
+    const activeIdx = steps.findIndex(s => !s.done);
+    steps.forEach((s, i) => {
+      const e = el(s.id);
+      if (!e) return;
+      e.classList.toggle("done", s.done);
+      e.classList.toggle("active", i === activeIdx);
+    });
   }
 
   function renderSetupChecklist() {
@@ -969,7 +977,10 @@
   if (el("btnFitBracket")) {
     el("btnFitBracket").onclick = () => {
       const bracket = el("bracket");
-      if (bracket) bracket.classList.toggle("fit-bracket");
+      if (!bracket) return;
+      const on = bracket.classList.toggle("fit-bracket");
+      el("btnFitBracket").textContent = on ? "↔ 実寸に戻す" : "↔ 画面に収める";
+      toast(on ? "画面幅に収めました" : "実寸表示に戻しました", "info", 1500);
     };
   }
   // ── Bracket Direction Toggle ──
@@ -1232,7 +1243,57 @@
     toast("競技を保存しました");
   };
 
+  // ── 自動保存 ────────────────────────────────────────────────
+  // 「保存」ボタンを押さなくても、入力するだけで裏で保存される。
+  // これにより「順番に入力するだけ」で生成条件が満たされていく。
+  function autoSaveMeta() {
+    const t = state.tournament;
+    t.name = (el("tName")?.value || "クラスマッチ").trim();
+    t.date = el("tDate")?.value || t.date;
+    t.place = (el("tPlace")?.value || "").trim();
+    if (el("tInputMode")) t.inputMode = el("tInputMode").value;
+    const pin = (el("adminPin")?.value || "").trim();
+    if (pin) t.adminPin = pin;
+    saveState();
+  }
+  function autoSaveClasses() {
+    const classes = parseLines(el("classList")?.value || "");
+    state.tournament.classes = classes;
+    updateSetupClassCount();
+    saveState();
+    renderTeamColorList();
+  }
+  function autoSaveSports() {
+    const arr = readSportsFromForm();
+    if (arr.length) state.tournament.sports = arr;
+    saveState();
+  }
+  // メタ情報
+  ["tName", "tDate", "tPlace", "tInputMode", "adminPin"].forEach(id => {
+    const e = el(id);
+    if (e) e.addEventListener("change", autoSaveMeta);
+  });
+  // クラス一覧（入力しながら反映）
+  if (el("classList")) {
+    el("classList").addEventListener("input", () => { updateSetupClassCount(); renderSetupChecklist(); });
+    el("classList").addEventListener("change", autoSaveClasses);
+  }
+  // 競技（イベント委任で追加行にも対応）
+  if (el("sportsArea")) {
+    el("sportsArea").addEventListener("change", autoSaveSports);
+  }
+
   if (el("btnGenerateAll")) el("btnGenerateAll").onclick = () => {
+    // 生成前に全フォームを取り込む（保存ボタンの押し忘れを防止）
+    autoSaveMeta();
+    autoSaveClasses();
+    autoSaveSports();
+    const probs = validateSetupPreview();
+    if (probs.length) {
+      toast("未入力があります： " + probs[0], "warn", 4000);
+      renderSetupChecklist();
+      return;
+    }
     generateEvents();
     saveState();
     toast("ブラケットを生成しました", "info");
@@ -2613,6 +2674,14 @@
     renderMatchButtons();
     bindUiPanel();
     bindResultModal();
+
+    // 初回表示時に自動でブラケットを見やすく調整する（ユーザーが手動調整していない場合のみ）。
+    // レイアウト確定後に測る必要があるので次フレームで実行。
+    if (!state.tournament.bracketUI || state.tournament.bracketUI._userTuned !== true) {
+      requestAnimationFrame(() => {
+        if (currentEvent && currentEvent.id === eventId) autoFitCurrentBracket();
+      });
+    }
   }
 
   function renderEventDetail(eventId) {
@@ -3468,21 +3537,53 @@
     return svg;
   }
 
-  function autoFitBracketUI(teamCount) {
-    const isSmall = teamCount <= 8;
-    const isMedium = teamCount <= 16;
+  // ブラケットをコンテナ幅にぴったり収まるよう寸法を計算する。
+  // teamCount: 参加チーム数 / opts.containerWidth: 実測した表示領域の幅 / opts.dir: "vertical"|"horizontal"
+  function autoFitBracketUI(teamCount, opts = {}) {
+    const dir = opts.dir || state.tournament?.bracketDir || "vertical";
+    // ブラケットサイズ（2のべき乗）から1回戦の試合数を求める
+    const bSize = (typeof bracketSize === "function") ? bracketSize(Math.max(2, teamCount)) : 2 ** Math.ceil(Math.log2(Math.max(2, teamCount)));
+    const r1count = Math.max(1, bSize / 2);         // 1回戦の枠数（縦型では横方向に並ぶ）
+    const rounds = Math.max(1, Math.log2(bSize));   // ラウンド数
+
+    // 実測できなければ一般的な表示幅で代用
+    let W = Number(opts.containerWidth) || 0;
+    if (!W || W < 200) W = Math.min(window.innerWidth - 80, 1100);
+
+    const gapX = 8, midGap = 10;
+
+    if (dir === "horizontal") {
+      // 横型: 幅はラウンド数で決まる。1ラウンドあたりの枠幅を計算
+      const perRound = W / rounds;
+      let totalW = Math.round(perRound - 16);
+      totalW = Math.max(90, Math.min(200, totalW));
+      const fontSize = Math.max(10, Math.min(16, Math.round(totalW * 0.095)));
+      const boxH = Math.max(22, Math.min(40, Math.round(fontSize * 2.1)));
+      return {
+        fontSize, totalW, boxH, gapX, midGap,
+        roundGapY: totalW + 24,            // 横型ではX方向のラウンド間隔
+        branchLen: Math.round(totalW * 0.28),
+        showTime: teamCount <= 32, timeFontSize: Math.max(8, fontSize - 4), timeY: 0, liveZoom: 100,
+        gapY1: 0, gapY2: 0, gapY3: 0, gapY4: 0, gapX1: 0, gapX2: 0, gapX3: 0, gapX4: 0,
+      };
+    }
+
+    // 縦型（デフォルト）: 1回戦がいちばん横に広がる。その総幅を W に合わせる
+    // 総幅 ≈ r1count * (totalW + gapX) + ラベル/余白。ラベル分の余白を見て 92% を目標にする
+    let totalW = Math.floor((W * 0.92) / r1count) - gapX;
+    totalW = Math.max(72, Math.min(200, totalW));   // 読める最小72px 〜 大きすぎ防止200px
+    const fontSize = Math.max(9, Math.min(16, Math.round(totalW * 0.1)));
+    const boxH = Math.max(20, Math.min(38, Math.round(fontSize * 2.2)));
+    // ラウンド間隔は箱の高さに比例させて縦の伸びを抑える（チーム数が多いほど詰める）
+    const roundGapY = Math.max(56, Math.min(120, Math.round(boxH * (teamCount > 16 ? 2.6 : 3.2))));
+
     return {
-      fontSize: isSmall ? 14 : isMedium ? 13 : 12,
-      totalW: isSmall ? 160 : isMedium ? 140 : 120,
-      boxH: isSmall ? 32 : isMedium ? 28 : 24,
-      gapX: 8,
-      roundGapY: isSmall ? 100 : isMedium ? 90 : 80,
-      midGap: 10,
-      branchLen: 36,
+      fontSize, totalW, boxH, gapX, midGap,
+      roundGapY,
+      branchLen: Math.max(20, Math.round(roundGapY * 0.32)),
       showTime: true,
-      timeFontSize: 9,
-      timeY: 0,
-      liveZoom: 100,
+      timeFontSize: Math.max(8, fontSize - 4),
+      timeY: 0, liveZoom: 100,
       gapY1: 0, gapY2: 0, gapY3: 0, gapY4: 0,
       gapX1: 0, gapX2: 0, gapX3: 0, gapX4: 0,
     };
@@ -3548,6 +3649,7 @@
       if (!e) return;
       e.oninput = () => {
         uiGet()[key] = Number(e.value);
+        uiGet()._userTuned = true; // 手動調整したので自動調整で上書きしない
         const dispEl = el(id + "V");
         if (dispEl) dispEl.textContent = String(Number(e.value));
         normalizeState(); saveState();
@@ -4329,13 +4431,33 @@
   // ── Bracket Direction Toggle ──
   if (el("btnAutoFit")) el("btnAutoFit").onclick = () => {
     if (!currentEvent) return;
-    const n = (currentEvent.matches?.filter(m => m.round === 1 && !m.isBye).length || 4) * 2;
-    state.tournament.bracketUI = { ...state.tournament.bracketUI, ...autoFitBracketUI(n) };
-    saveState();
-    bindUiPanel();
-    renderBracket();
-    toast("ブラケットを自動調整しました", "info");
+    autoFitCurrentBracket();
+    toast("ブラケットを見やすく自動調整しました", "info");
   };
+
+  // 現在のブラケットをコンテナ幅に合わせて自動調整する共通処理
+  function autoFitCurrentBracket() {
+    if (!currentEvent) return;
+    // 参加チーム数（1回戦のBYE以外×2 ＝ 実参加数の目安）。全チーム数を優先
+    const teamCount = (currentEvent.teams?.length)
+      || ((currentEvent.matches || []).filter(m => m.round === 1).reduce((n, m) => n + (m.teamA ? 1 : 0) + (m.teamB ? 1 : 0), 0))
+      || 8;
+    // 「画面に収める」がONだと clientWidth が縮んでいるため一旦解除して実測
+    const bracket = el("bracket");
+    const wasFit = bracket?.classList.contains("fit-bracket");
+    if (wasFit) bracket.classList.remove("fit-bracket");
+    // #bracket 自体はコンテンツ幅まで広がってしまうため、スクロール親（.bracketWrap）の
+    // 可視幅を測る。これがビューポート/カラム幅に収まった実際の表示領域。
+    const wrap = bracket?.closest(".bracketWrap") || bracket?.parentElement;
+    const cw = (wrap?.clientWidth) || (bracket?.clientWidth) || 0;
+    const dir = state.tournament?.bracketDir || "vertical";
+    state.tournament.bracketUI = { ...state.tournament.bracketUI, ...autoFitBracketUI(teamCount, { containerWidth: cw, dir }) };
+    saveState();
+    if (typeof bindUiPanel === "function") bindUiPanel();
+    else if (typeof applyUiToPanel === "function") applyUiToPanel();
+    renderBracket();
+    if (wasFit && bracket) bracket.classList.add("fit-bracket");
+  }
 
   const btnBracketDir = el("btnBracketDir");
   if (btnBracketDir) {

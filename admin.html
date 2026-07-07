@@ -45,8 +45,9 @@
       </div>
 
       <div id="setupChecklist">
-        <b>チェック（未完があると生成できません）</b>
-        <div class="small" id="setupProblems">-</div>
+        <b>① ② ③ を上から順に入力するだけ</b>
+        <div class="small" style="margin-top:2px;">保存ボタンは押さなくてOK（入力すると自動保存されます）。すべて緑になったら下の「⚡ ブラケット生成」を押してください。</div>
+        <div class="small" id="setupProblems" style="margin-top:4px;">-</div>
       </div>
 
       <!-- 大会情報 -->
@@ -62,7 +63,7 @@
               <option value="winlose">勝敗のみ</option>
             </select>
           </label>
-          <button id="btnSaveMeta">保存</button>
+          <button id="btnSaveMeta" class="secondary small">✓ 保存（自動）</button>
         </div>
       </div>
 
@@ -94,7 +95,7 @@
         <div class="small" id="setupClassCount">-</div>
         <div id="bracketInfoBanner" class="hidden" style="display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-top:6px; padding:8px 10px; background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius); font-size:13px;"></div>
         <div class="row" style="margin-top:8px;">
-          <button id="btnSaveClasses">クラス保存</button>
+          <button id="btnSaveClasses" class="secondary small">✓ クラス保存（自動）</button>
           <button id="btnAdvancedSeeding" class="ghost small">🎯 詳細シード配置（手動）</button>
         </div>
         <!-- シードオプション（折りたたみ） -->
@@ -125,7 +126,7 @@
         <div id="sportsArea"></div>
         <div class="row" style="margin-top:10px;">
           <button id="btnAddSport">＋競技を追加</button>
-          <button id="btnSaveSports">競技を保存</button>
+          <button id="btnSaveSports" class="secondary small">✓ 競技を保存（自動）</button>
         </div>
       </div>
 
