@@ -1380,8 +1380,11 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
         const subj = (lesson && lesson.name) || name;
         if (!subj) continue;
         // 学年一斉の「総合的な探究の時間」「LHR/ホームルーム」のみ対象。
-        // 選択講座はJ-CLASSに既にあり、校務分掌(進路G等)は生徒授業でないため除外する。
-        if (!(subj.includes('総合的な探究') || /LHR|ロングホーム|ホームルーム/.test(subj))) continue;
+        // 選択講座はJ-CLASSに既にあり(担任≠受講クラスのため展開不可)、
+        // 校務分掌(進路G等)は生徒授業でないため除外する。
+        // ＬＨＲ(全角)にも対応するため全角ラテンを半角化して判定する。
+        const subjHW = subj.replace(/[Ａ-Ｚａ-ｚ]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0));
+        if (!(subj.includes('総合的な探究') || /LHR|ロングホーム|ホームルーム/.test(subjHW))) continue;
         // メンバーのteacherId→homeroomクラス、クラスごとに担当教員をまとめる
         const clsTeas = {};
         for (const mem of members) {
@@ -1412,18 +1415,22 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
           for (let dp = 0; dp < span && !overlap; dp++) if (sjCells.has(cn + '#' + plc.day + '#' + (plc.period + dp))) overlap = true;
           if (overlap) break;
         }
-        if (overlap) { placements[itemId] = null; placedCount--; }
+        if (overlap) { delete placements[itemId]; delete items[itemId]; placedCount--; }
       }
       // SJYUGYO配置をitem化して追加
+      const sjSubjs = new Set();
       for (const sp of sjPlace) {
         const id = String(itemIdCounter++);
         items[id] = { id, subj: sp.subj, subjKey: sp.subj, cls: sp.cls, teas: sp.teas, rooms: [], span: sp.span };
         placements[id] = { day: sp.day, period: sp.period, locked: false };
         placedCount++;
-      }
-      // SJYUGYO科目がsubjectCfgに無ければ追加
-      for (const sp of sjPlace) {
+        sjSubjs.add(sp.subj);
         if (!subjectCfg[sp.subj]) subjectCfg[sp.subj] = { abbr: sp.subj, dept: '', fixedForbid: {}, noSameDay: false, noConsec: false, maxPerDay: null };
+      }
+      // JUGYO由来の未配置プレースホルダ(総合/LHR等, スケジュール無し)は重複なので除去
+      for (const iid of Object.keys(items)) {
+        const plc = placements[iid];
+        if ((!plc || !plc.day) && sjSubjs.has(items[iid].subj)) { delete items[iid]; delete placements[iid]; }
       }
     }
 
