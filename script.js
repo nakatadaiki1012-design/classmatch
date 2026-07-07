@@ -976,7 +976,9 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       const headAvail = findAvailStr(hi + 1, 8);
       if (headAvail) {
         const mainPart = headAvail.includes('CJ') ? headAvail.split('CJ')[0].replace(/-$/, '') : headAvail;
-        headDayBlocks = mainPart.split('-').slice(0, numDays);
+        // 可用性は「日index0＝パディング日」を含む。ブロックが曜日数より多ければ先頭を捨てる。
+        const allBlocks = mainPart.split('-');
+        headDayBlocks = allBlocks.length > numDays ? allBlocks.slice(1, numDays + 1) : allBlocks.slice(0, numDays);
         // 各ブロックで '01' ペアの数 = その曜日の実時限数
         // ブロック先頭2文字は曜日ヘッダー, 以降2文字ずつが各時限
         numPeriods = Math.max(numPeriods, headDayBlocks.reduce((mx, b) => {
@@ -1022,7 +1024,9 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
     function parseFixedForbid(availStr, headBlocks, forbidden_values) {
       const forbid = {};
       const mainPart = availStr.includes('CJ') ? availStr.split('CJ')[0].replace(/-$/, '') : availStr;
-      const dayBlocks = mainPart.split('-');
+      // headBlocks と同様、パディング日(先頭ブロック)を捨てて曜日と揃える
+      const allBlocks = mainPart.split('-');
+      const dayBlocks = allBlocks.length > numDays ? allBlocks.slice(1, numDays + 1) : allBlocks.slice(0, numDays);
       DAY_KEYS.forEach((dayKey, di) => {
         const hb = headBlocks[di] || '';
         const db = dayBlocks[di] || '';
@@ -1123,12 +1127,16 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
         // span(連続コマ)は時限行の「開始,終了」フィールド(末尾2つ)で表現される。
         // 例: "5,4,23,1,2" → 開始1・終了2 = 2連。f1[5]は実ファイルに存在しないため使えない。
         let jugyoSpan = 1;
+        // 時限行 field0=曜日(1-5) field1=時限。授業本来の(曜日,時限)集合を確定スケジュールとする
+        const schedKeys = new Set();
         for (let k = 0; k < weeklyCount; k++) {
           const pl = parseLine(lines[idx + 4 + k] || '');
           const st = parseInt(pl[3], 10), en = parseInt(pl[4], 10);
           if (!isNaN(st) && !isNaN(en) && en > st) jugyoSpan = Math.max(jugyoSpan, en - st + 1);
+          const dnum = parseInt(pl[0], 10), pnum = parseInt(pl[1], 10);
+          if (!isNaN(dnum) && dnum >= 1 && dnum <= numDays && !isNaN(pnum) && pnum >= 1) schedKeys.add(DAY_KEYS[dnum - 1] + '#' + pnum);
         }
-        jugyoMeta[jid] = { classId, lessonId, weeklyCount, name: f1[1] || '', span: jugyoSpan };
+        jugyoMeta[jid] = { classId, lessonId, weeklyCount, name: f1[1] || '', span: jugyoSpan, schedKeys };
         // 1エントリ = ヘッダ4行 + weeklyCount本の時限行。従来は固定5行でズレていた。
         idx += 4 + (weeklyCount > 0 ? weeklyCount : 0);
       }
@@ -1337,6 +1345,7 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
         };
         itemIds.push(nid);
       }
+      const schedKeys = (jugyoMeta[jid] && jugyoMeta[jid].schedKeys) || null;
       for (let i = 0; i < instList.length && i < itemIds.length; i++) {
         const r = instList[i];
         const it = items[itemIds[i]];
@@ -1346,6 +1355,11 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
           if (r.classes && r.classes.size) it.cls = Array.from(r.classes);
           if (r.teachers && r.teachers.size) it.teas = Array.from(r.teachers);
           if (r.rooms && r.rooms.size) it.rooms = Array.from(r.rooms);
+          // 授業本来のスケジュールに無い(曜日,時限)は「選択」の相乗り参照。
+          // 代表科目名を出すと誤解を招くため「選択」と表示する（特に3年の自由選択）。
+          if (schedKeys && schedKeys.size && !schedKeys.has(r.day + '#' + r.period)) {
+            it.subj = '選択'; it.subjKey = '選択';
+          }
         }
         placedCount++;
       }
