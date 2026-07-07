@@ -650,6 +650,142 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
   const PROJECT_VERSION = '1.0';
 
   /* =======================
+     テスト返却 特別時間割ジェネレータ
+     現在のフル時間割から、各クラスの科目を1回ずつ・教員重複/禁制回避で
+     短期間(既定3日×6限)に割り付け、余りを体育2連/芸術/LHR等で埋める。
+  ======================= */
+  function generateTestReturnPlan(opts) {
+    opts = opts || {};
+    const numDays = clampInt(opts.days, 1, 5, 3);
+    const periods = clampInt(opts.periods, 1, 8, 6);
+    const dayKeys = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].slice(0, numDays);
+    const fillers = opts.fillers || [{ subj: '保健体育', span: 2 }, { subj: '芸術', span: 1 }, { subj: 'ＬＨＲ', span: 1 }];
+    const slots = [];
+    for (const d of dayKeys) for (let p = 1; p <= periods; p++) slots.push({ day: d, period: p, key: d + '#' + p });
+
+    // 1. 現行の配置済み時間割から クラス→科目→教員 を収集
+    const classSubj = {}; // class -> Map(subj -> Set(teacher))
+    for (const id in state.placements) {
+      const plc = state.placements[id]; if (!plc || !plc.day) continue;
+      const it = state.items[id]; if (!it) continue;
+      const subj = it.subjKey || it.subj; if (!subj) continue;
+      for (const c of (it.cls || [])) {
+        const m = classSubj[c] || (classSubj[c] = new Map());
+        const s = m.get(subj) || new Set(); (it.teas || []).forEach(t => t && s.add(t)); m.set(subj, s);
+      }
+    }
+    // 除外科目（返却対象でないもの）
+    const exclude = new Set(['選択', '総合的な探究の時間', '総合的な探究', 'ＬＨＲ', 'LHR', '参観', ...fillers.map(f => f.subj)]);
+    if (Array.isArray(opts.excludeSubjects)) opts.excludeSubjects.forEach(s => exclude.add(s));
+
+    const classes = Object.keys(classSubj).filter(c => classSubj[c].size).sort((a, b) => a.localeCompare(b, 'ja'));
+    const teacherBusy = {}; // teacher -> Set(slotKey)
+    const classUsed = {};   // class -> Set(slotKey)
+    const newItems = {}; const newPlacements = {}; let idc = 0;
+    const report = { classes: classes.length, placed: 0, unplaced: 0, filled: 0, warnings: [] };
+    const teaFree = (t, sl, subj) => !((teacherBusy[t] && teacherBusy[t].has(sl.key)))
+      && !(typeof isUnavailableForTeacher === 'function' && isUnavailableForTeacher(t, sl.day, sl.period))
+      && !(typeof isForbiddenForSubject === 'function' && isForbiddenForSubject(subj, sl.day, sl.period));
+    const addItem = (subj, cls, teas, day, period, span) => {
+      const id = 'tr' + (idc++);
+      newItems[id] = { id, subj, subjKey: subj, cls: cls.slice(), teas: (teas || []).slice(), rooms: [], span: span || 1 };
+      newPlacements[id] = (day) ? { day, period, locked: false } : null;
+      return id;
+    };
+
+    for (const c of classes) {
+      classUsed[c] = new Set();
+      // 制約が厳しい科目（教員数が多い/禁制多い）から先に置くと詰まりにくい
+      const subs = [...classSubj[c].keys()].filter(s => !exclude.has(s));
+      subs.sort((a, b) => classSubj[c].get(b).size - classSubj[c].get(a).size);
+      for (const subj of subs) {
+        const teas = [...classSubj[c].get(subj)];
+        let done = false;
+        for (const sl of slots) {
+          if (classUsed[c].has(sl.key)) continue;
+          if (teas.length && !teas.every(t => teaFree(t, sl, subj))) continue;
+          addItem(subj, [c], teas, sl.day, sl.period, 1);
+          classUsed[c].add(sl.key);
+          teas.forEach(t => (teacherBusy[t] || (teacherBusy[t] = new Set())).add(sl.key));
+          report.placed++; done = true; break;
+        }
+        if (!done) { addItem(subj, [c], teas, null, null, 1); report.unplaced++; report.warnings.push(`${c} ${subj}: 空き枠なし`); }
+      }
+      // 余り枠をfillerで埋める（体育など2連は連続空きが必要）
+      let fi = 0;
+      let guard = 0;
+      while (classUsed[c].size < slots.length && guard++ < slots.length * 2) {
+        const f = fillers[fi % fillers.length]; fi++;
+        const span = clampInt(f.span, 1, 2, 1);
+        // 連続spanの空きを探す
+        let placedFiller = false;
+        for (let si = 0; si < slots.length; si++) {
+          const sl = slots[si];
+          if (span === 2) {
+            const next = slots[si + 1];
+            if (!next || next.day !== sl.day || next.period !== sl.period + 1) continue;
+            if (classUsed[c].has(sl.key) || classUsed[c].has(next.key)) continue;
+            addItem(f.subj, [c], [], sl.day, sl.period, 2);
+            classUsed[c].add(sl.key); classUsed[c].add(next.key); report.filled += 2; placedFiller = true; break;
+          } else {
+            if (classUsed[c].has(sl.key)) continue;
+            addItem(f.subj, [c], [], sl.day, sl.period, 1);
+            classUsed[c].add(sl.key); report.filled++; placedFiller = true; break;
+          }
+        }
+        if (!placedFiller && span === 2) continue; // 2連が置けないなら次のfiller
+        if (!placedFiller) break;
+      }
+    }
+    // rawRows も生成物に合わせて作る（データ登録タブの表示・reflectでの消失を防ぐ）
+    const rawRows = [];
+    for (const id in newItems) {
+      const it = newItems[id];
+      rawRows.push({ _id: 'tr_' + id, cls: (it.cls || []).join(','), subj: it.subj, subjAbbr: '', dept: '', tea: (it.teas || []).join(','), teaAbbr: '', room: '', count: 1, dbl: it.span === 2, parallel: false });
+    }
+    return { items: newItems, placements: newPlacements, rawRows, dayKeys, periods, report };
+  }
+
+  function applyTestReturnTimetable(opts) {
+    if (!Object.keys(state.placements || {}).some(id => state.placements[id] && state.placements[id].day)) {
+      flash('先に通常の時間割を読み込んでください'); return;
+    }
+    const plan = generateTestReturnPlan(opts);
+    pushHistory('testReturn');
+    state.items = plan.items;
+    state.placements = plan.placements;
+    if (Array.isArray(plan.rawRows)) state.rawRows = plan.rawRows;
+    const allDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+    allDays.forEach((d, i) => { state.settings.periodsByDay[d] = (i < plan.dayKeys.length) ? plan.periods : 0; });
+    invalidateIndex();
+    markDirty('testReturn');
+    rerenderAll();
+    const r = plan.report;
+    flash(`🗓️ テスト返却時間割を生成（${r.classes}クラス・配置${r.placed}・埋め${r.filled}${r.unplaced ? `・未配置${r.unplaced}` : ''}）`, 4500);
+  }
+
+  function openTestReturnDialog() {
+    const html =
+      `<div style="line-height:1.8">
+        <div>現在のフル時間割から各クラスの科目を1回ずつ配置した<strong>テスト返却用の特別時間割</strong>を生成します。</div>
+        <div style="margin-top:10px;display:flex;gap:18px;flex-wrap:wrap;align-items:center">
+          <label>日数 <input id="tr-days" type="number" min="1" max="5" value="3" style="width:56px"></label>
+          <label>1日の時限 <input id="tr-periods" type="number" min="1" max="8" value="6" style="width:56px"></label>
+        </div>
+        <div style="margin-top:8px" class="muted small">余り枠は 体育(2連)→芸術→LHR の順で自動的に埋めます。教員の重複・禁制時間は自動回避します。</div>
+        <div style="margin-top:8px;color:#b45309">※ 現在の時間割は上書きされます（元に戻すには Ctrl+Z / プロジェクト再読込）。</div>
+      </div>`;
+    let days = 3, periods = 6;
+    showModalHTML('🗓️ テスト返却 特別時間割の生成', html, () => {
+      try { applyTestReturnTimetable({ days, periods }); } catch (e) { console.error(e); flash('生成でエラー: ' + (e && e.message)); }
+    }, '生成する', 'キャンセル', () => {
+      const dEl = document.getElementById('tr-days'), pEl = document.getElementById('tr-periods');
+      if (dEl) dEl.addEventListener('input', () => { days = clampInt(dEl.value, 1, 5, 3); });
+      if (pEl) pEl.addEventListener('input', () => { periods = clampInt(pEl.value, 1, 8, 6); });
+    });
+  }
+
+  /* =======================
      イデアのAI時間割 ネイティブ .ide エクスポート（マスタデータ）
   ======================= */
   function exportIdeaFile() {
@@ -15507,6 +15643,7 @@ function buildIndex(){
     $('#btn-project-save')?.addEventListener('click', () => exportProjectFile());
     $('#btn-project-load')?.addEventListener('click', () => $('#project-load-file')?.click());
     $('#btn-idea-export')?.addEventListener('click', () => exportIdeaFile());
+    $('#btn-test-return')?.addEventListener('click', () => { try { openTestReturnDialog(); } catch (e) { console.error(e); } });
     $('#project-load-file')?.addEventListener('change', async (ev) => {
       const f = ev.target.files?.[0]; if (!f) return;
       await importProjectFile(f);
