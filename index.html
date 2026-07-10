@@ -130,12 +130,9 @@
   .staffwrap svg{display:block; height:140px}
 
   /* Cadence practice */
-  .cadcard{background:var(--panel2); border-radius:12px; padding:10px 12px; margin-bottom:8px; border:1px solid var(--line); transition:.15s}
-  .cadcard.playing{border-color:var(--accent2); box-shadow:0 0 0 2px rgba(56,224,192,.3)}
-  .cadlabel{font-size:12.5px; color:var(--muted); margin-bottom:6px; font-weight:700}
-  .cadtones{display:flex; gap:6px; flex-wrap:wrap}
-  .cadtone{padding:8px 10px; border-radius:9px; background:#12162f; border:1px solid var(--line); font-size:13px; font-weight:700; color:var(--text)}
-  .cadtone.target{background:var(--accent2); color:#05221c; border-color:var(--accent2)}
+  .partsel{display:grid; grid-template-columns:repeat(3,1fr); gap:8px}
+  .partsel button{padding:15px 4px; border-radius:12px; border:1px solid var(--line); background:var(--panel2); color:var(--text); font-size:15px; font-weight:700}
+  .partsel button.on{background:var(--accent2); color:#05221c; border-color:var(--accent2)}
 
   footer{position:fixed; left:0; right:0; bottom:0; padding:8px 14px calc(8px + env(safe-area-inset-bottom)); text-align:center; font-size:11px; color:var(--muted); background:linear-gradient(180deg,rgba(15,18,38,0),var(--bg) 40%)}
 
@@ -249,7 +246,7 @@
   <!-- ===== HARMONY ===== -->
   <section class="view" id="view-harmony">
     <div class="card">
-      <div class="tiphint"><span>🎼</span><span><b>きれいなハモリを練習。</b>うなりの無い和音（純正律）を鳴らせます。まずは下の緑ボタンでそのまま鳴らしてみて。</span></div>
+      <div class="tiphint"><span>🎼</span><span><b>きれいなハモリを練習。</b>うなりの無い和音（純正律）です。「和音の進行」に切り替えると、カデンツを流して自分のパートを順番に吹く練習ができます。</span></div>
       <div class="togglerow" style="margin-bottom:12px">
         <span>1つの和音</span>
         <div class="switch" id="harmModeSwitch"><i></i></div>
@@ -273,37 +270,52 @@
       </div>
 
       <div id="harmCadenceView" style="display:none">
-        <div class="notename" id="cadRootName" style="font-size:40px">B♭</div>
-        <div class="notesub">調（キー）を選ぶ</div>
-        <div class="keys" id="cadKeys"></div>
-        <div class="notesub" style="margin-top:6px">カデンツ（進行）</div>
-        <select id="cadPattern" style="width:100%"></select>
-
-        <div class="notesub" style="margin-top:10px">合わせる音をタップして選ぶ</div>
-        <div id="cadChords"></div>
-
-        <div class="togglerow">
-          <span>全部鳴らす</span>
-          <div class="switch on" id="cadMuteSwitch"><i></i></div>
-          <span>その音を消して自分で吹く</span>
+        <div class="notesub" style="margin-bottom:8px">吹くパートを選んで再生。楽譜の音を順番に吹けばハモリになります。</div>
+        <div class="partsel" id="cadParts"></div>
+        <div class="row" style="margin-top:12px">
+          <span class="lbl">楽器</span>
+          <select id="cadInstrument" style="flex:1"></select>
         </div>
-        <div class="togglerow">
-          <span>🎤 マイクで確認</span>
-          <div class="switch" id="cadMicSwitch"><i></i></div>
+
+        <div class="exnow">
+          <div class="exnow-note" id="cadNowNote">♪</div>
+          <div class="exnow-sub" id="cadNowSub">再生すると、今吹く音がここに出ます</div>
         </div>
+        <div class="staffwrap"><svg id="cadStaff" xmlns="http://www.w3.org/2000/svg"></svg></div>
         <div class="cents" id="cadCents" style="display:none">— cent</div>
 
-        <div class="bpmbox">
-          <button class="sbtn" id="cadBpmDown">−</button>
-          <span class="bpmval"><span id="cadBpmVal">60</span> <small style="font-size:12px;color:var(--muted)">BPM</small></span>
-          <button class="sbtn" id="cadBpmUp">＋</button>
-        </div>
-        <input type="range" id="cadBpmRange" min="30" max="120" value="60" style="width:100%; margin:8px 0 2px">
-        <div class="exrow">
-          <label class="chk">くり返し <span class="switch on" id="cadLoopSwitch"><i></i></span></label>
-        </div>
         <button class="playbtn" id="cadPlay">▶ カデンツを鳴らす</button>
-        <div class="hz">純正律のカデンツ（和音進行）を流しながら、選んだ音だけを消せます。その音を自分の楽器で吹いて、耳でハーモニーに合わせる練習ができます。</div>
+        <div class="hz">和音（純正律）が順番に流れます。楽譜の音を順に吹くと、きれいなハモリになります。<br>「自分の音を消す」にすると、その音だけ抜けるので、自分の耳で埋める練習ができます。</div>
+
+        <details style="margin-top:12px">
+          <summary>くわしい設定（調・進行・テンポ・マイク）</summary>
+          <div class="row" style="margin-top:8px">
+            <span class="lbl">調（キー）</span>
+            <select id="cadKeySel" style="flex:1"></select>
+          </div>
+          <div class="row">
+            <span class="lbl">進行</span>
+            <select id="cadPattern" style="flex:1"></select>
+          </div>
+          <div class="togglerow" style="margin-top:10px">
+            <span>全部鳴らす</span>
+            <div class="switch" id="cadMuteSwitch"><i></i></div>
+            <span>自分の音を消す</span>
+          </div>
+          <div class="togglerow">
+            <span>🎤 マイクで確認</span>
+            <div class="switch" id="cadMicSwitch"><i></i></div>
+          </div>
+          <div class="bpmbox">
+            <button class="sbtn" id="cadBpmDown">−</button>
+            <span class="bpmval"><span id="cadBpmVal">56</span> <small style="font-size:12px;color:var(--muted)">BPM</small></span>
+            <button class="sbtn" id="cadBpmUp">＋</button>
+          </div>
+          <input type="range" id="cadBpmRange" min="30" max="120" value="56" style="width:100%; margin:8px 0 2px">
+          <div class="exrow">
+            <label class="chk">くり返し <span class="switch on" id="cadLoopSwitch"><i></i></span></label>
+          </div>
+        </details>
       </div>
     </div>
   </section>
@@ -695,6 +707,82 @@ function stopHarmony(){
 document.getElementById("harmPlay").onclick=()=> harmPlaying?stopHarmony():playHarmony();
 refreshHarm();
 
+/* ================= SHARED: 楽器の移調・音域・五線譜 ================= */
+const INSTRUMENTS = {
+  concert:{label:"移調なし（コンサートピッチ）", shift:0,  clef:"treble", reg:0},
+  fl:     {label:"フルート",                     shift:0,  clef:"treble", reg:0},
+  picc:   {label:"ピッコロ",                     shift:-12,clef:"treble", reg:1},
+  ob:     {label:"オーボエ",                     shift:0,  clef:"treble", reg:0},
+  bsn:    {label:"ファゴット",                   shift:0,  clef:"bass",   reg:0},
+  ebcl:   {label:"E♭クラリネット",               shift:-3, clef:"treble", reg:0},
+  bbcl:   {label:"B♭クラリネット",               shift:2,  clef:"treble", reg:0},
+  bcl:    {label:"バスクラリネット",             shift:14, clef:"treble", reg:-1},
+  asax:   {label:"アルトサックス",               shift:9,  clef:"treble", reg:0},
+  tsax:   {label:"テナーサックス",               shift:14, clef:"treble", reg:-1},
+  barisax:{label:"バリトンサックス",             shift:21, clef:"treble", reg:-1},
+  tpt:    {label:"トランペット（B♭）",           shift:2,  clef:"treble", reg:0},
+  hrn:    {label:"ホルン（F）",                  shift:7,  clef:"treble", reg:0},
+  tbn:    {label:"トロンボーン",                 shift:0,  clef:"bass",   reg:0},
+  euphB:  {label:"ユーフォニアム（低音記号）",   shift:0,  clef:"bass",   reg:0},
+  euphT:  {label:"ユーフォニアム（B♭高音記号）", shift:14, clef:"treble", reg:-1},
+  tuba:   {label:"チューバ",                     shift:0,  clef:"bass",   reg:-1},
+  perc:   {label:"打楽器（鍵盤）",               shift:0,  clef:"treble", reg:0},
+};
+const exState = { instrument:"concert", reg:0 };
+function writtenMidiFor(concertMidi){ return concertMidi + INSTRUMENTS[exState.instrument].shift + 12*exState.reg; }
+function soundingMidiFor(concertMidi){ return concertMidi + 12*exState.reg; }
+
+const LETTER_STEP = {C:0,D:1,E:2,F:3,G:4,A:5,B:6};
+const NOTE_SPELL = [
+  {letter:"C",acc:0},{letter:"C",acc:1},{letter:"D",acc:0},{letter:"E",acc:-1},
+  {letter:"E",acc:0},{letter:"F",acc:0},{letter:"F",acc:1},{letter:"G",acc:0},
+  {letter:"A",acc:-1},{letter:"A",acc:0},{letter:"B",acc:-1},{letter:"B",acc:0},
+];
+const TREBLE_REF = LETTER_STEP.E + 7*4; // E4 = bottom line
+const BASS_REF   = LETTER_STEP.G + 7*2; // G2 = bottom line
+function staffInfo(midi, clef){
+  const pc=((midi%12)+12)%12, oct=Math.floor(midi/12)-1, sp=NOTE_SPELL[pc];
+  const diatonic = LETTER_STEP[sp.letter] + 7*oct;
+  const ref = clef==="bass" ? BASS_REF : TREBLE_REF;
+  return { u: diatonic-ref, acc:sp.acc };
+}
+function ledgerBelow(u){ const out=[]; for(let k=-2;k>=u;k-=2) out.push(k); return out; }
+function ledgerAbove(u){ const out=[]; for(let k=10;k<=u;k+=2) out.push(k); return out; }
+function renderStaff(svg, items, clef){
+  const lineGap=11, unit=lineGap/2, bottomY=100, clefW=36, spacing=44, rightPad=14;
+  const n=items.length, w=clefW+Math.max(1,n)*spacing+rightPad;
+  svg.setAttribute("width",w); svg.setAttribute("height",140); svg.setAttribute("viewBox",`0 0 ${w} 140`);
+  let s="";
+  for(let k=0;k<5;k++){ const y=bottomY-k*lineGap; s+=`<line x1="2" y1="${y}" x2="${w-2}" y2="${y}" stroke="#3a4278" stroke-width="1.2"/>`; }
+  s += clef==="bass"
+    ? `<text x="8" y="${bottomY-lineGap*2.1}" font-size="32" fill="#c7cdf0" font-family="serif">𝄢</text>`
+    : `<text x="6" y="${bottomY-lineGap*0.5}" font-size="46" fill="#c7cdf0" font-family="serif">𝄞</text>`;
+  items.forEach((it,i)=>{
+    const x=clefW+i*spacing+spacing/2;
+    if(it.rest){ const midY=bottomY-2*lineGap; s+=`<text x="${x}" y="${midY+5}" font-size="13" fill="#9aa3d4" text-anchor="middle" class="stfhead" data-i="${i}">休</text>`; return; }
+    const info=staffInfo(it.written, clef); const y=bottomY-info.u*unit;
+    [...ledgerBelow(info.u),...ledgerAbove(info.u)].forEach(k=>{ const ly=bottomY-k*unit; s+=`<line x1="${x-11}" y1="${ly}" x2="${x+11}" y2="${ly}" stroke="#3a4278" stroke-width="1.2"/>`; });
+    if(info.acc!==0) s+=`<text x="${x-13}" y="${y+5}" font-size="15" fill="#eef1ff" text-anchor="middle" class="stfacc" data-i="${i}">${info.acc>0?"♯":"♭"}</text>`;
+    s+=`<ellipse cx="${x}" cy="${y}" rx="6.3" ry="5" fill="#eef1ff" class="stfhead" data-i="${i}"/>`;
+  });
+  svg.innerHTML=s;
+}
+function highlightStaffIn(svg, i){
+  if(!svg) return;
+  svg.querySelectorAll(".stfhead").forEach(el=>{ const on=+el.dataset.i===i; el.setAttribute("fill", on?"#38e0c0":(el.tagName==="text"?"#9aa3d4":"#eef1ff")); });
+  svg.querySelectorAll(".stfacc").forEach(el=>{ const on=+el.dataset.i===i; el.setAttribute("fill", on?"#38e0c0":"#eef1ff"); });
+}
+function applyInstrument(key){
+  exState.instrument=key; exState.reg=INSTRUMENTS[key].reg;
+  const es=document.getElementById("exInstrument"), cs=document.getElementById("cadInstrument");
+  if(es) es.value=key; if(cs) cs.value=key;
+  const rv=document.getElementById("exRegVal"); if(rv) rv.textContent=(exState.reg>0?"+":"")+exState.reg+"oct";
+  if(typeof buildStaff==="function"){ buildStaff(); highlightStaff(lastHighlightIndex); updateNowDisplay(lastHighlightIndex); }
+  if(typeof buildCadStaff==="function"){ buildCadStaff(); updateCadNow(curCadStep); }
+  if(exPlaying){ stopPattern(); setTimeout(playPattern,150); }
+  if(cadPlaying){ stopCadence(); setTimeout(playCadence,150); }
+}
+
 /* ---- Harmony mode switch (単一コード / カデンツ練習) ---- */
 document.getElementById("harmModeSwitch").onclick=function(){
   const cadenceMode=!this.classList.contains("on"); this.classList.toggle("on",cadenceMode);
@@ -724,56 +812,55 @@ const CADENCES = {
               {label:"Im（トニック）", deg:0, chord:"minor"},
             ]},
 };
-const CAD_OCT=3;
-const cadState = { rootPc:10, patternKey:"TDT", targetStep:0, targetTone:0 };
-let cadPlaying=false, cadTimers=[], cadMaster=null;
+const CAD_OCT=4;
+const CAD_PARTS=[{idx:0,label:"根音"},{idx:1,label:"第3音"},{idx:2,label:"第5音"}];
+const cadState = { rootPc:10, patternKey:"TDT", part:0 };
+let cadPlaying=false, cadTimers=[], cadMaster=null, curCadStep=-1;
 
-const cadKeys=document.getElementById("cadKeys");
-NOTE_DISP.forEach((name,pc)=>{
-  const b=document.createElement("button"); b.textContent=name;
-  if(NOTE_SHARP[pc].includes("#")) b.classList.add("sharp");
-  b.onclick=()=>{ cadState.rootPc=pc; refreshCadKeys(); renderCadChords(); if(cadPlaying){ stopCadence(); setTimeout(playCadence,150); } };
-  cadKeys.appendChild(b);
+const cadPartsEl=document.getElementById("cadParts");
+CAD_PARTS.forEach(p=>{
+  const b=document.createElement("button"); b.textContent=p.label; b.dataset.idx=p.idx;
+  b.onclick=()=>{ cadState.part=p.idx; refreshCadParts(); buildCadStaff(); updateCadNow(curCadStep); if(cadPlaying){ stopCadence(); setTimeout(playCadence,150); } };
+  cadPartsEl.appendChild(b);
 });
-function refreshCadKeys(){
-  [...cadKeys.children].forEach((b,i)=>b.classList.toggle("on", i===cadState.rootPc));
-  document.getElementById("cadRootName").textContent=noteLabel(cadState.rootPc);
-}
+function refreshCadParts(){ [...cadPartsEl.children].forEach(b=>b.classList.toggle("on", +b.dataset.idx===cadState.part)); }
+
+const cadInstrumentSel=document.getElementById("cadInstrument");
+cadInstrumentSel.innerHTML=Object.entries(INSTRUMENTS).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join("");
+cadInstrumentSel.value=exState.instrument;
+cadInstrumentSel.onchange=()=> applyInstrument(cadInstrumentSel.value);
+
+const cadKeySel=document.getElementById("cadKeySel");
+cadKeySel.innerHTML=NOTE_DISP.map((n,pc)=>`<option value="${pc}">${n}</option>`).join("");
+cadKeySel.value=cadState.rootPc;
+cadKeySel.onchange=()=>{ cadState.rootPc=+cadKeySel.value; buildCadStaff(); updateCadNow(curCadStep); if(cadPlaying){ stopCadence(); setTimeout(playCadence,150); } };
+
 const cadPatternSel=document.getElementById("cadPattern");
 cadPatternSel.innerHTML=Object.entries(CADENCES).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join("");
-cadPatternSel.onchange=()=>{
-  cadState.patternKey=cadPatternSel.value; cadState.targetStep=0; cadState.targetTone=0;
-  renderCadChords(); if(cadPlaying){ stopCadence(); setTimeout(playCadence,150); }
-};
+cadPatternSel.onchange=()=>{ cadState.patternKey=cadPatternSel.value; buildCadStaff(); updateCadNow(-1); if(cadPlaying){ stopCadence(); setTimeout(playCadence,150); } };
+
 function cadRootMidi(si){
   const step=CADENCES[cadState.patternKey].steps[si];
   return (CAD_OCT+1)*12 + ((cadState.rootPc+step.deg)%12+12)%12;
 }
-function renderCadChords(){
-  const el=document.getElementById("cadChords"); el.innerHTML="";
-  const steps=CADENCES[cadState.patternKey].steps;
-  steps.forEach((step,si)=>{
-    const freqs=chordFreqs(cadRootMidi(si), step.chord, true);
-    const card=document.createElement("div"); card.className="cadcard"; card.dataset.step=si;
-    const lbl=document.createElement("div"); lbl.className="cadlabel"; lbl.textContent=`${si+1}. ${step.label}`;
-    card.appendChild(lbl);
-    const tones=document.createElement("div"); tones.className="cadtones";
-    freqs.forEach((v,ti)=>{
-      const b=document.createElement("button"); b.className="cadtone";
-      b.textContent=`${v.name}（第${v.label}音）`;
-      if(cadState.targetStep===si && cadState.targetTone===ti) b.classList.add("target");
-      b.onclick=()=>{
-        cadState.targetStep=si; cadState.targetTone=ti; renderCadChords();
-        if(cadPlaying){ stopCadence(); setTimeout(playCadence,150); }
-      };
-      tones.appendChild(b);
-    });
-    card.appendChild(tones);
-    el.appendChild(card);
-  });
+function cadPartConcertMidi(si){
+  const chord=CHORDS[CADENCES[cadState.patternKey].steps[si].chord];
+  const idx=Math.min(cadState.part, chord.et.length-1);
+  return cadRootMidi(si) + chord.et[idx];
 }
-function highlightCadStep(si){
-  document.querySelectorAll("#cadChords .cadcard").forEach(el=>el.classList.toggle("playing", +el.dataset.step===si));
+function buildCadStaff(){
+  const clef=INSTRUMENTS[exState.instrument].clef;
+  const steps=CADENCES[cadState.patternKey].steps;
+  const items=steps.map((st,si)=>({written:writtenMidiFor(cadPartConcertMidi(si))}));
+  renderStaff(document.getElementById("cadStaff"), items, clef);
+}
+function updateCadNow(si){
+  const nowEl=document.getElementById("cadNowNote"), subEl=document.getElementById("cadNowSub");
+  if(si<0){ nowEl.textContent="♪"; subEl.textContent="再生すると、今吹く音がここに出ます"; return; }
+  const steps=CADENCES[cadState.patternKey].steps;
+  const wm=writtenMidiFor(cadPartConcertMidi(si)); const oct=Math.floor(wm/12)-1;
+  nowEl.textContent=noteLabel(((wm%12)+12)%12);
+  subEl.textContent=`${si+1}/${steps.length} ・ ${steps[si].label}`;
 }
 function scheduleChordTone(c,dest,freq,start,dur,gainMul){
   const g=c.createGain(); g.connect(dest);
@@ -787,22 +874,21 @@ function scheduleChordTone(c,dest,freq,start,dur,gainMul){
 }
 function clearCadTimers(){ cadTimers.forEach(clearTimeout); cadTimers=[]; }
 function playCadence(){
-  renderCadChords();
+  buildCadStaff(); refreshCadParts();
   const c=ac();
   if(cadMaster){ try{cadMaster.disconnect()}catch(e){} }
   const bpm=+document.getElementById("cadBpmRange").value;
-  const spb=60/bpm, beatsPerChord=4, dur=beatsPerChord*spb;
+  const spb=60/bpm, dur=4*spb;
   const master=c.createGain(); master.gain.value=0.9; master.connect(c.destination); cadMaster=master;
   const steps=CADENCES[cadState.patternKey].steps;
-  const muteTarget=document.getElementById("cadMuteSwitch").classList.contains("on");
+  const mute=document.getElementById("cadMuteSwitch").classList.contains("on");
   const t0=c.currentTime+0.15; let t=t0;
+  const cadStaffEl=document.getElementById("cadStaff");
   steps.forEach((step,si)=>{
     const freqs=chordFreqs(cadRootMidi(si), step.chord, true);
-    freqs.forEach((v,ti)=>{
-      if(muteTarget && si===cadState.targetStep && ti===cadState.targetTone) return;
-      scheduleChordTone(c, master, v.freq, t, dur, 1/Math.max(2,freqs.length));
-    });
-    cadTimers.push(setTimeout(()=>highlightCadStep(si), Math.max(0,(t-c.currentTime)*1000)));
+    const muteIdx=Math.min(cadState.part, freqs.length-1);
+    freqs.forEach((v,ti)=>{ if(mute && ti===muteIdx) return; scheduleChordTone(c, master, v.freq, t, dur, 1/Math.max(2,freqs.length)); });
+    cadTimers.push(setTimeout(()=>{ curCadStep=si; highlightStaffIn(cadStaffEl,si); updateCadNow(si); }, Math.max(0,(t-c.currentTime)*1000)));
     t+=dur;
   });
   const total=t-t0;
@@ -813,7 +899,7 @@ function playCadence(){
   if(document.getElementById("cadMicSwitch").classList.contains("on")) startCadMic();
 }
 function stopCadence(){
-  clearCadTimers(); highlightCadStep(-1);
+  clearCadTimers(); curCadStep=-1; highlightStaffIn(document.getElementById("cadStaff"),-1); updateCadNow(-1);
   if(cadMaster){ const c=ac(); cadMaster.gain.cancelScheduledValues(c.currentTime);
     cadMaster.gain.setValueAtTime(cadMaster.gain.value,c.currentTime);
     cadMaster.gain.linearRampToValueAtTime(0,c.currentTime+0.08); cadMaster=null; }
@@ -832,7 +918,7 @@ document.getElementById("cadMicSwitch").onclick=function(){
   if(on){ if(cadPlaying) startCadMic(); } else { stopCadMic(); }
 };
 
-/* ---- shared-style mic pitch check for cadence target voice ---- */
+/* ---- mic pitch check for the current cadence note (octave-folded) ---- */
 let cadMicOn=false, cadMicStream=null, cadAnalyser=null, cadRaf=0;
 const cadBuf=new Float32Array(2048);
 async function startCadMic(){
@@ -852,21 +938,24 @@ function cadMicLoop(){
   cadAnalyser.getFloatTimeDomainData(cadBuf);
   const f=autoCorrelate(cadBuf, ac().sampleRate);
   const centsEl=document.getElementById("cadCents");
-  if(f>0 && cadPlaying){
+  if(f>0 && cadPlaying && curCadStep>=0){
     const steps=CADENCES[cadState.patternKey].steps;
-    const freqs=chordFreqs(cadRootMidi(cadState.targetStep), steps[cadState.targetStep].chord, true);
-    const target=freqs[cadState.targetTone];
+    const freqs=chordFreqs(cadRootMidi(curCadStep), steps[curCadStep].chord, true);
+    const target=freqs[Math.min(cadState.part, freqs.length-1)];
     if(target){
-      const cents=Math.round(1200*Math.log2(f/target.freq));
+      let cents=1200*Math.log2(f/target.freq);
+      cents=((cents%1200)+1200)%1200; if(cents>600) cents-=1200; // 何オクターブ違っても近いズレで表示
+      const cc=Math.round(cents);
       centsEl.style.display="block";
-      centsEl.textContent=(cents>0?"+":"")+cents+" cent";
-      centsEl.className="cents "+(Math.abs(cents)<=8?"ok":(cents<0?"flat":"sharp"));
+      centsEl.textContent=(cc>0?"+":"")+cc+" cent";
+      centsEl.className="cents "+(Math.abs(cc)<=8?"ok":(cc<0?"flat":"sharp"));
     }
   }
   cadRaf=requestAnimationFrame(cadMicLoop);
 }
-refreshCadKeys();
-renderCadChords();
+refreshCadParts();
+buildCadStaff();
+updateCadNow(-1);
 
 /* ================= EXERCISE (教本パターン再生) ================= */
 const EX_PRESETS = {
@@ -909,49 +998,6 @@ function parsePattern(str){
 }
 function exFreq(m){ return state.a4*Math.pow(2,(m-69)/12); }
 
-/* ---- 楽器の移調・音域（実音→楽譜表記） ---- */
-const INSTRUMENTS = {
-  concert:{label:"移調なし（コンサートピッチ）", shift:0,  clef:"treble", reg:0},
-  fl:     {label:"フルート",                     shift:0,  clef:"treble", reg:0},
-  picc:   {label:"ピッコロ",                     shift:-12,clef:"treble", reg:1},
-  ob:     {label:"オーボエ",                     shift:0,  clef:"treble", reg:0},
-  bsn:    {label:"ファゴット",                   shift:0,  clef:"bass",   reg:0},
-  ebcl:   {label:"E♭クラリネット",               shift:-3, clef:"treble", reg:0},
-  bbcl:   {label:"B♭クラリネット",               shift:2,  clef:"treble", reg:0},
-  bcl:    {label:"バスクラリネット",             shift:14, clef:"treble", reg:-1},
-  asax:   {label:"アルトサックス",               shift:9,  clef:"treble", reg:0},
-  tsax:   {label:"テナーサックス",               shift:14, clef:"treble", reg:-1},
-  barisax:{label:"バリトンサックス",             shift:21, clef:"treble", reg:-1},
-  tpt:    {label:"トランペット（B♭）",           shift:2,  clef:"treble", reg:0},
-  hrn:    {label:"ホルン（F）",                  shift:7,  clef:"treble", reg:0},
-  tbn:    {label:"トロンボーン",                 shift:0,  clef:"bass",   reg:0},
-  euphB:  {label:"ユーフォニアム（低音記号）",   shift:0,  clef:"bass",   reg:0},
-  euphT:  {label:"ユーフォニアム（B♭高音記号）", shift:14, clef:"treble", reg:-1},
-  tuba:   {label:"チューバ",                     shift:0,  clef:"bass",   reg:-1},
-  perc:   {label:"打楽器（鍵盤）",               shift:0,  clef:"treble", reg:0},
-};
-const exState = { instrument:"concert", reg:0 };
-function writtenMidiFor(concertMidi){ return concertMidi + INSTRUMENTS[exState.instrument].shift + 12*exState.reg; }
-function soundingMidiFor(concertMidi){ return concertMidi + 12*exState.reg; }
-
-/* ---- 五線譜表示 ---- */
-const LETTER_STEP = {C:0,D:1,E:2,F:3,G:4,A:5,B:6};
-const NOTE_SPELL = [
-  {letter:"C",acc:0},{letter:"C",acc:1},{letter:"D",acc:0},{letter:"E",acc:-1},
-  {letter:"E",acc:0},{letter:"F",acc:0},{letter:"F",acc:1},{letter:"G",acc:0},
-  {letter:"A",acc:-1},{letter:"A",acc:0},{letter:"B",acc:-1},{letter:"B",acc:0},
-];
-const TREBLE_REF = LETTER_STEP.E + 7*4; // E4 = bottom line
-const BASS_REF   = LETTER_STEP.G + 7*2; // G2 = bottom line
-function staffInfo(midi, clef){
-  const pc=((midi%12)+12)%12, oct=Math.floor(midi/12)-1, sp=NOTE_SPELL[pc];
-  const diatonic = LETTER_STEP[sp.letter] + 7*oct;
-  const ref = clef==="bass" ? BASS_REF : TREBLE_REF;
-  return { u: diatonic-ref, acc:sp.acc };
-}
-function ledgerBelow(u){ const out=[]; for(let k=-2;k>=u;k-=2) out.push(k); return out; }
-function ledgerAbove(u){ const out=[]; for(let k=10;k<=u;k+=2) out.push(k); return out; }
-
 const exInput=document.getElementById("exInput");
 const exPreset=document.getElementById("exPreset");
 const exChips=document.getElementById("exChips");
@@ -990,48 +1036,11 @@ function updateNowDisplay(i){
   subEl.textContent=`${INSTRUMENTS[exState.instrument].label}の楽譜表記 ・ オクターブ${oct}`;
 }
 function buildStaff(){
-  const svg=document.getElementById("exStaff");
   const clef=INSTRUMENTS[exState.instrument].clef;
-  const lineGap=11, unit=lineGap/2, bottomY=100, clefW=36, spacing=44, rightPad=14;
-  const n=exNotes.length;
-  const w=clefW + Math.max(1,n)*spacing + rightPad;
-  svg.setAttribute("width", w); svg.setAttribute("height", 140); svg.setAttribute("viewBox", `0 0 ${w} 140`);
-  let s="";
-  for(let k=0;k<5;k++){ const y=bottomY-k*lineGap; s+=`<line x1="2" y1="${y}" x2="${w-2}" y2="${y}" stroke="#3a4278" stroke-width="1.2"/>`; }
-  s += clef==="bass"
-    ? `<text x="8" y="${bottomY-lineGap*2.1}" font-size="32" fill="#c7cdf0" font-family="serif">𝄢</text>`
-    : `<text x="6" y="${bottomY-lineGap*0.5}" font-size="46" fill="#c7cdf0" font-family="serif">𝄞</text>`;
-  exNotes.forEach((note,i)=>{
-    const x=clefW+i*spacing+spacing/2;
-    if(note.midi===null){
-      const midY=bottomY-2*lineGap;
-      s+=`<text x="${x}" y="${midY+5}" font-size="13" fill="#9aa3d4" text-anchor="middle" class="stfhead" data-i="${i}">休</text>`;
-      return;
-    }
-    const info=staffInfo(writtenMidiFor(note.midi), clef);
-    const y=bottomY-info.u*unit;
-    [...ledgerBelow(info.u), ...ledgerAbove(info.u)].forEach(k=>{
-      const ly=bottomY-k*unit;
-      s+=`<line x1="${x-11}" y1="${ly}" x2="${x+11}" y2="${ly}" stroke="#3a4278" stroke-width="1.2"/>`;
-    });
-    if(info.acc!==0){
-      s+=`<text x="${x-13}" y="${y+5}" font-size="15" fill="#eef1ff" text-anchor="middle" class="stfacc" data-i="${i}">${info.acc>0?"♯":"♭"}</text>`;
-    }
-    s+=`<ellipse cx="${x}" cy="${y}" rx="6.3" ry="5" fill="#eef1ff" class="stfhead" data-i="${i}"/>`;
-  });
-  svg.innerHTML=s;
+  const items=exNotes.map(n=> n.midi===null ? {rest:true} : {written:writtenMidiFor(n.midi)});
+  renderStaff(document.getElementById("exStaff"), items, clef);
 }
-function highlightStaff(i){
-  const svg=document.getElementById("exStaff");
-  svg.querySelectorAll(".stfhead").forEach(el=>{
-    const on=+el.dataset.i===i;
-    el.setAttribute("fill", on?"#38e0c0":(el.tagName==="text"?"#9aa3d4":"#eef1ff"));
-  });
-  svg.querySelectorAll(".stfacc").forEach(el=>{
-    const on=+el.dataset.i===i;
-    el.setAttribute("fill", on?"#38e0c0":"#eef1ff");
-  });
-}
+function highlightStaff(i){ highlightStaffIn(document.getElementById("exStaff"), i); }
 function highlight(i){
   lastHighlightIndex=i;
   exChipEls.forEach((e,j)=>e.classList.toggle("on",j===i));
@@ -1098,20 +1107,16 @@ const exInstrumentSel=document.getElementById("exInstrument");
 exInstrumentSel.innerHTML=Object.entries(INSTRUMENTS).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join("");
 exInstrumentSel.value=exState.instrument;
 function updateRegLabel(){ document.getElementById("exRegVal").textContent=(exState.reg>0?"+":"")+exState.reg+"oct"; }
-function retriggerExIfPlaying(){ if(exPlaying){ stopPattern(); setTimeout(playPattern,150); } }
-exInstrumentSel.onchange=()=>{
-  exState.instrument=exInstrumentSel.value;
-  exState.reg=INSTRUMENTS[exState.instrument].reg;
-  updateRegLabel(); buildStaff(); highlightStaff(lastHighlightIndex); updateNowDisplay(lastHighlightIndex);
-  retriggerExIfPlaying();
-};
+exInstrumentSel.onchange=()=> applyInstrument(exInstrumentSel.value);
 document.getElementById("exRegUp").onclick=()=>{
   exState.reg=Math.min(3,exState.reg+1); updateRegLabel(); buildStaff(); highlightStaff(lastHighlightIndex); updateNowDisplay(lastHighlightIndex);
-  retriggerExIfPlaying();
+  if(typeof buildCadStaff==="function"){ buildCadStaff(); updateCadNow(curCadStep); }
+  if(exPlaying){ stopPattern(); setTimeout(playPattern,150); }
 };
 document.getElementById("exRegDown").onclick=()=>{
   exState.reg=Math.max(-3,exState.reg-1); updateRegLabel(); buildStaff(); highlightStaff(lastHighlightIndex); updateNowDisplay(lastHighlightIndex);
-  retriggerExIfPlaying();
+  if(typeof buildCadStaff==="function"){ buildCadStaff(); updateCadNow(curCadStep); }
+  if(exPlaying){ stopPattern(); setTimeout(playPattern,150); }
 };
 updateRegLabel();
 
