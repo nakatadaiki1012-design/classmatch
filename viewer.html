@@ -117,6 +117,19 @@ progress::-webkit-progress-value{background:var(--ok);border-radius:4px;transiti
 .badge.gray {background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0;}
 
 .bracketWrap{overflow-x:auto;padding:6px 0;}
+.championBanner{
+  display:flex;align-items:center;gap:14px;
+  padding:14px 20px;margin-bottom:14px;
+  background:linear-gradient(90deg,#fef9c3,#fde68a);
+  border:2px solid #fbbf24;border-radius:12px;
+  box-shadow:0 2px 10px rgba(251,191,36,.3);
+  animation:champIn .4s ease;
+}
+.championBanner .cbTrophy{font-size:38px;line-height:1;animation:champBounce 1.6s ease-in-out infinite;}
+.championBanner .cbLabel{font-size:12px;font-weight:700;color:#a16207;letter-spacing:2px;}
+.championBanner .cbName{font-size:24px;font-weight:900;color:#78350f;line-height:1.1;}
+@keyframes champIn{from{opacity:0;transform:translateY(-8px);}to{opacity:1;transform:none;}}
+@keyframes champBounce{0%,100%{transform:translateY(0);}50%{transform:translateY(-5px);}}
 .loserLabel{
   margin:20px 0 8px;padding:8px 12px;
   background:linear-gradient(90deg,#f5f3ff,#ede9fe);
@@ -371,6 +384,15 @@ progress::-webkit-progress-value{background:var(--ok);border-radius:4px;transiti
     const bracket = el("bracket");
     bracket.innerHTML = "";
 
+    // 優勝バナー: 決勝が確定していたら大きく表示
+    const champ = getChampion(ev);
+    if (champ) {
+      const banner = document.createElement("div");
+      banner.className = "championBanner";
+      banner.innerHTML = `<span class="cbTrophy">🏆</span><div><div class="cbLabel">優勝</div><div class="cbName">${escapeHtml(champ)}</div></div>`;
+      bracket.appendChild(banner);
+    }
+
     if (ev.format === "league") {
       bracket.appendChild(buildLeagueHTML(ev));
     } else {
@@ -385,6 +407,39 @@ progress::-webkit-progress-value{background:var(--ok);border-radius:4px;transiti
         bracket.appendChild(buildBracketSVG(ev.loserMatches, ev));
       }
     }
+  }
+
+  // 決勝（最終ラウンド）の勝者を返す。未確定なら null
+  function getChampion(ev) {
+    if (!ev || ev.format === "league") {
+      // リーグは首位を優勝扱い（全試合終了時のみ）
+      if (ev?.format === "league") {
+        const ms = (ev.matches||[]);
+        if (ms.length && ms.every(m=>m.state==="final")) return leagueLeader(ev);
+      }
+      return null;
+    }
+    const ms = (ev.matches||[]).filter(m=>!m.isExhibition && !m.isThirdPlace);
+    if (!ms.length) return null;
+    const maxRound = Math.max(...ms.map(m=>m.round));
+    const finalM = ms.find(m=>m.round===maxRound);
+    if (finalM && finalM.state==="final" && finalM.winner) {
+      return finalM.winner==="A" ? finalM.teamA : finalM.teamB;
+    }
+    return null;
+  }
+  function leagueLeader(ev) {
+    const teams = new Set();
+    ev.matches.forEach(m=>{ if(m.teamA)teams.add(m.teamA); if(m.teamB)teams.add(m.teamB); });
+    const res = {}; [...teams].forEach(t=>res[t]={pts:0,gd:0});
+    ev.matches.forEach(m=>{
+      if(!m.teamA||!m.teamB||m.state!=="final")return;
+      const a=Number(m.scoreA),b=Number(m.scoreB); if(isNaN(a)||isNaN(b))return;
+      if(a>b)res[m.teamA].pts+=3; else if(b>a)res[m.teamB].pts+=3; else {res[m.teamA].pts++;res[m.teamB].pts++;}
+      res[m.teamA].gd+=a-b; res[m.teamB].gd+=b-a;
+    });
+    const sorted=[...teams].sort((x,y)=>(res[y].pts-res[x].pts)||(res[y].gd-res[x].gd));
+    return sorted[0] || null;
   }
 
   // ── Build bracket SVG (read-only, visual only) ──

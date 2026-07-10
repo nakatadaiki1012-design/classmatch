@@ -4241,9 +4241,9 @@
           row.style.alignItems = "center";
           row.innerHTML = `
             <span class="small" style="font-weight:bold; width:40px;">Set ${i + 1}</span>
-            <input type="number" id="mS_${i}_A" style="width:70px" min="0" value="${sA}">
+            <input type="number" inputmode="numeric" pattern="[0-9]*" id="mS_${i}_A" style="width:70px" min="0" value="${sA}">
             <span>-</span>
-            <input type="number" id="mS_${i}_B" style="width:70px" min="0" value="${sB}">
+            <input type="number" inputmode="numeric" pattern="[0-9]*" id="mS_${i}_B" style="width:70px" min="0" value="${sB}">
           `;
           setsBox.appendChild(row);
         }
@@ -4254,10 +4254,17 @@
         if (setsBox) setsBox.classList.add("hidden");
         el("mScoreA").value = m.scoreA ?? "";
         el("mScoreB").value = m.scoreB ?? "";
-        if (hint) hint.textContent = "Score入力 → 保存";
+        if (hint) hint.textContent = "Score入力 → Enterで確定";
       }
     }
     overlay.classList.remove("hidden");
+    // スコア入力モードなら最初の入力欄に自動フォーカス（生徒審判がすぐ打てる）
+    if (mode !== "winlose") {
+      requestAnimationFrame(() => {
+        const first = el("mS_0_A") || el("mScoreA");
+        if (first) { first.focus(); first.select?.(); }
+      });
+    }
   }
 
   function closeResultModal() {
@@ -4309,6 +4316,17 @@
     if (!overlay) return;
     el("mClose").onclick = closeResultModal;
     overlay.addEventListener("click", e => { if (e.target === overlay) closeResultModal(); });
+
+    // スコア入力欄でEnterを押したら保存（生徒審判の高速入力）。Escで閉じる。
+    overlay.addEventListener("keydown", e => {
+      if (overlay.classList.contains("hidden")) return;
+      if (e.key === "Enter") {
+        const mode = state.tournament?.inputMode || "score";
+        if (mode !== "winlose") { e.preventDefault(); el("mSave")?.click(); }
+      } else if (e.key === "Escape") {
+        e.preventDefault(); closeResultModal();
+      }
+    });
 
     if (el("mStatusCalling")) el("mStatusCalling").onclick = () => updateMatchStatus("calling");
     if (el("mStatusPlaying")) el("mStatusPlaying").onclick = () => updateMatchStatus("playing");

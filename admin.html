@@ -254,14 +254,15 @@
 
       <hr />
 
-      <h3>📱 審判用モバイル画面</h3>
-      <div class="small" style="margin-bottom:8px;">
-        生徒審判にスコア入力を担当させる場合は、以下の画面を開いてください。
+      <h3>📱 スマホでスコアを入力する</h3>
+      <div class="small" style="margin-bottom:8px; line-height:1.8;">
+        この管理画面はスマホでもそのまま使えます。生徒審判に入力を任せる場合は：<br />
+        ① この端末（またはコード取込した端末）でブラケットを開く<br />
+        ② 試合の枠を<b>ダブルタップ</b>すると結果入力パネルが開きます<br />
+        ③ 数字を入力して<b>Enter</b>（または「勝敗確定」）で確定 → 全画面に即反映
       </div>
-      <div class="row">
-        <a href="referee.html" target="_blank"
-          style="display:inline-block; padding:8px 16px; background:var(--primary); color:white; text-decoration:none; border-radius:4px; font-weight:bold;">審判画面
-          (referee.html) を開く</a>
+      <div class="small" style="padding:8px 10px; background:#eff6ff; border:1px solid #bfdbfe; border-radius:6px; color:#1d4ed8;">
+        💡 入力欄はスマホで数字キーパッドが自動で開き、Enterひとつで確定できます。
       </div>
 
       <hr />
@@ -678,13 +679,13 @@
         <div class="box" style="flex:1;">
           <div class="teamName" id="mTeamA" style="margin-bottom:8px;">-</div>
           <div id="mScoreAWrap">
-            <label>Score <input id="mScoreA" type="number" min="0" style="width:80px" /></label>
+            <label>Score <input id="mScoreA" type="number" inputmode="numeric" pattern="[0-9]*" min="0" style="width:80px; font-size:20px; text-align:center;" /></label>
           </div>
         </div>
         <div class="box" style="flex:1;">
           <div class="teamName" id="mTeamB" style="margin-bottom:8px;">-</div>
           <div id="mScoreBWrap">
-            <label>Score <input id="mScoreB" type="number" min="0" style="width:80px" /></label>
+            <label>Score <input id="mScoreB" type="number" inputmode="numeric" pattern="[0-9]*" min="0" style="width:80px; font-size:20px; text-align:center;" /></label>
           </div>
         </div>
       </div>
