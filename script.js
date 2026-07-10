@@ -663,15 +663,19 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
     const slots = [];
     for (const d of dayKeys) for (let p = 1; p <= periods; p++) slots.push({ day: d, period: p, key: d + '#' + p });
 
-    // 1. 現行の配置済み時間割から クラス→科目→教員 を収集
-    const classSubj = {}; // class -> Map(subj -> Set(teacher))
+    // 1. 現行の配置済み時間割から クラス→科目→{教員, 単位数(コマ数)} を収集
+    const classSubj = {}; // class -> Map(subj -> {teas:Set, count})
     for (const id in state.placements) {
       const plc = state.placements[id]; if (!plc || !plc.day) continue;
       const it = state.items[id]; if (!it) continue;
       const subj = it.subjKey || it.subj; if (!subj) continue;
+      const span = it.span || 1;
       for (const c of (it.cls || [])) {
         const m = classSubj[c] || (classSubj[c] = new Map());
-        const s = m.get(subj) || new Set(); (it.teas || []).forEach(t => t && s.add(t)); m.set(subj, s);
+        const rec = m.get(subj) || { teas: new Set(), count: 0 };
+        (it.teas || []).forEach(t => t && rec.teas.add(t));
+        rec.count += span; // 単位数（週コマ数）
+        m.set(subj, rec);
       }
     }
     // 除外科目（返却対象でないもの）
@@ -693,31 +697,49 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       return id;
     };
 
+    const placeOnce = (c, subj, teas) => {
+      for (const sl of slots) {
+        if (classUsed[c].has(sl.key)) continue;
+        if (teas.length && !teas.every(t => teaFree(t, sl, subj))) continue;
+        addItem(subj, [c], teas, sl.day, sl.period, 1);
+        classUsed[c].add(sl.key);
+        teas.forEach(t => (teacherBusy[t] || (teacherBusy[t] = new Set())).add(sl.key));
+        return true;
+      }
+      return false;
+    };
+
     for (const c of classes) {
       classUsed[c] = new Set();
-      // 制約が厳しい科目（教員数が多い/禁制多い）から先に置くと詰まりにくい
+      // 制約が厳しい科目（担当教員が多い）から先に置くと詰まりにくい
       const subs = [...classSubj[c].keys()].filter(s => !exclude.has(s));
-      subs.sort((a, b) => classSubj[c].get(b).size - classSubj[c].get(a).size);
+      subs.sort((a, b) => classSubj[c].get(b).teas.size - classSubj[c].get(a).teas.size);
+      const placedN = {}; // subj -> 配置済み回数
+      // (1) 全科目を1回ずつ配置（テスト返却本体）
       for (const subj of subs) {
-        const teas = [...classSubj[c].get(subj)];
-        let done = false;
-        for (const sl of slots) {
-          if (classUsed[c].has(sl.key)) continue;
-          if (teas.length && !teas.every(t => teaFree(t, sl, subj))) continue;
-          addItem(subj, [c], teas, sl.day, sl.period, 1);
-          classUsed[c].add(sl.key);
-          teas.forEach(t => (teacherBusy[t] || (teacherBusy[t] = new Set())).add(sl.key));
-          report.placed++; done = true; break;
-        }
-        if (!done) { addItem(subj, [c], teas, null, null, 1); report.unplaced++; report.warnings.push(`${c} ${subj}: 空き枠なし`); }
+        const teas = [...classSubj[c].get(subj).teas];
+        if (placeOnce(c, subj, teas)) { report.placed++; placedN[subj] = 1; }
+        else { addItem(subj, [c], teas, null, null, 1); report.unplaced++; placedN[subj] = 0; report.warnings.push(`${c} ${subj}: 空き枠なし`); }
       }
-      // 余り枠をfillerで埋める（体育など2連は連続空きが必要）
-      let fi = 0;
+      // (2) 余り枠は「元の単位数が多い授業をもう一度」入れる。
+      //     残り単位数(元コマ数 - 配置済み回数)が多い科目を優先して再配置する。
       let guard = 0;
-      while (classUsed[c].size < slots.length && guard++ < slots.length * 2) {
+      while (classUsed[c].size < slots.length && guard++ < slots.length * 3) {
+        let best = null, bestQ = 0;
+        for (const s of subs) {
+          const q = (classSubj[c].get(s).count || 1) - (placedN[s] || 0);
+          if (q > bestQ) { bestQ = q; best = s; }
+        }
+        if (!best) break; // 残り単位数なし → 汎用fillerへ
+        const teas = [...classSubj[c].get(best).teas];
+        if (placeOnce(c, best, teas)) { report.filled++; placedN[best] = (placedN[best] || 0) + 1; }
+        else { placedN[best] = classSubj[c].get(best).count; } // どこにも置けない→この科目は打ち切り
+      }
+      // (3) それでも空きがあれば汎用filler(体育2連/芸術/LHR)で埋める
+      let fi = 0, g2 = 0;
+      while (classUsed[c].size < slots.length && g2++ < slots.length * 2) {
         const f = fillers[fi % fillers.length]; fi++;
         const span = clampInt(f.span, 1, 2, 1);
-        // 連続spanの空きを探す
         let placedFiller = false;
         for (let si = 0; si < slots.length; si++) {
           const sl = slots[si];
@@ -733,7 +755,7 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
             classUsed[c].add(sl.key); report.filled++; placedFiller = true; break;
           }
         }
-        if (!placedFiller && span === 2) continue; // 2連が置けないなら次のfiller
+        if (!placedFiller && span === 2) continue;
         if (!placedFiller) break;
       }
     }
@@ -772,7 +794,7 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
           <label>日数 <input id="tr-days" type="number" min="1" max="5" value="3" style="width:56px"></label>
           <label>1日の時限 <input id="tr-periods" type="number" min="1" max="8" value="6" style="width:56px"></label>
         </div>
-        <div style="margin-top:8px" class="muted small">余り枠は 体育(2連)→芸術→LHR の順で自動的に埋めます。教員の重複・禁制時間は自動回避します。</div>
+        <div style="margin-top:8px" class="muted small">全科目を1回ずつ配置後、余り枠は<strong>元の単位数が多い授業をもう一度</strong>入れて埋めます（教員の重複・禁制時間は自動回避）。それでも余れば体育(2連)/芸術/LHRで補います。</div>
         <div style="margin-top:8px;color:#b45309">※ 現在の時間割は上書きされます（元に戻すには Ctrl+Z / プロジェクト再読込）。</div>
       </div>`;
     let days = 3, periods = 6;
