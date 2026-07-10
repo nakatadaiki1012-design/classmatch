@@ -1261,7 +1261,7 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
         if (idx >= lines.length) break;
         const f1 = parseLine(lines[idx]);
         const id = parseInt(f1[0]);
-        const name = (f1[1] || '').replace(/[　\s]/g, '').replace(/[１２３４５６７８９０]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0)).replace(/[−ー]/g, '-');
+        const name = (f1[1] || '').replace(/[　\s]/g, '').replace(/[１２３４５６７８９０]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0)).replace(/[−ー－]/g, '-');
         const abbr = (f1[2] || name).replace(/[　\s]/g, '');
         if (id > 0 && name) rooms[id] = { name, abbr };
         idx += 3;
