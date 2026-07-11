@@ -1434,6 +1434,7 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
         dept,
         tea,
         teaAbbr,
+        room: (jugyoRooms[jid] || []).join(','),
         count: weeklyCount,
         span,
       });
