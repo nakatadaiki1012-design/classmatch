@@ -1264,7 +1264,7 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
         if (idx >= lines.length) break;
         const f1 = parseLine(lines[idx]);
         const id = parseInt(f1[0]);
-        const short = (f1[1] || '').replace(/[　\s]/g, '').replace(/[１２３４５６７８９０]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0)).replace(/[−ー]/g, '-');
+        const short = (f1[1] || '').replace(/[　\s]/g, '').replace(/[１２３４５６７８９０]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0)).replace(/[−ー－]/g, '-');
         const full = (f1[2] || '').replace(/[　\s]/g, '');
         classes[id] = { short, full };
         idx += 3;
@@ -1631,6 +1631,7 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       let sidx = sji + 1;
       const sjCells = new Set();  // "class#day#period" 上書き対象
       const sjPlace = [];         // {subj, cls, teas, day, period, span}
+      const electiveCells = {};   // "class#day#period" -> {label, real} 自選ブロックのラベル付け
       for (let c = 0; c <= sjCount; c++) {
         if (sidx >= lines.length) break;
         const hdr = parseLine(lines[sidx]);
@@ -1653,6 +1654,31 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
         // 校務分掌(進路G等)は生徒授業でないため除外する。
         // ＬＨＲ(全角)にも対応するため全角ラテンを半角化して判定する。
         const subjHW = subj.replace(/[Ａ-Ｚａ-ｚ]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0));
+        // ── 自選・自由選択の同時展開ブロック ──
+        // 科目は生徒選択制でクラスに一意化できないため、該当セルをグループ名(自選(金)等)で
+        // ラベルし、相乗り科目一覧をrealSubjに保持する（既存の「選択」相乗りコマを上書き）。
+        if (/自選|自由選択/.test(name) || /自選|自由選択/.test(subj)) {
+          const label = (name || subj).replace(/[　\s]/g, '');
+          // member = [表示index, lessonId, roomId, teacherId]。member[1]=lessonId が開講科目。
+          // 受講クラスは生徒選択制で同時展開ブロックからは一意化できないため、
+          // ブロックの(曜日,時限)で既存の「選択」相乗りコマを一致させてラベル付けする。
+          const realNames = new Set();
+          for (const mem of members) {
+            const lid = parseInt(mem[1]) || 0;
+            const ln = lessons[lid] && lessons[lid].name;
+            if (ln) realNames.add(ln);
+          }
+          const realStr = [...realNames].join(' / ');
+          for (const pp of perPeriods) {
+            const dnum = parseInt(pp[0], 10), pnum = parseInt(pp[1], 10);
+            const st = parseInt(pp[3], 10), en = parseInt(pp[4], 10);
+            const span = (!isNaN(st) && !isNaN(en) && en > st) ? (en - st + 1) : 1;
+            if (isNaN(dnum) || dnum < 1 || dnum > numDays || isNaN(pnum) || pnum < 1) continue;
+            const dayKey = DAY_KEYS[dnum - 1];
+            for (let dp = 0; dp < span; dp++) electiveCells[dayKey + '#' + (pnum + dp)] = { label, real: realStr };
+          }
+          continue;
+        }
         if (!(subj.includes('総合的な探究') || /LHR|ロングホーム|ホームルーム/.test(subjHW))) continue;
         // メンバーのteacherId→homeroomクラス、クラスごとに担当教員をまとめる
         const clsTeas = {};
@@ -1700,6 +1726,27 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       for (const iid of Object.keys(items)) {
         const plc = placements[iid];
         if ((!plc || !plc.day) && sjSubjs.has(items[iid].subj)) { delete items[iid]; delete placements[iid]; }
+      }
+      // ── 自選ブロックのラベル付け（該当(曜日,時限)の「選択」相乗りコマをグループ名で上書き）──
+      // 受講クラスは特定できないが、自選ブロックの時限に置かれた「選択」は自選と判断できる。
+      // 具体的な科目名を持つコマ（通常授業）は誤ラベルを避けるため対象外とする。
+      if (Object.keys(electiveCells).length) {
+        let relabeled = 0;
+        for (const itemId in placements) {
+          const plc = placements[itemId]; if (!plc || !plc.day) continue;
+          const it = items[itemId]; if (!it) continue;
+          if (it.subj !== '選択') continue; // 曖昧な「選択」コマのみラベル付け
+          const span = it.span || 1;
+          let hit = null;
+          for (let dp = 0; dp < span && !hit; dp++) hit = electiveCells[plc.day + '#' + (plc.period + dp)] || null;
+          if (hit) {
+            if (hit.real) it.realSubj = hit.real; // 開講科目一覧で上書き
+            it.subj = hit.label; it.subjKey = hit.label;
+            if (!subjectCfg[hit.label]) subjectCfg[hit.label] = { abbr: hit.label, dept: '選択', fixedForbid: {}, noSameDay: false, noConsec: false, maxPerDay: null };
+            relabeled++;
+          }
+        }
+        _parseIdeaNativeIde._electiveRelabeled = relabeled;
       }
     }
 
