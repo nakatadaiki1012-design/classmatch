@@ -41,6 +41,12 @@
   .refbar .presets button{width:auto; padding:0 10px; height:34px; font-size:13px; font-weight:600}
   .refbar .presets button.on{background:var(--accent); border-color:var(--accent)}
 
+  /* Global instrument bar */
+  .instrbar{display:flex; align-items:center; gap:10px; justify-content:center;
+    background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:8px 12px; margin:0 0 14px}
+  .instrbar .lbl{font-size:12px; color:var(--muted); flex:0 0 auto}
+  .instrbar select{flex:1; background:var(--panel2); color:var(--text); border:1px solid var(--line); border-radius:10px; padding:8px 10px; font-size:14px}
+
   .tabs{display:flex; gap:6px; margin-bottom:14px}
   .tabs button{
     flex:1; padding:10px 2px; border-radius:12px; border:1px solid var(--line);
@@ -85,6 +91,7 @@
   .meter canvas{width:100%; height:100%}
   .cents{text-align:center; font-size:22px; font-weight:700}
   .cents.flat{color:var(--warn)} .cents.sharp{color:var(--warn)} .cents.ok{color:var(--good)}
+  .tuner-concert{text-align:center; color:var(--muted); font-size:13px; margin-top:2px; min-height:16px}
   .micbtn{width:100%; margin-top:10px; padding:16px; border-radius:16px; border:none; background:linear-gradient(180deg,var(--accent2),#22b79c); color:#05221c; font-size:18px; font-weight:800}
   .micbtn.on{background:linear-gradient(180deg,var(--bad),#e04f4f); color:#fff}
   .tuner-hint{color:var(--muted); font-size:12px; text-align:center; margin-top:10px; line-height:1.6}
@@ -199,6 +206,12 @@
     </span>
   </div>
 
+  <!-- Global instrument (applies to Tuner / Exercise / Cadence) -->
+  <div class="instrbar">
+    <span class="lbl">楽器</span>
+    <select id="globalInstrument"></select>
+  </div>
+
   <div class="tabs">
     <button data-tab="drone" class="on"><span class="ico">🎵</span>音出し</button>
     <button data-tab="tuner"><span class="ico">🎯</span>チューナー</button>
@@ -247,6 +260,7 @@
     <div class="card">
       <div class="tiphint"><span>🎯</span><span><b>今の音程を見る。</b>「マイクをオン」を押して楽器を吹くと、高い／低いが針でわかります。真ん中の緑でピッタリ。</span></div>
       <div class="tuner-note" id="tNote">♪</div>
+      <div class="tuner-concert" id="tConcert"></div>
       <div class="tuner-freq" id="tFreq">マイクをオンにしてください</div>
       <div class="meter"><canvas id="tCanvas"></canvas></div>
       <div class="cents" id="tCents">— cent</div>
@@ -285,12 +299,8 @@
       </div>
 
       <div id="harmCadenceView" style="display:none">
-        <div class="notesub" style="margin-bottom:8px">吹くパートを選んで再生。楽譜の音を順番に吹けばハモリになります。</div>
+        <div class="notesub" style="margin-bottom:8px">吹くパートを選んで再生。楽譜の音を順番に吹けばハモリになります。（楽器は画面上部で選べます）</div>
         <div class="partsel" id="cadParts"></div>
-        <div class="row" style="margin-top:12px">
-          <span class="lbl">楽器</span>
-          <select id="cadInstrument" style="flex:1"></select>
-        </div>
 
         <div class="exnow">
           <div class="exnow-note" id="cadNowNote">♪</div>
@@ -353,10 +363,6 @@
       <select id="exPreset" style="width:100%"></select>
 
       <div class="row" style="margin-top:12px">
-        <span class="lbl">楽器</span>
-        <select id="exInstrument" style="flex:1"></select>
-      </div>
-      <div class="row">
         <span class="lbl">音域</span>
         <div class="octctrl">
           <button id="exRegDown">−</button>
@@ -545,7 +551,7 @@ refreshDrone();
 
 /* ================= TUNER ================= */
 let micOn=false, micStream=null, analyser=null, rafTuner=0;
-const tNote=document.getElementById("tNote"), tFreq=document.getElementById("tFreq"), tCents=document.getElementById("tCents");
+const tNote=document.getElementById("tNote"), tFreq=document.getElementById("tFreq"), tCents=document.getElementById("tCents"), tConcert=document.getElementById("tConcert");
 const canvas=document.getElementById("tCanvas"); const cctx=canvas.getContext("2d");
 function fitCanvas(){ const r=canvas.getBoundingClientRect(); canvas.width=r.width*devicePixelRatio; canvas.height=r.height*devicePixelRatio; }
 window.addEventListener("resize", fitCanvas);
@@ -563,7 +569,7 @@ function stopMic(){
   micOn=false; if(rafTuner) cancelAnimationFrame(rafTuner);
   if(micStream){ micStream.getTracks().forEach(t=>t.stop()); micStream=null; }
   const b=document.getElementById("micBtn"); b.textContent="🎤 マイクをオン"; b.classList.remove("on");
-  tNote.textContent="♪"; tFreq.textContent="マイクをオンにしてください"; tCents.textContent="— cent"; tCents.className="cents";
+  tNote.textContent="♪"; tConcert.textContent=""; tFreq.textContent="マイクをオンにしてください"; tCents.textContent="— cent"; tCents.className="cents";
   drawMeter(null);
 }
 document.getElementById("micBtn").onclick=()=> micOn?stopMic():startMic();
@@ -592,7 +598,7 @@ function freqToNote(f){
   const midi = 69 + 12*Math.log2(f/state.a4);
   const rounded=Math.round(midi);
   const cents=Math.round((midi-rounded)*100);
-  return {pc:((rounded%12)+12)%12, oct:Math.floor(rounded/12)-1, cents};
+  return {midi:rounded, pc:((rounded%12)+12)%12, oct:Math.floor(rounded/12)-1, cents};
 }
 let smoothCents=0;
 function tunerLoop(){
@@ -600,9 +606,12 @@ function tunerLoop(){
   analyser.getFloatTimeDomainData(buf);
   const f=autoCorrelate(buf, ac().sampleRate);
   if(f>0){
-    const {pc,oct,cents}=freqToNote(f);
-    tNote.textContent=noteLabel(pc);
-    tFreq.textContent=`${f.toFixed(1)} Hz ・ ${noteLabel(pc)}${oct}`;
+    const {midi,pc,oct,cents}=freqToNote(f);
+    const shift=INSTRUMENTS[exState.instrument].shift;
+    const wm=midi+shift, wpc=((wm%12)+12)%12, woct=Math.floor(wm/12)-1;
+    tNote.textContent=noteLabel(wpc);                                  // 記譜音（楽譜上の音名）
+    tConcert.textContent = shift!==0 ? `実音: ${noteLabel(pc)}` : "";  // 実音を併記（移調楽器のみ）
+    tFreq.textContent=`${f.toFixed(1)} Hz ・ ${noteLabel(wpc)}${woct}`;
     smoothCents += (cents-smoothCents)*0.35;
     const cc=Math.round(smoothCents);
     tCents.textContent=(cc>0?"+":"")+cc+" cent";
@@ -799,14 +808,18 @@ function highlightStaffIn(svg, i){
 }
 function applyInstrument(key){
   exState.instrument=key; exState.reg=INSTRUMENTS[key].reg;
-  const es=document.getElementById("exInstrument"), cs=document.getElementById("cadInstrument");
-  if(es) es.value=key; if(cs) cs.value=key;
+  const gs=document.getElementById("globalInstrument"); if(gs) gs.value=key;
   const rv=document.getElementById("exRegVal"); if(rv) rv.textContent=(exState.reg>0?"+":"")+exState.reg+"oct";
   if(typeof buildStaff==="function"){ buildStaff(); highlightStaff(lastHighlightIndex); updateNowDisplay(lastHighlightIndex); }
   if(typeof buildCadStaff==="function"){ buildCadStaff(); updateCadNow(curCadStep); }
   if(exPlaying){ stopPattern(); setTimeout(playPattern,150); }
   if(cadPlaying){ stopCadence(); setTimeout(playCadence,150); }
 }
+/* Global instrument selector (top bar) */
+const globalInstrumentSel=document.getElementById("globalInstrument");
+globalInstrumentSel.innerHTML=Object.entries(INSTRUMENTS).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join("");
+globalInstrumentSel.value=exState.instrument;
+globalInstrumentSel.onchange=()=> applyInstrument(globalInstrumentSel.value);
 
 /* ---- Harmony mode switch (1つの和音 / 和音の進行 / 鍵盤で判定) ---- */
 document.querySelectorAll("#harmModeSel button").forEach(btn=>{
@@ -978,11 +991,6 @@ CAD_PARTS.forEach(p=>{
   cadPartsEl.appendChild(b);
 });
 function refreshCadParts(){ [...cadPartsEl.children].forEach(b=>b.classList.toggle("on", +b.dataset.idx===cadState.part)); }
-
-const cadInstrumentSel=document.getElementById("cadInstrument");
-cadInstrumentSel.innerHTML=Object.entries(INSTRUMENTS).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join("");
-cadInstrumentSel.value=exState.instrument;
-cadInstrumentSel.onchange=()=> applyInstrument(cadInstrumentSel.value);
 
 const cadKeySel=document.getElementById("cadKeySel");
 cadKeySel.innerHTML=NOTE_DISP.map((n,pc)=>`<option value="${pc}">${n}</option>`).join("");
@@ -1257,11 +1265,7 @@ exInput.value=EX_PRESETS.jbc.pat;
 exInput.oninput=()=>{ renderChips(); };
 exPreset.onchange=()=>{ exInput.value=EX_PRESETS[exPreset.value].pat; if(exPlaying) stopPattern(); renderChips(); };
 
-const exInstrumentSel=document.getElementById("exInstrument");
-exInstrumentSel.innerHTML=Object.entries(INSTRUMENTS).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join("");
-exInstrumentSel.value=exState.instrument;
 function updateRegLabel(){ document.getElementById("exRegVal").textContent=(exState.reg>0?"+":"")+exState.reg+"oct"; }
-exInstrumentSel.onchange=()=> applyInstrument(exInstrumentSel.value);
 document.getElementById("exRegUp").onclick=()=>{
   exState.reg=Math.min(3,exState.reg+1); updateRegLabel(); buildStaff(); highlightStaff(lastHighlightIndex); updateNowDisplay(lastHighlightIndex);
   if(typeof buildCadStaff==="function"){ buildCadStaff(); updateCadNow(curCadStep); }
