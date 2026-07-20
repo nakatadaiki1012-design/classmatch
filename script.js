@@ -1507,8 +1507,21 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       const teaAbbr = teacherNames.map(n => teacherAbbrByName[n] || n).join(',');
 
       const span = parseInt(meta.span || 1) || 1;
+      // weeklyCount は JUGYO の時限行数。2連続コマは 1セッションが2行で現れるため、
+      // 連続コマの先頭のみを数えた「実セッション数」でitemを生成する
+      // （そうしないと2連が2つの授業として重複生成され、片方が未配置で余る）。
+      let sessionCount = weeklyCount;
+      if (span >= 2 && meta.schedKeys && meta.schedKeys.size) {
+        sessionCount = 0;
+        for (const k of meta.schedKeys) {
+          const hash = k.lastIndexOf('#');
+          const d = k.slice(0, hash), pr = parseInt(k.slice(hash + 1), 10);
+          if (!meta.schedKeys.has(d + '#' + (pr - 1))) sessionCount++; // 連続の先頭のみ
+        }
+        if (sessionCount < 1) sessionCount = 1;
+      }
       jugyoItemIds[jid] = [];
-      for (let p = 0; p < weeklyCount; p++) {
+      for (let p = 0; p < sessionCount; p++) {
         const id = String(itemIdCounter++);
         jugyoItemIds[jid].push(id);
         items[id] = {
@@ -1530,7 +1543,7 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
         tea,
         teaAbbr,
         room: (jugyoRooms[jid] || []).join(','),
-        count: weeklyCount,
+        count: sessionCount,
         span,
       });
     }
