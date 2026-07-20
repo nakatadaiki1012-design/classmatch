@@ -87,7 +87,7 @@
   /* Tuner */
   .tuner-note{text-align:center; font-size:64px; font-weight:800; line-height:1}
   .tuner-freq{text-align:center; color:var(--muted); font-size:14px; margin-top:4px}
-  .meter{position:relative; height:120px; margin:18px 0 6px}
+  .meter{position:relative; height:172px; margin:14px 0 6px}
   .meter canvas{width:100%; height:100%}
   .cents{text-align:center; font-size:22px; font-weight:700}
   .cents.flat{color:var(--warn)} .cents.sharp{color:var(--warn)} .cents.ok{color:var(--good)}
@@ -266,8 +266,8 @@
       <div class="cents" id="tCents">— cent</div>
       <button class="micbtn" id="micBtn">🎤 マイクをオン</button>
       <div class="tuner-hint">
-        近くで一定の音を伸ばすと、音名と基準からのズレ（セント）を表示します。<br>
-        針が真ん中（緑）でピッタリ。左=低い / 右=高い。
+        針が真ん中（緑）でピッタリ。左=低い / 右=高い。<br>
+        <span style="color:#b98cff">長3</span>・<span style="color:#ff9e64">短3</span>の点線＝和音で純正律にハモる位置。下のグラフは直近3秒の音程のゆれです。
       </div>
     </div>
   </section>
@@ -562,7 +562,7 @@ async function startMic(){
   }catch(e){ tFreq.textContent="マイクを使用できません（許可が必要です）"; return; }
   const c=ac(); const src=c.createMediaStreamSource(micStream);
   analyser=c.createAnalyser(); analyser.fftSize=2048; src.connect(analyser);
-  micOn=true; const b=document.getElementById("micBtn"); b.textContent="■ マイクをオフ"; b.classList.add("on");
+  micOn=true; pitchHistory=[]; const b=document.getElementById("micBtn"); b.textContent="■ マイクをオフ"; b.classList.add("on");
   fitCanvas(); tunerLoop();
 }
 function stopMic(){
@@ -570,7 +570,7 @@ function stopMic(){
   if(micStream){ micStream.getTracks().forEach(t=>t.stop()); micStream=null; }
   const b=document.getElementById("micBtn"); b.textContent="🎤 マイクをオン"; b.classList.remove("on");
   tNote.textContent="♪"; tConcert.textContent=""; tFreq.textContent="マイクをオンにしてください"; tCents.textContent="— cent"; tCents.className="cents";
-  drawMeter(null);
+  pitchHistory=[]; drawMeter(null);
 }
 document.getElementById("micBtn").onclick=()=> micOn?stopMic():startMic();
 
@@ -601,10 +601,19 @@ function freqToNote(f){
   return {midi:rounded, pc:((rounded%12)+12)%12, oct:Math.floor(rounded/12)-1, cents};
 }
 let smoothCents=0;
+// 純正律の3度の位置（平均律=0からのセント差）
+const JI_MARKS=[{c:-13.69,col:"#b98cff",lab:"長3"},{c:15.64,col:"#ff9e64",lab:"短3"}];
+let pitchHistory=[]; // {t, cents|null} 直近約3秒
+function pushHistory(t,cents){
+  pitchHistory.push({t,cents});
+  const cutoff=t-3300;
+  while(pitchHistory.length && pitchHistory[0].t<cutoff) pitchHistory.shift();
+}
 function tunerLoop(){
   if(!micOn) return;
   analyser.getFloatTimeDomainData(buf);
   const f=autoCorrelate(buf, ac().sampleRate);
+  const now=performance.now();
   if(f>0){
     const {midi,pc,oct,cents}=freqToNote(f);
     const shift=INSTRUMENTS[exState.instrument].shift;
@@ -616,31 +625,70 @@ function tunerLoop(){
     const cc=Math.round(smoothCents);
     tCents.textContent=(cc>0?"+":"")+cc+" cent";
     tCents.className="cents "+(Math.abs(cc)<=5?"ok":(cc<0?"flat":"sharp"));
+    pushHistory(now, smoothCents);
     drawMeter(smoothCents);
+  } else {
+    pushHistory(now, null);
+    drawMeter(null);
   }
   rafTuner=requestAnimationFrame(tunerLoop);
 }
 function drawMeter(cents){
-  const w=canvas.width,h=canvas.height; cctx.clearRect(0,0,w,h);
-  const cx=w/2, mid=h*0.62;
-  // scale ticks -50..+50
-  cctx.strokeStyle="#2f3767"; cctx.lineWidth=2*devicePixelRatio;
+  const w=canvas.width,h=canvas.height,dpr=devicePixelRatio; cctx.clearRect(0,0,w,h);
+  const cx=w/2, half=w*0.42, scaleY=h*0.24;
+  const xFor=(c)=> cx + (Math.max(-50,Math.min(50,c))/50)*half;
+
+  // --- 上段：目盛り ---
+  cctx.lineWidth=2*dpr;
   for(let c=-50;c<=50;c+=10){
-    const x=cx + (c/50)*(w*0.42);
-    const big=(c===0);
-    cctx.beginPath(); cctx.moveTo(x,mid-(big?26:16)*devicePixelRatio); cctx.lineTo(x,mid+(big?26:16)*devicePixelRatio);
+    const x=cx+(c/50)*half, big=(c===0);
+    cctx.beginPath(); cctx.moveTo(x,scaleY-(big?20:12)*dpr); cctx.lineTo(x,scaleY+(big?20:12)*dpr);
     cctx.strokeStyle=big?"#3ad686":"#2f3767"; cctx.stroke();
   }
-  // green center zone
+  // 中央（ぴったり）ゾーン
   cctx.fillStyle="rgba(58,214,134,.12)";
-  cctx.fillRect(cx-(5/50)*(w*0.42), mid-30*devicePixelRatio, (10/50)*(w*0.42), 60*devicePixelRatio);
-  if(cents===null) return;
-  const cc=Math.max(-50,Math.min(50,cents));
-  const x=cx + (cc/50)*(w*0.42);
+  cctx.fillRect(xFor(-5),scaleY-22*dpr,(xFor(5)-xFor(-5)),44*dpr);
+
+  // --- 純正律3度マーカー（点線・目盛り上） ---
+  cctx.font=`${11*dpr}px sans-serif`; cctx.textAlign="center";
+  JI_MARKS.forEach(m=>{
+    const x=xFor(m.c);
+    cctx.setLineDash([3*dpr,3*dpr]); cctx.lineWidth=2*dpr; cctx.strokeStyle=m.col;
+    cctx.beginPath(); cctx.moveTo(x,scaleY-20*dpr); cctx.lineTo(x,scaleY+22*dpr); cctx.stroke();
+    cctx.setLineDash([]);
+    cctx.fillStyle=m.col; cctx.fillText(m.lab, x, scaleY-26*dpr);
+  });
+
+  // --- 下段：ピッチヒストリー ---
+  const histTop=h*0.50, histBot=h*0.96, histMid=(histTop+histBot)/2, histHalf=(histBot-histTop)/2;
+  const yFor=(c)=> histMid - (Math.max(-50,Math.min(50,c))/50)*histHalf;
+  const leftX=6*dpr, rightX=w-6*dpr;
+  // 参照線（0・純正3度）
+  cctx.lineWidth=1*dpr; cctx.setLineDash([2*dpr,3*dpr]);
+  cctx.strokeStyle="rgba(58,214,134,.55)";
+  cctx.beginPath(); cctx.moveTo(leftX,yFor(0)); cctx.lineTo(rightX,yFor(0)); cctx.stroke();
+  JI_MARKS.forEach(m=>{ cctx.strokeStyle=m.col; cctx.globalAlpha=.55;
+    cctx.beginPath(); cctx.moveTo(leftX,yFor(m.c)); cctx.lineTo(rightX,yFor(m.c)); cctx.stroke(); cctx.globalAlpha=1; });
+  cctx.setLineDash([]);
+  // 折れ線（右＝今、左＝約3秒前）
+  const span=3000, nowT=performance.now();
+  cctx.lineWidth=2.5*dpr; cctx.strokeStyle="#7db8ff"; cctx.lineJoin="round";
+  cctx.beginPath(); let started=false;
+  for(const pt of pitchHistory){
+    if(pt.cents==null){ started=false; continue; }
+    const age=nowT-pt.t; if(age>span) continue;
+    const x=rightX-(age/span)*(rightX-leftX), y=yFor(pt.cents);
+    if(!started){ cctx.moveTo(x,y); started=true; } else cctx.lineTo(x,y);
+  }
+  cctx.stroke();
+
+  // --- 針（上段） ---
+  if(cents==null) return;
+  const cc=Math.max(-50,Math.min(50,cents)), x=xFor(cc);
   const col=Math.abs(cc)<=5?"#3ad686":"#ffd24a";
-  cctx.strokeStyle=col; cctx.lineWidth=4*devicePixelRatio;
-  cctx.beginPath(); cctx.moveTo(x,mid-40*devicePixelRatio); cctx.lineTo(x,mid+34*devicePixelRatio); cctx.stroke();
-  cctx.fillStyle=col; cctx.beginPath(); cctx.arc(x,mid-44*devicePixelRatio,6*devicePixelRatio,0,7); cctx.fill();
+  cctx.strokeStyle=col; cctx.lineWidth=4*dpr;
+  cctx.beginPath(); cctx.moveTo(x,scaleY-30*dpr); cctx.lineTo(x,scaleY+26*dpr); cctx.stroke();
+  cctx.fillStyle=col; cctx.beginPath(); cctx.arc(x,scaleY-34*dpr,5*dpr,0,7); cctx.fill();
 }
 
 /* ================= HARMONY (just intonation) ================= */
