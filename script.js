@@ -768,9 +768,55 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
     return { items: newItems, placements: newPlacements, rawRows, dayKeys, periods, report };
   }
 
+  // 現在の全配置から返却対象になりうる科目一覧を取得（自動除外を除く）
+  function _trGatherSubjects() {
+    const auto = new Set(['選択', '総合的な探究の時間', '総合的な探究', 'ＬＨＲ', 'LHR', '参観']);
+    const cnt = {};
+    for (const id in state.placements) {
+      const plc = state.placements[id]; if (!plc || !plc.day) continue;
+      const it = state.items[id]; if (!it) continue;
+      const s = it.subjKey || it.subj; if (!s || auto.has(s)) continue;
+      cnt[s] = (cnt[s] || 0) + 1;
+    }
+    return Object.keys(cnt).sort((a, b) => a.localeCompare(b, 'ja')).map(s => ({ subj: s, count: cnt[s] }));
+  }
+  // テスト返却案のスナップショット保存/復元（別案の保存・比較用）
+  function _trSnapshot(label) {
+    state.trSaved = state.trSaved || [];
+    state.trSaved.push({
+      id: 'trs_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+      label: label || ('案 ' + (state.trSaved.length + 1)),
+      ts: Date.now(),
+      snap: deepClone({
+        items: state.items, placements: state.placements, rawRows: state.rawRows,
+        periodsByDay: state.settings.periodsByDay,
+      }),
+    });
+    // 保存数の上限（メモリ肥大防止）。trSaved はセッション内メモリのみ（localStorage容量超過回避）
+    if (state.trSaved.length > 12) state.trSaved.splice(0, state.trSaved.length - 12);
+  }
+  function _trRestore(sid) {
+    const e = (state.trSaved || []).find(x => x.id === sid); if (!e) return false;
+    pushHistory('trRestore');
+    const s = deepClone(e.snap);
+    state.items = normalizeItems(s.items || {});
+    state.placements = s.placements || {};
+    state.rawRows = Array.isArray(s.rawRows) ? s.rawRows : [];
+    if (s.periodsByDay) Object.assign(state.settings.periodsByDay, s.periodsByDay);
+    invalidateIndex(); markDirty('trRestore'); rerenderAll();
+    flash(`🔄 「${e.label}」に切替えました`);
+    return true;
+  }
+
   function applyTestReturnTimetable(opts) {
     if (!Object.keys(state.placements || {}).some(id => state.placements[id] && state.placements[id].day)) {
       flash('先に通常の時間割を読み込んでください'); return;
+    }
+    // 初回生成時、元のフル時間割を案として自動保存（比較・復帰用）
+    state.trSaved = state.trSaved || [];
+    if (!state.trSaved.some(e => e.origin)) {
+      _trSnapshot('元のフル時間割');
+      state.trSaved[state.trSaved.length - 1].origin = true;
     }
     const plan = generateTestReturnPlan(opts);
     pushHistory('testReturn');
@@ -783,27 +829,76 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
     markDirty('testReturn');
     rerenderAll();
     const r = plan.report;
+    const exCnt = (opts && Array.isArray(opts.excludeSubjects)) ? opts.excludeSubjects.length : 0;
+    // 生成結果を案として保存（別案比較用）
+    _trSnapshot(`返却案 ${plan.dayKeys.length}日×${plan.periods}限${exCnt ? `・除外${exCnt}科目` : ''}`);
     flash(`🗓️ テスト返却時間割を生成（${r.classes}クラス・配置${r.placed}・埋め${r.filled}${r.unplaced ? `・未配置${r.unplaced}` : ''}）`, 4500);
   }
 
   function openTestReturnDialog() {
+    const subjects = _trGatherSubjects();
+    // 科目選択チェックリスト（既定は全選択・単位数の多い順ヒント付き）
+    const subjChecks = subjects.length
+      ? subjects.map(s => `<label class="tr-subj-chk"><input type="checkbox" class="tr-subj" value="${escapeAttr(s.subj)}" checked> ${escapeHtml(s.subj)} <span class="muted small">×${s.count}</span></label>`).join('')
+      : '<div class="muted small">配置済みの科目がありません（先にフル時間割を読み込んでください）</div>';
+    const saved = state.trSaved || [];
+    const savedHTML = saved.length
+      ? saved.slice().reverse().map(e => `<div class="tr-saved-row" data-sid="${e.id}">
+          <span class="tr-saved-label">${e.origin ? '⭐ ' : ''}${escapeHtml(e.label)}</span>
+          <span class="muted small">${new Date(e.ts).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}</span>
+          <button class="sec tr-switch" data-sid="${e.id}">切替</button>
+          ${e.origin ? '' : `<button class="danger tr-del" data-sid="${e.id}">✕</button>`}
+        </div>`).join('')
+      : '<div class="muted small">まだ保存された案はありません。生成すると自動で案として保存されます。</div>';
     const html =
-      `<div style="line-height:1.8">
+      `<div style="line-height:1.7">
         <div>現在のフル時間割から各クラスの科目を1回ずつ配置した<strong>テスト返却用の特別時間割</strong>を生成します。</div>
         <div style="margin-top:10px;display:flex;gap:18px;flex-wrap:wrap;align-items:center">
           <label>日数 <input id="tr-days" type="number" min="1" max="5" value="3" style="width:56px"></label>
           <label>1日の時限 <input id="tr-periods" type="number" min="1" max="8" value="6" style="width:56px"></label>
         </div>
-        <div style="margin-top:8px" class="muted small">全科目を1回ずつ配置後、余り枠は<strong>元の単位数が多い授業をもう一度</strong>入れて埋めます（教員の重複・禁制時間は自動回避）。それでも余れば体育(2連)/芸術/LHRで補います。</div>
-        <div style="margin-top:8px;color:#b45309">※ 現在の時間割は上書きされます（元に戻すには Ctrl+Z / プロジェクト再読込）。</div>
+        <details class="tr-section" ${subjects.length ? '' : 'open'}>
+          <summary><strong>📋 返却科目の選択</strong> <span class="muted small">（チェックを外すと返却対象から除外）</span></summary>
+          <div class="tr-subj-toolbar">
+            <button type="button" class="sec" id="tr-all">全選択</button>
+            <button type="button" class="sec" id="tr-none">全解除</button>
+          </div>
+          <div class="tr-subj-list">${subjChecks}</div>
+        </details>
+        <details class="tr-section">
+          <summary><strong>💾 保存済みの案（別案の比較）</strong></summary>
+          <div class="tr-saved-list">${savedHTML}</div>
+        </details>
+        <div style="margin-top:8px" class="muted small">全（選択）科目を1回ずつ配置後、余り枠は<strong>元の単位数が多い授業をもう一度</strong>入れて埋めます（教員の重複・禁制時間は自動回避）。それでも余れば体育(2連)/芸術/LHRで補います。</div>
+        <div style="margin-top:6px;color:#b45309">※ 生成のたびに案として自動保存されます。元に戻すには上の「切替」または Ctrl+Z。</div>
       </div>`;
     let days = 3, periods = 6;
     showModalHTML('🗓️ テスト返却 特別時間割の生成', html, () => {
-      try { applyTestReturnTimetable({ days, periods }); } catch (e) { console.error(e); flash('生成でエラー: ' + (e && e.message)); }
+      const excludeSubjects = subjects
+        .filter(s => { const el = document.querySelector(`.tr-subj[value="${CSS.escape(s.subj)}"]`); return el && !el.checked; })
+        .map(s => s.subj);
+      try { applyTestReturnTimetable({ days, periods, excludeSubjects }); } catch (e) { console.error(e); flash('生成でエラー: ' + (e && e.message)); }
     }, '生成する', 'キャンセル', () => {
       const dEl = document.getElementById('tr-days'), pEl = document.getElementById('tr-periods');
       if (dEl) dEl.addEventListener('input', () => { days = clampInt(dEl.value, 1, 5, 3); });
       if (pEl) pEl.addEventListener('input', () => { periods = clampInt(pEl.value, 1, 8, 6); });
+      const setAll = (v) => document.querySelectorAll('.tr-subj').forEach(c => { c.checked = v; });
+      document.getElementById('tr-all')?.addEventListener('click', () => setAll(true));
+      document.getElementById('tr-none')?.addEventListener('click', () => setAll(false));
+      // 保存案の切替・削除
+      const modal = document.getElementById('modal');
+      modal.querySelectorAll('.tr-switch').forEach(b => b.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        const sid = b.dataset.sid;
+        document.getElementById('modal-cancel')?.click(); // モーダルを閉じてから復元
+        setTimeout(() => _trRestore(sid), 30);
+      }));
+      modal.querySelectorAll('.tr-del').forEach(b => b.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        const sid = b.dataset.sid;
+        state.trSaved = (state.trSaved || []).filter(e => e.id !== sid);
+        const row = b.closest('.tr-saved-row'); if (row) row.remove();
+      }));
     });
   }
 
@@ -1517,6 +1612,7 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
           // 授業本来のスケジュールに無い(曜日,時限)は「選択」の相乗り参照。
           // 代表科目名を出すと誤解を招くため「選択」と表示する（特に3年の自由選択）。
           if (schedKeys && schedKeys.size && !schedKeys.has(r.day + '#' + r.period)) {
+            it.realSubj = it.subj; // 実科目名を保持（クリックで表示）
             it.subj = '選択'; it.subjKey = '選択';
           }
         }
@@ -1629,6 +1725,19 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       const subCount = Object.keys(parsed.subjectCfg).length;
       const hasTeacherAssign = Object.values(parsed.items).some(it => it.teas && it.teas.length > 0);
       const placedCount = parsed.placedCount || 0;
+      // ── インポート品質レポート（未設定検出）──
+      const _isNoRoomSubj = (s) => /総合的な探究|LHR|ロングホーム|ホームルーム/.test((s || '').replace(/[Ａ-Ｚａ-ｚ]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)));
+      let noRoomCnt = 0, noTeaCnt = 0;
+      for (const it of Object.values(parsed.items)) {
+        const hasRoom = it.rooms && it.rooms.length > 0;
+        const hasTea = it.teas && it.teas.length > 0;
+        if (!hasRoom && !_isNoRoomSubj(it.subj)) noRoomCnt++;
+        if (!hasTea && !_isNoRoomSubj(it.subj)) noTeaCnt++;
+      }
+      const qualityNote =
+        `  ── 品質チェック ──\n` +
+        `  ${noRoomCnt === 0 ? '✓' : '⚠'} 教室未設定: ${noRoomCnt}コマ${noRoomCnt ? '（総合/LHRを除く）' : ''}\n` +
+        `  ${noTeaCnt === 0 ? '✓' : '⚠'} 教員未設定: ${noTeaCnt}コマ${noTeaCnt ? '（総合/LHRを除く）' : ''}`;
       const teaNote = hasTeacherAssign
         ? `  ✓ J-Teachセクションから教員割当を読み込みました。`
         : `  ※ このファイルに教員割当データがないため、教員は未設定です。`;
@@ -1647,7 +1756,7 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
         `<div style="white-space:pre-wrap;line-height:1.6">` +
         escapeHtml(`イデアのAI時間割ファイル「${file.name}」を読み込みます。\n\n` +
           `  教員: ${teaCount}名　教科: ${subCount}科目　授業コマ: ${clsCount}コマ\n` +
-          `${teaNote}\n${placeNote}\n\n現在の作業内容はすべて上書きされます。`) +
+          `${teaNote}\n${placeNote}\n\n${qualityNote}\n\n現在の作業内容はすべて上書きされます。`) +
         `</div>` + lockOpt,
         () => {
           pushHistory('ideaImport');
@@ -3812,6 +3921,9 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       const color = (state.subjectCfg[subjKey]?.color) || (subjKey ? pickColor(subjKey) : '#fff');
       tr.style.background = subjKey ? hexWithAlpha(color, 0.10) : '';
       tr.draggable = !isSorted;
+      // 教室未設定の警告（総合/LHR等の教室不要科目は除外）
+      const _noRoomOk = /総合的な探究|LHR|ロングホーム|ホームルーム/.test((subjKey || '').replace(/[Ａ-Ｚａ-ｚ]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)));
+      const roomWarn = subjKey && !(r.room || '').trim() && !_noRoomOk;
       tr.innerHTML = `
       <td class="drag-handle" title="${isSorted ? '並替中はドラッグ不可' : 'ドラッグして並び替え'}" style="${isSorted ? 'color:#cbd5e1;cursor:default' : ''}">${isSorted ? '—' : '⠿'}</td>
       <td>
@@ -3826,7 +3938,7 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       <td><input type="text" value="${escapeAttr(r.dept || '')}" placeholder="教科" /></td>
       <td><input type="text" value="${escapeAttr(r.tea || '')}" list="dl-teachers" /></td>
       <td><input type="text" value="${escapeAttr(r.teaAbbr || '')}" placeholder="略" /></td>
-      <td><input type="text" value="${escapeAttr(r.room || '')}" placeholder="例: 1-1,オーラル教室" /></td>
+      <td class="${roomWarn ? 'cell-room-warn' : ''}" title="${roomWarn ? '教室が未設定です' : ''}"><input type="text" value="${escapeAttr(r.room || '')}" placeholder="例: 1-1,オーラル教室" /></td>
       <td><input type="number" min="1" max="30" value="${escapeAttr(r.count || 1)}" /></td>
       <td><input type="checkbox" ${r.dbl ? 'checked' : ''} /></td>
       <td><input type="checkbox" ${r.parallel ? 'checked' : ''} title="並列：同一先生が複数クラスに同時展開" /></td>
@@ -6490,7 +6602,7 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
 
     box.innerHTML = `
     <div class="prop-grid">
-      <label>科目</label><div><strong>${escapeHtml(it.subj)}</strong> <span class="muted small">(${escapeHtml(scfg.dept || '')})</span></div>
+      <label>科目</label><div><strong>${escapeHtml(it.subj)}</strong> <span class="muted small">(${escapeHtml(scfg.dept || '')})</span>${it.realSubj ? ` <span class="real-subj-tag" title="選択講座の実科目">実: ${escapeHtml(it.realSubj)}</span>` : ''}</div>
       <label>クラス</label><div>${escapeHtml(it.cls.join(', '))}</div>
       <label>教員</label><div>${escapeHtml(it.teas.join(', '))}</div>
       <label>教室</label><div>${escapeHtml(it.rooms.join(', '))}</div>
