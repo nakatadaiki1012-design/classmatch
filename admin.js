@@ -516,25 +516,19 @@
 
     // ── 設定パネル ────────────────────────────────────────────
     const panel = document.createElement("div");
-    panel.style.cssText = `display:flex;gap:8px;flex-wrap:wrap;align-items:center;
-      padding:8px 12px;margin-bottom:10px;
-      background:var(--surface2);border:1.5px solid var(--border2);
-      border-radius:var(--radius);font-size:12px;`;
+    panel.className = "tblSettingsPanel";
     panel.innerHTML = `
-      <b style="color:var(--navy);white-space:nowrap;">📋 表の設定</b>
-      <label style="display:flex;gap:4px;align-items:center;color:var(--muted);">
-        文字&nbsp;<input type="range" id="tblFont" min="11" max="18" value="${tblFont}" style="width:72px;accent-color:var(--blue);padding:0;border:none;"/>
+      <b>📋 表の設定</b>
+      <label>文字&nbsp;<input type="range" id="tblFont" min="11" max="18" value="${tblFont}" style="width:72px;"/>
         <span id="tblFontV" style="min-width:18px;">${tblFont}</span>
       </label>
-      <label style="display:flex;gap:3px;align-items:center;color:var(--muted);">
-        <input type="checkbox" id="tblCompact" ${compact ? "checked" : ""}/>&nbsp;コンパクト
-      </label>
-      <span style="color:var(--border2)">｜</span>
-      <label style="display:flex;gap:3px;align-items:center;color:var(--muted);"><input type="checkbox" id="tblShowTime"   ${showTime ? "checked" : ""}/>&nbsp;時刻</label>
-      <label style="display:flex;gap:3px;align-items:center;color:var(--muted);"><input type="checkbox" id="tblShowCourt"  ${showCourt ? "checked" : ""}/>&nbsp;コート</label>
-      <label style="display:flex;gap:3px;align-items:center;color:var(--muted);"><input type="checkbox" id="tblShowMID"    ${showMID ? "checked" : ""}/>&nbsp;試合番号</label>
-      <label style="display:flex;gap:3px;align-items:center;color:var(--muted);"><input type="checkbox" id="tblShowScore"  ${showScore ? "checked" : ""}/>&nbsp;スコア</label>
-      <label style="display:flex;gap:3px;align-items:center;color:var(--muted);"><input type="checkbox" id="tblShowStatus" ${showStatus ? "checked" : ""}/>&nbsp;状態</label>
+      <label><input type="checkbox" id="tblCompact" ${compact ? "checked" : ""}/>&nbsp;コンパクト</label>
+      <span class="sep">｜</span>
+      <label><input type="checkbox" id="tblShowTime"   ${showTime ? "checked" : ""}/>&nbsp;時刻</label>
+      <label><input type="checkbox" id="tblShowCourt"  ${showCourt ? "checked" : ""}/>&nbsp;コート</label>
+      <label><input type="checkbox" id="tblShowMID"    ${showMID ? "checked" : ""}/>&nbsp;試合番号</label>
+      <label><input type="checkbox" id="tblShowScore"  ${showScore ? "checked" : ""}/>&nbsp;スコア</label>
+      <label><input type="checkbox" id="tblShowStatus" ${showStatus ? "checked" : ""}/>&nbsp;状態</label>
     `;
     box.appendChild(panel);
 
@@ -568,17 +562,16 @@
       return ta < tb ? -1 : ta > tb ? 1 : (a.court || "").localeCompare(b.court || "");
     });
 
-    const rowPad = compact ? "3px 10px" : "7px 12px";
     const heads = [];
-    if (showTime) heads.push("<th>Time</th>");
-    if (showCourt) heads.push("<th>Court</th>");
-    if (showMID) heads.push("<th>Match</th>");
+    if (showTime) heads.push("<th>時刻</th>");
+    if (showCourt) heads.push("<th>コート</th>");
+    if (showMID) heads.push("<th>試合</th>");
     heads.push("<th>対戦</th>");
     if (showScore) heads.push("<th>スコア</th>");
     if (showStatus) heads.push("<th>状態</th>");
 
     const tbl = document.createElement("table");
-    tbl.className = "tbl";
+    tbl.className = "tbl" + (compact ? " compact" : "");
     tbl.style.fontSize = tblFont + "px";
     tbl.innerHTML = `<thead><tr>${heads.join("")}</tr></thead>`;
 
@@ -595,21 +588,21 @@
       const bHtml = fin ? (isBWin ? `<span class="team-win">○ ${B}</span>` : `<span class="team-lose">× ${B}</span>`) : B;
 
       const row = [];
-      if (showTime) row.push(`<td class="mono" style="padding:${rowPad}">${fmtTime(m.scheduledStart) || "--:--"}</td>`);
-      if (showCourt) row.push(`<td style="padding:${rowPad}"><span class="badge">${escapeHtml(m.court || "A")}</span></td>`);
-      if (showMID) row.push(`<td class="mono" style="padding:${rowPad}">${m.matchNum ? `<span style="font-size:10px;color:var(--muted);display:block;">第${m.matchNum}試合</span>` : ""}${m.isLoserMatch ? "裏" : ""}R${m.round}-${m.slot + 1}</td>`);
-      row.push(`<td style="padding:${rowPad}">${aHtml} <span class="small">vs</span> ${bHtml}</td>`);
-      if (showScore) row.push(`<td class="mono" style="padding:${rowPad};text-align:center;">${(m.scoreA != null && m.scoreB != null) ? `<b>${m.scoreA}</b>-<b>${m.scoreB}</b>` : "—"}</td>`);
+      if (showTime) row.push(`<td class="mono">${fmtTime(m.scheduledStart) || "--:--"}</td>`);
+      if (showCourt) row.push(`<td><span class="badge">${escapeHtml(m.court || "A")}</span></td>`);
+      if (showMID) row.push(`<td class="mono">${m.matchNum ? `<span class="matchNumTag">第${m.matchNum}試合</span>` : ""}${m.isLoserMatch ? "裏" : ""}R${m.round}-${m.slot + 1}</td>`);
+      row.push(`<td>${aHtml} <span class="small">vs</span> ${bHtml}</td>`);
+      if (showScore) row.push(`<td class="mono scoreCell">${(m.scoreA != null && m.scoreB != null) ? `<b>${m.scoreA}</b>-<b>${m.scoreB}</b>` : "—"}</td>`);
       if (showStatus) {
         let statusHtml = '';
         if (fin) statusHtml = `<span class='statusBadge final'>✓ 確定</span>`;
         else if (m.state === 'calling') statusHtml = `<span class='statusBadge calling'>📢 招集中</span>`;
         else if (m.state === 'playing') statusHtml = `<span class='statusBadge playing'>🏃 試合中</span>`;
         else statusHtml = `<span class='statusBadge waiting'>⏳ 待機</span>`;
-        row.push(`<td style="padding:${rowPad}">${statusHtml}</td>`);
+        row.push(`<td>${statusHtml}</td>`);
       }
       tr.innerHTML = row.join("");
-      if (fin) tr.style.background = "rgba(22,163,74,.04)";
+      if (fin) tr.classList.add("final-row");
       tb.appendChild(tr);
     }
     tbl.appendChild(tb);
@@ -704,18 +697,19 @@
     if (textEl) textEl.textContent = `(${pct}%)`;
 
     if (delayEl) {
+      delayEl.className = "badge delayBadge";
       if (completed === total && total > 0) {
         delayEl.textContent = "🏆 全日程終了";
-        delayEl.style.cssText = "background:#cbd5e1;color:#334155;border-color:#94a3b8;";
+        delayEl.classList.add("done");
       } else if (maxDelayMins > 15) {
         delayEl.textContent = `⚠ 約${maxDelayMins}分遅れ`;
-        delayEl.style.cssText = "background:#fee2e2;color:#dc2626;border-color:#fca5a5;";
+        delayEl.classList.add("late");
       } else if (maxDelayMins > 0) {
         delayEl.textContent = `約${maxDelayMins}分遅れ`;
-        delayEl.style.cssText = "background:#fef3c7;color:#d97706;border-color:#fde68a;";
+        delayEl.classList.add("warn");
       } else {
         delayEl.textContent = "✅ 順調";
-        delayEl.style.cssText = "background:#dcfce7;color:#16a34a;border-color:#86efac;";
+        delayEl.classList.add("ok");
       }
     }
   }
@@ -1768,10 +1762,10 @@
     area.innerHTML = "";
     if (!state.events.length) {
       area.innerHTML = `
-        <div style="text-align:center; padding:32px 16px; color:var(--muted); background:var(--surface2); border-radius:var(--radius); border:2px dashed var(--border);">
-          <div style="font-size:32px; margin-bottom:8px;">⚡</div>
-          <div style="font-weight:700; font-size:15px; color:var(--navy); margin-bottom:4px;">ブラケットがまだありません</div>
-          <div style="font-size:13px;">上の① ② ③ を入力して「⚡ ブラケット生成」を押してください</div>
+        <div class="emptyState">
+          <div class="emptyIcon">⚡</div>
+          <div class="emptyTitle">ブラケットがまだありません</div>
+          <div class="emptyDesc">上の① ② ③ を入力して「⚡ ブラケット生成」を押してください</div>
         </div>`;
       if (hint) hint.textContent = "";
       return;
@@ -1802,10 +1796,10 @@
         <div class="evName">${escapeHtml(e.sportName)} <span class="genderBadge ${gClass}">${gLabel}</span>${statusBadge}</div>
         <div class="evId">${doneM}/${totalM} 試合</div>
         ${progressBar}
-        <div style="margin-top:8px; display:flex; gap:4px;">
-          <button class="btnView primary" style="flex:1;">開く</button>
-          <button class="btnSettings ghost" style="padding:4px 8px;" title="設定">⚙</button>
-          <button class="btnDelete ghost" style="padding:4px 8px; color:var(--danger); border-color:var(--danger-bg);" title="削除">🗑</button>
+        <div class="eventCardActions">
+          <button class="btnView primary">開く</button>
+          <button class="btnSettings ghost" title="設定">⚙</button>
+          <button class="btnDelete ghost danger" title="削除">🗑</button>
         </div>
       `;
       card.querySelector(".btnView").onclick = () => openEvent(e.id);
@@ -2811,7 +2805,7 @@
       svg.insertBefore(p, svg.firstChild);
     };
 
-    // ── ラウンドラベル ────────────────────────────────────────
+    // ── ラウンドラベル（視認性のため薄い背景ピルを敷く）──────────────
     for (let r = 1; r <= rounds; r++) {
       let minX = svgW;
       const matchesInR = matches.filter(m => m.round === r);
@@ -2821,15 +2815,34 @@
       });
       if (minX === svgW) minX = 4;
 
+      const diff = rounds - r;
+      const labelTxt = diff === 0 ? "決勝" : diff === 1 ? "準決勝" : diff === 2 ? "準々決勝" : `${r}回戦`;
+      const isFinalLabel = diff === 0;
+      const labelH = 18;
+      const labelW2 = labelTxt.length * 12 + 14;
+      const labelY = yRound[r] - labelH - 4;
+
+      // 背景ピル
+      const pill = document.createElementNS(ns, "rect");
+      pill.setAttribute("x", minX);
+      pill.setAttribute("y", labelY);
+      pill.setAttribute("width", labelW2);
+      pill.setAttribute("height", labelH);
+      pill.setAttribute("rx", labelH / 2);
+      pill.setAttribute("fill", isFinalLabel ? "#fef3c7" : "#eef2f7");
+      pill.setAttribute("stroke", isFinalLabel ? "#fcd34d" : "#e2e8f0");
+      svg.appendChild(pill);
+
       const t = document.createElementNS(ns, "text");
-      t.setAttribute("x", minX + 2);
-      t.setAttribute("y", yRound[r] - 6);
+      t.setAttribute("x", minX + labelW2 / 2);
+      t.setAttribute("y", labelY + labelH / 2 + 1);
+      t.setAttribute("text-anchor", "middle");
+      t.setAttribute("dominant-baseline", "middle");
       t.setAttribute("class", "roundLabel");
       t.setAttribute("font-size", "12");
-      t.setAttribute("fill", "#64748b");
-      t.setAttribute("font-weight", "700");
-      const diff = rounds - r;
-      t.textContent = diff === 0 ? "決勝" : diff === 1 ? "準決勝" : diff === 2 ? "準々決勝" : `Round ${r}`;
+      t.setAttribute("fill", isFinalLabel ? "#b45309" : "#475569");
+      t.setAttribute("font-weight", "800");
+      t.textContent = labelTxt;
       svg.appendChild(t);
     }
 
@@ -3730,8 +3743,8 @@
       if (el("btnEditLoserMatchups")) el("btnEditLoserMatchups").classList.remove("hidden");
 
       const lbl = document.createElement("div");
-      lbl.innerHTML = `<span style="font-size:11px;color:#7c3aed;font-weight:700;letter-spacing:.3px;text-transform:uppercase;">▊ 裏トーナメント</span>`;
-      lbl.style.cssText = "margin: 28px 0 10px; padding: 10px 12px; background:linear-gradient(90deg,#f5f3ff,#ede9fe); border-left:4px solid #7c3aed; border-radius:0 8px 8px 0;";
+      lbl.className = "sectionLabel loser";
+      lbl.textContent = "▊ 裏トーナメント";
       bracket.appendChild(lbl);
 
       // 裏トーナメント用UI（別設定有効時は loserBracketUI を利用）
@@ -3753,22 +3766,21 @@
     // エキシビション試合を別セクションで表示
     if (exhibitionMatches.length > 0) {
       const exLbl = document.createElement("div");
-      exLbl.innerHTML = `<span style="font-size:11px;color:#d97706;font-weight:700;letter-spacing:.3px;">▊ エキシビション</span>`;
-      exLbl.style.cssText = "margin: 28px 0 10px; padding: 10px 12px; background:linear-gradient(90deg,#fffbeb,#fef3c7); border-left:4px solid #d97706; border-radius:0 8px 8px 0;";
+      exLbl.className = "sectionLabel exhibition";
+      exLbl.textContent = "▊ エキシビション";
       bracket.appendChild(exLbl);
       exhibitionMatches.forEach(m => {
         const card = document.createElement("div");
-        card.style.cssText = "display:inline-flex;align-items:center;gap:12px;background:#fff;border:1.5px solid #fde68a;border-radius:8px;padding:8px 14px;margin:4px 0;";
-        const stateColor = m.state === "final" ? "#16a34a" : m.state === "playing" ? "#ef4444" : "#94a3b8";
+        card.className = "exhibitionCard";
+        const stateCls = m.state === "final" ? "final" : m.state === "playing" ? "playing" : "waiting";
         const stateLabel = m.state === "final" ? "終了" : m.state === "playing" ? "試合中" : "待機";
         card.innerHTML = `
-          <span style="font-weight:700;font-size:14px;">${escapeHtml(m.teamA || '—')}</span>
-          <span style="color:#94a3b8;font-size:12px;">${m.scoreA ?? ''} - ${m.scoreB ?? ''}</span>
-          <span style="font-weight:700;font-size:14px;">${escapeHtml(m.teamB || '—')}</span>
-          <span style="font-size:11px;color:${stateColor};border:1px solid ${stateColor};border-radius:999px;padding:1px 7px;">${stateLabel}</span>
-          <span style="font-size:11px;color:var(--muted);">${m.court || ''}</span>
+          <span class="exTeam">${escapeHtml(m.teamA || '—')}</span>
+          <span class="exScore">${m.scoreA ?? ''} - ${m.scoreB ?? ''}</span>
+          <span class="exTeam">${escapeHtml(m.teamB || '—')}</span>
+          <span class="statusBadge ${stateCls}">${stateLabel}</span>
+          <span class="small">${m.court || ''}</span>
         `;
-        card.style.cursor = "pointer";
         card.onclick = () => openResultModal(matchKey(m));
         bracket.appendChild(card);
       });

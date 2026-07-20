@@ -80,6 +80,8 @@ button.ghost {
   border-color: var(--border2);
 }
 button.ghost:hover { background: var(--surface2); }
+button.ghost.danger { color: var(--danger); border-color: #fca5a5; }
+button.ghost.danger:hover { background: var(--danger-bg); }
 button.secondary {
   background: var(--surface2); color: var(--navy);
   border-color: var(--border2);
@@ -132,14 +134,21 @@ label > input, label > select, label > textarea { margin-top: 2px; }
 
 /* ── Sections ─────────────────────────────────────── */
 .wInputSection {
-  border: 1px solid var(--border); border-radius: 10px;
-  padding: 16px; margin-bottom: 14px; background: var(--surface2);
+  border: 1px solid var(--border); border-radius: 12px;
+  padding: 20px; margin-bottom: 18px; background: var(--surface);
 }
-.wInputSection h3 { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.wInputSection h3 {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 16px;
+  font-size: 16px; padding-bottom: 10px; border-bottom: 1px solid var(--border);
+}
 .sectionAccent {
-  display: inline-block; width: 4px; height: 16px; border-radius: 2px;
+  display: inline-block; width: 5px; height: 18px; border-radius: 3px;
   background: var(--primary); flex-shrink: 0;
 }
+/* フォーム行の余白を一定に保ち、詰まって見えないようにする */
+.wInputSection .row { gap: 12px; row-gap: 12px; }
+.wInputSection label { font-weight: 600; }
+.wInputSection > .row:not(:last-child) { margin-bottom: 4px; }
 
 /* ── Class Picker ─────────────────────────────────── */
 .classPicker {
@@ -157,26 +166,75 @@ label > input, label > select, label > textarea { margin-top: 2px; }
 /* ── Sport Card ───────────────────────────────────── */
 .sportCard {
   background: var(--surface2); border: 1px solid var(--border);
-  border-radius: 8px; padding: 12px; margin-bottom: 10px;
+  border-radius: 10px; padding: 14px 16px; margin-bottom: 12px;
 }
+.sportCard .row { gap: 10px 14px; align-items: flex-end; }
+.sportLabel {
+  font-size: 11px; font-weight: 700; color: var(--primary);
+  text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px;
+}
+#sportsArea { display: flex; flex-direction: column; gap: 0; }
 
 /* ── Event Cards (home) ───────────────────────────── */
+/* カード型: グリッドで複数枚を並べ、各カードは縦積み構成にする */
+#eventsArea {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
 .eventCard {
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: 10px; padding: 14px; margin-bottom: 10px;
-  transition: box-shadow .15s; cursor: pointer;
-  display: flex; align-items: center; gap: 12px;
+  border-radius: 12px; padding: 16px; margin-bottom: 0;
+  transition: box-shadow .15s, border-color .15s, transform .1s;
+  display: flex; flex-direction: column; gap: 8px;
 }
-.eventCard:hover { box-shadow: 0 4px 12px rgba(0,0,0,.1); border-color: var(--primary); }
-.evName { font-weight: 700; font-size: 15px; }
-.evId { font-size: 10px; color: var(--subtle); }
-.eventStatusBadge { margin-left: auto; }
-.eventProgress { width: 80px; height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden; }
-.eventProgress .bar { height: 100%; background: var(--primary); border-radius: 3px; transition: width .3s; }
-.eventProgress .bar.complete { background: var(--ok); }
-.bracketSlots, .courts, .matchMin, .participants, .genderBadge {
+.eventCard:hover { box-shadow: 0 4px 14px rgba(0,0,0,.1); border-color: var(--primary); transform: translateY(-1px); }
+.evName {
+  font-weight: 700; font-size: 15px; color: var(--navy);
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+}
+.evId { font-size: 12px; color: var(--muted); font-weight: 600; }
+/* イベントカード内のアクション行 */
+.eventCardActions { display: flex; gap: 6px; margin-top: 4px; }
+.eventCardActions .btnView { flex: 1; }
+.eventCardActions .btnSettings, .eventCardActions .btnDelete { padding: 6px 10px; }
+.eventStatusBadge {
+  margin-left: auto; font-size: 11px; font-weight: 700;
+  padding: 2px 9px; border-radius: 999px; white-space: nowrap;
+}
+.eventStatusBadge.complete   { background: #dcfce7; color: #15803d; }
+.eventStatusBadge.inprogress { background: #fff7ed; color: #ea580c; }
+.eventStatusBadge.pending    { background: #f1f5f9; color: #64748b; }
+.eventProgress { width: 100%; height: 8px; background: #e2e8f0; border-radius: 999px; overflow: hidden; }
+.eventProgress .bar { height: 100%; background: var(--primary); border-radius: 999px; transition: width .3s; }
+.eventProgress .bar.done, .eventProgress .bar.complete { background: var(--ok); }
+.bracketSlots, .courts, .matchMin, .participants {
   font-size: 11px; color: var(--muted);
 }
+/* 男女・混合バッジ */
+.genderBadge {
+  font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 999px;
+}
+.genderBadge.male   { background: #dbeafe; color: #1d4ed8; }
+.genderBadge.female { background: #fce7f3; color: #be185d; }
+.genderBadge.mixed  { background: #ede9fe; color: #6d28d9; }
+
+/* ── Empty state ─────────────────────────────────── */
+.emptyState {
+  grid-column: 1 / -1;
+  text-align: center; padding: 40px 16px;
+  color: var(--muted); background: var(--surface2);
+  border-radius: var(--radius); border: 2px dashed var(--border);
+}
+.emptyIcon { font-size: 34px; margin-bottom: 8px; }
+.emptyTitle { font-weight: 700; font-size: 15px; color: var(--navy); margin-bottom: 4px; }
+.emptyDesc { font-size: 13px; }
+
+/* ── 遅延バッジ（進捗スティッキーバー）───────────── */
+.delayBadge.done { background: #e2e8f0; color: #334155; border-color: #94a3b8; }
+.delayBadge.late { background: #fee2e2; color: #dc2626; border-color: #fca5a5; }
+.delayBadge.warn { background: #fef3c7; color: #d97706; border-color: #fde68a; }
+.delayBadge.ok   { background: #dcfce7; color: #16a34a; border-color: #86efac; }
 
 /* ── Event Nav Chips ─────────────────────────────── */
 .eventNavChips {
@@ -266,15 +324,74 @@ label > input, label > select, label > textarea { margin-top: 2px; }
 }
 
 /* ── Timetable ───────────────────────────────────── */
-.tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+.tbl { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; }
 .tbl th, .tbl td {
-  border: 1px solid var(--border2); padding: 6px 10px; text-align: left;
+  border-bottom: 1px solid var(--border); padding: 9px 12px; text-align: left;
+  vertical-align: middle;
 }
-.tbl th { background: #f1f5f9; font-weight: 700; color: var(--navy); }
-.tbl tr:hover td { background: #f8fafc; }
+.tbl th {
+  background: #f1f5f9; font-weight: 700; color: var(--navy);
+  position: sticky; top: 0; z-index: 1;
+  font-size: 11px; letter-spacing: .3px; text-transform: uppercase;
+  border-bottom: 2px solid var(--border2);
+}
+.tbl tbody tr:nth-child(even) td { background: #fafbfc; }
+.tbl tbody tr:hover td { background: #eff6ff; }
+.tbl tr.final-row td { background: #f0fdf4; }
+.tbl tr.final-row:hover td { background: #dcfce7; }
 .tbl td.playing { background: #fff1f2; color: #be123c; font-weight: 700; }
 .tbl td.calling { background: #fffbeb; color: #92400e; font-weight: 700; }
 .tbl td.final   { background: #f0fdf4; color: #15803d; }
+/* コンパクト表示（行間を詰める） */
+.tbl.compact th, .tbl.compact td { padding: 4px 10px; }
+/* 勝者・敗者の表記 */
+.team-win  { font-weight: 800; color: #15803d; }
+.team-lose { color: #94a3b8; text-decoration: line-through; }
+/* タイムテーブル用ステータスバッジ（小画面でも視認できる高コントラスト配色）*/
+.statusBadge {
+  display: inline-flex; align-items: center; gap: 3px;
+  padding: 3px 10px; border-radius: 999px;
+  font-size: 11px; font-weight: 700; white-space: nowrap;
+  border: 1px solid transparent;
+}
+.statusBadge.final   { background: #dcfce7; color: #15803d; border-color: #86efac; }
+.statusBadge.calling { background: #fef3c7; color: #b45309; border-color: #fcd34d; }
+.statusBadge.playing { background: #fee2e2; color: #b91c1c; border-color: #fca5a5; }
+.statusBadge.waiting { background: #f1f5f9; color: #64748b; border-color: #cbd5e1; }
+/* タイムテーブル設定パネル */
+.tblSettingsPanel {
+  display: flex; gap: 10px 14px; flex-wrap: wrap; align-items: center;
+  padding: 10px 14px; margin-bottom: 12px;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: var(--radius); font-size: 12px;
+}
+.tblSettingsPanel b { color: var(--navy); white-space: nowrap; }
+.tblSettingsPanel label { flex-direction: row; align-items: center; gap: 4px; color: var(--muted); }
+.tblSettingsPanel .sep { color: var(--border2); }
+/* 小さめ画面ではタイムテーブルを横スクロール可能に */
+#timetable { overflow-x: auto; }
+.matchNumTag { font-size: 10px; color: var(--muted); display: block; }
+.tbl td.scoreCell { text-align: center; }
+
+/* ── ブラケット内セクション見出し（裏トーナメント/エキシビション）── */
+.sectionLabel {
+  margin: 28px 0 10px; padding: 10px 14px;
+  border-radius: 0 8px 8px 0; border-left: 4px solid;
+  font-size: 11px; font-weight: 700; letter-spacing: .3px; text-transform: uppercase;
+}
+.sectionLabel.loser      { color: #7c3aed; border-color: #7c3aed; background: linear-gradient(90deg,#f5f3ff,#ede9fe); }
+.sectionLabel.exhibition { color: #d97706; border-color: #d97706; background: linear-gradient(90deg,#fffbeb,#fef3c7); }
+
+/* ── エキシビション試合カード ─────────────────────── */
+.exhibitionCard {
+  display: inline-flex; align-items: center; gap: 12px;
+  background: #fff; border: 1.5px solid #fde68a; border-radius: 8px;
+  padding: 8px 14px; margin: 4px 8px 4px 0; cursor: pointer;
+  transition: box-shadow .15s;
+}
+.exhibitionCard:hover { box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+.exhibitionCard .exTeam { font-weight: 700; font-size: 14px; }
+.exhibitionCard .exScore { color: var(--subtle); font-size: 12px; }
 
 /* ── Modal ───────────────────────────────────────── */
 .overlay {
@@ -284,7 +401,8 @@ label > input, label > select, label > textarea { margin-top: 2px; }
 }
 .modalCard {
   background: var(--surface); border-radius: 16px;
-  padding: 24px; min-width: 300px; max-width: 90vw;
+  padding: 24px; min-width: 300px; max-width: 460px; width: 92vw;
+  max-height: 92vh; overflow-y: auto;
   box-shadow: 0 20px 60px rgba(0,0,0,.3);
   animation: modalIn .18s ease;
 }
@@ -292,7 +410,39 @@ label > input, label > select, label > textarea { margin-top: 2px; }
   from { opacity:0; transform: scale(.95) translateY(8px); }
   to   { opacity:1; transform: none; }
 }
-.modal { /* alias */ }
+/* モーダルは画面中央に固定表示するオーバーレイ */
+.modal {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(15,23,42,.5);
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px;
+}
+.modal.hidden { display: none !important; }
+
+/* ── 結果入力モーダル（スマホでの誤タップ防止・大きめタップ領域）── */
+.resultTeams { display: flex; gap: 12px; align-items: stretch; margin-top: 14px; }
+.resultTeams .box { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px 10px; }
+.resultTeams .teamName { font-size: 16px; margin-bottom: 0; }
+.scoreInput {
+  width: 100% !important; max-width: 110px;
+  font-size: 26px !important; font-weight: 800; text-align: center;
+  padding: 10px !important; height: 56px;
+}
+/* モーダル内のボタンは指で押しやすい最小高さ44pxを確保 */
+.modalCard button { min-height: 44px; font-size: 14px; }
+.modalActions { display: flex; gap: 10px; margin-top: 16px; }
+.modalActions .mSaveBtn { flex: 2; font-size: 16px; font-weight: 800; }
+.modalActions .mClearBtn { flex: 1; }
+.modalStatusRow {
+  display: flex; gap: 10px; margin-top: 16px;
+  border-top: 1px solid var(--border); padding-top: 16px;
+}
+.modalStatusRow button { flex: 1; }
+.btnCalling { color: #b45309 !important; border-color: #fcd34d !important; background: #fffbeb !important; }
+.btnPlaying { color: #b91c1c !important; border-color: #fca5a5 !important; background: #fee2e2 !important; }
+.winLoseRow { display: flex; gap: 10px; margin-top: 14px; }
+.winLoseRow button { flex: 1; min-height: 52px; font-size: 15px; }
+.modalHint { margin-top: 10px; text-align: center; font-size: 12px; color: var(--muted); }
 
 /* ── Toast ───────────────────────────────────────── */
 #toastContainer {

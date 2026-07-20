@@ -675,17 +675,17 @@
         <button id="mClose" class="ghost">× 閉じる</button>
       </div>
 
-      <div id="mScore" class="row" style="margin-top:12px; gap:14px; align-items:flex-start;">
-        <div class="box" style="flex:1;">
-          <div class="teamName" id="mTeamA" style="margin-bottom:8px;">-</div>
+      <div id="mScore" class="resultTeams">
+        <div class="box">
+          <div class="teamName" id="mTeamA">-</div>
           <div id="mScoreAWrap">
-            <label>Score <input id="mScoreA" type="number" inputmode="numeric" pattern="[0-9]*" min="0" style="width:80px; font-size:20px; text-align:center;" /></label>
+            <input id="mScoreA" class="scoreInput" type="number" inputmode="numeric" pattern="[0-9]*" min="0" placeholder="0" />
           </div>
         </div>
-        <div class="box" style="flex:1;">
-          <div class="teamName" id="mTeamB" style="margin-bottom:8px;">-</div>
+        <div class="box">
+          <div class="teamName" id="mTeamB">-</div>
           <div id="mScoreBWrap">
-            <label>Score <input id="mScoreB" type="number" inputmode="numeric" pattern="[0-9]*" min="0" style="width:80px; font-size:20px; text-align:center;" /></label>
+            <input id="mScoreB" class="scoreInput" type="number" inputmode="numeric" pattern="[0-9]*" min="0" placeholder="0" />
           </div>
         </div>
       </div>
@@ -693,25 +693,22 @@
         style="margin-top:12px; display:flex; flex-direction:column; gap:8px; background:var(--surface2); padding:10px; border-radius:6px;">
       </div>
 
-      <div id="mWinLose" class="row hidden" style="margin-top:12px;">
-        <button id="mWinA" class="primary">上・左(A)の勝ち</button>
-        <button id="mWinB" class="primary">下・右(B)の勝ち</button>
+      <div id="mWinLose" class="winLoseRow hidden">
+        <button id="mWinA" class="primary">⬆ 上・左(A)の勝ち</button>
+        <button id="mWinB" class="primary">⬇ 下・右(B)の勝ち</button>
       </div>
 
       <!-- 新しいステータスボタン群 -->
-      <div class="row" style="margin-top:16px; gap:10px; border-top: 1px solid var(--border); padding-top:16px;">
-        <button id="mStatusCalling" class="ghost"
-          style="flex:1; color:#d97706; border-color:#fde68a; background:#fffbeb;">📢 招集中にする</button>
-        <button id="mStatusPlaying" class="ghost"
-          style="flex:1; color:#dc2626; border-color:#fca5a5; background:#fee2e2;">🏃 試合中にする</button>
+      <div class="modalStatusRow">
+        <button id="mStatusCalling" class="ghost btnCalling">📢 招集中にする</button>
+        <button id="mStatusPlaying" class="ghost btnPlaying">🏃 試合中にする</button>
       </div>
 
-      <div class="row" style="margin-top:14px; gap:10px;">
-        <button id="mSave" class="primary" style="flex:2;">🏆 勝敗確定 / 保存</button>
-        <button id="mClear" class="ghost" style="flex:1; color:var(--danger); border-color:var(--danger-bg);">↩️
-          クリア</button>
+      <div class="modalActions">
+        <button id="mSave" class="primary mSaveBtn">🏆 勝敗確定 / 保存</button>
+        <button id="mClear" class="ghost danger mClearBtn">↩️ クリア</button>
       </div>
-      <div class="small" id="mHint" style="margin-top:8px;text-align:center;">-</div>
+      <div class="modalHint" id="mHint">-</div>
     </div>
   </div>
 
