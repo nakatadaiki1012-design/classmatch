@@ -1622,11 +1622,12 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
           if (r.classes && r.classes.size) it.cls = Array.from(r.classes);
           if (r.teachers && r.teachers.size) it.teas = Array.from(r.teachers);
           if (r.rooms && r.rooms.size) it.rooms = Array.from(r.rooms);
-          // 授業本来のスケジュールに無い(曜日,時限)は「選択」の相乗り参照。
-          // 代表科目名を出すと誤解を招くため「選択」と表示する（特に3年の自由選択）。
+          // 授業本来のスケジュールに無い(曜日,時限)は同時展開/相乗りのコマ。
+          // 各コマの科目は一意に定まる(分析でクラス×時限あたり科目1つを確認)ため、
+          // 実科目名を表示したまま「同時展開」フラグを立てる（従来は一律「選択」に潰していた）。
+          // 真の生徒選択制(自選(月/水/金))はこの後SJYUGYO側でグループ名にラベルし直す。
           if (schedKeys && schedKeys.size && !schedKeys.has(r.day + '#' + r.period)) {
-            it.realSubj = it.subj; // 実科目名を保持（クリックで表示）
-            it.subj = '選択'; it.subjKey = '選択';
+            it.simul = true;
           }
         }
         placedCount++;
@@ -1727,6 +1728,7 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       }
       // SJYUGYO配置をitem化して追加
       const sjSubjs = new Set();
+      const sjRawAgg = {}; // "subj|cls|span" -> count（データ入力画面に集約表示するため）
       for (const sp of sjPlace) {
         const id = String(itemIdCounter++);
         items[id] = { id, subj: sp.subj, subjKey: sp.subj, cls: sp.cls, teas: sp.teas, rooms: [], span: sp.span };
@@ -1734,26 +1736,35 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
         placedCount++;
         sjSubjs.add(sp.subj);
         if (!subjectCfg[sp.subj]) subjectCfg[sp.subj] = { abbr: sp.subj, dept: '', fixedForbid: {}, noSameDay: false, noConsec: false, maxPerDay: null };
+        const rk = sp.subj + '|' + (sp.cls || []).join(',') + '|' + (sp.span || 1);
+        sjRawAgg[rk] = sjRawAgg[rk] || { subj: sp.subj, cls: (sp.cls || []).join(','), teas: sp.teas || [], span: sp.span || 1, count: 0 };
+        sjRawAgg[rk].count++;
+      }
+      // 総合的な探究・LHR等の同時展開授業をデータ入力画面(rawRows)にも反映
+      for (const k in sjRawAgg) {
+        const a = sjRawAgg[k];
+        rawRows.push({ cls: a.cls, subj: a.subj, subjAbbr: '', dept: '', tea: (a.teas || []).join(','), teaAbbr: '', room: '', count: a.count, span: a.span });
       }
       // JUGYO由来の未配置プレースホルダ(総合/LHR等, スケジュール無し)は重複なので除去
       for (const iid of Object.keys(items)) {
         const plc = placements[iid];
         if ((!plc || !plc.day) && sjSubjs.has(items[iid].subj)) { delete items[iid]; delete placements[iid]; }
       }
-      // ── 自選ブロックのラベル付け（該当(曜日,時限)の「選択」相乗りコマをグループ名で上書き）──
-      // 受講クラスは特定できないが、自選ブロックの時限に置かれた「選択」は自選と判断できる。
-      // 具体的な科目名を持つコマ（通常授業）は誤ラベルを避けるため対象外とする。
+      // ── 自選ブロックのラベル付け（自選時限の同時展開コマをグループ名で上書き）──
+      // 受講クラスは特定できないが、自選ブロックの時限に置かれた同時展開コマは自選と判断できる。
+      // 真の生徒選択制のため、ここでは実科目名でなくグループ名(自選(月)等)を表示し、
+      // 開講科目一覧をrealSubjに保持する。通常授業(simulでない)は対象外。
       if (Object.keys(electiveCells).length) {
         let relabeled = 0;
         for (const itemId in placements) {
           const plc = placements[itemId]; if (!plc || !plc.day) continue;
           const it = items[itemId]; if (!it) continue;
-          if (it.subj !== '選択') continue; // 曖昧な「選択」コマのみラベル付け
+          if (!it.simul) continue; // 同時展開コマのみラベル付け
           const span = it.span || 1;
           let hit = null;
           for (let dp = 0; dp < span && !hit; dp++) hit = electiveCells[plc.day + '#' + (plc.period + dp)] || null;
           if (hit) {
-            if (hit.real) it.realSubj = hit.real; // 開講科目一覧で上書き
+            it.realSubj = hit.real || it.subj; // 開講科目一覧を保持
             it.subj = hit.label; it.subjKey = hit.label;
             if (!subjectCfg[hit.label]) subjectCfg[hit.label] = { abbr: hit.label, dept: '選択', fixedForbid: {}, noSameDay: false, noConsec: false, maxPerDay: null };
             relabeled++;
@@ -5226,6 +5237,7 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
     <div class="l1">
       <div class="subj">${escapeHtml(mainText)}</div>
       ${it.span === 2 ? '<span class="badge2">2連</span>' : ''}
+      ${it.simul ? `<span class="badge-simul" title="同時展開（相乗り）${it.realSubj ? '：' + escapeHtml(it.realSubj) : ''}">同</span>` : ''}
       ${vio ? '<span class="vio-badge" title="' + escapeHtml(vio) + '">⚠</span>' : ''}
       ${(mode === 'room' || mode === 'teacher') && subText ? `<div class="rightlab">${escapeHtml(mode === 'room' ? subText.slice(0, 6) : subText.slice(0, 4))}</div>` : ``}
     </div>
@@ -6662,7 +6674,7 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
 
     box.innerHTML = `
     <div class="prop-grid">
-      <label>科目</label><div><strong>${escapeHtml(it.subj)}</strong> <span class="muted small">(${escapeHtml(scfg.dept || '')})</span>${it.realSubj ? ` <span class="real-subj-tag" title="選択講座の実科目">実: ${escapeHtml(it.realSubj)}</span>` : ''}</div>
+      <label>科目</label><div><strong>${escapeHtml(it.subj)}</strong> <span class="muted small">(${escapeHtml(scfg.dept || '')})</span>${it.simul ? ' <span class="real-subj-tag" title="同時展開（相乗り）授業">同時展開</span>' : ''}${it.realSubj ? ` <span class="real-subj-tag" title="開講科目">科目: ${escapeHtml(it.realSubj)}</span>` : ''}</div>
       <label>クラス</label><div>${escapeHtml(it.cls.join(', '))}</div>
       <label>教員</label><div>${escapeHtml(it.teas.join(', '))}</div>
       <label>教室</label><div>${escapeHtml(it.rooms.join(', '))}</div>
@@ -15503,7 +15515,20 @@ function buildIndex(){
     const csvFile = safeGet('#csv-file');
 
     if (btnAddRow) btnAddRow.onclick = addRow;
-    if (btnReflect) btnReflect.onclick = () => { reflectRawToItems(); switchTab('edit'); };
+    if (btnReflect) btnReflect.onclick = () => {
+      // イデア読込の同時展開(相乗り)配置はrawRowsに完全表現できないため、
+      // 再構築で失われる可能性がある場合は確認する。
+      const hasSimul = Object.values(state.items || {}).some(it => it && it.simul);
+      const doReflect = () => { reflectRawToItems(); switchTab('edit'); };
+      if (hasSimul) {
+        showModalHTML('作成画面へ反映',
+          '<div style="line-height:1.7">データ入力の内容から時間割を再構築します。<br>' +
+          '<span style="color:#b45309">⚠ イデア読込の<strong>同時展開（相乗り）授業</strong>は、データ入力の行だけでは完全に再現できないため、' +
+          '相乗りの配置情報が簡略化される場合があります。</span><br>' +
+          '（読込直後の時間割をそのまま使う場合は「作成画面」タブへ直接切り替えてください。）</div>',
+          doReflect, '再構築する', 'キャンセル');
+      } else { doReflect(); }
+    };
     if (btnDataAnalyze) btnDataAnalyze.onclick = () => showDataAnalysis();
     if (btnExport) btnExport.onclick = exportCSV;
     if (btnImport) btnImport.onclick = () => { const f = safeGet('#csv-file'); if (f) f.click(); };

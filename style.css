@@ -7190,3 +7190,12 @@ td.slot-ng {
 }
 .tr-saved-label { flex: 1; font-size: 12px; font-weight: 600; }
 .tr-saved-row button { font-size: 11px; padding: 3px 10px; }
+
+/* 同時展開（相乗り）マーカー */
+.badge-simul {
+  display: inline-block;
+  font-size: 8px; font-weight: 900;
+  background: rgba(124, 58, 237, .85); color: #fff;
+  border-radius: 3px; padding: 0 3px; margin-left: 2px;
+  vertical-align: top; line-height: 1.5;
+}
