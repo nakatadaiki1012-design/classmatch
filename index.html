@@ -134,6 +134,21 @@
   .partsel button{padding:15px 4px; border-radius:12px; border:1px solid var(--line); background:var(--panel2); color:var(--text); font-size:15px; font-weight:700}
   .partsel button.on{background:var(--accent2); color:#05221c; border-color:var(--accent2)}
 
+  /* 3-way mode selector (used inside Harmony tab) */
+  .modesel{display:flex; gap:6px; margin-bottom:14px}
+  .modesel button{flex:1; padding:9px 2px; border-radius:10px; border:1px solid var(--line); background:var(--panel); color:var(--muted); font-size:12px; font-weight:700}
+  .modesel button.on{background:var(--accent); color:#fff; border-color:var(--accent)}
+
+  /* Piano keyboard (chord detector) */
+  .pianowrap{overflow-x:auto; -webkit-overflow-scrolling:touch; background:#0d1130; border-radius:12px; padding:10px 8px}
+  .piano{position:relative; height:132px; display:flex}
+  .wkey{position:relative; flex:0 0 40px; width:40px; height:132px; background:#f3f4fb; border:1px solid #1c2044; border-radius:0 0 6px 6px; box-sizing:border-box}
+  .wkey.on{background:var(--accent2)}
+  .bkey{position:absolute; top:0; width:24px; height:82px; background:#12162f; border:1px solid #000; border-radius:0 0 5px 5px; z-index:2}
+  .bkey.on{background:#1f8f78}
+  .klabel{position:absolute; bottom:6px; left:0; right:0; text-align:center; font-size:9px; color:#7a80a8; pointer-events:none}
+  .bkey .klabel{color:#8a93c8}
+
   footer{position:fixed; left:0; right:0; bottom:0; padding:8px 14px calc(8px + env(safe-area-inset-bottom)); text-align:center; font-size:11px; color:var(--muted); background:linear-gradient(180deg,rgba(15,18,38,0),var(--bg) 40%)}
 
   /* Header help button */
@@ -246,11 +261,11 @@
   <!-- ===== HARMONY ===== -->
   <section class="view" id="view-harmony">
     <div class="card">
-      <div class="tiphint"><span>🎼</span><span><b>きれいなハモリを練習。</b>うなりの無い和音（純正律）です。「和音の進行」に切り替えると、カデンツを流して自分のパートを順番に吹く練習ができます。</span></div>
-      <div class="togglerow" style="margin-bottom:12px">
-        <span>1つの和音</span>
-        <div class="switch" id="harmModeSwitch"><i></i></div>
-        <span>和音の進行</span>
+      <div class="tiphint" id="harmTip"><span>🎼</span><span><b>きれいなハモリを練習。</b>うなりの無い和音（純正律）です。「鍵盤で判定」なら、押した鍵盤のコードを自動で見つけて純正律に合わせて鳴らします。</span></div>
+      <div class="modesel" id="harmModeSel">
+        <button data-mode="single" class="on">1つの和音</button>
+        <button data-mode="cadence">和音の進行</button>
+        <button data-mode="keyboard">🎹 鍵盤で判定</button>
       </div>
 
       <div id="harmSingleView">
@@ -316,6 +331,16 @@
             <label class="chk">くり返し <span class="switch on" id="cadLoopSwitch"><i></i></span></label>
           </div>
         </details>
+      </div>
+
+      <div id="harmKeyboardView" style="display:none">
+        <div class="notesub" style="margin-bottom:8px">鍵盤をタップして音を重ねると、コードを自動で見つけて純正律で鳴らします</div>
+        <div class="notename" id="kbChordName" style="font-size:34px">🎹</div>
+        <div class="notesub" id="kbChordSub">鍵盤をタップしてね</div>
+        <div class="pianowrap"><div class="piano" id="kbPiano"></div></div>
+        <button class="sbtn" id="kbClear" style="width:100%; border-radius:12px; font-size:14px; font-weight:700; height:44px; margin-top:10px">全部離す</button>
+        <div class="voices" id="kbVoices" style="margin-top:12px"></div>
+        <div class="hz">2音以上タップするとコードを判定し、純正律にぴったり合うよう各音を自動で微調整して鳴らします。ずれた分（セント）を音ごとに表示します。</div>
       </div>
     </div>
   </section>
@@ -424,7 +449,7 @@ document.querySelectorAll(".tabs button").forEach(btn=>{
     if(btn.dataset.tab==="tuner"){ requestAnimationFrame(()=>{ fitCanvas(); drawMeter(micOn?smoothCents:null); }); }
     else if(micOn) stopMic();
     if(btn.dataset.tab!=="exercise" && exPlaying) stopPattern();
-    if(btn.dataset.tab!=="harmony"){ if(cadPlaying) stopCadence(); if(cadMicOn) stopCadMic(); }
+    if(btn.dataset.tab!=="harmony"){ if(cadPlaying) stopCadence(); if(cadMicOn) stopCadMic(); if(typeof clearAllKbNotes==="function") clearAllKbNotes(); }
   };
 });
 
@@ -783,14 +808,143 @@ function applyInstrument(key){
   if(cadPlaying){ stopCadence(); setTimeout(playCadence,150); }
 }
 
-/* ---- Harmony mode switch (単一コード / カデンツ練習) ---- */
-document.getElementById("harmModeSwitch").onclick=function(){
-  const cadenceMode=!this.classList.contains("on"); this.classList.toggle("on",cadenceMode);
-  document.getElementById("harmSingleView").style.display=cadenceMode?"none":"block";
-  document.getElementById("harmCadenceView").style.display=cadenceMode?"block":"none";
-  if(cadenceMode){ if(harmPlaying) stopHarmony(); }
-  else{ if(cadPlaying) stopCadence(); if(cadMicOn) stopCadMic(); }
-};
+/* ---- Harmony mode switch (1つの和音 / 和音の進行 / 鍵盤で判定) ---- */
+document.querySelectorAll("#harmModeSel button").forEach(btn=>{
+  btn.onclick=()=>{
+    document.querySelectorAll("#harmModeSel button").forEach(b=>b.classList.remove("on"));
+    btn.classList.add("on");
+    const mode=btn.dataset.mode;
+    document.getElementById("harmSingleView").style.display = mode==="single"?"block":"none";
+    document.getElementById("harmCadenceView").style.display = mode==="cadence"?"block":"none";
+    document.getElementById("harmKeyboardView").style.display = mode==="keyboard"?"block":"none";
+    if(mode!=="single" && harmPlaying) stopHarmony();
+    if(mode!=="cadence"){ if(cadPlaying) stopCadence(); if(cadMicOn) stopCadMic(); }
+    if(mode!=="keyboard") clearAllKbNotes();
+  };
+});
+
+/* ================= KEYBOARD CHORD DETECTOR (スマホのハーモニーディレクター) ================= */
+const KB_LOW=48, KB_HIGH=84; // C3..C6
+const WHITE_PCS=new Set([0,2,4,5,7,9,11]);
+const KB_WKW=40, KB_BKW=24;
+const heldKbNotes=new Set();
+const kbVoiceMap=new Map(); // midi -> {o,g}
+let kbMaster=null;
+
+function buildPiano(){
+  const piano=document.getElementById("kbPiano");
+  piano.innerHTML="";
+  let whiteIdx=0;
+  const whiteIndexOf={};
+  for(let m=KB_LOW;m<=KB_HIGH;m++){ if(WHITE_PCS.has(m%12)){ whiteIndexOf[m]=whiteIdx; whiteIdx++; } }
+  for(let m=KB_LOW;m<=KB_HIGH;m++){
+    if(!WHITE_PCS.has(m%12)) continue;
+    const k=document.createElement("div"); k.className="wkey"; k.dataset.midi=m;
+    if(m%12===0) k.innerHTML=`<span class="klabel">C${Math.floor(m/12)-1}</span>`;
+    k.onclick=()=>toggleKbNote(m);
+    piano.appendChild(k);
+  }
+  piano.style.width=(whiteIdx*KB_WKW)+"px";
+  for(let m=KB_LOW;m<=KB_HIGH;m++){
+    if(WHITE_PCS.has(m%12)) continue;
+    const leftWhiteIdx=whiteIndexOf[m-1];
+    const k=document.createElement("div"); k.className="bkey"; k.dataset.midi=m;
+    k.style.left=((leftWhiteIdx+1)*KB_WKW - KB_BKW/2)+"px";
+    k.onclick=(e)=>{ e.stopPropagation(); toggleKbNote(m); };
+    piano.appendChild(k);
+  }
+}
+function detectChord(pcArr, bassPc){
+  if(pcArr.length<2) return null;
+  const setArr=[...pcArr].sort((a,b)=>a-b);
+  const matches=[];
+  for(let root=0; root<12; root++){
+    for(const key of Object.keys(CHORDS)){
+      const chord=CHORDS[key];
+      if(chord.et.length!==setArr.length) continue;
+      const chordSet=chord.et.map(iv=>(root+iv)%12).sort((a,b)=>a-b);
+      if(chordSet.every((v,i)=>v===setArr[i])) matches.push({root,key});
+    }
+  }
+  if(!matches.length) return null;
+  return matches.find(m=>m.root===bassPc) || matches[0];
+}
+function kbNoteInfo(midi, det){
+  const pc=((midi%12)+12)%12;
+  if(!det) return { dev:0, roleLabel:null };
+  const chord=CHORDS[det.key];
+  const rel=((pc-det.root)%12+12)%12;
+  const idx=chord.et.indexOf(rel);
+  if(idx===-1) return { dev:0, roleLabel:null };
+  return { dev: chord.tones[idx][0]-chord.et[idx]*100, roleLabel: chord.tones[idx][1] };
+}
+function kbFreqFor(midi,dev){ return midiToFreq(midi)*Math.pow(2,dev/1200); }
+function updateKeyboardChord(){
+  const notes=[...heldKbNotes].sort((a,b)=>a-b);
+  const pcArr=[...new Set(notes.map(m=>((m%12)+12)%12))];
+  const bassPc=notes.length? ((notes[0]%12)+12)%12 : null;
+  const det=detectChord(pcArr,bassPc);
+  const nameEl=document.getElementById("kbChordName"), subEl=document.getElementById("kbChordSub");
+  if(notes.length===0){ nameEl.textContent="🎹"; subEl.textContent="鍵盤をタップしてね"; }
+  else if(notes.length===1){ nameEl.textContent=noteLabel(pcArr[0]); subEl.textContent="もう1音タップするとコードを判定します"; }
+  else if(det){ nameEl.textContent=`${noteLabel(det.root)} ${CHORDS[det.key].label}`; subEl.textContent="純正律にぴったり合わせて鳴らしています"; }
+  else { nameEl.textContent="？"; subEl.textContent="このコードは判定できません（そのままの音で鳴らします）"; }
+
+  // audio: sync oscillators to held notes
+  const c=ac();
+  if(!kbMaster){ kbMaster=c.createGain(); kbMaster.gain.value=0.85; kbMaster.connect(c.destination); }
+  const gainEach=1/Math.max(2,notes.length);
+  for(const [midi,voice] of [...kbVoiceMap.entries()]){
+    if(!heldKbNotes.has(midi)){
+      voice.g.gain.cancelScheduledValues(c.currentTime); voice.g.gain.setValueAtTime(voice.g.gain.value,c.currentTime);
+      voice.g.gain.linearRampToValueAtTime(0,c.currentTime+0.08);
+      setTimeout(()=>{ try{voice.o.stop()}catch(e){} },140);
+      kbVoiceMap.delete(midi);
+    }
+  }
+  notes.forEach(midi=>{
+    const info=kbNoteInfo(midi,det);
+    const freq=kbFreqFor(midi, notes.length>1?info.dev:0);
+    let voice=kbVoiceMap.get(midi);
+    if(!voice){
+      const g=c.createGain(); g.gain.value=0.0001; g.connect(kbMaster);
+      const o=c.createOscillator(); o.type="triangle"; o.frequency.value=freq; o.connect(g); o.start();
+      voice={o,g}; kbVoiceMap.set(midi,voice);
+      g.gain.linearRampToValueAtTime(gainEach, c.currentTime+0.04);
+    } else {
+      voice.o.frequency.setTargetAtTime(freq, c.currentTime, 0.03);
+      voice.g.gain.setTargetAtTime(gainEach, c.currentTime, 0.03);
+    }
+  });
+
+  // per-note breakdown list
+  const el=document.getElementById("kbVoices"); el.innerHTML="";
+  notes.forEach(midi=>{
+    const info=kbNoteInfo(midi,det);
+    const dev = notes.length>1 ? Math.round(info.dev) : 0;
+    const pos=50 + Math.max(-1,Math.min(1,dev/25))*44;
+    const oct=Math.floor(midi/12)-1, pc=((midi%12)+12)%12;
+    const row=document.createElement("div"); row.className="voice";
+    row.innerHTML=`<span class="vn">${noteLabel(pc)}${oct}</span>
+      <span class="vc">${info.roleLabel?"第"+info.roleLabel+"音":"—"} ${dev===0?"±0":(dev>0?"+"+dev:dev)}¢</span>
+      <span class="bar"><i></i><b style="left:calc(${pos}% - 3px)"></b></span>
+      <span class="vhz">${kbFreqFor(midi,notes.length>1?info.dev:0).toFixed(1)}Hz</span>`;
+    el.appendChild(row);
+  });
+}
+function toggleKbNote(midi){
+  if(heldKbNotes.has(midi)) heldKbNotes.delete(midi); else heldKbNotes.add(midi);
+  document.querySelectorAll(`#kbPiano [data-midi="${midi}"]`).forEach(el=>el.classList.toggle("on", heldKbNotes.has(midi)));
+  updateKeyboardChord();
+}
+function clearAllKbNotes(){
+  heldKbNotes.clear();
+  document.querySelectorAll("#kbPiano .on").forEach(el=>el.classList.remove("on"));
+  updateKeyboardChord();
+}
+document.getElementById("kbClear").onclick=clearAllKbNotes;
+buildPiano();
+updateKeyboardChord();
 
 /* ================= CADENCE PRACTICE (純正律カデンツで一音を合わせる) ================= */
 const CADENCES = {
