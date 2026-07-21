@@ -1774,7 +1774,32 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
       }
     }
 
-    return { schoolName, periodsByDay, subjectCfg, teacherCfg, roomCfg, items, rawRows, placements, placedCount };
+    // ── per-class 時限数（早帰り等）──
+    // 完成時間割の実配置末尾から各クラス・各曜日の最終時限を求め、全体設定より短い場合のみ
+    // classPeriodOverride に記録する。これにより授業の無い余分なコマがグレー表示になる
+    // （例: 1・2年は月曜7限だが3年は月曜6限まで、の違いを反映）。
+    const classPeriodOverride = {};
+    {
+      const lastFilled = {};
+      for (const id in placements) {
+        const pl = placements[id]; if (!pl || !pl.day) continue;
+        const it = items[id]; if (!it) continue;
+        const span = it.span || 1;
+        for (const c of (it.cls || [])) {
+          if (!/^\d+-\d+$/.test(c)) continue; // 通常クラスのみ（校務分掌G等は除外）
+          const rec = lastFilled[c] || (lastFilled[c] = {});
+          rec[pl.day] = Math.max(rec[pl.day] || 0, pl.period + span - 1);
+        }
+      }
+      for (const c in lastFilled) {
+        for (const d of DAY_KEYS) {
+          const glob = periodsByDay[d] || 0, last = lastFilled[c][d] || 0;
+          if (glob > 0 && last > 0 && last < glob) (classPeriodOverride[c] || (classPeriodOverride[c] = {}))[d] = last;
+        }
+      }
+    }
+
+    return { schoolName, periodsByDay, subjectCfg, teacherCfg, roomCfg, items, rawRows, placements, placedCount, classPeriodOverride };
   }
 
   async function importProjectFile(file) {
@@ -1843,6 +1868,8 @@ var calculatePlacementDifficulty = (typeof calculatePlacementDifficulty === 'fun
           if (parsed.periodsByDay) Object.assign(state.settings.periodsByDay, parsed.periodsByDay);
           // 教室マスタ（classmatch に roomCfg があれば格納）
           if (parsed.roomCfg) state.roomCfg = parsed.roomCfg;
+          // per-class 時限数（早帰り等で授業の無い余分なコマをグレー表示）
+          state.settings.classPeriodOverride = parsed.classPeriodOverride || {};
           invalidateIndex();
           markDirty('ideaImport');
           rerenderAll();
