@@ -82,10 +82,11 @@
   .stepper button:last-child{ border-radius:0 0 6px 6px; border-top:0; }
 
   /* ---------- Keyboard ---------- */
-  #kbWrap{ flex:1 1 auto; position:relative; padding:0; background:#05070a; min-height:0; }
-  #keyboard{ position:relative; height:100%; width:100%; display:flex; }
+  #kbWrap{ flex:1 1 auto; position:relative; padding:0; background:#05070a; min-height:0; overflow:hidden; touch-action:none; }
+  #keyboard{ position:absolute; top:0; left:0; height:100%; display:flex; touch-action:none; will-change:transform; }
+  #keyboard.smooth{ transition:transform .16s ease; }
   .wkey{
-    position:relative; flex:1 1 0; height:100%;
+    position:relative; flex:0 0 auto; height:100%; touch-action:none;
     background:linear-gradient(#fbfdff,#e3e9f0); border-right:1px solid #b9c4d2;
     border-radius:0 0 7px 7px; display:flex; align-items:flex-end; justify-content:center;
     padding-bottom:10px; color:#5a6675; font-size:12px; font-weight:700;
@@ -94,11 +95,11 @@
   .wkey.down{ background:linear-gradient(#c7e9dc,#9fd6c1); color:#1a3a30; }
   .wkey.hold{ background:linear-gradient(#ffe1bd,#f4c58a); color:#4a2c05; }
   .bkey{
-    position:absolute; top:0; width:8.5%; height:62%; z-index:5;
+    position:absolute; top:0; height:62%; z-index:5; touch-action:none;
     background:linear-gradient(#2a3240,#0c0f14); border:1px solid #05070a;
     border-radius:0 0 6px 6px; box-shadow:0 3px 5px rgba(0,0,0,.5);
     display:flex; align-items:flex-end; justify-content:center; padding-bottom:8px;
-    color:#9aa7b6; font-size:10px; font-weight:700;
+    color:#9aa7b6; font-size:10px; font-weight:700; overflow:hidden;
   }
   .bkey.down{ background:linear-gradient(#3fae8c,#1f7a5f); color:#eafff6; }
   .bkey.hold{ background:linear-gradient(#d98e3a,#9c5e15); color:#fff3e0; }
@@ -131,6 +132,26 @@
       <div class="seg" id="tuneSeg">
         <button data-mode="just" class="on">純正律</button>
         <button data-mode="equal">平均律</button>
+      </div>
+    </div>
+
+    <!-- Transpose / instrument key -->
+    <div class="grp">
+      <div class="lbl">移調（管）</div>
+      <select id="xpose">
+        <option value="0">C 管</option>
+        <option value="-2">B♭ 管</option>
+        <option value="-9">E♭ 管</option>
+        <option value="-7">F 管</option>
+      </select>
+    </div>
+
+    <!-- Octave / register -->
+    <div class="grp">
+      <div class="lbl">音域</div>
+      <div class="row">
+        <button class="btn" id="octDn">◀ 低</button>
+        <button class="btn" id="octUp">高 ▶</button>
       </div>
     </div>
 
@@ -190,6 +211,7 @@
       <div class="lbl">表示</div>
       <div class="row">
         <button class="btn on" id="labelBtn" style="font-size:11px">ドレミ</button>
+        <button class="btn" id="fsBtn" title="全画面">⛶</button>
         <span class="pill" id="rootPill">root: –</span>
       </div>
     </div>
@@ -248,15 +270,21 @@ function midiToFreqEqual(m){ return A4 * Math.pow(2,(m-69)/12); }
 
 // current tuning mode + active note set drives just-intonation freqs
 let mode = 'just';
-const active = new Map();     // midi -> Voice
+const active = new Map();     // layoutMidi -> Voice  (voice.midi = sounding midi)
 let currentTimbre = 'organ';
+let transpose = 0;            // semitones added by instrument key (C/B♭/E♭/F)
 
+function soundingRoot(extra){
+  let root = Infinity;
+  for(const v of active.values()) if(v.midi < root) root = v.midi;
+  if(extra!=null && extra < root) root = extra;
+  return root;
+}
+
+// midi here is the SOUNDING midi
 function computeFreq(midi){
   if(mode==='equal' || active.size===0) return midiToFreqEqual(midi);
-  // root = lowest currently-sounding midi
-  let root = Infinity;
-  for(const k of active.keys()) if(k < root) root = k;
-  if(midi < root) root = midi; // in case called before insertion
+  const root = soundingRoot(midi);
   const dist = midi - root;
   const oct = Math.floor(dist/12);
   const iv  = dist - oct*12;
@@ -265,14 +293,15 @@ function computeFreq(midi){
 
 function updateRootPill(){
   if(active.size===0){ rootPill.textContent='root: –'; return; }
-  let root=Infinity; for(const k of active.keys()) if(k<root) root=k;
-  rootPill.textContent = 'root: ' + NAMES[root%12] + (Math.floor(root/12)-1);
+  const r = soundingRoot();
+  rootPill.textContent = 'root: ' + NAMES[((r%12)+12)%12] + (Math.floor(r/12)-1);
 }
 
 // Voice: one polyphonic note (possibly detuned pair)
 class Voice{
-  constructor(midi){
-    this.midi = midi;
+  constructor(midi, layout){
+    this.midi = midi;      // sounding midi (with transpose)
+    this.layout = layout;  // physical key midi (for painting)
     this.held = true;
     const t = TIMBRES[currentTimbre];
     const now = ac.currentTime;
@@ -355,28 +384,33 @@ function setMasterVolume(v){
   }
 }
 
-/* ---------- note on/off ---------- */
-function noteOn(midi){
+/* ---------- note on/off (keyed by physical/layout midi) ---------- */
+function noteOn(layout){
   ensureAudio();
-  if(active.has(midi)) return;
-  const v = new Voice(midi);
-  active.set(midi, v);
+  if(active.has(layout)) return;
+  const v = new Voice(layout + transpose, layout);
+  active.set(layout, v);
   // retune everything for the (possibly new) root in just mode
-  if(mode==='just'){ for(const [m,vo] of active) if(m!==midi) vo.retune(); }
+  if(mode==='just'){ for(const [m,vo] of active) if(m!==layout) vo.retune(); }
   updateRootPill();
-  paintKey(midi, hold ? 'hold':'down');
+  paintKey(layout, hold ? 'hold':'down');
 }
-function noteOff(midi){
-  const v = active.get(midi);
+function noteOff(layout){
+  const v = active.get(layout);
   if(!v) return;
   v.release();
-  active.delete(midi);
+  active.delete(layout);
   if(mode==='just'){ for(const vo of active.values()) vo.retune(); }
   updateRootPill();
-  paintKey(midi, null);
+  paintKey(layout, null);
 }
 function allNotesOff(){
   for(const m of [...active.keys()]) noteOff(m);
+}
+function applyTranspose(){
+  for(const v of active.values()){ v.midi = v.layout + transpose; }
+  for(const v of active.values()) v.retune();
+  updateRootPill();
 }
 
 /* ============================================================
@@ -387,12 +421,16 @@ const DOREMI = ['ド','ド#','レ','レ#','ミ','ファ','ファ#','ソ','ソ#',
 const WHITE = [0,2,4,5,7,9,11];
 const BLACK_AFTER = {0:1,2:3,5:6,7:8,9:10}; // white pc -> black pc to its right
 
-const START_OCT = 4;        // C4
-const NUM_OCT   = 2;        // 2 octaves + top C
+const START_OCT = 2;        // lowest C = C2
+const NUM_OCT   = 4;        // 4 octaves + top C (C2..C6)
+const KEYW = 50;            // white-key width in px
+const BKW  = Math.round(KEYW*0.62);
 let showLabel = true;
 
+const kbWrap = document.getElementById('kbWrap');
 const keyboard = document.getElementById('keyboard');
-const keyEls = new Map();   // midi -> element
+const keyEls = new Map();   // layoutMidi -> element
+let kbWidth = 0, viewW = 0, panX = 0, whiteC4Index = 0;
 
 function buildKeyboard(){
   keyboard.innerHTML='';
@@ -403,34 +441,52 @@ function buildKeyboard(){
   }
   whiteMidis.push((START_OCT+NUM_OCT+1)*12 + 0); // final top C
   const totalWhite = whiteMidis.length;
+  kbWidth = totalWhite*KEYW;
+  keyboard.style.width = kbWidth+'px';
 
   // white keys
-  whiteMidis.forEach((midi)=>{
+  whiteMidis.forEach((midi, i)=>{
+    if(midi===60) whiteC4Index = i;   // remember C4 position for centering
     const el = document.createElement('div');
     el.className='wkey'; el.dataset.midi=midi;
-    const lbl=document.createElement('span');
-    el.appendChild(lbl);
+    el.style.width = KEYW+'px';
+    el.appendChild(document.createElement('span'));
     keyboard.appendChild(el);
     keyEls.set(midi, el);
   });
 
-  // black keys, positioned by white index
-  let wIndex=0;
+  // black keys, positioned in px on the boundary between two whites
   whiteMidis.forEach((midi, i)=>{
     const pc = midi%12;
     if(BLACK_AFTER.hasOwnProperty(pc) && i < totalWhite-1){
       const bmidi = midi + (BLACK_AFTER[pc]-pc);
       const el=document.createElement('div');
       el.className='bkey'; el.dataset.midi=bmidi;
-      // center on the border between white i and i+1
-      const leftPct = ((i+1)/totalWhite)*100;
-      el.style.left = `calc(${leftPct}% - 4.25%)`;
-      const lbl=document.createElement('span'); el.appendChild(lbl);
+      el.style.width = BKW+'px';
+      el.style.left  = ((i+1)*KEYW - BKW/2)+'px';
+      el.appendChild(document.createElement('span'));
       keyboard.appendChild(el);
       keyEls.set(bmidi, el);
     }
   });
   refreshLabels();
+  measureAndClampPan(true);
+}
+
+function measureAndClampPan(center){
+  viewW = kbWrap.clientWidth;
+  if(center){
+    // center the view around C4
+    panX = whiteC4Index*KEYW - viewW/2 + KEYW*1.5;
+  }
+  setPan(panX, false);
+}
+
+function setPan(x, smooth){
+  const maxPan = Math.max(0, kbWidth - viewW);
+  panX = Math.max(0, Math.min(maxPan, x));
+  keyboard.classList.toggle('smooth', !!smooth);
+  keyboard.style.transform = 'translateX(' + (-panX) + 'px)';
 }
 
 function refreshLabels(){
@@ -453,52 +509,90 @@ function paintKey(midi, state){
   if(state) el.classList.add(state);
 }
 
-/* ---------- pointer handling (multi-touch, low latency) ---------- */
+/* ---------- pointer handling (multi-touch play + two-finger pan) ---------- */
 let hold = false;
-const pointerNote = new Map(); // pointerId -> midi
+const pointers = new Map();   // pointerId -> {x,y,startX,startY,midi}
+const PAN_TH = 22;            // px of horizontal travel before a 2-finger swipe becomes a pan
+let panMode = false, panStartAvgX = 0, panStartPanX = 0, panIds = [];
 
-function midiFromEvent(e){
-  const t = document.elementFromPoint(e.clientX, e.clientY);
+function keyAt(x, y){
+  const t = document.elementFromPoint(x, y);
   if(!t) return null;
-  const k = t.closest('[data-midi]');
+  const k = t.closest ? t.closest('[data-midi]') : null;
   return k ? parseInt(k.dataset.midi,10) : null;
 }
 
 function onDown(e){
-  ensureAudio();
-  hideHint();
-  const midi = e.target.closest ? (e.target.closest('[data-midi]') ? parseInt(e.target.closest('[data-midi]').dataset.midi,10) : midiFromEvent(e)) : midiFromEvent(e);
+  ensureAudio(); hideHint(); e.preventDefault();
+  const midi = keyAt(e.clientX, e.clientY);
+  const p = {x:e.clientX, y:e.clientY, startX:e.clientX, startY:e.clientY, midi:null};
+  pointers.set(e.pointerId, p);
   if(midi==null) return;
-  e.preventDefault();
   if(hold){
-    // latch: toggle
-    if(active.has(midi)) noteOff(midi);
-    else noteOn(midi);
+    if(active.has(midi)){ noteOff(midi); p.midi=null; }
+    else { noteOn(midi); p.midi=midi; }
   } else {
-    pointerNote.set(e.pointerId, midi);
-    noteOn(midi);
+    noteOn(midi); p.midi=midi;
   }
 }
+
+function enterPan(){
+  panMode = true;
+  panIds = [...pointers.keys()];
+  // silence any notes these fingers had started, so panning doesn't drone
+  for(const p of pointers.values()){ if(p.midi!=null){ noteOff(p.midi); p.midi=null; } }
+  let sum=0,c=0; for(const p of pointers.values()){ sum+=p.x; c++; }
+  panStartAvgX = c? sum/c : 0; panStartPanX = panX;
+}
+
 function onMove(e){
-  if(hold) return;
-  if(!pointerNote.has(e.pointerId)) return;
-  const midi = midiFromEvent(e);
-  const prev = pointerNote.get(e.pointerId);
-  if(midi!==prev){
-    if(prev!=null) noteOff(prev);
-    if(midi!=null){ noteOn(midi); pointerNote.set(e.pointerId, midi); }
-    else pointerNote.delete(e.pointerId);
+  const p = pointers.get(e.pointerId);
+  if(!p) return;
+  p.x = e.clientX; p.y = e.clientY;
+
+  if(panMode){
+    let sum=0,c=0; for(const q of pointers.values()){ sum+=q.x; c++; }
+    if(c) setPan(panStartPanX - (sum/c - panStartAvgX), false);
+    return;
+  }
+
+  // detect a two-finger horizontal swipe -> pan
+  if(pointers.size >= 2){
+    let moved = 0;
+    for(const q of pointers.values()){
+      const dx = Math.abs(q.x - q.startX), dy = Math.abs(q.y - q.startY);
+      if(dx > PAN_TH && dx > dy) moved++;
+    }
+    if(moved >= 2){ enterPan(); return; }
+  }
+
+  // single-finger glissando (momentary mode only)
+  if(!hold && p.midi!=null){
+    const m = keyAt(e.clientX, e.clientY);
+    if(m !== p.midi){
+      noteOff(p.midi);
+      if(m!=null){ noteOn(m); p.midi=m; } else p.midi=null;
+    }
   }
 }
+
 function onUp(e){
-  if(hold) return;
-  const midi = pointerNote.get(e.pointerId);
-  if(midi!=null) noteOff(midi);
-  pointerNote.delete(e.pointerId);
+  const p = pointers.get(e.pointerId);
+  if(!p) return;
+  if(!panMode && !hold && p.midi!=null) noteOff(p.midi);
+  pointers.delete(e.pointerId);
+  if(panMode){
+    panIds = panIds.filter(id=>id!==e.pointerId);
+    if(pointers.size < 2){ panMode=false; panIds=[]; }
+    else { // rebaseline so remaining fingers don't cause a jump
+      let sum=0,c=0; for(const q of pointers.values()){ sum+=q.x; c++; }
+      panStartAvgX = sum/c; panStartPanX = panX;
+    }
+  }
 }
 
 keyboard.addEventListener('pointerdown', onDown, {passive:false});
-keyboard.addEventListener('pointermove', onMove, {passive:false});
+window.addEventListener('pointermove', onMove, {passive:false});
 window.addEventListener('pointerup', onUp, {passive:false});
 window.addEventListener('pointercancel', onUp, {passive:false});
 
@@ -536,6 +630,27 @@ holdBtn.addEventListener('click', ()=>{
   }
 });
 document.getElementById('allOff').addEventListener('click', allNotesOff);
+
+// instrument transpose
+document.getElementById('xpose').addEventListener('change', e=>{
+  transpose = parseInt(e.target.value,10);
+  applyTranspose();
+});
+
+// octave / register jump (pans the view by one octave = 7 white keys)
+document.getElementById('octUp').addEventListener('click', ()=> setPan(panX + 7*KEYW, true));
+document.getElementById('octDn').addEventListener('click', ()=> setPan(panX - 7*KEYW, true));
+
+// fullscreen (hides the browser address bar on mobile Chrome/Android)
+document.getElementById('fsBtn').addEventListener('click', ()=>{
+  const d=document, el=d.documentElement;
+  if(!d.fullscreenElement && !d.webkitFullscreenElement){
+    const req = el.requestFullscreen || el.webkitRequestFullscreen;
+    if(req) req.call(el).catch(()=>{});
+  } else {
+    (d.exitFullscreen || d.webkitExitFullscreen || function(){}).call(d);
+  }
+});
 
 // label toggle
 const labelBtn=document.getElementById('labelBtn');
@@ -647,7 +762,9 @@ document.body.addEventListener('pointerdown', ()=>{ ensureAudio(); hideHint(); }
 // auto-fade the landscape suggestion toast
 setTimeout(()=>{ const r=document.getElementById('rotHint'); if(r) r.classList.add('hide'); }, 4000);
 buildKeyboard();
-window.addEventListener('resize', ()=>{ /* flex handles it */ });
+let rzT=null;
+window.addEventListener('resize', ()=>{ clearTimeout(rzT); rzT=setTimeout(()=>measureAndClampPan(false), 120); });
+window.addEventListener('orientationchange', ()=>{ setTimeout(()=>measureAndClampPan(false), 300); });
 // keep audio alive on visibility regain
 document.addEventListener('visibilitychange', ()=>{ if(!document.hidden && ac && ac.state==='suspended') ac.resume(); });
 
