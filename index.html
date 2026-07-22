@@ -104,6 +104,18 @@
   .bkey.down{ background:linear-gradient(#3fae8c,#1f7a5f); color:#eafff6; }
   .bkey.hold{ background:linear-gradient(#d98e3a,#9c5e15); color:#fff3e0; }
 
+  /* chord name display over the keyboard */
+  #chordBadge{ position:absolute; top:8px; left:10px; z-index:40; pointer-events:none;
+    display:flex; flex-direction:column; align-items:flex-start; line-height:1;
+    padding:6px 12px; border-radius:12px; background:rgba(13,17,23,.72);
+    border:1px solid var(--line); backdrop-filter:blur(3px); transition:opacity .18s, border-color .18s;
+    opacity:0; }
+  #chordBadge.show{ opacity:1; }
+  #chordBadge.just{ border-color:var(--accent); box-shadow:0 0 14px rgba(77,208,167,.28); }
+  #chordName{ font-size:30px; font-weight:800; color:var(--txt); letter-spacing:.01em; }
+  #chordBadge.just #chordName{ color:var(--accent); }
+  #chordSub{ font-size:11px; color:var(--dim); margin-top:3px; font-weight:600; }
+
   #hint{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
     background:rgba(5,7,10,.86); color:var(--txt); font-size:18px; z-index:50; text-align:center; padding:20px;
     pointer-events:none; transition:opacity .25s; }
@@ -132,6 +144,18 @@
       <div class="seg" id="tuneSeg">
         <button data-mode="just" class="on">純正律</button>
         <button data-mode="equal">平均律</button>
+      </div>
+    </div>
+
+    <!-- Reference pitch A -->
+    <div class="grp">
+      <div class="lbl">基準 A</div>
+      <div class="tempoBox">
+        <div class="bpm" id="a4Val">442<br><small>Hz</small></div>
+        <div class="stepper">
+          <button id="a4Up">▲</button>
+          <button id="a4Dn">▼</button>
+        </div>
       </div>
     </div>
 
@@ -219,6 +243,7 @@
 
   <div id="kbWrap">
     <div id="keyboard"></div>
+    <div id="chordBadge"><span id="chordName">–</span><small id="chordSub"></small></div>
     <div id="hint">タップして開始 &nbsp;·&nbsp; <b>&nbsp;鍵盤を弾いてください</b></div>
   </div>
 
@@ -235,7 +260,7 @@
 let ac = null;            // AudioContext
 let master = null;        // master gain
 let comp = null;          // compressor / limiter
-const A4 = 440;
+let A4 = 442;             // reference pitch (Hz), adjustable 438-445
 
 // Just intonation ratios relative to root (interval in semitones -> ratio)
 const JUST = [
@@ -292,9 +317,69 @@ function computeFreq(midi){
 }
 
 function updateRootPill(){
-  if(active.size===0){ rootPill.textContent='root: –'; return; }
+  if(active.size===0){ rootPill.textContent='root: –'; updateChord(); return; }
   const r = soundingRoot();
   rootPill.textContent = 'root: ' + NAMES[((r%12)+12)%12] + (Math.floor(r/12)-1);
+  updateChord();
+}
+
+/* ---- chord recognition (based on sounding pitches) ---- */
+const INTERVAL_JP = ['完全1度','短2度','長2度','短3度','長3度','完全4度','三全音','完全5度','短6度','長6度','短7度','長7度'];
+const CHORDS = [
+  {iv:[0,4,7],     name:'',      jp:'メジャー'},
+  {iv:[0,3,7],     name:'m',     jp:'マイナー'},
+  {iv:[0,3,6],     name:'dim',   jp:'ディミニッシュ'},
+  {iv:[0,4,8],     name:'aug',   jp:'オーギュメント'},
+  {iv:[0,5,7],     name:'sus4',  jp:'サス4'},
+  {iv:[0,2,7],     name:'sus2',  jp:'サス2'},
+  {iv:[0,4,7,11],  name:'maj7',  jp:'メジャー7th'},
+  {iv:[0,4,7,10],  name:'7',     jp:'ドミナント7th'},
+  {iv:[0,3,7,10],  name:'m7',    jp:'マイナー7th'},
+  {iv:[0,3,6,10],  name:'m7♭5',  jp:'ハーフディミニッシュ'},
+  {iv:[0,3,6,9],   name:'dim7',  jp:'ディミニッシュ7th'},
+  {iv:[0,4,7,9],   name:'6',     jp:'シックス'},
+  {iv:[0,3,7,9],   name:'m6',    jp:'マイナー6th'},
+  {iv:[0,2,4,7,10],name:'9',     jp:'ナインス'}
+];
+
+function detectChord(){
+  if(active.size===0) return null;
+  const pcs = new Set(); let bass = Infinity;
+  for(const v of active.values()){ pcs.add(((v.midi%12)+12)%12); if(v.midi<bass) bass=v.midi; }
+  const bpc = ((bass%12)+12)%12;
+  const arr = [...pcs];
+  if(arr.length===1) return { name:NAMES[arr[0]], sub:'単音' };
+  if(arr.length===2){
+    const other = arr.find(x=>x!==bpc);
+    const iv = ((other-bpc)%12+12)%12;
+    return { name:NAMES[bpc]+' '+NAMES[other], sub:INTERVAL_JP[iv] };
+  }
+  let best=null;
+  for(const root of arr){
+    const rel = arr.map(pc=>(((pc-root)%12)+12)%12);
+    for(const c of CHORDS){
+      const missing = c.iv.filter(x=>!rel.includes(x)).length;
+      const extra   = rel.filter(x=>!c.iv.includes(x)).length;
+      const score   = missing*3 + extra*2 + (root===bpc?0:1);
+      if(!best || score<best.score) best={score, root, c};
+    }
+  }
+  if(!best) return null;
+  let label = NAMES[best.root] + best.c.name;
+  if(best.root !== bpc) label += '/' + NAMES[bpc];   // inversion (slash chord)
+  return { name:label, sub:NAMES[best.root]+' '+best.c.jp };
+}
+
+function updateChord(){
+  const badge = document.getElementById('chordBadge');
+  const nm = document.getElementById('chordName');
+  const sub = document.getElementById('chordSub');
+  const info = detectChord();
+  if(!info){ badge.classList.remove('show'); return; }
+  nm.textContent = info.name;
+  sub.textContent = info.sub || '';
+  badge.classList.add('show');
+  badge.classList.toggle('just', mode==='just');
 }
 
 // Voice: one polyphonic note (possibly detuned pair)
@@ -650,6 +735,22 @@ document.getElementById('fsBtn').addEventListener('click', ()=>{
   } else {
     (d.exitFullscreen || d.webkitExitFullscreen || function(){}).call(d);
   }
+});
+
+// reference pitch A (438-445 Hz)
+const a4Val=document.getElementById('a4Val');
+function setA4(v){
+  A4=Math.max(438,Math.min(445,v));
+  a4Val.innerHTML=A4+'<br><small>Hz</small>';
+  for(const vo of active.values()) vo.retune();
+}
+document.getElementById('a4Up').addEventListener('click',()=>setA4(A4+1));
+document.getElementById('a4Dn').addEventListener('click',()=>setA4(A4-1));
+[['a4Up',1],['a4Dn',-1]].forEach(([id,dir])=>{
+  const el=document.getElementById(id); let iv=null,to=null;
+  const start=()=>{ to=setTimeout(()=>{ iv=setInterval(()=>setA4(A4+dir),120); },400); };
+  const stop=()=>{ clearTimeout(to); clearInterval(iv); };
+  el.addEventListener('pointerdown',start); el.addEventListener('pointerup',stop); el.addEventListener('pointerleave',stop);
 });
 
 // label toggle
