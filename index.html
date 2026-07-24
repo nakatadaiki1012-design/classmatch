@@ -115,6 +115,12 @@
   #chordName{ font-size:30px; font-weight:800; color:var(--txt); letter-spacing:.01em; }
   #chordBadge.just #chordName{ color:var(--accent); }
   #chordSub{ font-size:11px; color:var(--dim); margin-top:3px; font-weight:600; }
+  #chordCents{ font-size:12px; margin-top:4px; font-weight:700; font-variant-numeric:tabular-nums;
+    color:var(--accent2); display:none; max-width:60vw; line-height:1.5; }
+  #chordBadge.just #chordCents{ display:block; }
+  #chordCents .up{ color:#5ad6a8; }
+  #chordCents .dn{ color:#f0a04b; }
+  #chordCents .z{ color:var(--dim); }
 
   #hint{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
     background:rgba(5,7,10,.86); color:var(--txt); font-size:18px; z-index:50; text-align:center; padding:20px;
@@ -176,6 +182,15 @@
       <div class="row">
         <button class="btn" id="octDn">◀ 低</button>
         <button class="btn" id="octUp">高 ▶</button>
+      </div>
+    </div>
+
+    <!-- Keyboard width / zoom -->
+    <div class="grp">
+      <div class="lbl">鍵盤幅</div>
+      <div class="row">
+        <button class="btn" id="zoomOut">－</button>
+        <button class="btn" id="zoomIn">＋</button>
       </div>
     </div>
 
@@ -243,7 +258,7 @@
 
   <div id="kbWrap">
     <div id="keyboard"></div>
-    <div id="chordBadge"><span id="chordName">–</span><small id="chordSub"></small></div>
+    <div id="chordBadge"><span id="chordName">–</span><small id="chordSub"></small><small id="chordCents"></small></div>
     <div id="hint">タップして開始 &nbsp;·&nbsp; <b>&nbsp;鍵盤を弾いてください</b></div>
   </div>
 
@@ -374,12 +389,33 @@ function updateChord(){
   const badge = document.getElementById('chordBadge');
   const nm = document.getElementById('chordName');
   const sub = document.getElementById('chordSub');
+  const ce = document.getElementById('chordCents');
   const info = detectChord();
-  if(!info){ badge.classList.remove('show'); return; }
+  if(!info){ badge.classList.remove('show','just'); return; }
   nm.textContent = info.name;
   sub.textContent = info.sub || '';
   badge.classList.add('show');
   badge.classList.toggle('just', mode==='just');
+  ce.innerHTML = (mode==='just') ? centsMarkup() : '';
+}
+
+// per-note cent deviation vs equal temperament (just mode)
+function centsMarkup(){
+  if(active.size===0) return '';
+  const root = soundingRoot();
+  const seen = new Set();
+  const voices = [...active.values()].sort((a,b)=>a.midi-b.midi);
+  const parts = [];
+  for(const v of voices){
+    const pc = ((v.midi%12)+12)%12;
+    if(seen.has(pc)) continue; seen.add(pc);
+    const iv = (((v.midi-root)%12)+12)%12;
+    const c = Math.round(JUST_CENTS[iv]);
+    const cls = c>0?'up':(c<0?'dn':'z');
+    const txt = c>0?('+'+c):(c<0?('−'+Math.abs(c)):'±0');
+    parts.push('<span class="'+cls+'">'+NAMES[pc]+' '+txt+'¢</span>');
+  }
+  return parts.join('　');
 }
 
 // Voice: one polyphonic note (possibly detuned pair)
@@ -457,6 +493,14 @@ function ensureAudio(){
   comp.threshold.value=-10; comp.knee.value=20; comp.ratio.value=8; comp.attack.value=.003; comp.release.value=.2;
   master.connect(comp).connect(ac.destination);
   setMasterVolume(volume);
+  if(ac.state==='suspended') ac.resume();
+  // --- latency: prime the DSP graph so the very first note has no compile hitch ---
+  for(const k in TIMBRES){ try{ getWave(k); }catch(e){} }
+  try{
+    const o=ac.createOscillator(), g=ac.createGain();
+    g.gain.value=0.00001; o.connect(g).connect(master);
+    o.start(); o.stop(ac.currentTime+0.03);
+  }catch(e){}
 }
 
 let volume = 0.70;
@@ -508,33 +552,37 @@ const BLACK_AFTER = {0:1,2:3,5:6,7:8,9:10}; // white pc -> black pc to its right
 
 const START_OCT = 2;        // lowest C = C2
 const NUM_OCT   = 4;        // 4 octaves + top C (C2..C6)
-const KEYW = 50;            // white-key width in px
-const BKW  = Math.round(KEYW*0.62);
+let KEYW = 50;              // white-key width in px (adjustable / zoomable)
+let BKW  = Math.round(KEYW*0.62);
+const MINW = 26, MAXW = 120;
 let showLabel = true;
 
 const kbWrap = document.getElementById('kbWrap');
 const keyboard = document.getElementById('keyboard');
 const keyEls = new Map();   // layoutMidi -> element
+let whiteList = [];         // ordered white layoutMidis
+let blackList = [];         // [bmidi, whiteIndexToTheLeft]
 let kbWidth = 0, viewW = 0, panX = 0, whiteC4Index = 0;
+
+// cents deviation of each just-intonation interval vs equal temperament
+const JUST_CENTS = JUST.map((r,i)=> 1200*Math.log2(r) - 100*i );
 
 function buildKeyboard(){
   keyboard.innerHTML='';
-  keyEls.clear();
+  keyEls.clear(); whiteList=[]; blackList=[];
   const whiteMidis = [];
   for(let o=0;o<NUM_OCT;o++){
     for(const pc of WHITE){ whiteMidis.push((START_OCT+o+1)*12 + pc); }
   }
   whiteMidis.push((START_OCT+NUM_OCT+1)*12 + 0); // final top C
   const totalWhite = whiteMidis.length;
-  kbWidth = totalWhite*KEYW;
-  keyboard.style.width = kbWidth+'px';
+  whiteList = whiteMidis.slice();
 
   // white keys
   whiteMidis.forEach((midi, i)=>{
     if(midi===60) whiteC4Index = i;   // remember C4 position for centering
     const el = document.createElement('div');
     el.className='wkey'; el.dataset.midi=midi;
-    el.style.width = KEYW+'px';
     el.appendChild(document.createElement('span'));
     keyboard.appendChild(el);
     keyEls.set(midi, el);
@@ -547,15 +595,40 @@ function buildKeyboard(){
       const bmidi = midi + (BLACK_AFTER[pc]-pc);
       const el=document.createElement('div');
       el.className='bkey'; el.dataset.midi=bmidi;
-      el.style.width = BKW+'px';
-      el.style.left  = ((i+1)*KEYW - BKW/2)+'px';
       el.appendChild(document.createElement('span'));
       keyboard.appendChild(el);
       keyEls.set(bmidi, el);
+      blackList.push([bmidi, i]);
     }
   });
+  geomKeyW();
   refreshLabels();
   measureAndClampPan(true);
+}
+
+// apply current KEYW to every key's width/position
+function geomKeyW(){
+  BKW = Math.round(KEYW*0.62);
+  for(const midi of whiteList){ keyEls.get(midi).style.width = KEYW+'px'; }
+  kbWidth = whiteList.length*KEYW;
+  keyboard.style.width = kbWidth+'px';
+  for(const [bmidi,i] of blackList){
+    const el=keyEls.get(bmidi);
+    el.style.width = BKW+'px';
+    el.style.left  = ((i+1)*KEYW - BKW/2)+'px';
+  }
+}
+
+// zoom the keyboard, keeping a chosen world point anchored under the screen point
+function zoomKeyW(newW, worldFrac, cxClient){
+  viewW = kbWrap.clientWidth;
+  if(worldFrac==null) worldFrac = kbWidth>0 ? (panX + viewW/2)/kbWidth : 0.5;
+  KEYW = Math.max(MINW, Math.min(MAXW, newW));
+  geomKeyW();
+  const wrapLeft = kbWrap.getBoundingClientRect().left;
+  const target = worldFrac * kbWidth;
+  const px = (cxClient==null) ? (target - viewW/2) : (target - (cxClient - wrapLeft));
+  setPan(px, false);
 }
 
 function measureAndClampPan(center){
@@ -594,11 +667,12 @@ function paintKey(midi, state){
   if(state) el.classList.add(state);
 }
 
-/* ---------- pointer handling (multi-touch play + two-finger pan) ---------- */
+/* ---------- pointer handling (multi-touch play + two-finger pan/zoom) ---------- */
 let hold = false;
 const pointers = new Map();   // pointerId -> {x,y,startX,startY,midi}
-const PAN_TH = 22;            // px of horizontal travel before a 2-finger swipe becomes a pan
-let panMode = false, panStartAvgX = 0, panStartPanX = 0, panIds = [];
+const GEST_TH = 20;           // px threshold before a 2-finger move becomes pan/zoom
+// gesture state
+let gest = false, gStartDist = 1, gStartKEYW = 50, gAnchorFrac = 0;
 
 function keyAt(x, y){
   const t = document.elementFromPoint(x, y);
@@ -606,6 +680,7 @@ function keyAt(x, y){
   const k = t.closest ? t.closest('[data-midi]') : null;
   return k ? parseInt(k.dataset.midi,10) : null;
 }
+function twoPts(){ const it=[...pointers.values()]; return [it[0], it[1]]; }
 
 function onDown(e){
   ensureAudio(); hideHint(); e.preventDefault();
@@ -621,13 +696,16 @@ function onDown(e){
   }
 }
 
-function enterPan(){
-  panMode = true;
-  panIds = [...pointers.keys()];
-  // silence any notes these fingers had started, so panning doesn't drone
+function enterGesture(){
+  gest = true;
+  // silence notes those fingers started, so the gesture doesn't drone
   for(const p of pointers.values()){ if(p.midi!=null){ noteOff(p.midi); p.midi=null; } }
-  let sum=0,c=0; for(const p of pointers.values()){ sum+=p.x; c++; }
-  panStartAvgX = c? sum/c : 0; panStartPanX = panX;
+  const [a,b] = twoPts();
+  gStartDist = Math.max(1, Math.hypot(a.x-b.x, a.y-b.y));
+  gStartKEYW = KEYW;
+  const cx = (a.x+b.x)/2;
+  const wrapLeft = kbWrap.getBoundingClientRect().left;
+  gAnchorFrac = kbWidth>0 ? ((cx - wrapLeft) + panX) / kbWidth : 0.5;
 }
 
 function onMove(e){
@@ -635,20 +713,24 @@ function onMove(e){
   if(!p) return;
   p.x = e.clientX; p.y = e.clientY;
 
-  if(panMode){
-    let sum=0,c=0; for(const q of pointers.values()){ sum+=q.x; c++; }
-    if(c) setPan(panStartPanX - (sum/c - panStartAvgX), false);
+  if(gest){
+    const [a,b] = twoPts();
+    if(!a || !b) return;
+    const dist = Math.max(1, Math.hypot(a.x-b.x, a.y-b.y));
+    const cx = (a.x+b.x)/2;
+    zoomKeyW(gStartKEYW * (dist/gStartDist), gAnchorFrac, cx); // pinch = zoom, drag = pan
     return;
   }
 
-  // detect a two-finger horizontal swipe -> pan
+  // detect a two-finger pan/pinch
   if(pointers.size >= 2){
-    let moved = 0;
-    for(const q of pointers.values()){
-      const dx = Math.abs(q.x - q.startX), dy = Math.abs(q.y - q.startY);
-      if(dx > PAN_TH && dx > dy) moved++;
+    const [a,b] = twoPts();
+    if(a && b){
+      const dxa=Math.abs(a.x-a.startX), dxb=Math.abs(b.x-b.startX);
+      const d0=Math.hypot(a.startX-b.startX, a.startY-b.startY);
+      const d1=Math.hypot(a.x-b.x, a.y-b.y);
+      if(Math.abs(d1-d0) > GEST_TH || (dxa>GEST_TH && dxb>GEST_TH)){ enterGesture(); return; }
     }
-    if(moved >= 2){ enterPan(); return; }
   }
 
   // single-finger glissando (momentary mode only)
@@ -664,16 +746,9 @@ function onMove(e){
 function onUp(e){
   const p = pointers.get(e.pointerId);
   if(!p) return;
-  if(!panMode && !hold && p.midi!=null) noteOff(p.midi);
+  if(!gest && !hold && p.midi!=null) noteOff(p.midi);
   pointers.delete(e.pointerId);
-  if(panMode){
-    panIds = panIds.filter(id=>id!==e.pointerId);
-    if(pointers.size < 2){ panMode=false; panIds=[]; }
-    else { // rebaseline so remaining fingers don't cause a jump
-      let sum=0,c=0; for(const q of pointers.values()){ sum+=q.x; c++; }
-      panStartAvgX = sum/c; panStartPanX = panX;
-    }
-  }
+  if(gest && pointers.size < 2){ gest=false; }
 }
 
 keyboard.addEventListener('pointerdown', onDown, {passive:false});
@@ -725,6 +800,10 @@ document.getElementById('xpose').addEventListener('change', e=>{
 // octave / register jump (pans the view by one octave = 7 white keys)
 document.getElementById('octUp').addEventListener('click', ()=> setPan(panX + 7*KEYW, true));
 document.getElementById('octDn').addEventListener('click', ()=> setPan(panX - 7*KEYW, true));
+
+// keyboard width zoom (buttons keep the centre pitch anchored)
+document.getElementById('zoomIn').addEventListener('click', ()=> zoomKeyW(KEYW+10, null, null));
+document.getElementById('zoomOut').addEventListener('click', ()=> zoomKeyW(KEYW-10, null, null));
 
 // fullscreen (hides the browser address bar on mobile Chrome/Android)
 document.getElementById('fsBtn').addEventListener('click', ()=>{
