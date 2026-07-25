@@ -726,9 +726,10 @@ function movePoint(id, x, y){
     return;
   }
 
-  // two-finger horizontal pan — measured only AFTER the fingers have settled,
-  // so pressing/holding a chord (which doesn't move) can never trigger it
-  if(pts.size >= 2){
+  // two-finger horizontal pan — ONLY with exactly two fingers down, so a
+  // 3+ note chord can never be mistaken for a pan and silenced. Movement is
+  // also measured from a baseline frozen after the fingers settle.
+  if(pts.size === 2){
     if((performance.now() - lastDownT) > SETTLE_MS){
       if(!panArmed){
         // freeze a fresh baseline at the settled position of every finger
