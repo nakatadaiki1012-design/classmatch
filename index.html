@@ -667,9 +667,11 @@ function paintKey(midi, state){
   if(state) el.classList.add(state);
 }
 
-/* ---------- pointer handling (multi-touch play + two-finger pan/zoom) ---------- */
+/* ---------- input: multi-touch play + two-finger pan/zoom ----------
+   Uses Touch Events on mobile (reliably reports every finger) and Pointer
+   Events for mouse. A generic point layer (pts) drives both. ------------ */
 let hold = false;
-const pointers = new Map();   // pointerId -> {x,y,startX,startY,midi}
+const pts = new Map();        // id -> {x,y,startX,startY,midi,t}
 // gesture must be a DELIBERATE swipe/pinch, not the finger-settle of a chord:
 const PAN_TH = 30;            // both fingers must slide this far, same direction
 const ZOOM_TH = 46;           // inter-finger distance must change this much
@@ -684,13 +686,13 @@ function keyAt(x, y){
   const k = t.closest ? t.closest('[data-midi]') : null;
   return k ? parseInt(k.dataset.midi,10) : null;
 }
-function twoPts(){ const it=[...pointers.values()]; return [it[0], it[1]]; }
+function twoPts(){ const it=[...pts.values()]; return [it[0], it[1]]; }
 
-function onDown(e){
-  ensureAudio(); hideHint(); e.preventDefault();
-  const midi = keyAt(e.clientX, e.clientY);
-  const p = {x:e.clientX, y:e.clientY, startX:e.clientX, startY:e.clientY, midi:null, t:performance.now()};
-  pointers.set(e.pointerId, p);
+function beginPoint(id, x, y){
+  ensureAudio(); hideHint();
+  const midi = keyAt(x, y);
+  const p = {x, y, startX:x, startY:y, midi:null, t:performance.now()};
+  pts.set(id, p);
   lastDownT = p.t;
   if(midi==null) return;
   if(hold){
@@ -703,8 +705,7 @@ function onDown(e){
 
 function enterGesture(){
   gest = true;
-  // silence notes those fingers started, so the gesture doesn't drone
-  for(const p of pointers.values()){ if(p.midi!=null){ noteOff(p.midi); p.midi=null; } }
+  for(const p of pts.values()){ if(p.midi!=null){ noteOff(p.midi); p.midi=null; } }
   const [a,b] = twoPts();
   gStartDist = Math.max(1, Math.hypot(a.x-b.x, a.y-b.y));
   gStartKEYW = KEYW;
@@ -713,10 +714,10 @@ function enterGesture(){
   gAnchorFrac = kbWidth>0 ? ((cx - wrapLeft) + panX) / kbWidth : 0.5;
 }
 
-function onMove(e){
-  const p = pointers.get(e.pointerId);
+function movePoint(id, x, y){
+  const p = pts.get(id);
   if(!p) return;
-  p.x = e.clientX; p.y = e.clientY;
+  p.x = x; p.y = y;
 
   if(gest){
     const [a,b] = twoPts();
@@ -728,7 +729,7 @@ function onMove(e){
   }
 
   // detect a DELIBERATE two-finger pan/pinch (never the settle of a chord)
-  if(pointers.size >= 2 && (performance.now() - lastDownT) > SETTLE_MS){
+  if(pts.size >= 2 && (performance.now() - lastDownT) > SETTLE_MS){
     const [a,b] = twoPts();
     if(a && b){
       const dxa=a.x-a.startX, dxb=b.x-b.startX;
@@ -745,7 +746,7 @@ function onMove(e){
 
   // single-finger glissando (momentary mode only)
   if(!hold && p.midi!=null){
-    const m = keyAt(e.clientX, e.clientY);
+    const m = keyAt(x, y);
     if(m !== p.midi){
       noteOff(p.midi);
       if(m!=null){ noteOn(m); p.midi=m; } else p.midi=null;
@@ -753,18 +754,41 @@ function onMove(e){
   }
 }
 
-function onUp(e){
-  const p = pointers.get(e.pointerId);
+function endPoint(id){
+  const p = pts.get(id);
   if(!p) return;
   if(!gest && !hold && p.midi!=null) noteOff(p.midi);
-  pointers.delete(e.pointerId);
-  if(gest && pointers.size < 2){ gest=false; }
+  pts.delete(id);
+  if(gest && pts.size < 2){ gest=false; }
 }
 
-keyboard.addEventListener('pointerdown', onDown, {passive:false});
-window.addEventListener('pointermove', onMove, {passive:false});
-window.addEventListener('pointerup', onUp, {passive:false});
-window.addEventListener('pointercancel', onUp, {passive:false});
+// --- Touch Events (mobile) ---
+keyboard.addEventListener('touchstart', (e)=>{
+  e.preventDefault();
+  for(const t of e.changedTouches) beginPoint(t.identifier, t.clientX, t.clientY);
+}, {passive:false});
+window.addEventListener('touchmove', (e)=>{
+  if(pts.size===0) return;
+  e.preventDefault();
+  for(const t of e.changedTouches) movePoint(t.identifier, t.clientX, t.clientY);
+}, {passive:false});
+const touchEnd = (e)=>{ for(const t of e.changedTouches) endPoint(t.identifier); };
+window.addEventListener('touchend', touchEnd, {passive:false});
+window.addEventListener('touchcancel', touchEnd, {passive:false});
+
+// --- Pointer Events (mouse / pen only; touch is handled above) ---
+keyboard.addEventListener('pointerdown', (e)=>{
+  if(e.pointerType==='touch') return;
+  e.preventDefault(); beginPoint('mouse', e.clientX, e.clientY);
+}, {passive:false});
+window.addEventListener('pointermove', (e)=>{
+  if(e.pointerType==='touch' || !pts.has('mouse')) return;
+  movePoint('mouse', e.clientX, e.clientY);
+}, {passive:false});
+window.addEventListener('pointerup', (e)=>{
+  if(e.pointerType==='touch') return;
+  endPoint('mouse');
+}, {passive:false});
 
 /* ============================================================
    Controls
