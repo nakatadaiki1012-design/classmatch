@@ -252,6 +252,7 @@
         <button class="btn on" id="labelBtn" style="font-size:11px">ドレミ</button>
         <button class="btn" id="fsBtn" title="全画面">⛶</button>
         <span class="pill" id="rootPill">root: –</span>
+        <span class="pill" id="touchPill">同時0 / 最大0</span>
       </div>
     </div>
   </div>
@@ -672,13 +673,13 @@ function paintKey(midi, state){
    Events for mouse. A generic point layer (pts) drives both. ------------ */
 let hold = false;
 const pts = new Map();        // id -> {x,y,startX,startY,midi,t}
-// gesture must be a DELIBERATE swipe/pinch, not the finger-settle of a chord:
-const PAN_TH = 30;            // both fingers must slide this far, same direction
-const ZOOM_TH = 46;           // inter-finger distance must change this much
-const SETTLE_MS = 110;        // ignore gesture detection right after a finger lands
+// pan must be a DELIBERATE two-finger slide, never the finger-settle of a chord:
+const PAN_TH = 34;            // both fingers must slide this far, same direction
+const SETTLE_MS = 110;        // ignore pan detection right after a finger lands
 let lastDownT = 0;
-// gesture state
-let gest = false, gStartDist = 1, gStartKEYW = 50, gAnchorFrac = 0;
+// pan-gesture state
+let gest = false, gPanStartCX = 0, gPanStartPanX = 0;
+let maxTouch = 0;             // diagnostic: max simultaneous touches seen
 
 function keyAt(x, y){
   const t = document.elementFromPoint(x, y);
@@ -694,6 +695,7 @@ function beginPoint(id, x, y){
   const p = {x, y, startX:x, startY:y, midi:null, t:performance.now()};
   pts.set(id, p);
   lastDownT = p.t;
+  updateTouchPill();
   if(midi==null) return;
   if(hold){
     if(active.has(midi)){ noteOff(midi); p.midi=null; }
@@ -707,11 +709,8 @@ function enterGesture(){
   gest = true;
   for(const p of pts.values()){ if(p.midi!=null){ noteOff(p.midi); p.midi=null; } }
   const [a,b] = twoPts();
-  gStartDist = Math.max(1, Math.hypot(a.x-b.x, a.y-b.y));
-  gStartKEYW = KEYW;
-  const cx = (a.x+b.x)/2;
-  const wrapLeft = kbWrap.getBoundingClientRect().left;
-  gAnchorFrac = kbWidth>0 ? ((cx - wrapLeft) + panX) / kbWidth : 0.5;
+  gPanStartCX = (a.x+b.x)/2;
+  gPanStartPanX = panX;
 }
 
 function movePoint(id, x, y){
@@ -722,25 +721,20 @@ function movePoint(id, x, y){
   if(gest){
     const [a,b] = twoPts();
     if(!a || !b) return;
-    const dist = Math.max(1, Math.hypot(a.x-b.x, a.y-b.y));
-    const cx = (a.x+b.x)/2;
-    zoomKeyW(gStartKEYW * (dist/gStartDist), gAnchorFrac, cx); // pinch = zoom, drag = pan
+    setPan(gPanStartPanX - ((a.x+b.x)/2 - gPanStartCX), false); // two-finger horizontal pan
     return;
   }
 
-  // detect a DELIBERATE two-finger pan/pinch (never the settle of a chord)
+  // detect a DELIBERATE two-finger horizontal pan (never the settle of a chord)
   if(pts.size >= 2 && (performance.now() - lastDownT) > SETTLE_MS){
     const [a,b] = twoPts();
     if(a && b){
       const dxa=a.x-a.startX, dxb=b.x-b.startX;
       const dya=a.y-a.startY, dyb=b.y-b.startY;
-      const d0=Math.hypot(a.startX-b.startX, a.startY-b.startY);
-      const d1=Math.hypot(a.x-b.x, a.y-b.y);
-      const zoom = Math.abs(d1-d0) > ZOOM_TH;
-      const pan  = Math.sign(dxa)===Math.sign(dxb) && dxa!==0 &&
-                   Math.abs(dxa)>PAN_TH && Math.abs(dxb)>PAN_TH &&
-                   Math.abs(dxa)>Math.abs(dya) && Math.abs(dxb)>Math.abs(dyb);
-      if(zoom || pan){ enterGesture(); return; }
+      const pan = Math.sign(dxa)===Math.sign(dxb) && dxa!==0 &&
+                  Math.abs(dxa)>PAN_TH && Math.abs(dxb)>PAN_TH &&
+                  Math.abs(dxa)>Math.abs(dya) && Math.abs(dxb)>Math.abs(dyb);
+      if(pan){ enterGesture(); return; }
     }
   }
 
@@ -759,11 +753,19 @@ function endPoint(id){
   if(!p) return;
   if(!gest && !hold && p.midi!=null) noteOff(p.midi);
   pts.delete(id);
+  updateTouchPill();
   if(gest && pts.size < 2){ gest=false; }
 }
 
+function updateTouchPill(){
+  const n = pts.size;
+  if(n > maxTouch) maxTouch = n;
+  const el = document.getElementById('touchPill');
+  if(el) el.textContent = '同時' + n + ' / 最大' + maxTouch;
+}
+
 // --- Touch Events (mobile) ---
-keyboard.addEventListener('touchstart', (e)=>{
+kbWrap.addEventListener('touchstart', (e)=>{
   e.preventDefault();
   for(const t of e.changedTouches) beginPoint(t.identifier, t.clientX, t.clientY);
 }, {passive:false});
@@ -777,7 +779,7 @@ window.addEventListener('touchend', touchEnd, {passive:false});
 window.addEventListener('touchcancel', touchEnd, {passive:false});
 
 // --- Pointer Events (mouse / pen only; touch is handled above) ---
-keyboard.addEventListener('pointerdown', (e)=>{
+kbWrap.addEventListener('pointerdown', (e)=>{
   if(e.pointerType==='touch') return;
   e.preventDefault(); beginPoint('mouse', e.clientX, e.clientY);
 }, {passive:false});
