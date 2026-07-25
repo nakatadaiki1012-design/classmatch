@@ -675,10 +675,10 @@ let hold = false;
 const pts = new Map();        // id -> {x,y,startX,startY,midi,t}
 // pan must be a DELIBERATE two-finger slide, never the finger-settle of a chord:
 const PAN_TH = 34;            // both fingers must slide this far, same direction
-const SETTLE_MS = 110;        // ignore pan detection right after a finger lands
+const SETTLE_MS = 130;        // wait this long after a finger lands before arming pan
 let lastDownT = 0;
 // pan-gesture state
-let gest = false, gPanStartCX = 0, gPanStartPanX = 0;
+let gest = false, gPanStartCX = 0, gPanStartPanX = 0, panArmed = false;
 let maxTouch = 0;             // diagnostic: max simultaneous touches seen
 
 function keyAt(x, y){
@@ -695,6 +695,7 @@ function beginPoint(id, x, y){
   const p = {x, y, startX:x, startY:y, midi:null, t:performance.now()};
   pts.set(id, p);
   lastDownT = p.t;
+  panArmed = false;           // a new finger re-starts the settle window
   updateTouchPill();
   if(midi==null) return;
   if(hold){
@@ -725,16 +726,25 @@ function movePoint(id, x, y){
     return;
   }
 
-  // detect a DELIBERATE two-finger horizontal pan (never the settle of a chord)
-  if(pts.size >= 2 && (performance.now() - lastDownT) > SETTLE_MS){
-    const [a,b] = twoPts();
-    if(a && b){
-      const dxa=a.x-a.startX, dxb=b.x-b.startX;
-      const dya=a.y-a.startY, dyb=b.y-b.startY;
-      const pan = Math.sign(dxa)===Math.sign(dxb) && dxa!==0 &&
-                  Math.abs(dxa)>PAN_TH && Math.abs(dxb)>PAN_TH &&
-                  Math.abs(dxa)>Math.abs(dya) && Math.abs(dxb)>Math.abs(dyb);
-      if(pan){ enterGesture(); return; }
+  // two-finger horizontal pan — measured only AFTER the fingers have settled,
+  // so pressing/holding a chord (which doesn't move) can never trigger it
+  if(pts.size >= 2){
+    if((performance.now() - lastDownT) > SETTLE_MS){
+      if(!panArmed){
+        // freeze a fresh baseline at the settled position of every finger
+        for(const q of pts.values()){ q.startX=q.x; q.startY=q.y; }
+        panArmed = true;
+      } else {
+        const [a,b] = twoPts();
+        if(a && b){
+          const dxa=a.x-a.startX, dxb=b.x-b.startX;
+          const dya=a.y-a.startY, dyb=b.y-b.startY;
+          const pan = Math.sign(dxa)===Math.sign(dxb) && dxa!==0 &&
+                      Math.abs(dxa)>PAN_TH && Math.abs(dxb)>PAN_TH &&
+                      Math.abs(dxa)>Math.abs(dya) && Math.abs(dxb)>Math.abs(dyb);
+          if(pan){ enterGesture(); return; }
+        }
+      }
     }
   }
 
@@ -754,6 +764,7 @@ function endPoint(id){
   if(!gest && !hold && p.midi!=null) noteOff(p.midi);
   pts.delete(id);
   updateTouchPill();
+  panArmed = false;           // re-settle with the remaining fingers
   if(gest && pts.size < 2){ gest=false; }
 }
 
