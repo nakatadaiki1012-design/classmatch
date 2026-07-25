@@ -749,8 +749,10 @@ function movePoint(id, x, y){
     }
   }
 
-  // single-finger glissando (momentary mode only)
-  if(!hold && p.midi!=null){
+  // single-finger glissando (momentary mode, ONE finger only).
+  // With 2+ fingers down we're playing a chord, so sliding is disabled to
+  // stop fingers from stealing/cancelling each other's notes on press-in.
+  if(!hold && pts.size===1 && p.midi!=null){
     const m = keyAt(x, y);
     if(m !== p.midi){
       noteOff(p.midi);
