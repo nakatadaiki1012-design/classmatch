@@ -670,7 +670,11 @@ function paintKey(midi, state){
 /* ---------- pointer handling (multi-touch play + two-finger pan/zoom) ---------- */
 let hold = false;
 const pointers = new Map();   // pointerId -> {x,y,startX,startY,midi}
-const GEST_TH = 20;           // px threshold before a 2-finger move becomes pan/zoom
+// gesture must be a DELIBERATE swipe/pinch, not the finger-settle of a chord:
+const PAN_TH = 30;            // both fingers must slide this far, same direction
+const ZOOM_TH = 46;           // inter-finger distance must change this much
+const SETTLE_MS = 110;        // ignore gesture detection right after a finger lands
+let lastDownT = 0;
 // gesture state
 let gest = false, gStartDist = 1, gStartKEYW = 50, gAnchorFrac = 0;
 
@@ -685,8 +689,9 @@ function twoPts(){ const it=[...pointers.values()]; return [it[0], it[1]]; }
 function onDown(e){
   ensureAudio(); hideHint(); e.preventDefault();
   const midi = keyAt(e.clientX, e.clientY);
-  const p = {x:e.clientX, y:e.clientY, startX:e.clientX, startY:e.clientY, midi:null};
+  const p = {x:e.clientX, y:e.clientY, startX:e.clientX, startY:e.clientY, midi:null, t:performance.now()};
   pointers.set(e.pointerId, p);
+  lastDownT = p.t;
   if(midi==null) return;
   if(hold){
     if(active.has(midi)){ noteOff(midi); p.midi=null; }
@@ -722,14 +727,19 @@ function onMove(e){
     return;
   }
 
-  // detect a two-finger pan/pinch
-  if(pointers.size >= 2){
+  // detect a DELIBERATE two-finger pan/pinch (never the settle of a chord)
+  if(pointers.size >= 2 && (performance.now() - lastDownT) > SETTLE_MS){
     const [a,b] = twoPts();
     if(a && b){
-      const dxa=Math.abs(a.x-a.startX), dxb=Math.abs(b.x-b.startX);
+      const dxa=a.x-a.startX, dxb=b.x-b.startX;
+      const dya=a.y-a.startY, dyb=b.y-b.startY;
       const d0=Math.hypot(a.startX-b.startX, a.startY-b.startY);
       const d1=Math.hypot(a.x-b.x, a.y-b.y);
-      if(Math.abs(d1-d0) > GEST_TH || (dxa>GEST_TH && dxb>GEST_TH)){ enterGesture(); return; }
+      const zoom = Math.abs(d1-d0) > ZOOM_TH;
+      const pan  = Math.sign(dxa)===Math.sign(dxb) && dxa!==0 &&
+                   Math.abs(dxa)>PAN_TH && Math.abs(dxb)>PAN_TH &&
+                   Math.abs(dxa)>Math.abs(dya) && Math.abs(dxb)>Math.abs(dyb);
+      if(zoom || pan){ enterGesture(); return; }
     }
   }
 
