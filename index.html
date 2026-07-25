@@ -958,6 +958,38 @@ window.addEventListener('orientationchange', ()=>{ setTimeout(()=>measureAndClam
 // keep audio alive on visibility regain
 document.addEventListener('visibilitychange', ()=>{ if(!document.hidden && ac && ac.state==='suspended') ac.resume(); });
 
+/* ============================================================
+   Computer keyboard (QWERTY) — lets a PC/laptop play chords,
+   since a mouse can only press one key at a time.
+   Layout (GarageBand-style): A W S E D F T G Y H U J = C..B
+   ============================================================ */
+const KEYMAP = { KeyA:0,KeyW:1,KeyS:2,KeyE:3,KeyD:4,KeyF:5,KeyT:6,KeyG:7,
+  KeyY:8,KeyH:9,KeyU:10,KeyJ:11,KeyK:12,KeyO:13,KeyL:14,KeyP:15,Semicolon:16 };
+let kbBase = 60;            // C4 = leftmost computer-keyboard note
+const kbDown = new Map();   // code -> the midi it triggered (survives octave shifts)
+
+window.addEventListener('keydown', (e)=>{
+  const tag = (e.target.tagName||'').toUpperCase();
+  if(tag==='INPUT'||tag==='SELECT'||tag==='TEXTAREA') return;
+  if(e.code==='ArrowLeft'){ kbBase=Math.max(24,kbBase-12); e.preventDefault(); return; }
+  if(e.code==='ArrowRight'){ kbBase=Math.min(96,kbBase+12); e.preventDefault(); return; }
+  if(!(e.code in KEYMAP)) return;
+  e.preventDefault();
+  if(e.repeat || kbDown.has(e.code)) return;
+  ensureAudio(); hideHint();
+  const midi = kbBase + KEYMAP[e.code];
+  kbDown.set(e.code, midi);
+  if(hold){ if(active.has(midi)) noteOff(midi); else noteOn(midi); }
+  else noteOn(midi);
+});
+window.addEventListener('keyup', (e)=>{
+  if(!kbDown.has(e.code)) return;
+  const midi = kbDown.get(e.code);
+  kbDown.delete(e.code);
+  if(hold) return;                 // latched notes stay until re-pressed / all-off
+  noteOff(midi);
+});
+
 })();
 </script>
 </body>
