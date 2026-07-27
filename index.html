@@ -561,7 +561,10 @@ async function startMic(){
     micStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,autoGainControl:false,noiseSuppression:false}});
   }catch(e){ tFreq.textContent="マイクを使用できません（許可が必要です）"; return; }
   const c=ac(); const src=c.createMediaStreamSource(micStream);
-  analyser=c.createAnalyser(); analyser.fftSize=2048; src.connect(analyser);
+  // 基音を拾いやすくするローパス（倍音・高域ノイズによる誤検出を軽減）
+  const lp=c.createBiquadFilter(); lp.type="lowpass"; lp.frequency.value=1500; lp.Q.value=0.7;
+  analyser=c.createAnalyser(); analyser.fftSize=2048;
+  src.connect(lp); lp.connect(analyser);
   micOn=true; pitchHistory=[]; const b=document.getElementById("micBtn"); b.textContent="■ マイクをオフ"; b.classList.add("on");
   fitCanvas(); tunerLoop();
 }
@@ -1135,7 +1138,9 @@ async function startCadMic(){
   try{ cadMicStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,autoGainControl:false,noiseSuppression:false}}); }
   catch(e){ return; }
   const c=ac(); const src=c.createMediaStreamSource(cadMicStream);
-  cadAnalyser=c.createAnalyser(); cadAnalyser.fftSize=2048; src.connect(cadAnalyser);
+  const lp=c.createBiquadFilter(); lp.type="lowpass"; lp.frequency.value=1500; lp.Q.value=0.7;
+  cadAnalyser=c.createAnalyser(); cadAnalyser.fftSize=2048;
+  src.connect(lp); lp.connect(cadAnalyser);
   cadMicOn=true; cadMicLoop();
 }
 function stopCadMic(){
