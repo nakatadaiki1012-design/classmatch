@@ -349,6 +349,18 @@
         <div class="notesub" id="kbChordSub">鍵盤をタップしてね</div>
         <div class="pianowrap"><div class="piano" id="kbPiano"></div></div>
         <button class="sbtn" id="kbClear" style="width:100%; border-radius:12px; font-size:14px; font-weight:700; height:44px; margin-top:10px">全部離す</button>
+
+        <div class="togglerow" style="margin-top:14px">
+          <span>🎤 鳴らしながらチューニング</span>
+          <div class="switch" id="kbMicSwitch"><i></i></div>
+        </div>
+        <div id="kbTuneBox" style="display:none">
+          <div class="notesub" id="kbTuneTarget" style="margin-bottom:4px">鍵盤で和音を鳴らして、その音を吹いてください</div>
+          <div class="meter" style="height:96px"><canvas id="kbTuneCanvas"></canvas></div>
+          <div class="cents" id="kbTuneCents">— cent</div>
+          <div class="hz">和音を鳴らしたまま自分の楽器を吹くと、鳴っている音のうち一番近い音を選び、その<b>純正律の位置</b>からのズレを表示します（真ん中＝ハモる位置）。まわりの音より少し大きめに、はっきり吹くと正確です。</div>
+        </div>
+
         <div class="voices" id="kbVoices" style="margin-top:12px"></div>
         <div class="hz">2音以上タップするとコードを判定し、純正律にぴったり合うよう各音を自動で微調整して鳴らします。ずれた分（セント）を音ごとに表示します。</div>
       </div>
@@ -455,7 +467,7 @@ document.querySelectorAll(".tabs button").forEach(btn=>{
     if(btn.dataset.tab==="tuner"){ requestAnimationFrame(()=>{ fitCanvas(); drawMeter(micOn?smoothCents:null); }); }
     else if(micOn) stopMic();
     if(btn.dataset.tab!=="exercise" && exPlaying) stopPattern();
-    if(btn.dataset.tab!=="harmony"){ if(cadPlaying) stopCadence(); if(cadMicOn) stopCadMic(); if(typeof clearAllKbNotes==="function") clearAllKbNotes(); }
+    if(btn.dataset.tab!=="harmony"){ if(cadPlaying) stopCadence(); if(cadMicOn) stopCadMic(); if(typeof clearAllKbNotes==="function") clearAllKbNotes(); if(typeof stopKbMic==="function"){ stopKbMic(); const s=document.getElementById("kbMicSwitch"); if(s) s.classList.remove("on"); const box=document.getElementById("kbTuneBox"); if(box) box.style.display="none"; } }
   };
 });
 
@@ -883,7 +895,7 @@ document.querySelectorAll("#harmModeSel button").forEach(btn=>{
     document.getElementById("harmKeyboardView").style.display = mode==="keyboard"?"block":"none";
     if(mode!=="single" && harmPlaying) stopHarmony();
     if(mode!=="cadence"){ if(cadPlaying) stopCadence(); if(cadMicOn) stopCadMic(); }
-    if(mode!=="keyboard") clearAllKbNotes();
+    if(mode!=="keyboard"){ clearAllKbNotes(); if(typeof stopKbMic==="function"){ stopKbMic(); const s=document.getElementById("kbMicSwitch"); if(s) s.classList.remove("on"); const box=document.getElementById("kbTuneBox"); if(box) box.style.display="none"; } }
   };
 });
 
@@ -1009,6 +1021,77 @@ function clearAllKbNotes(){
 document.getElementById("kbClear").onclick=clearAllKbNotes;
 buildPiano();
 updateKeyboardChord();
+
+/* ---- 鳴らしながらチューニング（ハモディ + チューナー同時） ---- */
+let kbMicOn=false, kbMicStream=null, kbAnalyser=null, kbRaf=0, kbTuneSmooth=0;
+const kbBuf=new Float32Array(2048);
+const kbTuneCanvas=document.getElementById("kbTuneCanvas"), kbctx=kbTuneCanvas.getContext("2d");
+function fitKbCanvas(){ const r=kbTuneCanvas.getBoundingClientRect(); kbTuneCanvas.width=r.width*devicePixelRatio; kbTuneCanvas.height=r.height*devicePixelRatio; }
+function currentKbTargets(){
+  const notes=[...heldKbNotes].sort((a,b)=>a-b);
+  if(!notes.length) return [];
+  const pcArr=[...new Set(notes.map(m=>((m%12)+12)%12))];
+  const det=detectChord(pcArr, ((notes[0]%12)+12)%12);
+  return notes.map(midi=>{ const info=kbNoteInfo(midi,det); return {midi, freq:kbFreqFor(midi, notes.length>1?info.dev:0), role:info.roleLabel}; });
+}
+async function startKbMic(){
+  try{ kbMicStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,autoGainControl:false,noiseSuppression:false}}); }
+  catch(e){ document.getElementById("kbTuneTarget").textContent="マイクを使用できません（許可が必要です）"; return; }
+  const c=ac(); const src=c.createMediaStreamSource(kbMicStream);
+  const lp=c.createBiquadFilter(); lp.type="lowpass"; lp.frequency.value=1500; lp.Q.value=0.7;
+  kbAnalyser=c.createAnalyser(); kbAnalyser.fftSize=2048; src.connect(lp); lp.connect(kbAnalyser);
+  kbMicOn=true; fitKbCanvas(); kbMicLoop();
+}
+function stopKbMic(){
+  kbMicOn=false; if(kbRaf) cancelAnimationFrame(kbRaf);
+  if(kbMicStream){ kbMicStream.getTracks().forEach(t=>t.stop()); kbMicStream=null; }
+}
+function drawKbMeter(cents){
+  const w=kbTuneCanvas.width,h=kbTuneCanvas.height,dpr=devicePixelRatio; kbctx.clearRect(0,0,w,h);
+  const cx=w/2, half=w*0.42, midY=h*0.5, xFor=c=> cx + (Math.max(-50,Math.min(50,c))/50)*half;
+  kbctx.lineWidth=2*dpr;
+  for(let c=-50;c<=50;c+=10){ const x=cx+(c/50)*half, big=c===0; kbctx.beginPath(); kbctx.moveTo(x,midY-(big?18:11)*dpr); kbctx.lineTo(x,midY+(big?18:11)*dpr); kbctx.strokeStyle=big?"#3ad686":"#2f3767"; kbctx.stroke(); }
+  kbctx.fillStyle="rgba(58,214,134,.12)"; kbctx.fillRect(xFor(-5),midY-20*dpr,xFor(5)-xFor(-5),40*dpr);
+  if(cents==null) return;
+  const cc=Math.max(-50,Math.min(50,cents)), x=xFor(cc), col=Math.abs(cc)<=5?"#3ad686":"#ffd24a";
+  kbctx.strokeStyle=col; kbctx.lineWidth=4*dpr; kbctx.beginPath(); kbctx.moveTo(x,midY-24*dpr); kbctx.lineTo(x,midY+24*dpr); kbctx.stroke();
+  kbctx.fillStyle=col; kbctx.beginPath(); kbctx.arc(x,midY-28*dpr,5*dpr,0,7); kbctx.fill();
+}
+function kbMicLoop(){
+  if(!kbMicOn) return;
+  const centsEl=document.getElementById("kbTuneCents"), tgtEl=document.getElementById("kbTuneTarget");
+  const targets=currentKbTargets();
+  if(!targets.length){
+    tgtEl.textContent="鍵盤で和音を鳴らして、その音を吹いてください";
+    centsEl.textContent="— cent"; centsEl.className="cents"; drawKbMeter(null);
+    kbRaf=requestAnimationFrame(kbMicLoop); return;
+  }
+  kbAnalyser.getFloatTimeDomainData(kbBuf);
+  const f=autoCorrelate(kbBuf, ac().sampleRate);
+  if(f>0){
+    let best=null, bestAbs=1e9;
+    for(const t of targets){
+      let cents=1200*Math.log2(f/t.freq);
+      cents=((cents%1200)+1200)%1200; if(cents>600) cents-=1200; // 何オクターブ違っても近いズレで
+      if(Math.abs(cents)<bestAbs){ bestAbs=Math.abs(cents); best={t,cents}; }
+    }
+    kbTuneSmooth += (best.cents-kbTuneSmooth)*0.35;
+    const cc=Math.round(kbTuneSmooth);
+    centsEl.textContent=(cc>0?"+":"")+cc+" cent";
+    centsEl.className="cents "+(Math.abs(cc)<=5?"ok":(cc<0?"flat":"sharp"));
+    const pc=((best.t.midi%12)+12)%12, oct=Math.floor(best.t.midi/12)-1;
+    tgtEl.innerHTML=`あなたの音 → <b>${noteLabel(pc)}${oct}</b>${best.t.role?"（第"+best.t.role+"音）":""} に合わせています`;
+    drawKbMeter(kbTuneSmooth);
+  } else {
+    centsEl.textContent="— cent"; centsEl.className="cents"; drawKbMeter(null);
+  }
+  kbRaf=requestAnimationFrame(kbMicLoop);
+}
+document.getElementById("kbMicSwitch").onclick=function(){
+  const on=!this.classList.contains("on"); this.classList.toggle("on",on);
+  document.getElementById("kbTuneBox").style.display=on?"block":"none";
+  if(on){ requestAnimationFrame(fitKbCanvas); startKbMic(); } else stopKbMic();
+};
 
 /* ================= CADENCE PRACTICE (純正律カデンツで一音を合わせる) ================= */
 const CADENCES = {
