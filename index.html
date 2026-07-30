@@ -344,13 +344,16 @@
 /* ============================================================
    Persisted settings
    ============================================================ */
+const VER = 2;
 const DEFAULTS = {
-  mode:'just', a4:442, xpose:0, timbre:'organ', vol:0.70, keyw:50, label:true,
-  bpm:120, beats:4, subdiv:1, metroVol:0.6, reverb:0.22,
+  ver:VER, mode:'just', a4:442, xpose:0, timbre:'organ', vol:0.70, keyw:50, label:true,
+  bpm:120, beats:4, subdiv:1, metroVol:0.6, reverb:0.10,
   jiRoot:'chord', seventh:'std', velocity:false, wake:true
 };
 let S = Object.assign({}, DEFAULTS);
 try{ const j=JSON.parse(localStorage.getItem('hd_settings')||'{}'); S=Object.assign(S,j); }catch(e){}
+// migrate older saved settings so the toned-down reverb takes effect
+if(S.ver!==VER){ S.reverb=DEFAULTS.reverb; S.ver=VER; try{ localStorage.setItem('hd_settings',JSON.stringify(S)); }catch(e){} }
 let saveT=null;
 function save(){ clearTimeout(saveT); saveT=setTimeout(()=>{ try{ localStorage.setItem('hd_settings', JSON.stringify(S)); }catch(e){} }, 150); }
 
@@ -372,7 +375,7 @@ function rebuildJI(){
 }
 
 const TIMBRES = {
-  organ:    { partials:[[1,1],[2,.6],[3,.4],[4,.28],[6,.16],[8,.1]], a:.006,d:.05,s:.9, r:.12, cut:4600 },
+  organ:    { partials:[[1,1],[2,.5],[3,.35],[4,.2]],                a:.006,d:.05,s:.9, r:.10, cut:4200 },
   strings:  { partials:[[1,1],[2,.5],[3,.33],[4,.2],[5,.12]],        a:.14, d:.20,s:.85,r:.4,  cut:3400, detune:7 },
   flute:    { partials:[[1,1],[2,.15],[3,.05]],                      a:.05, d:.10,s:.9, r:.16, cut:3800 },
   brass:    { partials:[[1,.8],[2,.75],[3,.6],[4,.4],[5,.25]],       a:.03, d:.12,s:.8, r:.16, cut:3200, detune:5 },
