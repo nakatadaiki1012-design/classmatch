@@ -118,6 +118,23 @@
   #chordBadge.just #chordCents{ display:block; }
   #chordCents .up{ color:#5ad6a8; } #chordCents .dn{ color:#f0a04b; } #chordCents .z{ color:var(--dim); }
 
+  /* mic tuner readout */
+  #tunerBox{ position:absolute; top:8px; right:10px; z-index:42; pointer-events:none;
+    display:none; flex-direction:column; align-items:center; gap:4px; min-width:190px;
+    padding:8px 12px; border-radius:12px; background:rgba(13,17,23,.82);
+    border:1px solid var(--line); backdrop-filter:blur(3px); text-align:center; }
+  #tunerBox.show{ display:flex; }
+  #tunerNote{ font-size:30px; font-weight:800; line-height:1; }
+  #tunerBox.intune #tunerNote{ color:var(--accent); }
+  #tunerCents{ font-size:13px; font-weight:700; color:var(--dim); font-variant-numeric:tabular-nums; }
+  #tunerBox.intune #tunerCents{ color:var(--accent); }
+  #tunerMeter{ position:relative; width:180px; height:10px; border-radius:6px; background:#1b222b; border:1px solid var(--line); }
+  #tunerMeter .ctr{ position:absolute; left:50%; top:-3px; width:2px; height:16px; background:var(--dim); transform:translateX(-50%); }
+  #tunerNeedle{ position:absolute; top:-2px; width:6px; height:14px; border-radius:3px; background:var(--accent2);
+    transform:translateX(-50%); transition:left .06s linear; left:50%; }
+  #tunerBox.intune #tunerNeedle{ background:var(--accent); box-shadow:0 0 8px var(--accent); }
+  #tunerMsg{ font-size:11px; color:var(--accent2); max-width:180px; line-height:1.4; }
+
   /* pan scrollbar */
   #panbar{ flex:0 0 18px; position:relative; background:#0b0f14; border-top:1px solid var(--line); touch-action:none; }
   #panthumb{ position:absolute; top:4px; height:10px; min-width:30px; border-radius:6px;
@@ -250,6 +267,11 @@
     </div>
 
     <div class="grp">
+      <div class="lbl">チューナー</div>
+      <button class="btn" id="tunerBtn" title="マイクで外の音を測る">🎤 OFF</button>
+    </div>
+
+    <div class="grp">
       <div class="lbl">表示 / 設定</div>
       <div class="row">
         <button class="btn on" id="labelBtn" style="font-size:11px">ドレミ</button>
@@ -262,6 +284,12 @@
   <div id="kbWrap">
     <div id="keyboard"></div>
     <div id="chordBadge"><span id="chordName">–</span><small id="chordSub"></small><small id="chordCents"></small></div>
+    <div id="tunerBox">
+      <div id="tunerNote">—</div>
+      <div id="tunerCents"></div>
+      <div id="tunerMeter"><div class="ctr"></div><div id="tunerNeedle"></div></div>
+      <div id="tunerMsg"></div>
+    </div>
     <div id="hint">タップして開始 &nbsp;·&nbsp; <b>&nbsp;鍵盤を弾いてください</b></div>
   </div>
 
@@ -905,6 +933,87 @@ async function requestWake(){ if(!S.wake) return;
   try{ if('wakeLock' in navigator){ wakeSentinel=await navigator.wakeLock.request('screen');
     wakeSentinel.addEventListener('release',()=>{ wakeSentinel=null; }); } }catch(e){} }
 function releaseWake(){ if(wakeSentinel){ try{ wakeSentinel.release(); }catch(e){} wakeSentinel=null; } }
+
+/* ============================================================
+   Mic tuner — detects the pitch of external sound (autocorrelation)
+   and shows the note + cents vs the app's current A reference.
+   ============================================================ */
+let micStream=null, micAn=null, micBuf=null, tunerOn=false, tunerTimer=null;
+const tunerBtn=document.getElementById('tunerBtn');
+const tunerBox=document.getElementById('tunerBox');
+const tunerNote=document.getElementById('tunerNote');
+const tunerCents=document.getElementById('tunerCents');
+const tunerNeedle=document.getElementById('tunerNeedle');
+const tunerMsg=document.getElementById('tunerMsg');
+
+function autoCorrelate(buf, rate){
+  let SIZE=buf.length, rms=0;
+  for(let i=0;i<SIZE;i++) rms+=buf[i]*buf[i];
+  rms=Math.sqrt(rms/SIZE);
+  if(rms<0.008) return -1;                 // too quiet
+  let r1=0, r2=SIZE-1; const th=0.2;
+  for(let i=0;i<SIZE/2;i++){ if(Math.abs(buf[i])<th){ r1=i; break; } }
+  for(let i=1;i<SIZE/2;i++){ if(Math.abs(buf[SIZE-i])<th){ r2=SIZE-i; break; } }
+  buf=buf.slice(r1,r2); SIZE=buf.length;
+  if(SIZE<64) return -1;
+  const c=new Float32Array(SIZE);
+  for(let i=0;i<SIZE;i++){ let s=0; for(let j=0;j<SIZE-i;j++) s+=buf[j]*buf[j+i]; c[i]=s; }
+  let d=0; while(d<SIZE-1 && c[d]>c[d+1]) d++;
+  let maxv=-1, maxp=-1;
+  for(let i=d;i<SIZE;i++){ if(c[i]>maxv){ maxv=c[i]; maxp=i; } }
+  if(maxp<=0) return -1;
+  const x1=c[maxp-1]||0, x2=c[maxp], x3=c[maxp+1]||0;
+  const a=(x1+x3-2*x2)/2, b=(x3-x1)/2;
+  let T0=maxp; if(a) T0=maxp - b/(2*a);
+  const f=rate/T0;
+  return (f>40 && f<2000) ? f : -1;
+}
+function setNeedle(c){
+  if(c==null){ tunerNeedle.style.left='50%'; tunerBox.classList.remove('intune'); return; }
+  const cl=Math.max(-50,Math.min(50,c));
+  tunerNeedle.style.left=(50+cl)+'%';
+  tunerBox.classList.toggle('intune', Math.abs(c)<=5);
+}
+function tunerTick(){
+  if(!micAn) return;
+  micAn.getFloatTimeDomainData(micBuf);
+  const f=autoCorrelate(micBuf, ac.sampleRate);
+  if(f<=0){ tunerNote.textContent='—'; tunerCents.textContent=''; setNeedle(null); return; }
+  const midi=69+12*Math.log2(f/A4), near=Math.round(midi), cents=Math.round((midi-near)*100);
+  tunerNote.textContent=NAMES[((near%12)+12)%12]+(Math.floor(near/12)-1);
+  tunerCents.textContent=(cents>0?'+':'')+cents+'¢ ('+f.toFixed(1)+'Hz)';
+  setNeedle(cents);
+}
+async function startTuner(){
+  ensureAudio();
+  tunerBox.classList.add('show'); tunerMsg.textContent='';
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    tunerMsg.textContent='この環境ではマイクを使えません（https で開く必要があります）。'; return;
+  }
+  try{
+    micStream=await navigator.mediaDevices.getUserMedia({audio:{
+      echoCancellation:true, noiseSuppression:false, autoGainControl:false }});
+  }catch(e){
+    tunerMsg.textContent='マイクを開始できませんでした。ローカルファイルではなく https で開くと使えます。';
+    return;
+  }
+  const src=ac.createMediaStreamSource(micStream);
+  micAn=ac.createAnalyser(); micAn.fftSize=2048;
+  micBuf=new Float32Array(micAn.fftSize);
+  src.connect(micAn);              // NOT connected to output (no feedback loop)
+  tunerTimer=setInterval(tunerTick, 90);
+}
+function stopTuner(){
+  clearInterval(tunerTimer); tunerTimer=null;
+  if(micStream){ micStream.getTracks().forEach(t=>t.stop()); micStream=null; }
+  micAn=null; tunerBox.classList.remove('show','intune');
+}
+tunerBtn.addEventListener('click', ()=>{
+  tunerOn=!tunerOn;
+  tunerBtn.classList.toggle('on', tunerOn);
+  tunerBtn.textContent = tunerOn ? '🎤 ON' : '🎤 OFF';
+  if(tunerOn) startTuner(); else stopTuner();
+});
 
 /* ============================================================
    Apply loaded settings to UI + boot
