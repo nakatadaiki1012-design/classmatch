@@ -938,7 +938,7 @@ function releaseWake(){ if(wakeSentinel){ try{ wakeSentinel.release(); }catch(e)
    Mic tuner — detects the pitch of external sound (autocorrelation)
    and shows the note + cents vs the app's current A reference.
    ============================================================ */
-let micStream=null, micAn=null, micBuf=null, tunerOn=false, tunerTimer=null;
+let micStream=null, micAn=null, micBuf=null, freqData=null, tunerOn=false, tunerTimer=null;
 const tunerBtn=document.getElementById('tunerBtn');
 const tunerBox=document.getElementById('tunerBox');
 const tunerNote=document.getElementById('tunerNote');
@@ -974,10 +974,41 @@ function setNeedle(c){
   tunerNeedle.style.left=(50+cl)+'%';
   tunerBox.classList.toggle('intune', Math.abs(c)<=5);
 }
+// FFT-based detector that ignores the app's own sounding frequencies,
+// so an external instrument can be measured WHILE the reference plays.
+function detectExternal(){
+  const N=micAn.frequencyBinCount;
+  if(!freqData||freqData.length!==N) freqData=new Float32Array(N);
+  micAn.getFloatFrequencyData(freqData);           // dB
+  const binHz=ac.sampleRate/micAn.fftSize;
+  // app's own frequencies (fundamental + a few harmonics) to exclude
+  const ex=[];
+  for(const v of active.values()){ const f0=computeFreq(v.midi); for(let h=1;h<=5;h++) ex.push(f0*h); }
+  const lo=Math.max(1,Math.floor(55/binHz)), hi=Math.min(N-2,Math.ceil(1600/binHz));
+  const peaks=[];
+  for(let i=lo;i<=hi;i++){
+    if(freqData[i]>freqData[i-1] && freqData[i]>=freqData[i+1] && freqData[i]>-72){
+      const f=i*binHz;
+      let near=false; for(const e of ex){ if(Math.abs(f-e)/e < 0.03){ near=true; break; } }
+      if(near) continue;
+      peaks.push({i, f, db:freqData[i]});
+    }
+  }
+  if(!peaks.length) return -1;
+  peaks.sort((a,b)=>b.db-a.db);
+  let cand=peaks[0];
+  // prefer a strong lower peak (true fundamental over a harmonic)
+  for(const p of peaks){ if(p.f < cand.f*0.6 && p.db > cand.db-12) cand=p; }
+  const i=cand.i, y1=freqData[i-1], y2=freqData[i], y3=freqData[i+1];
+  const denom=(2*y2-y1-y3); const d=denom?((y3-y1)/(2*denom)):0;
+  const f=(i+d)*binHz;
+  return (f>40 && f<2000) ? f : -1;
+}
 function tunerTick(){
   if(!micAn) return;
-  micAn.getFloatTimeDomainData(micBuf);
-  const f=autoCorrelate(micBuf, ac.sampleRate);
+  let f;
+  if(active.size>0){ f=detectExternal(); }            // reference playing: exclude app tones
+  else { micAn.getFloatTimeDomainData(micBuf); f=autoCorrelate(micBuf, ac.sampleRate); }
   if(f<=0){ tunerNote.textContent='—'; tunerCents.textContent=''; setNeedle(null); return; }
   const midi=69+12*Math.log2(f/A4), near=Math.round(midi), cents=Math.round((midi-near)*100);
   tunerNote.textContent=NAMES[((near%12)+12)%12]+(Math.floor(near/12)-1);
@@ -998,8 +1029,10 @@ async function startTuner(){
     return;
   }
   const src=ac.createMediaStreamSource(micStream);
-  micAn=ac.createAnalyser(); micAn.fftSize=2048;
-  micBuf=new Float32Array(micAn.fftSize);
+  micAn=ac.createAnalyser(); micAn.fftSize=16384;   // fine frequency resolution
+  micAn.smoothingTimeConstant=0.3;
+  micBuf=new Float32Array(2048);                    // time-domain window for autocorrelation
+  freqData=new Float32Array(micAn.frequencyBinCount);
   src.connect(micAn);              // NOT connected to output (no feedback loop)
   tunerTimer=setInterval(tunerTick, 90);
 }
