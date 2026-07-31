@@ -513,6 +513,10 @@ class Voice{
     const now=ac.currentTime, f=computeFreq(this.midi);
     for(const o of this.oscs){ o.frequency.cancelScheduledValues(now); o.frequency.setTargetAtTime(f,now,0.025); }
   }
+  setFreqNow(){   // set pitch instantly (no glide) — used on note start to avoid a pitch swoop
+    const now=ac.currentTime, f=computeFreq(this.midi);
+    for(const o of this.oscs){ o.frequency.cancelScheduledValues(now); o.frequency.setValueAtTime(f,now); }
+  }
   release(){
     const t=TIMBRES[currentTimbre], now=ac.currentTime, g=this.g.gain;
     g.cancelScheduledValues(now); g.setValueAtTime(g.value,now);
@@ -557,8 +561,12 @@ function setReverb(v){ S.reverb=v; if(wet){ wet.gain.setTargetAtTime(v, ac.curre
 function noteOn(layout, vel){
   ensureAudio();
   if(active.has(layout)) return;
-  active.set(layout, new Voice(layout+transpose, layout, vel));
-  if(mode==='just'){ for(const vo of active.values()) vo.retune(); }
+  const v = new Voice(layout+transpose, layout, vel);
+  active.set(layout, v);
+  if(mode==='just'){
+    v.setFreqNow();                                       // new note: correct pitch instantly, no swoop
+    for(const vo of active.values()) if(vo!==v) vo.retune(); // existing notes: glide smoothly
+  }
   updateChord();
   paintKey(layout, hold?'hold':'down');
 }
