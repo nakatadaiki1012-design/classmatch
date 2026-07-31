@@ -538,7 +538,8 @@ function ensureAudio(){
   master=ac.createGain();
   metroGain=ac.createGain();
   comp=ac.createDynamicsCompressor();
-  comp.threshold.value=-10; comp.knee.value=20; comp.ratio.value=8; comp.attack.value=.003; comp.release.value=.2;
+  // gentle safety limiter only (was heavily squashing the top end)
+  comp.threshold.value=-4; comp.knee.value=10; comp.ratio.value=4; comp.attack.value=.003; comp.release.value=.25;
   conv=ac.createConvolver(); conv.buffer=makeIR(2.4,3.2);
   wet=ac.createGain(); wet.gain.value=S.reverb;
   master.connect(comp);
@@ -553,7 +554,8 @@ function ensureAudio(){
     o.connect(g).connect(master); o.start(); o.stop(ac.currentTime+0.03); }catch(e){}
 }
 function setMasterVolume(v){ S.vol=v; if(master){ const n=ac.currentTime;
-  master.gain.cancelScheduledValues(n); master.gain.setTargetAtTime(v*v*0.6, n, 0.02); } }
+  // wider range + louder ceiling (~2x the old max) with a usable mid taper
+  master.gain.cancelScheduledValues(n); master.gain.setTargetAtTime(Math.pow(v,1.7)*1.3, n, 0.02); } }
 function setMetroVol(v){ S.metroVol=v; if(metroGain){ metroGain.gain.setTargetAtTime(v*v, ac.currentTime, 0.02); } }
 function setReverb(v){ S.reverb=v; if(wet){ wet.gain.setTargetAtTime(v, ac.currentTime, 0.05); } }
 
