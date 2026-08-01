@@ -12,44 +12,45 @@
   :root{
     --bg:#0d1117; --panel:#161b22; --panel2:#1f2733; --line:#2b3444;
     --txt:#e6edf3; --dim:#8b98a9; --accent:#4dd0a7; --accent2:#f0a04b;
-    --white-key:#f5f7fa; --white-key-a:#c9d4e0; --black-key:#20262f; --black-key-a:#0a0d12;
   }
   html,body{
     height:100%; width:100%; overflow:hidden; background:var(--bg); color:var(--txt);
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Hiragino Sans","Noto Sans JP",sans-serif;
     touch-action:none; overscroll-behavior:none;
   }
-  #app{ display:flex; flex-direction:column; height:100dvh; width:100vw; }
+  #app{ display:flex; flex-direction:column; height:100dvh; width:100vw; position:relative; }
 
   /* ---------- Control bar ---------- */
   #bar{
     flex:0 0 auto; display:flex; align-items:stretch; gap:8px;
     padding:8px 10px; background:linear-gradient(#161b22,#12161d);
     border-bottom:1px solid var(--line); overflow-x:auto; overflow-y:hidden;
+    touch-action:pan-x;               /* allow horizontal scroll of the bar on touch */
+    -webkit-overflow-scrolling:touch;
   }
   .grp{
     display:flex; flex-direction:column; gap:5px; padding:7px 10px;
     background:var(--panel2); border:1px solid var(--line); border-radius:12px;
     flex:0 0 auto; justify-content:center;
   }
-  .grp .lbl{ font-size:10px; letter-spacing:.08em; color:var(--dim); text-transform:uppercase; text-align:center; }
+  .grp .lbl{ font-size:10px; letter-spacing:.06em; color:var(--dim); text-transform:uppercase; text-align:center; white-space:nowrap; }
   .row{ display:flex; gap:6px; align-items:center; }
 
   .btn{
     border:1px solid var(--line); background:#232c38; color:var(--txt);
     border-radius:10px; padding:8px 12px; font-size:13px; font-weight:600;
     display:flex; align-items:center; justify-content:center; gap:6px;
-    min-width:44px; min-height:40px; cursor:pointer; transition:transform .04s, background .12s, border-color .12s;
+    min-width:44px; min-height:40px; cursor:pointer; white-space:nowrap;
+    transition:transform .04s, background .12s, border-color .12s;
   }
   .btn:active{ transform:scale(.94); }
   .btn.on{ background:var(--accent); color:#08130f; border-color:var(--accent); box-shadow:0 0 12px rgba(77,208,167,.35); }
   .btn.on.warm{ background:var(--accent2); color:#241000; border-color:var(--accent2); box-shadow:0 0 12px rgba(240,160,75,.35); }
 
-  /* segmented toggle */
   .seg{ display:flex; border:1px solid var(--line); border-radius:10px; overflow:hidden; }
   .seg button{
     border:0; background:#232c38; color:var(--dim); padding:8px 12px; font-size:13px; font-weight:700;
-    min-height:40px; cursor:pointer;
+    min-height:40px; cursor:pointer; white-space:nowrap;
   }
   .seg button.on{ background:var(--accent); color:#08130f; }
 
@@ -58,15 +59,13 @@
     padding:9px 8px; font-size:13px; font-weight:600; min-height:40px; outline:none;
   }
 
-  /* Knob */
-  .knob{ position:relative; width:52px; height:52px; border-radius:50%;
+  .knob{ position:relative; width:50px; height:50px; border-radius:50%;
     background:radial-gradient(circle at 50% 38%,#38424f,#1b222b);
     border:1px solid var(--line); box-shadow:inset 0 2px 4px rgba(255,255,255,.06), 0 3px 6px rgba(0,0,0,.4);
-    cursor:ns-resize; touch-action:none; margin:0 auto;
-  }
-  .knob::after{ content:""; position:absolute; left:50%; top:6px; width:3px; height:16px;
-    background:var(--accent); border-radius:2px; transform-origin:50% 20px; transform:translateX(-50%) rotate(var(--rot,0deg)); box-shadow:0 0 6px var(--accent); }
-  .knob .val{ position:absolute; bottom:-16px; left:0; right:0; text-align:center; font-size:10px; color:var(--dim); }
+    cursor:ns-resize; touch-action:none; margin:0 auto; }
+  .knob::after{ content:""; position:absolute; left:50%; top:6px; width:3px; height:15px;
+    background:var(--accent); border-radius:2px; transform-origin:50% 19px; transform:translateX(-50%) rotate(var(--rot,0deg)); box-shadow:0 0 6px var(--accent); }
+  .knob .val{ position:absolute; bottom:-15px; left:0; right:0; text-align:center; font-size:10px; color:var(--dim); }
 
   .metroDot{ width:14px; height:14px; border-radius:50%; background:#3a4452; transition:background .05s, box-shadow .05s; }
   .metroDot.beat{ background:var(--accent2); box-shadow:0 0 10px var(--accent2); }
@@ -82,10 +81,11 @@
   .stepper button:last-child{ border-radius:0 0 6px 6px; border-top:0; }
 
   /* ---------- Keyboard ---------- */
-  #kbWrap{ flex:1 1 auto; position:relative; padding:0; background:#05070a; min-height:0; }
-  #keyboard{ position:relative; height:100%; width:100%; display:flex; }
+  #kbWrap{ flex:1 1 auto; position:relative; background:#05070a; min-height:0; overflow:hidden; touch-action:none; }
+  #keyboard{ position:absolute; top:0; left:0; height:100%; display:flex; touch-action:none; will-change:transform; }
+  #keyboard.smooth{ transition:transform .16s ease; }
   .wkey{
-    position:relative; flex:1 1 0; height:100%;
+    position:relative; flex:0 0 auto; height:100%; touch-action:none;
     background:linear-gradient(#fbfdff,#e3e9f0); border-right:1px solid #b9c4d2;
     border-radius:0 0 7px 7px; display:flex; align-items:flex-end; justify-content:center;
     padding-bottom:10px; color:#5a6675; font-size:12px; font-weight:700;
@@ -94,42 +94,135 @@
   .wkey.down{ background:linear-gradient(#c7e9dc,#9fd6c1); color:#1a3a30; }
   .wkey.hold{ background:linear-gradient(#ffe1bd,#f4c58a); color:#4a2c05; }
   .bkey{
-    position:absolute; top:0; width:8.5%; height:62%; z-index:5;
+    position:absolute; top:0; height:62%; z-index:5; touch-action:none;
     background:linear-gradient(#2a3240,#0c0f14); border:1px solid #05070a;
     border-radius:0 0 6px 6px; box-shadow:0 3px 5px rgba(0,0,0,.5);
     display:flex; align-items:flex-end; justify-content:center; padding-bottom:8px;
-    color:#9aa7b6; font-size:10px; font-weight:700;
+    color:#9aa7b6; font-size:10px; font-weight:700; overflow:hidden;
   }
   .bkey.down{ background:linear-gradient(#3fae8c,#1f7a5f); color:#eafff6; }
   .bkey.hold{ background:linear-gradient(#d98e3a,#9c5e15); color:#fff3e0; }
 
+  /* chord name display */
+  #chordBadge{ position:absolute; top:8px; left:10px; z-index:40; pointer-events:none;
+    display:flex; flex-direction:column; align-items:flex-start; line-height:1;
+    padding:6px 12px; border-radius:12px; background:rgba(13,17,23,.72);
+    border:1px solid var(--line); backdrop-filter:blur(3px); transition:opacity .18s, border-color .18s; opacity:0; }
+  #chordBadge.show{ opacity:1; }
+  #chordBadge.just{ border-color:var(--accent); box-shadow:0 0 14px rgba(77,208,167,.28); }
+  #chordName{ font-size:30px; font-weight:800; color:var(--txt); }
+  #chordBadge.just #chordName{ color:var(--accent); }
+  #chordSub{ font-size:11px; color:var(--dim); margin-top:3px; font-weight:600; }
+  #chordCents{ font-size:12px; margin-top:4px; font-weight:700; font-variant-numeric:tabular-nums;
+    color:var(--accent2); display:none; max-width:70vw; line-height:1.5; }
+  #chordBadge.just #chordCents{ display:block; }
+  #chordCents .up{ color:#5ad6a8; } #chordCents .dn{ color:#f0a04b; } #chordCents .z{ color:var(--dim); }
+
+  /* mic tuner readout */
+  #tunerBox{ position:absolute; top:8px; right:10px; z-index:42; pointer-events:none;
+    display:none; flex-direction:column; align-items:center; gap:4px; min-width:190px;
+    padding:8px 12px; border-radius:12px; background:rgba(13,17,23,.82);
+    border:1px solid var(--line); backdrop-filter:blur(3px); text-align:center; }
+  #tunerBox.show{ display:flex; }
+  #tunerNote{ font-size:30px; font-weight:800; line-height:1; }
+  #tunerBox.intune #tunerNote{ color:var(--accent); }
+  #tunerCents{ font-size:13px; font-weight:700; color:var(--dim); font-variant-numeric:tabular-nums; }
+  #tunerBox.intune #tunerCents{ color:var(--accent); }
+  #tunerMeter{ position:relative; width:180px; height:10px; border-radius:6px; background:#1b222b; border:1px solid var(--line); }
+  #tunerMeter .ctr{ position:absolute; left:50%; top:-3px; width:2px; height:16px; background:var(--dim); transform:translateX(-50%); }
+  #tunerNeedle{ position:absolute; top:-2px; width:6px; height:14px; border-radius:3px; background:var(--accent2);
+    transform:translateX(-50%); transition:left .06s linear; left:50%; }
+  #tunerBox.intune #tunerNeedle{ background:var(--accent); box-shadow:0 0 8px var(--accent); }
+  #tunerMsg{ font-size:11px; color:var(--accent2); max-width:180px; line-height:1.4; }
+
+  /* pan scrollbar */
+  #panbar{ flex:0 0 18px; position:relative; background:#0b0f14; border-top:1px solid var(--line); touch-action:none; }
+  #panthumb{ position:absolute; top:4px; height:10px; min-width:30px; border-radius:6px;
+    background:#46536580; border:1px solid #5a6b80; }
+
   #hint{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
-    background:rgba(5,7,10,.86); color:var(--txt); font-size:18px; z-index:50; text-align:center; padding:20px; }
+    background:rgba(5,7,10,.86); color:var(--txt); font-size:18px; z-index:50; text-align:center; padding:20px;
+    pointer-events:none; transition:opacity .25s; }
   #hint b{ color:var(--accent); }
+  #hint.hide{ opacity:0; }
   #rotHint{ display:none; }
   @media (orientation:portrait){
-    #rotHint{ position:absolute; inset:0; z-index:60; display:flex; flex-direction:column;
-      align-items:center; justify-content:center; gap:14px; background:rgba(5,7,10,.94); color:var(--txt); text-align:center; padding:24px; }
-    #rotHint .ic{ font-size:44px; animation:tip 1.6s ease-in-out infinite; }
+    #rotHint{ position:absolute; left:50%; top:8px; transform:translateX(-50%); z-index:55;
+      display:flex; align-items:center; gap:8px; padding:6px 14px; border-radius:20px;
+      background:rgba(20,26,34,.92); border:1px solid var(--line); color:var(--dim); font-size:12px;
+      pointer-events:none; white-space:nowrap; transition:opacity .3s; }
+    #rotHint.hide{ opacity:0; }
   }
-  @keyframes tip{ 0%,100%{transform:rotate(0)} 50%{transform:rotate(-90deg)} }
 
-  .pill{ font-size:11px; color:var(--dim); padding:2px 8px; border:1px solid var(--line); border-radius:20px; }
+  /* ---------- Settings panel ---------- */
+  #backdrop{ position:absolute; inset:0; background:rgba(0,0,0,.45); z-index:65; opacity:0; pointer-events:none; transition:opacity .2s; }
+  #backdrop.open{ opacity:1; pointer-events:auto; }
+  #settings{ position:absolute; top:0; right:0; height:100%; width:min(360px,88vw); z-index:70;
+    background:var(--panel); border-left:1px solid var(--line); transform:translateX(101%);
+    transition:transform .22s ease; overflow-y:auto; padding:18px 18px 40px;
+    touch-action:pan-y; }         /* allow vertical scroll + horizontal slider drag on touch */
+  #settings.open{ transform:translateX(0); }
+  #settings h2{ font-size:16px; margin-bottom:4px; }
+  #settings .hintline{ font-size:11px; color:var(--dim); margin-bottom:16px; }
+  .set{ margin-bottom:18px; }
+  .set .sh{ font-size:12px; color:var(--dim); font-weight:700; margin-bottom:7px; }
+  .set .sv{ font-size:12px; color:var(--accent); font-weight:700; }
+  input[type=range]{ -webkit-appearance:none; appearance:none; width:100%; height:6px; background:var(--line);
+    border-radius:4px; outline:none; }
+  input[type=range]::-webkit-slider-thumb{ -webkit-appearance:none; width:22px; height:22px; border-radius:50%;
+    background:var(--accent); border:2px solid #0d1117; }
+  input[type=range]::-moz-range-thumb{ width:22px; height:22px; border-radius:50%; background:var(--accent); border:2px solid #0d1117; }
+  #closeSet{ position:absolute; top:12px; right:14px; }
 </style>
 </head>
 <body>
 <div id="app">
   <div id="bar">
-    <!-- Tuning mode -->
     <div class="grp">
       <div class="lbl">音律</div>
-      <div class="seg" id="tuneSeg">
-        <button data-mode="just" class="on">純正律</button>
-        <button data-mode="equal">平均律</button>
+      <div class="row">
+        <div class="seg" id="tuneSeg">
+          <button data-mode="just" class="on">純正律</button>
+          <button data-mode="equal">平均律</button>
+        </div>
+        <button class="btn" id="cmpBtn" title="押している間だけ切替">⇄</button>
       </div>
     </div>
 
-    <!-- Timbre -->
+    <div class="grp">
+      <div class="lbl">基準 A</div>
+      <div class="tempoBox">
+        <div class="bpm" id="a4Val">442<br><small>Hz</small></div>
+        <div class="stepper"><button id="a4Up">▲</button><button id="a4Dn">▼</button></div>
+      </div>
+    </div>
+
+    <div class="grp">
+      <div class="lbl">移調（管）</div>
+      <select id="xpose">
+        <option value="0">C 管</option>
+        <option value="-2">B♭ 管</option>
+        <option value="-9">E♭ 管</option>
+        <option value="-7">F 管</option>
+      </select>
+    </div>
+
+    <div class="grp">
+      <div class="lbl">音域</div>
+      <div class="row">
+        <button class="btn" id="octDn">◀ 低</button>
+        <button class="btn" id="octUp">高 ▶</button>
+      </div>
+    </div>
+
+    <div class="grp">
+      <div class="lbl">鍵盤幅</div>
+      <div class="row">
+        <button class="btn" id="zoomOut">－</button>
+        <button class="btn" id="zoomIn">＋</button>
+      </div>
+    </div>
+
     <div class="grp">
       <div class="lbl">音色</div>
       <select id="timbre">
@@ -137,12 +230,12 @@
         <option value="strings">ストリングス</option>
         <option value="flute">フルート</option>
         <option value="brass">ブラス</option>
-        <option value="epiano">エレピ</option>
         <option value="clarinet">クラリネット</option>
+        <option value="epiano">エレピ</option>
+        <option value="sine">サイン（調音）</option>
       </select>
     </div>
 
-    <!-- Sustain / hold -->
     <div class="grp">
       <div class="lbl">持続</div>
       <div class="row">
@@ -151,54 +244,124 @@
       </div>
     </div>
 
-    <!-- Volume knob -->
     <div class="grp">
       <div class="lbl">音量</div>
       <div class="knob" id="volKnob"><span class="val" id="volVal">70</span></div>
     </div>
 
-    <!-- Metronome -->
     <div class="grp">
       <div class="lbl">メトロノーム</div>
       <div class="row">
         <button class="btn" id="metroBtn">▶</button>
         <div class="tempoBox">
           <div class="bpm" id="bpmVal">120<br><small>BPM</small></div>
-          <div class="stepper">
-            <button id="bpmUp">▲</button>
-            <button id="bpmDn">▼</button>
-          </div>
+          <div class="stepper"><button id="bpmUp">▲</button><button id="bpmDn">▼</button></div>
         </div>
+        <button class="btn" id="tapBtn" title="タップテンポ">TAP</button>
         <select id="beats" title="拍子">
-          <option value="1">－</option>
-          <option value="2">2</option>
-          <option value="3">3</option>
-          <option value="4" selected>4</option>
-          <option value="6">6</option>
+          <option value="1">－</option><option value="2">2</option><option value="3">3</option>
+          <option value="4" selected>4</option><option value="6">6</option>
         </select>
         <div class="metroDot" id="metroDot"></div>
       </div>
     </div>
 
-    <!-- Options -->
     <div class="grp">
-      <div class="lbl">表示</div>
+      <div class="lbl">チューナー</div>
+      <button class="btn" id="tunerBtn" title="マイクで外の音を測る">🎤 OFF</button>
+    </div>
+
+    <div class="grp">
+      <div class="lbl">表示 / 設定</div>
       <div class="row">
         <button class="btn on" id="labelBtn" style="font-size:11px">ドレミ</button>
-        <span class="pill" id="rootPill">root: –</span>
+        <button class="btn" id="fsBtn" title="全画面">⛶</button>
+        <button class="btn" id="gearBtn" title="詳細設定">⚙</button>
       </div>
     </div>
   </div>
 
   <div id="kbWrap">
     <div id="keyboard"></div>
+    <div id="chordBadge"><span id="chordName">–</span><small id="chordSub"></small><small id="chordCents"></small></div>
+    <div id="tunerBox">
+      <div id="tunerNote">—</div>
+      <div id="tunerCents"></div>
+      <div id="tunerMeter"><div class="ctr"></div><div id="tunerNeedle"></div></div>
+      <div id="tunerMsg"></div>
+    </div>
     <div id="hint">タップして開始 &nbsp;·&nbsp; <b>&nbsp;鍵盤を弾いてください</b></div>
   </div>
 
-  <div id="rotHint">
-    <div class="ic">📱</div>
-    <div style="font-size:20px;font-weight:700">スマホを横にしてください</div>
-    <div style="color:var(--dim)">Rotate your device to landscape</div>
+  <div id="panbar"><div id="panthumb"></div></div>
+
+  <div id="rotHint"><span>📱</span>横向きにすると弾きやすくなります</div>
+
+  <!-- Settings panel -->
+  <div id="backdrop"></div>
+  <div id="settings">
+    <button class="btn" id="closeSet">✕</button>
+    <h2>詳細設定</h2>
+    <div class="hintline">設定は自動保存され、次回もそのまま使えます。</div>
+
+    <div class="set">
+      <div class="sh">純正律の基準音</div>
+      <div class="seg" id="jiRootSeg" style="width:100%">
+        <button data-v="chord" style="flex:1">和音の根音</button>
+        <button data-v="bass" style="flex:1">最低音</button>
+      </div>
+    </div>
+
+    <div class="set">
+      <div class="sh">属7の第7音</div>
+      <div class="seg" id="seventhSeg" style="width:100%">
+        <button data-v="std" style="flex:1">標準 (+18¢)</button>
+        <button data-v="harm" style="flex:1">低め 7/4 (−31¢)</button>
+      </div>
+    </div>
+
+    <div class="set">
+      <div class="sh">残響（リバーブ） <span class="sv" id="revVal"></span></div>
+      <input type="range" id="revRange" min="0" max="0.6" step="0.02">
+    </div>
+
+    <div class="set">
+      <div class="sh">メトロノーム音量 <span class="sv" id="mvVal"></span></div>
+      <input type="range" id="mvRange" min="0" max="1" step="0.05">
+    </div>
+
+    <div class="set">
+      <div class="sh">拍の分割</div>
+      <select id="subdiv" style="width:100%">
+        <option value="1">♩ 4分（拍のみ）</option>
+        <option value="2">♪ 8分（2分割）</option>
+        <option value="3">3連符</option>
+        <option value="4">16分（4分割）</option>
+      </select>
+    </div>
+
+    <div class="set">
+      <div class="sh">その他</div>
+      <div class="row" style="flex-wrap:wrap; gap:8px">
+        <button class="btn" id="velBtn">強弱 (ベロシティ)</button>
+        <button class="btn on" id="wakeBtn">スリープ防止</button>
+      </div>
+    </div>
+
+    <div class="set">
+      <div class="sh">操作のヒント</div>
+      <div class="hintline" style="line-height:1.7">
+        ・2本指で左右スワイプ → 鍵盤を横移動<br>
+        ・下のバーをドラッグ → 押さえたまま横移動<br>
+        ・HOLD → 押した音を保持（合唱の和音チェック）<br>
+        ・⇄ → 押している間だけ純正/平均を切替（聴き比べ）<br>
+        ・PCキー A S D F… で和音演奏、←→でオクターブ
+      </div>
+    </div>
+
+    <div class="set">
+      <button class="btn" id="resetBtn" style="width:100%">設定を初期化</button>
+    </div>
   </div>
 </div>
 
@@ -207,446 +370,730 @@
 (function(){
 
 /* ============================================================
+   Persisted settings
+   ============================================================ */
+const VER = 2;
+const DEFAULTS = {
+  ver:VER, mode:'just', a4:442, xpose:0, timbre:'organ', vol:0.70, keyw:50, label:true,
+  bpm:120, beats:4, subdiv:1, metroVol:0.6, reverb:0.10,
+  jiRoot:'chord', seventh:'std', velocity:false, wake:true
+};
+let S = Object.assign({}, DEFAULTS);
+try{ const j=JSON.parse(localStorage.getItem('hd_settings')||'{}'); S=Object.assign(S,j); }catch(e){}
+// migrate older saved settings so the toned-down reverb takes effect
+if(S.ver!==VER){ S.reverb=DEFAULTS.reverb; S.ver=VER; try{ localStorage.setItem('hd_settings',JSON.stringify(S)); }catch(e){} }
+let saveT=null;
+function save(){ clearTimeout(saveT); saveT=setTimeout(()=>{ try{ localStorage.setItem('hd_settings', JSON.stringify(S)); }catch(e){} }, 150); }
+
+/* ============================================================
    Audio engine
    ============================================================ */
-let ac = null;            // AudioContext
-let master = null;        // master gain
-let comp = null;          // compressor / limiter
-const A4 = 440;
+let ac=null, master=null, comp=null, conv=null, wet=null, metroGain=null;
+let A4 = S.a4;
 
-// Just intonation ratios relative to root (interval in semitones -> ratio)
-const JUST = [
-  1/1, 16/15, 9/8, 6/5, 5/4, 4/3, 45/32, 3/2, 8/5, 5/3, 9/5, 15/8
-];
+const BASE_JUST = [1/1,16/15,9/8,6/5,5/4,4/3,45/32,3/2,8/5,5/3,9/5,15/8];
+let JUST = BASE_JUST.slice();
+let JUST_CENTS = JUST.map((r,i)=>1200*Math.log2(r)-100*i);
+function rebuildJI(){
+  JUST = BASE_JUST.slice();
+  if(S.seventh==='harm') JUST[10] = 7/4;   // harmonic (barbershop) minor 7th
+  JUST_CENTS = JUST.map((r,i)=>1200*Math.log2(r)-100*i);
+  for(const v of active.values()) v.retune();
+  updateChord();
+}
 
-// Timbre definitions. Each voice = partials (additive) + envelope + filter.
 const TIMBRES = {
-  organ:    { partials:[[1,1],[2,.5],[3,.35],[4,.2]], a:.006, d:.05, s:.9,  r:.10, cut:4200, type:'sine' },
-  strings:  { partials:[[1,1],[2,.4],[3,.25]],        a:.10,  d:.20, s:.85, r:.35, cut:3200, type:'saw',  detune:6 },
-  flute:    { partials:[[1,1],[2,.12]],               a:.05,  d:.10, s:.9,  r:.14, cut:3600, type:'sine' },
-  brass:    { partials:[[1,.9],[2,.7],[3,.5],[4,.3]], a:.03,  d:.12, s:.8,  r:.14, cut:3000, type:'saw',  detune:4 },
-  epiano:   { partials:[[1,1],[2,.5],[4,.15]],        a:.004, d:.9,  s:.0,  r:.30, cut:4800, type:'sine', decayPitch:true },
-  clarinet: { partials:[[1,1],[3,.7],[5,.4],[7,.2]],  a:.02,  d:.08, s:.85, r:.13, cut:2600, type:'sine' },
+  organ:    { partials:[[1,1],[2,.5],[3,.35],[4,.2]],                a:.006,d:.05,s:.9, r:.10, cut:4200 },
+  strings:  { partials:[[1,1],[2,.5],[3,.33],[4,.2],[5,.12]],        a:.14, d:.20,s:.85,r:.4,  cut:3400, detune:7 },
+  flute:    { partials:[[1,1],[2,.15],[3,.05]],                      a:.05, d:.10,s:.9, r:.16, cut:3800 },
+  brass:    { partials:[[1,.8],[2,.75],[3,.6],[4,.4],[5,.25]],       a:.03, d:.12,s:.8, r:.16, cut:3200, detune:5 },
+  clarinet: { partials:[[1,1],[3,.75],[5,.5],[7,.28],[9,.12]],       a:.02, d:.08,s:.85,r:.14, cut:2800 },
+  epiano:   { partials:[[1,1],[2,.5],[4,.15]],                       a:.004,d:.9, s:.0, r:.30, cut:5000 },
+  sine:     { partials:[[1,1]],                                     a:.01, d:.05,s:.95,r:.12, cut:8000 },
 };
 
-// Build a PeriodicWave from partial list (odd/even harmonic weights)
-const waveCache = {};
+const waveCache={};
 function getWave(name){
   if(waveCache[name]) return waveCache[name];
-  const t = TIMBRES[name];
-  const n = 32;
-  const real = new Float32Array(n);
-  const imag = new Float32Array(n);
-  t.partials.forEach(([h,amp])=>{ if(h<n) imag[h] += amp; });
-  const w = ac.createPeriodicWave(real, imag, {disableNormalization:false});
-  waveCache[name] = w;
-  return w;
+  const t=TIMBRES[name], n=32, real=new Float32Array(n), imag=new Float32Array(n);
+  t.partials.forEach(([h,amp])=>{ if(h<n) imag[h]+=amp; });
+  const w=ac.createPeriodicWave(real,imag,{disableNormalization:false});
+  waveCache[name]=w; return w;
 }
+function midiToFreqEqual(m){ return A4*Math.pow(2,(m-69)/12); }
 
-function midiToFreqEqual(m){ return A4 * Math.pow(2,(m-69)/12); }
+let mode=S.mode, modeReal=S.mode;
+const active=new Map();     // layoutMidi -> Voice
+let currentTimbre=S.timbre;
+let transpose=S.xpose;
 
-// current tuning mode + active note set drives just-intonation freqs
-let mode = 'just';
-const active = new Map();     // midi -> Voice
-let currentTimbre = 'organ';
-
+/* --- just-intonation reference & ratios --- */
+function chordRootPc(){
+  const pcs=new Set(); let bass=Infinity;
+  for(const v of active.values()){ pcs.add(((v.midi%12)+12)%12); if(v.midi<bass) bass=v.midi; }
+  const bpc=((bass%12)+12)%12, arr=[...pcs];
+  if(arr.length<3) return bpc;
+  let best=null;
+  for(const root of arr){
+    const rel=arr.map(pc=>(((pc-root)%12)+12)%12);
+    for(const c of CHORDS){
+      const miss=c.iv.filter(x=>!rel.includes(x)).length, ex=rel.filter(x=>!c.iv.includes(x)).length;
+      const s=miss*3+ex*2+(root===bpc?0:1); if(!best||s<best.score) best={score:s,root};
+    }
+  }
+  return best?best.root:bpc;
+}
+function jiRefMidi(extra){
+  let bass=Infinity;
+  for(const v of active.values()) if(v.midi<bass) bass=v.midi;
+  if(extra!=null && extra<bass) bass=extra;
+  if(S.jiRoot==='bass' || active.size<2) return bass;
+  const rpc=chordRootPc();
+  if(rpc==null) return bass;
+  return bass - ((((bass-rpc)%12)+12)%12);   // greatest note <= bass with root pitch-class
+}
 function computeFreq(midi){
   if(mode==='equal' || active.size===0) return midiToFreqEqual(midi);
-  // root = lowest currently-sounding midi
-  let root = Infinity;
-  for(const k of active.keys()) if(k < root) root = k;
-  if(midi < root) root = midi; // in case called before insertion
-  const dist = midi - root;
-  const oct = Math.floor(dist/12);
-  const iv  = dist - oct*12;
-  return midiToFreqEqual(root) * Math.pow(2,oct) * JUST[iv];
+  const ref=jiRefMidi(midi);
+  const dist=midi-ref, oct=Math.floor(dist/12), iv=dist-oct*12;
+  return midiToFreqEqual(ref)*Math.pow(2,oct)*JUST[iv];
 }
 
-function updateRootPill(){
-  if(active.size===0){ rootPill.textContent='root: –'; return; }
-  let root=Infinity; for(const k of active.keys()) if(k<root) root=k;
-  rootPill.textContent = 'root: ' + NAMES[root%12] + (Math.floor(root/12)-1);
+/* ---- chord recognition ---- */
+const INTERVAL_JP=['完全1度','短2度','長2度','短3度','長3度','完全4度','三全音','完全5度','短6度','長6度','短7度','長7度'];
+const CHORDS=[
+  {iv:[0,4,7],name:'',jp:'メジャー'},{iv:[0,3,7],name:'m',jp:'マイナー'},
+  {iv:[0,3,6],name:'dim',jp:'ディミニッシュ'},{iv:[0,4,8],name:'aug',jp:'オーギュメント'},
+  {iv:[0,5,7],name:'sus4',jp:'サス4'},{iv:[0,2,7],name:'sus2',jp:'サス2'},
+  {iv:[0,4,7,11],name:'maj7',jp:'メジャー7th'},{iv:[0,4,7,10],name:'7',jp:'ドミナント7th'},
+  {iv:[0,3,7,10],name:'m7',jp:'マイナー7th'},{iv:[0,3,6,10],name:'m7♭5',jp:'ハーフディミニッシュ'},
+  {iv:[0,3,6,9],name:'dim7',jp:'ディミニッシュ7th'},{iv:[0,4,7,9],name:'6',jp:'シックス'},
+  {iv:[0,3,7,9],name:'m6',jp:'マイナー6th'},{iv:[0,2,4,7,10],name:'9',jp:'ナインス'}
+];
+function detectChord(){
+  if(active.size===0) return null;
+  const pcs=new Set(); let bass=Infinity;
+  for(const v of active.values()){ pcs.add(((v.midi%12)+12)%12); if(v.midi<bass) bass=v.midi; }
+  const bpc=((bass%12)+12)%12, arr=[...pcs];
+  if(arr.length===1) return {name:NAMES[arr[0]], sub:'単音'};
+  if(arr.length===2){
+    const other=arr.find(x=>x!==bpc), iv=((other-bpc)%12+12)%12;
+    return {name:NAMES[bpc]+' '+NAMES[other], sub:INTERVAL_JP[iv]};
+  }
+  let best=null;
+  for(const root of arr){
+    const rel=arr.map(pc=>(((pc-root)%12)+12)%12);
+    for(const c of CHORDS){
+      const miss=c.iv.filter(x=>!rel.includes(x)).length, ex=rel.filter(x=>!c.iv.includes(x)).length;
+      const s=miss*3+ex*2+(root===bpc?0:1); if(!best||s<best.score) best={score:s,root,c};
+    }
+  }
+  if(!best) return null;
+  let label=NAMES[best.root]+best.c.name;
+  if(best.root!==bpc) label+='/'+NAMES[bpc];
+  return {name:label, sub:NAMES[best.root]+' '+best.c.jp};
+}
+function updateChord(){
+  const badge=document.getElementById('chordBadge');
+  const info=detectChord();
+  if(!info){ badge.classList.remove('show','just'); return; }
+  document.getElementById('chordName').textContent=info.name;
+  document.getElementById('chordSub').textContent=info.sub||'';
+  badge.classList.add('show');
+  badge.classList.toggle('just', mode==='just');
+  document.getElementById('chordCents').innerHTML=(mode==='just')?centsMarkup():'';
+}
+function centsMarkup(){
+  if(active.size===0) return '';
+  const ref=jiRefMidi(), seen=new Set(), parts=[];
+  const voices=[...active.values()].sort((a,b)=>a.midi-b.midi);
+  for(const v of voices){
+    const pc=((v.midi%12)+12)%12; if(seen.has(pc)) continue; seen.add(pc);
+    const dist=v.midi-ref, iv=((dist%12)+12)%12, c=Math.round(JUST_CENTS[iv]);
+    const cls=c>0?'up':(c<0?'dn':'z'), txt=c>0?('+'+c):(c<0?('−'+Math.abs(c)):'±0');
+    parts.push('<span class="'+cls+'">'+NAMES[pc]+' '+txt+'¢</span>');
+  }
+  return parts.join('　');
 }
 
-// Voice: one polyphonic note (possibly detuned pair)
+/* ---- Voice ---- */
 class Voice{
-  constructor(midi){
-    this.midi = midi;
-    this.held = true;
-    const t = TIMBRES[currentTimbre];
-    const now = ac.currentTime;
-    const freq = computeFreq(midi);
-
-    this.g = ac.createGain();
-    this.g.gain.value = 0;
-    this.filt = ac.createBiquadFilter();
-    this.filt.type='lowpass';
-    this.filt.frequency.value = t.cut;
-    this.filt.Q.value = 0.6;
+  constructor(midi, layout, vel){
+    this.midi=midi; this.layout=layout; this.vel=(vel!=null?vel:0.9);
+    const t=TIMBRES[currentTimbre], now=ac.currentTime, freq=computeFreq(midi);
+    this.g=ac.createGain(); this.g.gain.value=0;
+    this.filt=ac.createBiquadFilter(); this.filt.type='lowpass';
+    this.filt.frequency.value=t.cut; this.filt.Q.value=0.6;
     this.g.connect(this.filt).connect(master);
-
-    this.oscs = [];
-    const wave = getWave(currentTimbre);
-    const mk = (det)=>{
-      const o = ac.createOscillator();
-      o.setPeriodicWave(wave);
-      o.frequency.setValueAtTime(freq, now);
-      if(det) o.detune.value = det;
-      o.connect(this.g);
-      o.start(now);
-      return o;
-    };
+    this.oscs=[];
+    const wave=getWave(currentTimbre);
+    const mk=(det)=>{ const o=ac.createOscillator(); o.setPeriodicWave(wave);
+      o.frequency.setValueAtTime(freq,now); if(det) o.detune.value=det; o.connect(this.g); o.start(now); return o; };
     this.oscs.push(mk(0));
     if(t.detune){ this.oscs.push(mk(t.detune)); this.oscs.push(mk(-t.detune)); }
-
-    // amp envelope (ADSR)
-    const peak = 0.9;
-    const g = this.g.gain;
-    g.cancelScheduledValues(now);
-    g.setValueAtTime(0, now);
-    g.linearRampToValueAtTime(peak, now + t.a);
-    const sLevel = Math.max(0.0001, t.s*peak);
-    g.linearRampToValueAtTime(sLevel, now + t.a + t.d);
-
-    // epiano-style pitch/percussive: if s==0, note decays away
-    if(t.s===0){
-      g.setTargetAtTime(0.0001, now + t.a, t.d/2.5);
-    }
+    const peak=this.vel, g=this.g.gain;
+    g.cancelScheduledValues(now); g.setValueAtTime(0,now);
+    g.linearRampToValueAtTime(peak, now+t.a);
+    g.linearRampToValueAtTime(Math.max(0.0001,t.s*peak), now+t.a+t.d);
+    if(t.s===0) g.setTargetAtTime(0.0001, now+t.a, t.d/2.5);
   }
   retune(){
-    const now = ac.currentTime;
-    const f = computeFreq(this.midi);
-    // small glide so retuning between chords is smooth, not clicky
-    for(const o of this.oscs){
-      o.frequency.cancelScheduledValues(now);
-      o.frequency.setTargetAtTime(f, now, 0.025);
-    }
+    const now=ac.currentTime, f=computeFreq(this.midi);
+    for(const o of this.oscs){ o.frequency.cancelScheduledValues(now); o.frequency.setTargetAtTime(f,now,0.025); }
+  }
+  setFreqNow(){   // set pitch instantly (no glide) — used on note start to avoid a pitch swoop
+    const now=ac.currentTime, f=computeFreq(this.midi);
+    for(const o of this.oscs){ o.frequency.cancelScheduledValues(now); o.frequency.setValueAtTime(f,now); }
   }
   release(){
-    const t = TIMBRES[currentTimbre];
-    const now = ac.currentTime;
-    const g = this.g.gain;
-    g.cancelScheduledValues(now);
-    g.setValueAtTime(g.value, now);
-    g.linearRampToValueAtTime(0.0001, now + t.r);
-    const stopAt = now + t.r + 0.05;
+    const t=TIMBRES[currentTimbre], now=ac.currentTime, g=this.g.gain;
+    g.cancelScheduledValues(now); g.setValueAtTime(g.value,now);
+    g.linearRampToValueAtTime(0.0001, now+t.r);
+    const stopAt=now+t.r+0.05;
     for(const o of this.oscs){ try{ o.stop(stopAt); }catch(e){} }
   }
 }
 
+function makeIR(sec, decay){
+  const rate=ac.sampleRate, len=Math.floor(rate*sec), buf=ac.createBuffer(2,len,rate);
+  for(let ch=0;ch<2;ch++){ const d=buf.getChannelData(ch);
+    for(let i=0;i<len;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/len,decay); }
+  return buf;
+}
 function ensureAudio(){
-  if(ac) { if(ac.state==='suspended') ac.resume(); return; }
-  ac = new (window.AudioContext||window.webkitAudioContext)({ latencyHint:'interactive' });
-  master = ac.createGain();
-  comp = ac.createDynamicsCompressor();
-  comp.threshold.value=-10; comp.knee.value=20; comp.ratio.value=8; comp.attack.value=.003; comp.release.value=.2;
-  master.connect(comp).connect(ac.destination);
-  setMasterVolume(volume);
+  if(ac){ if(ac.state==='suspended') ac.resume(); return; }
+  ac=new (window.AudioContext||window.webkitAudioContext)({latencyHint:'interactive'});
+  master=ac.createGain();
+  metroGain=ac.createGain();
+  comp=ac.createDynamicsCompressor();
+  // gentle safety limiter only (was heavily squashing the top end)
+  comp.threshold.value=-4; comp.knee.value=10; comp.ratio.value=4; comp.attack.value=.003; comp.release.value=.25;
+  conv=ac.createConvolver(); conv.buffer=makeIR(2.4,3.2);
+  wet=ac.createGain(); wet.gain.value=S.reverb;
+  master.connect(comp);
+  master.connect(conv); conv.connect(wet); wet.connect(comp);
+  metroGain.connect(comp);
+  comp.connect(ac.destination);
+  setMasterVolume(S.vol); setMetroVol(S.metroVol);
+  if(ac.state==='suspended') ac.resume();
+  requestWake();
+  for(const k in TIMBRES){ try{ getWave(k); }catch(e){} }
+  try{ const o=ac.createOscillator(), g=ac.createGain(); g.gain.value=0.00001;
+    o.connect(g).connect(master); o.start(); o.stop(ac.currentTime+0.03); }catch(e){}
 }
-
-let volume = 0.70;
-function setMasterVolume(v){
-  volume=v;
-  if(master){
-    const now=ac.currentTime;
-    master.gain.cancelScheduledValues(now);
-    master.gain.setTargetAtTime(v*v*0.6, now, 0.02); // perceptual curve, headroom
-  }
-}
+function setMasterVolume(v){ S.vol=v; if(master){ const n=ac.currentTime;
+  // wider range + louder ceiling (~2x the old max) with a usable mid taper
+  master.gain.cancelScheduledValues(n); master.gain.setTargetAtTime(Math.pow(v,1.7)*1.3, n, 0.02); } }
+function setMetroVol(v){ S.metroVol=v; if(metroGain){ metroGain.gain.setTargetAtTime(v*v, ac.currentTime, 0.02); } }
+function setReverb(v){ S.reverb=v; if(wet){ wet.gain.setTargetAtTime(v, ac.currentTime, 0.05); } }
 
 /* ---------- note on/off ---------- */
-function noteOn(midi){
+function noteOn(layout, vel){
   ensureAudio();
-  if(active.has(midi)) return;
-  const v = new Voice(midi);
-  active.set(midi, v);
-  // retune everything for the (possibly new) root in just mode
-  if(mode==='just'){ for(const [m,vo] of active) if(m!==midi) vo.retune(); }
-  updateRootPill();
-  paintKey(midi, hold ? 'hold':'down');
+  if(active.has(layout)) return;
+  const v = new Voice(layout+transpose, layout, vel);
+  active.set(layout, v);
+  if(mode==='just'){
+    v.setFreqNow();                                       // new note: correct pitch instantly, no swoop
+    for(const vo of active.values()) if(vo!==v) vo.retune(); // existing notes: glide smoothly
+  }
+  updateChord();
+  paintKey(layout, hold?'hold':'down');
 }
-function noteOff(midi){
-  const v = active.get(midi);
-  if(!v) return;
-  v.release();
-  active.delete(midi);
+function noteOff(layout){
+  const v=active.get(layout); if(!v) return;
+  v.release(); active.delete(layout);
   if(mode==='just'){ for(const vo of active.values()) vo.retune(); }
-  updateRootPill();
-  paintKey(midi, null);
+  updateChord();
+  paintKey(layout, null);
 }
-function allNotesOff(){
-  for(const m of [...active.keys()]) noteOff(m);
-}
+function allNotesOff(){ for(const m of [...active.keys()]) noteOff(m); }
+function applyTranspose(){ for(const v of active.values()) v.midi=v.layout+transpose;
+  for(const v of active.values()) v.retune(); updateChord(); }
+function retuneAll(){ for(const v of active.values()) v.retune(); updateChord(); }
 
 /* ============================================================
    Keyboard UI
    ============================================================ */
-const NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
-const DOREMI = ['ド','ド#','レ','レ#','ミ','ファ','ファ#','ソ','ソ#','ラ','ラ#','シ'];
-const WHITE = [0,2,4,5,7,9,11];
-const BLACK_AFTER = {0:1,2:3,5:6,7:8,9:10}; // white pc -> black pc to its right
+const NAMES=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const DOREMI=['ド','ド#','レ','レ#','ミ','ファ','ファ#','ソ','ソ#','ラ','ラ#','シ'];
+const WHITE=[0,2,4,5,7,9,11];
+const BLACK_AFTER={0:1,2:3,5:6,7:8,9:10};
+const START_OCT=2, NUM_OCT=4;
+let KEYW=S.keyw, BKW=Math.round(KEYW*0.62);
+const MINW=26, MAXW=120;
+let showLabel=S.label;
 
-const START_OCT = 4;        // C4
-const NUM_OCT   = 2;        // 2 octaves + top C
-let showLabel = true;
-
-const keyboard = document.getElementById('keyboard');
-const keyEls = new Map();   // midi -> element
+const kbWrap=document.getElementById('kbWrap');
+const keyboard=document.getElementById('keyboard');
+const keyEls=new Map();
+let whiteList=[], blackList=[];
+let kbWidth=0, viewW=0, panX=0, whiteC4Index=0;
 
 function buildKeyboard(){
-  keyboard.innerHTML='';
-  keyEls.clear();
-  const whiteMidis = [];
-  for(let o=0;o<NUM_OCT;o++){
-    for(const pc of WHITE){ whiteMidis.push((START_OCT+o+1)*12 + pc); }
-  }
-  whiteMidis.push((START_OCT+NUM_OCT+1)*12 + 0); // final top C
-  const totalWhite = whiteMidis.length;
-
-  // white keys
-  whiteMidis.forEach((midi)=>{
-    const el = document.createElement('div');
-    el.className='wkey'; el.dataset.midi=midi;
-    const lbl=document.createElement('span');
-    el.appendChild(lbl);
-    keyboard.appendChild(el);
-    keyEls.set(midi, el);
-  });
-
-  // black keys, positioned by white index
-  let wIndex=0;
-  whiteMidis.forEach((midi, i)=>{
-    const pc = midi%12;
-    if(BLACK_AFTER.hasOwnProperty(pc) && i < totalWhite-1){
-      const bmidi = midi + (BLACK_AFTER[pc]-pc);
-      const el=document.createElement('div');
-      el.className='bkey'; el.dataset.midi=bmidi;
-      // center on the border between white i and i+1
-      const leftPct = ((i+1)/totalWhite)*100;
-      el.style.left = `calc(${leftPct}% - 4.25%)`;
-      const lbl=document.createElement('span'); el.appendChild(lbl);
-      keyboard.appendChild(el);
-      keyEls.set(bmidi, el);
-    }
-  });
-  refreshLabels();
+  keyboard.innerHTML=''; keyEls.clear(); whiteList=[]; blackList=[];
+  const wm=[];
+  for(let o=0;o<NUM_OCT;o++) for(const pc of WHITE) wm.push((START_OCT+o+1)*12+pc);
+  wm.push((START_OCT+NUM_OCT+1)*12);
+  whiteList=wm.slice();
+  wm.forEach((midi,i)=>{ if(midi===60) whiteC4Index=i;
+    const el=document.createElement('div'); el.className='wkey'; el.dataset.midi=midi;
+    el.appendChild(document.createElement('span')); keyboard.appendChild(el); keyEls.set(midi,el); });
+  wm.forEach((midi,i)=>{ const pc=midi%12;
+    if(BLACK_AFTER.hasOwnProperty(pc) && i<wm.length-1){
+      const bmidi=midi+(BLACK_AFTER[pc]-pc);
+      const el=document.createElement('div'); el.className='bkey'; el.dataset.midi=bmidi;
+      el.appendChild(document.createElement('span')); keyboard.appendChild(el); keyEls.set(bmidi,el);
+      blackList.push([bmidi,i]);
+    } });
+  geomKeyW(); refreshLabels(); measureAndClampPan(true);
 }
-
+function geomKeyW(){
+  BKW=Math.round(KEYW*0.62);
+  for(const midi of whiteList) keyEls.get(midi).style.width=KEYW+'px';
+  kbWidth=whiteList.length*KEYW; keyboard.style.width=kbWidth+'px';
+  for(const [bmidi,i] of blackList){ const el=keyEls.get(bmidi);
+    el.style.width=BKW+'px'; el.style.left=((i+1)*KEYW-BKW/2)+'px'; }
+}
+function zoomKeyW(newW, worldFrac, cxClient){
+  viewW=kbWrap.clientWidth;
+  if(worldFrac==null) worldFrac=kbWidth>0?(panX+viewW/2)/kbWidth:0.5;
+  KEYW=Math.max(MINW,Math.min(MAXW,newW)); S.keyw=KEYW; save();
+  geomKeyW();
+  const wrapLeft=kbWrap.getBoundingClientRect().left, target=worldFrac*kbWidth;
+  setPan((cxClient==null)?(target-viewW/2):(target-(cxClient-wrapLeft)), false);
+}
+function measureAndClampPan(center){
+  viewW=kbWrap.clientWidth;
+  if(center) panX=whiteC4Index*KEYW-viewW/2+KEYW*1.5;
+  setPan(panX,false);
+}
+function setPan(x, smooth){
+  const maxPan=Math.max(0,kbWidth-viewW);
+  panX=Math.max(0,Math.min(maxPan,x));
+  keyboard.classList.toggle('smooth', !!smooth);
+  keyboard.style.transform='translateX('+(-panX)+'px)';
+  updatePanThumb();
+}
 function refreshLabels(){
-  for(const [midi,el] of keyEls){
-    const span=el.querySelector('span');
-    const pc=midi%12;
+  for(const [midi,el] of keyEls){ const span=el.querySelector('span'), pc=midi%12;
     if(!showLabel){ span.textContent=''; continue; }
-    if(el.classList.contains('wkey')){
-      span.textContent = (DOREMI[pc]) + (pc===0? (Math.floor(midi/12)-1):'');
-    } else {
-      span.textContent = DOREMI[pc];
+    span.textContent = el.classList.contains('wkey') ? (DOREMI[pc]+(pc===0?(Math.floor(midi/12)-1):'')) : DOREMI[pc];
+  }
+}
+function paintKey(midi,state){ const el=keyEls.get(midi); if(!el) return;
+  el.classList.remove('down','hold'); if(state) el.classList.add(state); }
+
+/* pan scrollbar */
+const panbar=document.getElementById('panbar'), panthumb=document.getElementById('panthumb');
+function updatePanThumb(){
+  const tw=panbar.clientWidth; if(tw<=0||kbWidth<=0) return;
+  const frac=Math.min(1, viewW/kbWidth), w=Math.max(30, tw*frac);
+  const maxPan=Math.max(1,kbWidth-viewW), left=(panX/maxPan)*(tw-w);
+  panthumb.style.width=w+'px'; panthumb.style.left=(isFinite(left)?left:0)+'px';
+}
+(function initPanbar(){
+  let drag=false, sx=0, span=0;
+  const down=(e)=>{ drag=true; sx=e.clientX; span=panX; e.preventDefault(); };
+  const move=(e)=>{ if(!drag) return; const tw=panbar.clientWidth, w=panthumb.clientWidth;
+    const maxPan=Math.max(1,kbWidth-viewW); const dx=(e.clientX-sx)/(tw-w)*maxPan;
+    setPan(span+dx,false); e.preventDefault(); };
+  const up=()=>{ drag=false; };
+  panbar.addEventListener('pointerdown',down,{passive:false});
+  window.addEventListener('pointermove',move,{passive:false});
+  window.addEventListener('pointerup',up);
+})();
+
+/* ============================================================
+   Input: multi-touch play + two-finger pan
+   ============================================================ */
+let hold=false;
+const pts=new Map();
+const PAN_TH=34, SETTLE_MS=130;
+let lastDownT=0, gest=false, gPanStartCX=0, gPanStartPanX=0, panArmed=false;
+
+function keyAt(x,y){ const t=document.elementFromPoint(x,y); if(!t) return null;
+  const k=t.closest?t.closest('[data-midi]'):null; return k?parseInt(k.dataset.midi,10):null; }
+function twoPts(){ const it=[...pts.values()]; return [it[0],it[1]]; }
+function forceToVel(f){ return (!S.velocity||!(f>0))?0.9:(0.4+0.6*Math.min(1,f)); }
+
+function beginPoint(id,x,y,force){
+  ensureAudio(); hideHint();
+  const midi=keyAt(x,y);
+  const p={x,y,startX:x,startY:y,midi:null,t:performance.now()};
+  pts.set(id,p); lastDownT=p.t; panArmed=false;
+  if(midi==null) return;
+  const vel=forceToVel(force);
+  if(hold){ if(active.has(midi)){ noteOff(midi); p.midi=null; } else { noteOn(midi,vel); p.midi=midi; } }
+  else { noteOn(midi,vel); p.midi=midi; }
+}
+function enterGesture(){
+  gest=true;
+  for(const p of pts.values()){ if(p.midi!=null){ noteOff(p.midi); p.midi=null; } }
+  const [a,b]=twoPts(); gPanStartCX=(a.x+b.x)/2; gPanStartPanX=panX;
+}
+function movePoint(id,x,y){
+  const p=pts.get(id); if(!p) return;
+  p.x=x; p.y=y;
+  if(gest){ const [a,b]=twoPts(); if(!a||!b) return;
+    setPan(gPanStartPanX-((a.x+b.x)/2-gPanStartCX), false); return; }
+  if(pts.size===2){
+    if((performance.now()-lastDownT)>SETTLE_MS){
+      if(!panArmed){ for(const q of pts.values()){ q.startX=q.x; q.startY=q.y; } panArmed=true; }
+      else{ const [a,b]=twoPts(); if(a&&b){
+        const dxa=a.x-a.startX, dxb=b.x-b.startX, dya=a.y-a.startY, dyb=b.y-b.startY;
+        if(Math.sign(dxa)===Math.sign(dxb) && dxa!==0 && Math.abs(dxa)>PAN_TH && Math.abs(dxb)>PAN_TH &&
+           Math.abs(dxa)>Math.abs(dya) && Math.abs(dxb)>Math.abs(dyb)){ enterGesture(); return; } } }
     }
   }
-}
-
-function paintKey(midi, state){
-  const el = keyEls.get(midi);
-  if(!el) return;
-  el.classList.remove('down','hold');
-  if(state) el.classList.add(state);
-}
-
-/* ---------- pointer handling (multi-touch, low latency) ---------- */
-let hold = false;
-const pointerNote = new Map(); // pointerId -> midi
-
-function midiFromEvent(e){
-  const t = document.elementFromPoint(e.clientX, e.clientY);
-  if(!t) return null;
-  const k = t.closest('[data-midi]');
-  return k ? parseInt(k.dataset.midi,10) : null;
-}
-
-function onDown(e){
-  ensureAudio();
-  hideHint();
-  const midi = e.target.closest ? (e.target.closest('[data-midi]') ? parseInt(e.target.closest('[data-midi]').dataset.midi,10) : midiFromEvent(e)) : midiFromEvent(e);
-  if(midi==null) return;
-  e.preventDefault();
-  if(hold){
-    // latch: toggle
-    if(active.has(midi)) noteOff(midi);
-    else noteOn(midi);
-  } else {
-    pointerNote.set(e.pointerId, midi);
-    noteOn(midi);
+  if(!hold && pts.size===1 && p.midi!=null){
+    const m=keyAt(x,y);
+    if(m!==p.midi){ noteOff(p.midi); if(m!=null){ noteOn(m); p.midi=m; } else p.midi=null; }
   }
 }
-function onMove(e){
-  if(hold) return;
-  if(!pointerNote.has(e.pointerId)) return;
-  const midi = midiFromEvent(e);
-  const prev = pointerNote.get(e.pointerId);
-  if(midi!==prev){
-    if(prev!=null) noteOff(prev);
-    if(midi!=null){ noteOn(midi); pointerNote.set(e.pointerId, midi); }
-    else pointerNote.delete(e.pointerId);
-  }
+function endPoint(id){
+  const p=pts.get(id); if(!p) return;
+  if(!gest && !hold && p.midi!=null) noteOff(p.midi);
+  pts.delete(id); panArmed=false;
+  if(gest && pts.size<2) gest=false;
 }
-function onUp(e){
-  if(hold) return;
-  const midi = pointerNote.get(e.pointerId);
-  if(midi!=null) noteOff(midi);
-  pointerNote.delete(e.pointerId);
-}
-
-keyboard.addEventListener('pointerdown', onDown, {passive:false});
-keyboard.addEventListener('pointermove', onMove, {passive:false});
-window.addEventListener('pointerup', onUp, {passive:false});
-window.addEventListener('pointercancel', onUp, {passive:false});
+kbWrap.addEventListener('touchstart',(e)=>{ e.preventDefault();
+  for(const t of e.changedTouches) beginPoint(t.identifier,t.clientX,t.clientY,t.force); },{passive:false});
+window.addEventListener('touchmove',(e)=>{ if(pts.size===0) return; e.preventDefault();
+  for(const t of e.changedTouches) movePoint(t.identifier,t.clientX,t.clientY); },{passive:false});
+const touchEnd=(e)=>{ for(const t of e.changedTouches) endPoint(t.identifier); };
+window.addEventListener('touchend',touchEnd,{passive:false});
+window.addEventListener('touchcancel',touchEnd,{passive:false});
+kbWrap.addEventListener('pointerdown',(e)=>{ if(e.pointerType==='touch') return;
+  e.preventDefault(); beginPoint('mouse',e.clientX,e.clientY,0); },{passive:false});
+window.addEventListener('pointermove',(e)=>{ if(e.pointerType==='touch'||!pts.has('mouse')) return;
+  movePoint('mouse',e.clientX,e.clientY); },{passive:false});
+window.addEventListener('pointerup',(e)=>{ if(e.pointerType==='touch') return; endPoint('mouse'); },{passive:false});
 
 /* ============================================================
    Controls
    ============================================================ */
-const rootPill = document.getElementById('rootPill');
-
-// tuning mode
+function setModeUI(){ document.querySelectorAll('#tuneSeg button').forEach(x=>x.classList.toggle('on', x.dataset.mode===mode)); }
 document.querySelectorAll('#tuneSeg button').forEach(b=>{
-  b.addEventListener('click', ()=>{
-    document.querySelectorAll('#tuneSeg button').forEach(x=>x.classList.remove('on'));
-    b.classList.add('on');
-    mode = b.dataset.mode;
-    for(const v of active.values()) v.retune();
-    updateRootPill();
-  });
+  b.addEventListener('click',()=>{ mode=modeReal=b.dataset.mode; S.mode=mode; save(); setModeUI(); retuneAll(); });
 });
+// A/B compare (press-hold flips temporarily)
+const cmpBtn=document.getElementById('cmpBtn');
+const cmpDown=()=>{ mode=(modeReal==='just')?'equal':'just'; cmpBtn.classList.add('on'); setModeUI(); retuneAll(); };
+const cmpUp=()=>{ mode=modeReal; cmpBtn.classList.remove('on'); setModeUI(); retuneAll(); };
+cmpBtn.addEventListener('pointerdown',(e)=>{e.preventDefault();cmpDown();});
+cmpBtn.addEventListener('pointerup',cmpUp); cmpBtn.addEventListener('pointerleave',cmpUp);
 
-// timbre
-document.getElementById('timbre').addEventListener('change', e=>{
-  currentTimbre = e.target.value;
-});
+document.getElementById('timbre').addEventListener('change',e=>{ currentTimbre=e.target.value; S.timbre=currentTimbre; save(); });
 
-// hold
-const holdBtn = document.getElementById('holdBtn');
-holdBtn.addEventListener('click', ()=>{
-  hold = !hold;
-  holdBtn.classList.toggle('on', hold);
-  if(!hold){
-    // leaving hold mode: repaint latched notes as 'down'
-    for(const m of active.keys()) paintKey(m,'down');
-  } else {
-    for(const m of active.keys()) paintKey(m,'hold');
-  }
-});
-document.getElementById('allOff').addEventListener('click', allNotesOff);
+const holdBtn=document.getElementById('holdBtn');
+holdBtn.addEventListener('click',()=>{ hold=!hold; holdBtn.classList.toggle('on',hold);
+  for(const m of active.keys()) paintKey(m, hold?'hold':'down'); });
+document.getElementById('allOff').addEventListener('click',allNotesOff);
 
-// label toggle
+document.getElementById('xpose').addEventListener('change',e=>{ transpose=parseInt(e.target.value,10); S.xpose=transpose; save(); applyTranspose(); });
+
+document.getElementById('octUp').addEventListener('click',()=>setPan(panX+7*KEYW,true));
+document.getElementById('octDn').addEventListener('click',()=>setPan(panX-7*KEYW,true));
+document.getElementById('zoomIn').addEventListener('click',()=>zoomKeyW(KEYW+10,null,null));
+document.getElementById('zoomOut').addEventListener('click',()=>zoomKeyW(KEYW-10,null,null));
+
+document.getElementById('fsBtn').addEventListener('click',()=>{ const d=document, el=d.documentElement;
+  if(!d.fullscreenElement && !d.webkitFullscreenElement){ const r=el.requestFullscreen||el.webkitRequestFullscreen; if(r) r.call(el).catch(()=>{}); }
+  else (d.exitFullscreen||d.webkitExitFullscreen||function(){}).call(d); });
+
+const a4Val=document.getElementById('a4Val');
+function setA4(v){ A4=Math.max(438,Math.min(445,v)); S.a4=A4; save();
+  a4Val.innerHTML=A4+'<br><small>Hz</small>'; retuneAll(); }
+document.getElementById('a4Up').addEventListener('click',()=>setA4(A4+1));
+document.getElementById('a4Dn').addEventListener('click',()=>setA4(A4-1));
+[['a4Up',1],['a4Dn',-1]].forEach(([id,dir])=>{ const el=document.getElementById(id); let iv=null,to=null;
+  const st=()=>{ to=setTimeout(()=>{ iv=setInterval(()=>setA4(A4+dir),120); },400); };
+  const sp=()=>{ clearTimeout(to); clearInterval(iv); };
+  el.addEventListener('pointerdown',st); el.addEventListener('pointerup',sp); el.addEventListener('pointerleave',sp); });
+
 const labelBtn=document.getElementById('labelBtn');
-labelBtn.addEventListener('click', ()=>{
-  showLabel=!showLabel;
-  labelBtn.classList.toggle('on', showLabel);
-  refreshLabels();
-});
+labelBtn.addEventListener('click',()=>{ showLabel=!showLabel; S.label=showLabel; save();
+  labelBtn.classList.toggle('on',showLabel); refreshLabels(); });
 
-// volume knob (drag vertical)
-const volKnob=document.getElementById('volKnob');
-const volVal=document.getElementById('volVal');
-function renderVol(){
-  const pct=Math.round(volume*100);
-  volVal.textContent=pct;
-  volKnob.style.setProperty('--rot', (volume*270-135)+'deg');
-}
-(function initKnob(){
-  let dragging=false, startY=0, startV=0;
-  const down=(e)=>{ dragging=true; startY=(e.touches?e.touches[0].clientY:e.clientY); startV=volume; e.preventDefault(); };
-  const move=(e)=>{ if(!dragging) return;
-    const y=(e.touches?e.touches[0].clientY:e.clientY);
-    let v=startV + (startY-y)/160;
-    v=Math.max(0,Math.min(1,v));
-    setMasterVolume(v); renderVol(); e.preventDefault();
-  };
-  const up=()=>{ dragging=false; };
-  volKnob.addEventListener('pointerdown',down,{passive:false});
-  window.addEventListener('pointermove',move,{passive:false});
-  window.addEventListener('pointerup',up);
-  // wheel for desktop
-  volKnob.addEventListener('wheel',(e)=>{ e.preventDefault(); setMasterVolume(Math.max(0,Math.min(1,volume - Math.sign(e.deltaY)*0.04))); renderVol(); },{passive:false});
+// volume knob
+const volKnob=document.getElementById('volKnob'), volVal=document.getElementById('volVal');
+function renderVol(){ volVal.textContent=Math.round(S.vol*100); volKnob.style.setProperty('--rot',(S.vol*270-135)+'deg'); }
+(function(){ let dr=false, sy=0, sv=0;
+  const dn=(e)=>{ dr=true; sy=(e.touches?e.touches[0].clientY:e.clientY); sv=S.vol; e.preventDefault(); };
+  const mv=(e)=>{ if(!dr) return; const y=(e.touches?e.touches[0].clientY:e.clientY);
+    setMasterVolume(Math.max(0,Math.min(1,sv+(sy-y)/160))); renderVol(); save(); e.preventDefault(); };
+  const up=()=>{ dr=false; };
+  volKnob.addEventListener('pointerdown',dn,{passive:false});
+  window.addEventListener('pointermove',mv,{passive:false}); window.addEventListener('pointerup',up);
+  volKnob.addEventListener('wheel',(e)=>{ e.preventDefault(); setMasterVolume(Math.max(0,Math.min(1,S.vol-Math.sign(e.deltaY)*0.04))); renderVol(); save(); },{passive:false});
 })();
 renderVol();
 
 /* ============================================================
-   Metronome (lookahead scheduler for tight timing)
+   Metronome
    ============================================================ */
-let bpm=120, beatsPer=4, metroRunning=false;
-let nextTick=0, beatCount=0, schedTimer=null;
+let bpm=S.bpm, beatsPer=S.beats, subdiv=S.subdiv, metroRunning=false;
+let nextTick=0, subTick=0, schedTimer=null;
 const LOOKAHEAD=0.1, INTERVAL=25;
-const bpmVal=document.getElementById('bpmVal');
-const metroBtn=document.getElementById('metroBtn');
-const metroDot=document.getElementById('metroDot');
+const bpmVal=document.getElementById('bpmVal'), metroBtn=document.getElementById('metroBtn'), metroDot=document.getElementById('metroDot');
 const dotQueue=[];
-
-function setBpm(v){ bpm=Math.max(30,Math.min(300,v)); bpmVal.innerHTML=bpm+'<br><small>BPM</small>'; }
+function setBpm(v){ bpm=Math.max(30,Math.min(300,v)); S.bpm=bpm; save(); bpmVal.innerHTML=bpm+'<br><small>BPM</small>'; }
 document.getElementById('bpmUp').addEventListener('click',()=>setBpm(bpm+1));
 document.getElementById('bpmDn').addEventListener('click',()=>setBpm(bpm-1));
-// press-and-hold repeat
-[['bpmUp',1],['bpmDn',-1]].forEach(([id,dir])=>{
-  const el=document.getElementById(id); let iv=null,to=null;
-  const start=()=>{ to=setTimeout(()=>{ iv=setInterval(()=>setBpm(bpm+dir),60); },400); };
-  const stop=()=>{ clearTimeout(to); clearInterval(iv); };
-  el.addEventListener('pointerdown',start); el.addEventListener('pointerup',stop); el.addEventListener('pointerleave',stop);
-});
-document.getElementById('beats').addEventListener('change',e=>{ beatsPer=parseInt(e.target.value,10); beatCount=0; });
+[['bpmUp',1],['bpmDn',-1]].forEach(([id,dir])=>{ const el=document.getElementById(id); let iv=null,to=null;
+  const st=()=>{ to=setTimeout(()=>{ iv=setInterval(()=>setBpm(bpm+dir),60); },400); };
+  const sp=()=>{ clearTimeout(to); clearInterval(iv); };
+  el.addEventListener('pointerdown',st); el.addEventListener('pointerup',sp); el.addEventListener('pointerleave',sp); });
+document.getElementById('beats').addEventListener('change',e=>{ beatsPer=parseInt(e.target.value,10); S.beats=beatsPer; save(); subTick=0; });
+// tap tempo
+let tapTimes=[];
+document.getElementById('tapBtn').addEventListener('click',()=>{ const now=performance.now();
+  tapTimes.push(now); tapTimes=tapTimes.filter(t=>now-t<3000);
+  if(tapTimes.length>=2){ let sum=0; for(let i=1;i<tapTimes.length;i++) sum+=tapTimes[i]-tapTimes[i-1];
+    setBpm(Math.round(60000/(sum/(tapTimes.length-1)))); } });
 
-function click(time, accent){
-  const o=ac.createOscillator();
-  const g=ac.createGain();
+function click(time, accent, isBeat){
+  const o=ac.createOscillator(), g=ac.createGain();
   o.type='square';
-  o.frequency.value = accent? 2000 : 1400;
-  g.gain.setValueAtTime(0,time);
-  g.gain.linearRampToValueAtTime(accent?0.5:0.32, time+0.001);
+  o.frequency.value = accent?2000:(isBeat?1400:1000);
+  const vol = accent?0.5:(isBeat?0.32:0.16);
+  g.gain.setValueAtTime(0,time); g.gain.linearRampToValueAtTime(vol,time+0.001);
   g.gain.exponentialRampToValueAtTime(0.0001, time+0.045);
-  o.connect(g).connect(master);
-  o.start(time); o.stop(time+0.06);
-  dotQueue.push({t:time, accent});
+  o.connect(g).connect(metroGain); o.start(time); o.stop(time+0.06);
+  if(isBeat) dotQueue.push({t:time,accent});
 }
 function scheduler(){
-  while(nextTick < ac.currentTime + LOOKAHEAD){
-    const accent = (beatsPer>1 && beatCount%beatsPer===0);
-    click(nextTick, accent);
-    nextTick += 60/bpm;
-    beatCount++;
+  const step=(60/bpm)/subdiv;
+  while(nextTick < ac.currentTime+LOOKAHEAD){
+    const isBeat=(subTick%subdiv)===0, beatIdx=Math.floor(subTick/subdiv);
+    const accent=isBeat && beatsPer>1 && (beatIdx%beatsPer===0);
+    click(nextTick, accent, isBeat);
+    nextTick+=step; subTick++;
   }
 }
-function paintDot(){
-  if(!metroRunning){ metroDot.className='metroDot'; return; }
-  requestAnimationFrame(paintDot);
-  if(!ac) return;
-  while(dotQueue.length && dotQueue[0].t <= ac.currentTime){
-    const d=dotQueue.shift();
-    metroDot.className='metroDot ' + (d.accent?'accent':'beat');
-    setTimeout(()=>{ if(metroRunning) metroDot.className='metroDot'; }, 90);
-  }
+function paintDot(){ if(!metroRunning){ metroDot.className='metroDot'; return; }
+  requestAnimationFrame(paintDot); if(!ac) return;
+  while(dotQueue.length && dotQueue[0].t<=ac.currentTime){ const d=dotQueue.shift();
+    metroDot.className='metroDot '+(d.accent?'accent':'beat');
+    setTimeout(()=>{ if(metroRunning) metroDot.className='metroDot'; },90); } }
+metroBtn.addEventListener('click',()=>{ ensureAudio(); metroRunning=!metroRunning;
+  metroBtn.classList.toggle('on',metroRunning); metroBtn.textContent=metroRunning?'⏸':'▶';
+  if(metroRunning){ subTick=0; nextTick=ac.currentTime+0.06; schedTimer=setInterval(scheduler,INTERVAL); paintDot(); }
+  else { clearInterval(schedTimer); dotQueue.length=0; metroDot.className='metroDot'; } });
+
+/* ============================================================
+   Settings panel
+   ============================================================ */
+const backdrop=document.getElementById('backdrop'), panel=document.getElementById('settings');
+function openSet(o){ panel.classList.toggle('open',o); backdrop.classList.toggle('open',o); }
+document.getElementById('gearBtn').addEventListener('click',()=>openSet(true));
+document.getElementById('closeSet').addEventListener('click',()=>openSet(false));
+backdrop.addEventListener('click',()=>openSet(false));
+
+function segInit(segId, valKey, onchange){
+  const seg=document.getElementById(segId);
+  const upd=()=>seg.querySelectorAll('button').forEach(b=>b.classList.toggle('on', b.dataset.v===S[valKey]));
+  seg.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{ S[valKey]=b.dataset.v; save(); upd(); onchange(); }));
+  upd();
 }
-metroBtn.addEventListener('click',()=>{
-  ensureAudio();
-  metroRunning=!metroRunning;
-  metroBtn.classList.toggle('on', metroRunning);
-  metroBtn.textContent = metroRunning?'⏸':'▶';
-  if(metroRunning){
-    beatCount=0; nextTick=ac.currentTime+0.06;
-    schedTimer=setInterval(scheduler, INTERVAL);
-    paintDot();
-  } else {
-    clearInterval(schedTimer); dotQueue.length=0; metroDot.className='metroDot';
-  }
+segInit('jiRootSeg','jiRoot',()=>retuneAll());
+segInit('seventhSeg','seventh',()=>rebuildJI());
+
+const revRange=document.getElementById('revRange'), revVal=document.getElementById('revVal');
+revRange.value=S.reverb; revVal.textContent=Math.round(S.reverb*100/0.6)+'%';
+revRange.addEventListener('input',e=>{ const v=parseFloat(e.target.value); setReverb(v); revVal.textContent=Math.round(v*100/0.6)+'%'; save(); });
+
+const mvRange=document.getElementById('mvRange'), mvVal=document.getElementById('mvVal');
+mvRange.value=S.metroVol; mvVal.textContent=Math.round(S.metroVol*100)+'%';
+mvRange.addEventListener('input',e=>{ const v=parseFloat(e.target.value); setMetroVol(v); mvVal.textContent=Math.round(v*100)+'%'; save(); });
+
+const subSel=document.getElementById('subdiv'); subSel.value=String(S.subdiv);
+subSel.addEventListener('change',e=>{ subdiv=parseInt(e.target.value,10); S.subdiv=subdiv; save(); subTick=0; });
+
+const velBtn=document.getElementById('velBtn');
+velBtn.classList.toggle('on',S.velocity);
+velBtn.addEventListener('click',()=>{ S.velocity=!S.velocity; save(); velBtn.classList.toggle('on',S.velocity); });
+
+const wakeBtn=document.getElementById('wakeBtn');
+wakeBtn.classList.toggle('on',S.wake);
+wakeBtn.addEventListener('click',()=>{ S.wake=!S.wake; save(); wakeBtn.classList.toggle('on',S.wake);
+  if(S.wake) requestWake(); else releaseWake(); });
+
+document.getElementById('resetBtn').addEventListener('click',()=>{
+  try{ localStorage.removeItem('hd_settings'); }catch(e){}
+  location.reload();
 });
 
 /* ============================================================
-   Boot
+   Wake lock
    ============================================================ */
+let wakeSentinel=null;
+async function requestWake(){ if(!S.wake) return;
+  try{ if('wakeLock' in navigator){ wakeSentinel=await navigator.wakeLock.request('screen');
+    wakeSentinel.addEventListener('release',()=>{ wakeSentinel=null; }); } }catch(e){} }
+function releaseWake(){ if(wakeSentinel){ try{ wakeSentinel.release(); }catch(e){} wakeSentinel=null; } }
+
+/* ============================================================
+   Mic tuner — detects the pitch of external sound (autocorrelation)
+   and shows the note + cents vs the app's current A reference.
+   ============================================================ */
+let micStream=null, micAn=null, micBuf=null, freqData=null, tunerOn=false, tunerTimer=null;
+const tunerBtn=document.getElementById('tunerBtn');
+const tunerBox=document.getElementById('tunerBox');
+const tunerNote=document.getElementById('tunerNote');
+const tunerCents=document.getElementById('tunerCents');
+const tunerNeedle=document.getElementById('tunerNeedle');
+const tunerMsg=document.getElementById('tunerMsg');
+
+function autoCorrelate(buf, rate){
+  let SIZE=buf.length, rms=0;
+  for(let i=0;i<SIZE;i++) rms+=buf[i]*buf[i];
+  rms=Math.sqrt(rms/SIZE);
+  if(rms<0.008) return -1;                 // too quiet
+  let r1=0, r2=SIZE-1; const th=0.2;
+  for(let i=0;i<SIZE/2;i++){ if(Math.abs(buf[i])<th){ r1=i; break; } }
+  for(let i=1;i<SIZE/2;i++){ if(Math.abs(buf[SIZE-i])<th){ r2=SIZE-i; break; } }
+  buf=buf.slice(r1,r2); SIZE=buf.length;
+  if(SIZE<64) return -1;
+  const c=new Float32Array(SIZE);
+  for(let i=0;i<SIZE;i++){ let s=0; for(let j=0;j<SIZE-i;j++) s+=buf[j]*buf[j+i]; c[i]=s; }
+  let d=0; while(d<SIZE-1 && c[d]>c[d+1]) d++;
+  let maxv=-1, maxp=-1;
+  for(let i=d;i<SIZE;i++){ if(c[i]>maxv){ maxv=c[i]; maxp=i; } }
+  if(maxp<=0) return -1;
+  const x1=c[maxp-1]||0, x2=c[maxp], x3=c[maxp+1]||0;
+  const a=(x1+x3-2*x2)/2, b=(x3-x1)/2;
+  let T0=maxp; if(a) T0=maxp - b/(2*a);
+  const f=rate/T0;
+  return (f>40 && f<2000) ? f : -1;
+}
+function setNeedle(c){
+  if(c==null){ tunerNeedle.style.left='50%'; tunerBox.classList.remove('intune'); return; }
+  const cl=Math.max(-50,Math.min(50,c));
+  tunerNeedle.style.left=(50+cl)+'%';
+  tunerBox.classList.toggle('intune', Math.abs(c)<=5);
+}
+// FFT-based detector that ignores the app's own sounding frequencies,
+// so an external instrument can be measured WHILE the reference plays.
+function detectExternal(){
+  const N=micAn.frequencyBinCount;
+  if(!freqData||freqData.length!==N) freqData=new Float32Array(N);
+  micAn.getFloatFrequencyData(freqData);           // dB
+  const binHz=ac.sampleRate/micAn.fftSize;
+  // app's own frequencies (fundamental + a few harmonics) to exclude
+  const ex=[];
+  for(const v of active.values()){ const f0=computeFreq(v.midi); for(let h=1;h<=5;h++) ex.push(f0*h); }
+  const lo=Math.max(1,Math.floor(55/binHz)), hi=Math.min(N-2,Math.ceil(1600/binHz));
+  const peaks=[];
+  for(let i=lo;i<=hi;i++){
+    if(freqData[i]>freqData[i-1] && freqData[i]>=freqData[i+1] && freqData[i]>-72){
+      const f=i*binHz;
+      let near=false; for(const e of ex){ if(Math.abs(f-e)/e < 0.03){ near=true; break; } }
+      if(near) continue;
+      peaks.push({i, f, db:freqData[i]});
+    }
+  }
+  if(!peaks.length) return -1;
+  peaks.sort((a,b)=>b.db-a.db);
+  let cand=peaks[0];
+  // prefer a strong lower peak (true fundamental over a harmonic)
+  for(const p of peaks){ if(p.f < cand.f*0.6 && p.db > cand.db-12) cand=p; }
+  const i=cand.i, y1=freqData[i-1], y2=freqData[i], y3=freqData[i+1];
+  const denom=(2*y2-y1-y3); const d=denom?((y3-y1)/(2*denom)):0;
+  const f=(i+d)*binHz;
+  return (f>40 && f<2000) ? f : -1;
+}
+function tunerTick(){
+  if(!micAn) return;
+  let f;
+  if(active.size>0){ f=detectExternal(); }            // reference playing: exclude app tones
+  else { micAn.getFloatTimeDomainData(micBuf); f=autoCorrelate(micBuf, ac.sampleRate); }
+  if(f<=0){ tunerNote.textContent='—'; tunerCents.textContent=''; setNeedle(null); return; }
+  const midi=69+12*Math.log2(f/A4), near=Math.round(midi), cents=Math.round((midi-near)*100);
+  tunerNote.textContent=NAMES[((near%12)+12)%12]+(Math.floor(near/12)-1);
+  tunerCents.textContent=(cents>0?'+':'')+cents+'¢ ('+f.toFixed(1)+'Hz)';
+  setNeedle(cents);
+}
+async function startTuner(){
+  ensureAudio();
+  tunerBox.classList.add('show'); tunerMsg.textContent='';
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    tunerMsg.textContent='この環境ではマイクを使えません（https で開く必要があります）。'; return;
+  }
+  try{
+    micStream=await navigator.mediaDevices.getUserMedia({audio:{
+      echoCancellation:true, noiseSuppression:false, autoGainControl:false }});
+  }catch(e){
+    tunerMsg.textContent='マイクを開始できませんでした。ローカルファイルではなく https で開くと使えます。';
+    return;
+  }
+  const src=ac.createMediaStreamSource(micStream);
+  micAn=ac.createAnalyser(); micAn.fftSize=16384;   // fine frequency resolution
+  micAn.smoothingTimeConstant=0.3;
+  micBuf=new Float32Array(2048);                    // time-domain window for autocorrelation
+  freqData=new Float32Array(micAn.frequencyBinCount);
+  src.connect(micAn);              // NOT connected to output (no feedback loop)
+  tunerTimer=setInterval(tunerTick, 90);
+}
+function stopTuner(){
+  clearInterval(tunerTimer); tunerTimer=null;
+  if(micStream){ micStream.getTracks().forEach(t=>t.stop()); micStream=null; }
+  micAn=null; tunerBox.classList.remove('show','intune');
+}
+tunerBtn.addEventListener('click', ()=>{
+  tunerOn=!tunerOn;
+  tunerBtn.classList.toggle('on', tunerOn);
+  tunerBtn.textContent = tunerOn ? '🎤 ON' : '🎤 OFF';
+  if(tunerOn) startTuner(); else stopTuner();
+});
+
+/* ============================================================
+   Apply loaded settings to UI + boot
+   ============================================================ */
+function applySettingsToUI(){
+  setModeUI();
+  a4Val.innerHTML=A4+'<br><small>Hz</small>';
+  document.getElementById('xpose').value=String(transpose);
+  document.getElementById('timbre').value=currentTimbre;
+  document.getElementById('beats').value=String(beatsPer);
+  bpmVal.innerHTML=bpm+'<br><small>BPM</small>';
+  labelBtn.classList.toggle('on',showLabel);
+  renderVol();
+}
+if(S.seventh==='harm') rebuildJI();
+
 const hint=document.getElementById('hint');
-function hideHint(){ hint.style.display='none'; }
-document.body.addEventListener('pointerdown', ()=>{ ensureAudio(); }, {once:false});
+function hideHint(){ hint.classList.add('hide'); }
+document.body.addEventListener('pointerdown',()=>{ ensureAudio(); hideHint(); },{once:false});
+setTimeout(()=>{ const r=document.getElementById('rotHint'); if(r) r.classList.add('hide'); },4000);
+
 buildKeyboard();
-window.addEventListener('resize', ()=>{ /* flex handles it */ });
-// keep audio alive on visibility regain
-document.addEventListener('visibilitychange', ()=>{ if(!document.hidden && ac && ac.state==='suspended') ac.resume(); });
+applySettingsToUI();
+let rzT=null;
+window.addEventListener('resize',()=>{ clearTimeout(rzT); rzT=setTimeout(()=>measureAndClampPan(false),120); });
+window.addEventListener('orientationchange',()=>{ setTimeout(()=>measureAndClampPan(false),300); });
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden){ if(ac&&ac.state==='suspended') ac.resume(); requestWake(); } });
+
+/* ============================================================
+   Computer keyboard (QWERTY)
+   ============================================================ */
+const KEYMAP={ KeyA:0,KeyW:1,KeyS:2,KeyE:3,KeyD:4,KeyF:5,KeyT:6,KeyG:7,
+  KeyY:8,KeyH:9,KeyU:10,KeyJ:11,KeyK:12,KeyO:13,KeyL:14,KeyP:15,Semicolon:16 };
+let kbBase=60; const kbDown=new Map();
+window.addEventListener('keydown',(e)=>{
+  const tag=(e.target.tagName||'').toUpperCase();
+  if(tag==='INPUT'||tag==='SELECT'||tag==='TEXTAREA') return;
+  if(e.code==='ArrowLeft'){ kbBase=Math.max(24,kbBase-12); e.preventDefault(); return; }
+  if(e.code==='ArrowRight'){ kbBase=Math.min(96,kbBase+12); e.preventDefault(); return; }
+  if(!(e.code in KEYMAP)) return;
+  e.preventDefault(); if(e.repeat||kbDown.has(e.code)) return;
+  ensureAudio(); hideHint();
+  const midi=kbBase+KEYMAP[e.code]; kbDown.set(e.code,midi);
+  if(hold){ if(active.has(midi)) noteOff(midi); else noteOn(midi); } else noteOn(midi);
+});
+window.addEventListener('keyup',(e)=>{ if(!kbDown.has(e.code)) return;
+  const midi=kbDown.get(e.code); kbDown.delete(e.code); if(hold) return; noteOff(midi); });
 
 })();
 </script>
