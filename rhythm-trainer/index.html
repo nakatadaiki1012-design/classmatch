@@ -87,6 +87,27 @@
   .resgrid{display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin:10px 0;}
   .small{font-size:.78rem; color:var(--sub);}
   details{margin-top:8px;} summary{cursor:pointer; color:var(--accent); font-size:.85rem;}
+
+  /* ===== スマホ最適化 ===== */
+  @media (max-width:640px){
+    body{padding:8px;}
+    h1{font-size:1.1rem;}
+    .panel{padding:11px; border-radius:12px;}
+    .row{gap:10px 12px;}
+    label.ctl{flex:1 1 44%;}
+    input[type=number],select{width:100%; min-height:44px; font-size:16px;}
+    .chk{flex:1 1 44%; min-height:40px;}
+    .chk input{width:22px; height:22px;}
+    .measures{gap:8px;}
+    .measure{flex:1 1 100%;}                  /* 小節は1行に1つ、横スクロール回避 */
+    .beatcell{flex:1 1 0; width:auto; min-width:0; height:56px;}
+    .btns button{flex:1 1 auto; min-height:48px;}
+    button{padding:12px 14px;}
+    #tapPad{height:120px; font-size:1.1rem; position:sticky; bottom:8px; z-index:5;}
+    .stat{flex:1 1 26%;}
+    #judge{min-width:0; flex:1 1 100%;}
+    .palette{grid-template-columns:repeat(2,1fr);}
+  }
 </style>
 </head>
 <body>

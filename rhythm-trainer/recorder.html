@@ -59,6 +59,24 @@
   #tapPad.hot{background:var(--accent); color:#0b1020; border-color:var(--accent);}
   .small{font-size:.78rem; color:var(--sub);}
   details{margin-top:8px;} summary{cursor:pointer; color:var(--accent); font-size:.85rem;}
+
+  /* ===== スマホ最適化 ===== */
+  @media (max-width:640px){
+    body{padding:8px;}
+    h1{font-size:1.1rem;}
+    .panel{padding:11px; border-radius:12px;}
+    .row{gap:10px 12px;}
+    label.ctl{flex:1 1 44%;}                 /* 設定を2列で詰める */
+    input[type=number],select{width:100%; min-height:44px; font-size:16px;} /* 16px=iOS拡大防止 */
+    .chk{flex:1 1 44%; min-height:40px;}
+    .chk input{width:22px; height:22px;}
+    .btns{gap:8px;}
+    .btns button{flex:1 1 auto; min-height:48px;}
+    button{padding:12px 14px;}
+    #tapPad{height:120px; font-size:1.1rem; position:sticky; bottom:8px; z-index:5;} /* 親指の届く位置に固定 */
+    .stat{flex:1 1 40%;}
+    .hud{gap:10px;}
+  }
 </style>
 </head>
 <body>
@@ -80,7 +98,11 @@
         <select id="countin_sel"><option value="0">なし</option><option value="1" selected>1小節</option><option value="2">2小節</option></select>
       </label>
       <label class="ctl"><b>グリッド（細かさ）</b>
-        <select id="grid"><option value="2">八分まで</option><option value="4" selected>十六分まで</option></select>
+        <select id="grid">
+          <option value="2">八分まで</option>
+          <option value="4" selected>十六分まで</option>
+          <option value="3">三連符（1拍3分割）</option>
+        </select>
       </label>
       <label class="ctl"><b>変換モード</b>
         <select id="mode">
@@ -88,8 +110,11 @@
           <option value="interval">叩いた間隔（次の音まで伸ばす）</option>
         </select>
       </label>
+      <label class="chk"><input type="checkbox" id="gate" checked> レガート補正</label>
       <label class="chk"><input type="checkbox" id="metro" checked> メトロノーム</label>
+      <label class="chk"><input type="checkbox" id="showTL"> タイミングを表示</label>
     </div>
+    <p class="small" style="margin:8px 0 0;"><b>レガート補正</b>：早めに指を離してできる短いすき間を無視し、意図した音価に丸めます（ギリギリまで押さなくてもOK）。<b>タイミングを表示</b>：実際に叩いた位置と長さをグリッド上に重ねて表示します。</p>
   </div>
 
   <!-- 録音・楽譜 -->
@@ -104,6 +129,10 @@
       <svg id="score"></svg>
       <div id="overlay"></div>
     </div>
+    <div id="timelineWrap" style="display:none; background:var(--paper); border-radius:12px; padding:4px; overflow-x:auto; margin-top:8px;">
+      <svg id="timeline"></svg>
+    </div>
+    <p id="tlLegend" class="small" style="display:none; margin:6px 0 0;">帯＝実際に叩いた長さ（<span style="color:#2ea86a;font-weight:700;">緑</span>＝ジャストに近い / <span style="color:#c98a00;font-weight:700;">黄</span>＝少しズレ / <span style="color:#d84a4a;font-weight:700;">赤</span>＝大きくズレ）。縦線＝拍とグリッド。</p>
     <div class="hud">
       <div class="stat"><div class="v"><span id="recdot"></span><span id="recState">待機</span></div><div class="k">状態</div></div>
       <div class="stat"><div class="v" id="tapCount">0</div><div class="k">タップ数</div></div>
@@ -131,7 +160,7 @@ function el(tag,a){ const e=document.createElementNS(SVGNS,tag); for(const k in 
 function txt(svg,x,y,s,o){ const t=el("text",Object.assign({x,y},o||{})); t.textContent=s; svg.appendChild(t); return t; }
 
 /* ===== 状態 ===== */
-const S={ bpm:80, bpb:4, measures:2, countIn:1, sb:4, mode:"hold", metro:true };
+const S={ bpm:80, bpb:4, measures:2, countIn:1, sb:4, mode:"hold", metro:true, gate:true, showTL:false };
 
 /* ===== 音 ===== */
 let actx=null;
@@ -176,6 +205,9 @@ function drawFrame(svg, ticks){
   svg.appendChild(el("line",{x1:ex,y1:STAFF_Y-28,x2:ex,y2:STAFF_Y+28,stroke:"#1a1a22","stroke-width":4}));
 }
 function noteX(bx, slotInBeat){ return bx + 16 + (slotInBeat/S.sb)*(BEAT_W-24); }
+function isTriplet(){ return S.sb===3 || S.sb===6; }
+function noteDur(p){ return p.len/S.sb; }
+function beamable(p){ const d=noteDur(p); return isTriplet()? d<0.5 : d<1; } // 連桁対象（八分以下）
 function beatBx(globalBeat){ const m=Math.floor(globalBeat/S.bpb), b=globalBeat%S.bpb; return LEFT+m*measureW()+b*BEAT_W; }
 
 /* ===== 描画部品 ===== */
@@ -198,17 +230,21 @@ function drawRestSym(svg,x,beats){
 function transcribe(taps, startMain, spb){
   const sb=S.sb, bpb=S.bpb, totalSlots=S.measures*bpb*sb, slotDur=spb/sb;
   const sound=new Array(totalSlots).fill(false), onset=new Array(totalSlots).fill(false);
-  // 間隔モードでは off を次の on（無ければ末尾）に置き換え
-  const t2=taps.map(t=>({on:t.on, off:t.off}));
-  if(S.mode==="interval"){
-    for(let i=0;i<t2.length;i++){ t2[i].off = (i+1<t2.length)? t2[i+1].on : startMain+totalSlots*slotDur; }
-  }
-  for(const t of t2){
-    let o=Math.round(((t.on-recOffset)-startMain)/slotDur);
-    let e=Math.round(((t.off-recOffset)-startMain)/slotDur);
-    if(o<0) o=0; if(o>=totalSlots) continue;
-    if(e<=o) e=o+1; if(e>totalSlots) e=totalSlots;
-    onset[o]=true; for(let s=o;s<e;s++) sound[s]=true;
+  // タップを onset/release（スロット）に量子化し、onset順に並べる
+  const evs = taps.map(t=>({
+      o: Math.round(((t.on-recOffset)-startMain)/slotDur),
+      r: Math.round(((t.off-recOffset)-startMain)/slotDur)
+    })).filter(t=>t.o<totalSlots)
+     .map(t=>({o:Math.max(0,t.o), r:Math.max(t.r, t.o+1)}))
+     .sort((a,b)=>a.o-b.o);
+  for(let i=0;i<evs.length;i++){
+    const o=evs[i].o, next=(i+1<evs.length)? evs[i+1].o : totalSlots;
+    const span=Math.max(1, next-o), held=Math.max(1, Math.min(totalSlots,evs[i].r)-o);
+    let sounded;
+    if(S.mode==="interval") sounded=span;                 // 次の音まで伸ばす（休符なし）
+    else if(S.gate && held/span>=0.6) sounded=span;        // ほぼ次まで押していた→音価に丸める（付点化・すき間を防ぐ）
+    else sounded=Math.min(span, held);                     // 実測の長さ（余りは休符）
+    onset[o]=true; for(let s=o;s<o+sounded && s<totalSlots;s++) sound[s]=true;
   }
   // グローバルなセグメント化
   const segs=[]; let s=0;
@@ -247,11 +283,22 @@ function renderPieces(pieces){
       const dur=p.len/sb, x=noteX(bx,p.slotInBeat);
       if(p.type==="rest"){ drawRestChunks(svg,bx,p.slotInBeat,p.len); continue; }
       drawHead(svg,x); drawStem(svg,x);
-      if(Math.abs(dur-0.75)<1e-6 || Math.abs(dur-1.5)<1e-6) drawDot(svg,x);
+      if(!isTriplet() && (Math.abs(dur-0.75)<1e-6 || Math.abs(dur-1.5)<1e-6)) drawDot(svg,x);
       headPos[p._i]={x};
     }
     // ビーム/旗（連続する音符・音価<1 を連桁）
     beamBeat(svg,bx,list);
+    // 三連符ブラケット
+    if(isTriplet()){
+      const ns=list.filter(p=>p.type==="note");
+      const subdivided = ns.length && !(list.length===1 && list[0].len===sb);
+      if(subdivided){
+        const x1=noteX(bx,ns[0].slotInBeat), x2=noteX(bx,ns[ns.length-1].slotInBeat);
+        const xa=x1-5, xb=(x2>x1?x2:x1+18)+5, y=STAFF_Y-STEM-9;
+        svg.appendChild(el("path",{d:`M${xa},${y+5} L${xa},${y} L${xb},${y} L${xb},${y+5}`,stroke:"#1a1a22","stroke-width":1.2,fill:"none"}));
+        txt(svg,(xa+xb)/2,y-2,"3",{ "font-size":12,"font-weight":700,fill:"#1a1a22","text-anchor":"middle","font-family":"Georgia,serif"});
+      }
+    }
   }
   // タイ
   pieces.forEach((p,i)=>{ if(p.type==="note" && p.tieToNext){
@@ -263,6 +310,11 @@ function renderPieces(pieces){
 }
 function drawRestChunks(svg,bx,slotInBeat,len){
   let pos=slotInBeat, rem=len, sb=S.sb;
+  if(isTriplet()){ // 三連符：1拍まるごとは四分休符、それ以外は各スロットを八分休符で
+    if(rem===sb && pos===0){ drawRestSym(svg, noteX(bx,pos), 1); return; }
+    while(rem>0){ drawRestSym(svg, noteX(bx,pos), 0.5); pos++; rem--; }
+    return;
+  }
   while(rem>0){
     let size=1;
     if(rem>=sb && pos% sb===0) size=sb;         // 1拍まるごと＝四分休符
@@ -277,16 +329,16 @@ function beamBeat(svg,bx,list){
   // 音符のみを順に見て、休符/四分で区切られる連桁ランを作る
   let i=0;
   while(i<list.length){
-    const p=list[i], dur=p.len/sb;
-    if(p.type!=="note" || dur>=1){ i++; continue; }
-    let j=i; while(j+1<list.length && list[j+1].type==="note" && (list[j+1].len/sb)<1) j++;
+    const p=list[i];
+    if(p.type!=="note" || !beamable(p)){ i++; continue; }
+    let j=i; while(j+1<list.length && list[j+1].type==="note" && beamable(list[j+1])) j++;
     const run=list.slice(i,j+1);
     if(run.length>=2){
       const xA=noteX(bx,run[0].slotInBeat)+HEAD_RX-0.5, xB=noteX(bx,run[run.length-1].slotInBeat)+HEAD_RX-0.5;
       svg.appendChild(el("line",{x1:xA,y1:beamY,x2:xB,y2:beamY,stroke:"#1a1a22","stroke-width":5}));
-      // 二本目（十六分）
+      // 二本目（十六分）※三連符では描かない
       let k=0;
-      while(k<run.length){
+      while(!isTriplet() && k<run.length){
         if((run[k].len/sb)>0.25){ k++; continue; }
         let e=k; while(e+1<run.length && (run[e+1].len/sb)<=0.25) e++;
         const sw=6;
@@ -296,7 +348,7 @@ function beamBeat(svg,bx,list){
         k=e+1;
       }
     }else{ // 単独 → 旗
-      drawFlag(svg, noteX(bx,run[0].slotInBeat)+HEAD_RX-0.5, dur<=0.25?2:1);
+      drawFlag(svg, noteX(bx,run[0].slotInBeat)+HEAD_RX-0.5, (!isTriplet() && noteDur(run[0])<=0.25)?2:1);
     }
     i=j+1;
   }
@@ -309,6 +361,7 @@ function readSettings(){
   S.bpb=+document.getElementById("timesig").value; S.measures=+document.getElementById("measures").value;
   S.countIn=+document.getElementById("countin_sel").value; S.sb=+document.getElementById("grid").value;
   S.mode=document.getElementById("mode").value; S.metro=document.getElementById("metro").checked;
+  S.gate=document.getElementById("gate").checked; S.showTL=document.getElementById("showTL").checked;
 }
 function startRec(){
   if(recording) return; readSettings();
@@ -351,7 +404,39 @@ function finishRec(){
   if(down){ down.off=endMain; taps.push(down); down=null; } // 押しっぱなしで終了
   lastPieces=transcribe(taps, startMain, spb);
   renderPieces(lastPieces);
+  renderTimeline(taps);
   document.getElementById("playBtn").disabled = taps.length===0;
+}
+
+/* ===== タイミング可視化（生データのタイムライン） ===== */
+function renderTimeline(taps){
+  const wrap=document.getElementById("timelineWrap"), leg=document.getElementById("tlLegend");
+  if(!S.showTL){ wrap.style.display="none"; leg.style.display="none"; return; }
+  wrap.style.display="block"; leg.style.display="block";
+  const svg=document.getElementById("timeline");
+  while(svg.firstChild) svg.removeChild(svg.firstChild);
+  const H=76, W=totalW(); svg.setAttribute("width",W); svg.setAttribute("height",H); svg.setAttribute("viewBox","0 0 "+W+" "+H);
+  const yTop=14, yBot=H-16, sb=S.sb;
+  const xOf=(beat)=>{ const m=Math.floor(beat/S.bpb); const local=beat-m*S.bpb; return LEFT+m*measureW()+local*BEAT_W+16; };
+  // グリッド線
+  for(let m=0;m<S.measures;m++){ for(let b=0;b<S.bpb;b++){ for(let s=0;s<sb;s++){
+    const beat=m*S.bpb+b+s/sb; const x=xOf(beat); const strong=(s===0);
+    svg.appendChild(el("line",{x1:x,y1:yTop-6,x2:x,y2:yBot+6,stroke:strong?"#c9c9bd":"#e6e6da","stroke-width":strong?1.4:1}));
+    if(strong) txt(svg,x+3,yTop-2,(b+1),{ "font-size":9,fill:"#a0a094"});
+  }}}
+  const endx=xOf(S.measures*S.bpb); svg.appendChild(el("line",{x1:endx,y1:yTop-6,x2:endx,y2:yBot+6,stroke:"#8a8a7e","stroke-width":1.6}));
+  // 実際のタップ（offset補正済み）を帯で
+  const slotBeats=1/sb;
+  for(const t of taps){
+    const onB=(t.on-recOffset-startMain)/spb; let offB=((t.off==null?endMain:t.off)-recOffset-startMain)/spb;
+    if(offB<=onB) offB=onB+0.06;
+    const x1=xOf(Math.max(0,onB)), x2=xOf(Math.min(S.measures*S.bpb,offB));
+    // オンセットのグリッドからのズレ
+    const nearest=Math.round(onB/slotBeats)*slotBeats; const devMs=Math.abs(onB-nearest)*spb*1000;
+    const col = devMs<=35? "#2ea86a" : devMs<=80? "#c98a00" : "#d84a4a";
+    svg.appendChild(el("rect",{x:Math.min(x1,x2),y:yTop,width:Math.max(3,Math.abs(x2-x1)),height:yBot-yTop,rx:3,fill:col,"fill-opacity":.35,stroke:col,"stroke-width":1.4}));
+    svg.appendChild(el("line",{x1:x1,y1:yTop-3,x2:x1,y2:yBot+3,stroke:col,"stroke-width":2})); // オンセット位置
+  }
 }
 function stopRec(){ if(recording) finishRec(); }
 
@@ -377,8 +462,19 @@ function playResult(){
 document.getElementById("recBtn").addEventListener("click",startRec);
 document.getElementById("stopBtn").addEventListener("click",stopRec);
 document.getElementById("playBtn").addEventListener("click",playResult);
-document.getElementById("clearBtn").addEventListener("click",()=>{ readSettings(); drawFrame(document.getElementById("score"),false); lastPieces=null; document.getElementById("playBtn").disabled=true; document.getElementById("tapCount").textContent="0"; document.getElementById("recState").textContent="待機"; });
-["bpm","timesig","measures","countin_sel","grid","mode","metro"].forEach(id=>document.getElementById(id).addEventListener("change",()=>{ if(!recording){ readSettings(); drawFrame(document.getElementById("score"),false); }}));
+document.getElementById("clearBtn").addEventListener("click",()=>{ readSettings(); drawFrame(document.getElementById("score"),false); lastPieces=null; taps=[]; document.getElementById("playBtn").disabled=true; document.getElementById("tapCount").textContent="0"; document.getElementById("recState").textContent="待機"; document.getElementById("timelineWrap").style.display="none"; document.getElementById("tlLegend").style.display="none"; });
+// グリッド・モード・レガート・タイミング表示：同じ演奏を再変換（録音し直し不要）
+["grid","mode","gate","showTL"].forEach(id=>document.getElementById(id).addEventListener("change",()=>{
+  if(recording) return; readSettings();
+  if(taps.length){ lastPieces=transcribe(taps, startMain, spb); renderPieces(lastPieces); renderTimeline(taps); }
+  else drawFrame(document.getElementById("score"),false);
+}));
+// テンポ・拍子・小節数など構造が変わる設定：枠を作り直し（録り直し前提）
+["bpm","timesig","measures","countin_sel","metro"].forEach(id=>document.getElementById(id).addEventListener("change",()=>{
+  if(recording) return; readSettings(); drawFrame(document.getElementById("score"),false);
+  lastPieces=null; taps=[]; document.getElementById("playBtn").disabled=true;
+  document.getElementById("timelineWrap").style.display="none"; document.getElementById("tlLegend").style.display="none";
+}));
 const pad=document.getElementById("tapPad");
 pad.addEventListener("pointerdown",padDown); pad.addEventListener("pointerup",padUp); pad.addEventListener("pointerleave",padUp);
 document.addEventListener("keydown",e=>{ if(e.code==="Space" && !e.repeat){ e.preventDefault(); padDown(e); }});
@@ -388,7 +484,10 @@ document.addEventListener("keyup",e=>{ if(e.code==="Space"){ e.preventDefault();
 window.__test=function(tapsRel, opts){ // tapsRel: [{on,off}] を startMain=0 基準（秒）で
   Object.assign(S, opts||{}); const sp=60/S.bpm; recOffset=(opts&&opts.recOffset)||0;
   const abs=tapsRel.map(t=>({on:t.on, off:t.off}));
-  const pcs=transcribe(abs, 0, sp); renderPieces(pcs); return pcs.filter(p=>p.type==="note").length;
+  startMain=0; spb=sp; taps=abs;
+  const pcs=transcribe(abs, 0, sp); renderPieces(pcs);
+  if(opts&&opts.timeline){ S.showTL=true; renderTimeline(abs); }
+  return { notes:pcs.filter(p=>p.type==="note").length, rests:document.querySelectorAll('#score line,#score path,#score circle').length };
 };
 
 /* ===== 初期化 ===== */
