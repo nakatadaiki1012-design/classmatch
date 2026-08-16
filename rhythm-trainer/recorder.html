@@ -72,6 +72,8 @@
     .chk input{width:22px; height:22px;}
     .btns{gap:8px;}
     .btns button{flex:1 1 auto; min-height:48px;}
+    #stepPanel .row button{flex:1 1 40%; min-height:52px; font-size:1.05rem;}
+    #stepPanel #noteBtn, #stepPanel #restBtn{flex:1 1 100%;}  /* 音符・休符は横いっぱいで押しやすく */
     button{padding:12px 14px;}
     #tapPad{height:120px; font-size:1.1rem; position:sticky; bottom:8px; z-index:5;} /* 親指の届く位置に固定 */
     .stat{flex:1 1 40%;}
@@ -87,6 +89,12 @@
   <!-- 設定 -->
   <div class="panel">
     <div class="row">
+      <label class="ctl"><b>入力方法</b>
+        <select id="inputMethod">
+          <option value="realtime" selected>叩いて入力（リアルタイム）</option>
+          <option value="step">ボタンで入力（音符／休符）</option>
+        </select>
+      </label>
       <label class="ctl"><b>テンポ (BPM)</b><input id="bpm" type="number" min="40" max="240" step="1" value="80"></label>
       <label class="ctl"><b>拍子</b>
         <select id="timesig"><option value="4">4/4</option><option value="3">3/4</option><option value="2">2/4</option></select>
@@ -119,7 +127,28 @@
 
   <!-- 録音・楽譜 -->
   <div class="panel">
-    <div class="btns" style="margin-bottom:10px;">
+    <!-- ステップ入力（音符／休符ボタン） -->
+    <div id="stepPanel" style="display:none; margin-bottom:12px;">
+      <div class="row" style="align-items:flex-end;">
+        <label class="ctl"><b>置く音価</b>
+          <select id="stepDur">
+            <option value="1">四分 ♩</option>
+            <option value="0.5" selected>八分 ♪</option>
+            <option value="0.25">十六分</option>
+            <option value="0.75">付点八分</option>
+            <option value="1.5">付点四分</option>
+            <option value="2">二分</option>
+          </select>
+        </label>
+        <button id="noteBtn" style="min-width:120px;">♪ 音符</button>
+        <button id="restBtn" class="sec" style="min-width:120px;">𝄽 休符</button>
+        <button id="undoBtn" class="sec">⌫ 戻る</button>
+        <button id="stepClearBtn" class="sec">クリア</button>
+        <button id="stepPlayBtn" class="sec">▶ 再生</button>
+      </div>
+      <p class="small" style="margin:8px 0 0;">音符と休符を1つずつ置いてリズムを作ります。<b>休符も自分で入力</b>します（キー：<b>N</b>=音符 / <b>R</b>=休符 / <b>Backspace</b>=戻る）。設定した小節数ぶんでいっぱいになります。</p>
+    </div>
+    <div class="btns" id="realtimeControls" style="margin-bottom:10px;">
       <button id="recBtn">● 録音スタート</button>
       <button class="sec" id="stopBtn" disabled>■ ストップ</button>
       <button class="sec" id="playBtn" disabled>▶ 変換結果を再生</button>
@@ -246,13 +275,15 @@ function transcribe(taps, startMain, spb){
     else sounded=Math.min(span, held);                     // 実測の長さ（余りは休符）
     onset[o]=true; for(let s=o;s<o+sounded && s<totalSlots;s++) sound[s]=true;
   }
-  // グローバルなセグメント化
+  return segmentToPieces(sound, onset, totalSlots, sb);
+}
+// スロット列（sound/onset）→ 音符列（セグメント化＋拍境界でタイ分割）
+function segmentToPieces(sound, onset, totalSlots, sb){
   const segs=[]; let s=0;
   while(s<totalSlots){
     if(sound[s]){ let e=s+1; while(e<totalSlots && sound[e] && !onset[e]) e++; segs.push({type:"note",start:s,end:e}); s=e; }
     else{ let e=s+1; while(e<totalSlots && !sound[e] && !onset[e]) e++; segs.push({type:"rest",start:s,end:e}); s=e; }
   }
-  // 拍境界で分割（またぎはタイ）
   const pieces=[];
   for(const seg of segs){ let p=seg.start;
     while(p<seg.end){ const beatIdx=Math.floor(p/sb), beatEnd=(beatIdx+1)*sb, e=Math.min(seg.end,beatEnd);
@@ -458,23 +489,81 @@ function playResult(){
     const onsetBeat=p.beatIdx+p.slotInBeat/S.sb; noteSound(t0+onsetBeat*spb, (p.len/S.sb)*spb*0.9); }
 }
 
+/* ===== ステップ入力（音符／休符ボタン） ===== */
+let steps=[]; // {rest:bool, dur:beats}
+const STEP_SB=4; // 十六分グリッド固定（付点にも対応）
+function stepTotalSlots(){ return S.measures*S.bpb*STEP_SB; }
+function stepUsedSlots(){ return steps.reduce((a,s)=>a+Math.round(s.dur*STEP_SB),0); }
+function isStep(){ return document.getElementById("inputMethod").value==="step"; }
+function stepAdd(rest){
+  readSettings();
+  const dur=parseFloat(document.getElementById("stepDur").value);
+  if(stepUsedSlots()+Math.round(dur*STEP_SB)>stepTotalSlots()){ document.getElementById("recState").textContent="いっぱいです"; return; }
+  steps.push({rest, dur}); tapSound(); rebuildSteps();
+}
+function stepUndo(){ if(steps.length){ steps.pop(); rebuildSteps(); } }
+function rebuildSteps(){
+  readSettings(); S.sb=STEP_SB;
+  const total=stepTotalSlots(); let c=0;
+  const svg=document.getElementById("score");
+  if(steps.length===0){ drawFrame(svg,false); lastPieces=null; }
+  else{
+    const sound=new Array(total).fill(false), onset=new Array(total).fill(false);
+    for(const st of steps){ const len=Math.round(st.dur*STEP_SB);
+      if(!st.rest){ onset[c]=true; for(let k=c;k<c+len && k<total;k++) sound[k]=true; }
+      c+=len; if(c>=total) break;
+    }
+    lastPieces=segmentToPieces(sound,onset,total,STEP_SB);
+    renderPieces(lastPieces);
+  }
+  if(c<total){ const beat=c/STEP_SB, x=beatBx(Math.floor(beat))+16+((beat-Math.floor(beat))*(BEAT_W-24)); // 次に置く位置のカーソル
+    svg.appendChild(el("line",{x1:x,y1:STAFF_Y-40,x2:x,y2:STAFF_Y+40,stroke:"#ff9f4f","stroke-width":2,"stroke-dasharray":"4 3"})); }
+  document.getElementById("timelineWrap").style.display="none"; document.getElementById("tlLegend").style.display="none";
+  document.getElementById("tapCount").textContent=steps.length;
+  document.getElementById("recState").textContent = c>=total? "いっぱい" : (steps.length? "入力中" : "待機");
+  document.getElementById("playBtn").disabled = !steps.length;
+}
+function stepPlay(){ if(!steps.length) return; readSettings(); S.sb=STEP_SB; spb=60/S.bpm; playResult(); }
+function applyInputMethod(){
+  const step=isStep();
+  document.getElementById("stepPanel").style.display= step?"block":"none";
+  document.getElementById("realtimeControls").style.display= step?"none":"flex";
+  document.getElementById("tapPad").style.display= step?"none":"flex";
+  steps=[]; taps=[];
+  if(step) rebuildSteps();
+  else { readSettings(); drawFrame(document.getElementById("score"),false); lastPieces=null; document.getElementById("playBtn").disabled=true; document.getElementById("timelineWrap").style.display="none"; document.getElementById("tlLegend").style.display="none"; document.getElementById("tapCount").textContent="0"; document.getElementById("recState").textContent="待機"; }
+}
+
 /* ===== 配線 ===== */
 document.getElementById("recBtn").addEventListener("click",startRec);
 document.getElementById("stopBtn").addEventListener("click",stopRec);
-document.getElementById("playBtn").addEventListener("click",playResult);
-document.getElementById("clearBtn").addEventListener("click",()=>{ readSettings(); drawFrame(document.getElementById("score"),false); lastPieces=null; taps=[]; document.getElementById("playBtn").disabled=true; document.getElementById("tapCount").textContent="0"; document.getElementById("recState").textContent="待機"; document.getElementById("timelineWrap").style.display="none"; document.getElementById("tlLegend").style.display="none"; });
+document.getElementById("playBtn").addEventListener("click",()=>{ if(isStep()) stepPlay(); else playResult(); });
+document.getElementById("clearBtn").addEventListener("click",()=>{ if(isStep()){ steps=[]; rebuildSteps(); return; } readSettings(); drawFrame(document.getElementById("score"),false); lastPieces=null; taps=[]; document.getElementById("playBtn").disabled=true; document.getElementById("tapCount").textContent="0"; document.getElementById("recState").textContent="待機"; document.getElementById("timelineWrap").style.display="none"; document.getElementById("tlLegend").style.display="none"; });
+document.getElementById("inputMethod").addEventListener("change",applyInputMethod);
+document.getElementById("noteBtn").addEventListener("click",()=>stepAdd(false));
+document.getElementById("restBtn").addEventListener("click",()=>stepAdd(true));
+document.getElementById("undoBtn").addEventListener("click",stepUndo);
+document.getElementById("stepClearBtn").addEventListener("click",()=>{ steps=[]; rebuildSteps(); });
+document.getElementById("stepPlayBtn").addEventListener("click",stepPlay);
 // グリッド・モード・レガート・タイミング表示：同じ演奏を再変換（録音し直し不要）
 ["grid","mode","gate","showTL"].forEach(id=>document.getElementById(id).addEventListener("change",()=>{
-  if(recording) return; readSettings();
+  if(recording||isStep()) return; readSettings();
   if(taps.length){ lastPieces=transcribe(taps, startMain, spb); renderPieces(lastPieces); renderTimeline(taps); }
   else drawFrame(document.getElementById("score"),false);
 }));
-// テンポ・拍子・小節数など構造が変わる設定：枠を作り直し（録り直し前提）
+// テンポ・拍子・小節数など構造が変わる設定
 ["bpm","timesig","measures","countin_sel","metro"].forEach(id=>document.getElementById(id).addEventListener("change",()=>{
-  if(recording) return; readSettings(); drawFrame(document.getElementById("score"),false);
+  if(recording) return;
+  if(isStep()){ rebuildSteps(); return; } // ステップは入力を保ったまま作り直し
+  readSettings(); drawFrame(document.getElementById("score"),false);
   lastPieces=null; taps=[]; document.getElementById("playBtn").disabled=true;
   document.getElementById("timelineWrap").style.display="none"; document.getElementById("tlLegend").style.display="none";
 }));
+document.addEventListener("keydown",e=>{ if(!isStep()) return;
+  if(e.key==="n"||e.key==="N"){ e.preventDefault(); stepAdd(false); }
+  else if(e.key==="r"||e.key==="R"){ e.preventDefault(); stepAdd(true); }
+  else if(e.key==="Backspace"){ e.preventDefault(); stepUndo(); }
+});
 const pad=document.getElementById("tapPad");
 pad.addEventListener("pointerdown",padDown); pad.addEventListener("pointerup",padUp); pad.addEventListener("pointerleave",padUp);
 document.addEventListener("keydown",e=>{ if(e.code==="Space" && !e.repeat){ e.preventDefault(); padDown(e); }});
