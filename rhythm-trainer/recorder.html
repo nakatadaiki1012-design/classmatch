@@ -135,7 +135,9 @@ const S={ bpm:80, bpb:4, measures:2, countIn:1, sb:4, mode:"hold", metro:true };
 
 /* ===== 音 ===== */
 let actx=null;
-function audio(){ if(!actx) actx=new (window.AudioContext||window.webkitAudioContext)(); if(actx.state==="suspended") actx.resume(); return actx; }
+function audio(){ if(!actx) actx=new (window.AudioContext||window.webkitAudioContext)({latencyHint:"interactive"}); if(actx.state==="suspended") actx.resume(); return actx; }
+// レイテンシー補正（トレーナー側の自動調整値を共有）。タップは端末遅延ぶん遅れて記録されるので、その分だけ前に戻す。
+let recOffset = parseFloat(localStorage.getItem("rt_offset")); if(isNaN(recOffset)) recOffset=0.03;
 function click(t,accent){ const c=audio(),o=c.createOscillator(),g=c.createGain();
   o.type="square"; o.frequency.value=accent?1760:1200;
   g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(accent?0.5:0.3,t+0.001);
@@ -202,8 +204,8 @@ function transcribe(taps, startMain, spb){
     for(let i=0;i<t2.length;i++){ t2[i].off = (i+1<t2.length)? t2[i+1].on : startMain+totalSlots*slotDur; }
   }
   for(const t of t2){
-    let o=Math.round((t.on-startMain)/slotDur);
-    let e=Math.round(((t.off)-startMain)/slotDur);
+    let o=Math.round(((t.on-recOffset)-startMain)/slotDur);
+    let e=Math.round(((t.off-recOffset)-startMain)/slotDur);
     if(o<0) o=0; if(o>=totalSlots) continue;
     if(e<=o) e=o+1; if(e>totalSlots) e=totalSlots;
     onset[o]=true; for(let s=o;s<e;s++) sound[s]=true;
@@ -384,7 +386,7 @@ document.addEventListener("keyup",e=>{ if(e.code==="Space"){ e.preventDefault();
 
 /* ===== テスト用フック ===== */
 window.__test=function(tapsRel, opts){ // tapsRel: [{on,off}] を startMain=0 基準（秒）で
-  Object.assign(S, opts||{}); const sp=60/S.bpm;
+  Object.assign(S, opts||{}); const sp=60/S.bpm; recOffset=(opts&&opts.recOffset)||0;
   const abs=tapsRel.map(t=>({on:t.on, off:t.off}));
   const pcs=transcribe(abs, 0, sp); renderPieces(pcs); return pcs.filter(p=>p.type==="note").length;
 };

@@ -126,6 +126,13 @@
       <label class="chk"><input type="checkbox" id="guide"> ガイド音を鳴らす</label>
       <label class="chk"><input type="checkbox" id="showSay" checked> リズム唱を表示</label>
     </div>
+    <div class="row" style="margin-top:10px; align-items:flex-end;">
+      <label class="ctl"><b>判定オフセット</b>
+        <span style="display:flex;align-items:center;gap:4px;"><input id="offset" type="number" min="0" max="500" step="5" value="30" style="min-width:74px;"> ms</span>
+      </label>
+      <button class="sec" id="calibBtn" style="padding:8px 14px;">🎯 自動でレイテンシー調整</button>
+      <span class="small" style="max-width:360px;">合図(メトロノーム)に合わせて8回タップすると、端末の遅れを自動計測して判定を合わせます。<b>Bluetooth接続は遅延が大きい</b>ので有線/内蔵スピーカー推奨。</span>
+    </div>
   </div>
 
   <!-- エディタ -->
@@ -223,7 +230,24 @@ function el(tag, attrs){ const e=document.createElementNS(SVGNS,tag); for(const 
 
 /* ============ 音（Web Audio） ============ */
 let actx=null;
-function audio(){ if(!actx) actx=new (window.AudioContext||window.webkitAudioContext)(); if(actx.state==="suspended") actx.resume(); return actx; }
+function audio(){ if(!actx){ actx=new (window.AudioContext||window.webkitAudioContext)({latencyHint:"interactive"}); ensureOffsetInit(); } if(actx.state==="suspended") actx.resume(); return actx; }
+
+/* ===== レイテンシー補正（判定オフセット） =====
+   端末の音声出力遅延（特にBluetoothは150ms以上）＋入力遅延ぶん、
+   タップは実際より遅れて登録される。offset を引いて判定を合わせる。 */
+let inputOffset = parseFloat(localStorage.getItem("rt_offset"));
+if(isNaN(inputOffset)) inputOffset = NaN; // 初回は audio() 生成時に自動見積り
+function ensureOffsetInit(){
+  if(isNaN(inputOffset)){
+    const ol=(actx.outputLatency||0)+(actx.baseLatency||0);
+    inputOffset = Math.min(0.5, Math.max(0, ol)) || 0.03;
+    saveOffset(); updateOffsetUI();
+  }
+}
+function saveOffset(){ localStorage.setItem("rt_offset", String(inputOffset)); }
+function updateOffsetUI(){ const i=document.getElementById("offset"); if(i) i.value=Math.round(inputOffset*1000); }
+// 判定に使う「補正済みの現在時刻」
+function tapClock(){ return audio().currentTime - inputOffset; }
 function click(t, accent){
   const c=audio(), o=c.createOscillator(), g=c.createGain();
   o.type="square"; o.frequency.value=accent?1760:1200;
@@ -483,10 +507,11 @@ function frame(){
   const ci=document.getElementById("countin");
   if(beatPos<0){ ci.style.display="block"; ci.textContent=Math.ceil(-beatPos); }
   else ci.style.display="none";
-  // 見逃しMiss（playモードのみ）
+  // 見逃しMiss（playモードのみ・補正済み時刻で判定）
   if(mode==="play"){
+    const tnow=now-inputOffset;
     for(const n of layout.notes){
-      if(!n.judged && now > startAt+n.relT + GOOD){ mark(n,"miss"); }
+      if(!n.judged && tnow > startAt+n.relT + GOOD){ mark(n,"miss"); }
     }
   }
   // 終了
@@ -503,9 +528,10 @@ function beatToX(gb){
 }
 
 function handleTap(){
+  if(calibrating){ calibTap(); return; }
   if(!running || mode!=="play") { if(running&&mode==="listen"){} return; }
   tapSound();
-  const c=audio(), now=c.currentTime;
+  const now=tapClock(); // 端末遅延を補正した時刻で判定
   // 未判定で最も近いノート
   let best=null, bestDelta=1e9;
   for(const n of layout.notes){
@@ -533,6 +559,50 @@ function mark(n,kind){
   const done=scoreTally.perfect+scoreTally.good+scoreTally.miss;
   const acc=done? Math.round((scoreTally.perfect*100+scoreTally.good*60)/done):0;
   document.getElementById("accV").textContent=acc+"%";
+}
+
+/* ===== 自動キャリブレーション ===== */
+let calibrating=false, calibTaps=[], calibBeats=[], calibTimer=0;
+function runCalibration(){
+  if(running||calibrating) return;
+  const c=audio(); calibrating=true; calibTaps=[];
+  const bpm=100, spb=60/bpm, countIn=4, N=8;
+  const T0=c.currentTime+0.4;
+  calibBeats=[];
+  for(let i=0;i<countIn+N;i++) click(T0+i*spb, i%4===0);
+  for(let j=0;j<N;j++) calibBeats.push(T0+(countIn+j)*spb);
+  document.getElementById("startBtn").disabled=true;
+  document.getElementById("listenBtn").disabled=true;
+  document.getElementById("calibBtn").disabled=true;
+  const ci=document.getElementById("countin");
+  const endT=T0+(countIn+N)*spb+0.4;
+  setJudge("合図に合わせてタップ", "var(--accent)");
+  calibTimer=setInterval(()=>{
+    const t=audio().currentTime;
+    // カウントダウン/進行表示
+    if(t<T0+countIn*spb){ ci.style.display="block"; ci.textContent=Math.max(1,Math.ceil((T0+countIn*spb - t)/spb)); }
+    else { ci.style.display="block"; ci.textContent="🎯"; }
+    if(t>endT){ finishCalibration(); }
+  },40);
+}
+function calibTap(){ if(!calibrating) return; calibTaps.push(audio().currentTime); tapSound(); }
+function finishCalibration(){
+  clearInterval(calibTimer); calibrating=false;
+  document.getElementById("countin").style.display="none";
+  document.getElementById("startBtn").disabled=false;
+  document.getElementById("listenBtn").disabled=false;
+  document.getElementById("calibBtn").disabled=false;
+  const deltas=[];
+  for(const t of calibTaps){ let best=1e9; for(const b of calibBeats){ const d=t-b; if(Math.abs(d)<Math.abs(best)) best=d; } if(Math.abs(best)<0.35) deltas.push(best); }
+  if(deltas.length>=3){
+    deltas.sort((a,b)=>a-b);
+    const med=deltas[Math.floor(deltas.length/2)];
+    inputOffset=Math.min(0.5, Math.max(0, med));
+    saveOffset(); updateOffsetUI();
+    setJudge("調整完了 +"+Math.round(inputOffset*1000)+"ms","var(--good)");
+  }else{
+    setJudge("うまく測れませんでした","var(--miss)");
+  }
 }
 
 let judgeTimer=0;
@@ -602,6 +672,8 @@ document.getElementById("delMeasure").addEventListener("click",()=>{ if(state.me
 document.getElementById("startBtn").addEventListener("click",()=>start("play"));
 document.getElementById("listenBtn").addEventListener("click",()=>start("listen"));
 document.getElementById("stopBtn").addEventListener("click",stop);
+document.getElementById("calibBtn").addEventListener("click",runCalibration);
+document.getElementById("offset").addEventListener("change",e=>{ inputOffset=Math.min(0.5,Math.max(0,(+e.target.value||0)/1000)); saveOffset(); e.target.value=Math.round(inputOffset*1000); });
 document.getElementById("pop").addEventListener("click",e=>{ if(e.target.id==="pop") closePalette(); });
 
 const tapPad=document.getElementById("tapPad");
@@ -611,6 +683,7 @@ document.addEventListener("keydown",e=>{ if(e.code==="Space"){ e.preventDefault(
 document.getElementById("palClose").addEventListener("click",closePalette);
 
 /* ============ 初期化 ============ */
+if(!isNaN(inputOffset)) updateOffsetUI();
 renderEditor(); buildScore();
 </script>
 </body>
