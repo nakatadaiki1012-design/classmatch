@@ -84,6 +84,10 @@
   button:disabled{opacity:.35;cursor:not-allowed;transform:none;}
   .transport{display:flex;flex-wrap:wrap;gap:9px;}
   .note{font-size:11.5px;color:var(--faint);line-height:1.55;}
+  #adv{margin-top:13px;padding-top:13px;border-top:1px solid var(--line-soft);}
+  #adv[hidden]{display:none;}
+  .advrow{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;}
+  .advrow .note{max-width:44ch;}
 
   /* 音価パレット（ステップ入力） */
   .durbar{display:flex;flex-wrap:wrap;gap:6px;}
@@ -177,6 +181,14 @@
       <label class="chk" id="gateWrap"><input type="checkbox" id="gate" checked><span>レガート補正</span></label>
       <label class="chk"><input type="checkbox" id="metro" checked><span>メトロノーム</span></label>
       <label class="chk"><input type="checkbox" id="showTL"><span>タイミング</span></label>
+      <button class="btn ghost" id="advBtn" style="margin-left:auto;">詳細設定</button>
+    </div>
+    <div id="adv" hidden>
+      <div class="advrow">
+        <label class="fld" style="max-width:132px;"><span>入力オフセット (ms)</span><input id="offset" type="number" min="0" max="500" step="5" value="30"></label>
+        <button class="btn sec" id="calibBtn">レイテンシーを自動調整</button>
+        <p class="note">端末の音声出力とタッチの遅れぶん、タップは実際より遅れて記録されます。<b>合図に合わせて8回タップ</b>すると遅れを実測して補正します。ズレたまま録ると音符が後ろの位置に書かれます（初回は必ず実行してください）。値はトレーナーと共通です。</p>
+      </div>
     </div>
     <p class="note" id="hintLine" style="margin:12px 0 0;"></p>
   </section>
@@ -321,9 +333,19 @@ function totalSlots(){ return totalBeats()*RES; }
 
 /* ============ 音 ============ */
 let actx=null;
-function audio(){ if(!actx) actx=new (window.AudioContext||window.webkitAudioContext)({latencyHint:"interactive"});
+function audio(){ if(!actx){ actx=new (window.AudioContext||window.webkitAudioContext)({latencyHint:"interactive"}); ensureOffsetInit(); }
   if(actx.state==="suspended") actx.resume(); return actx; }
-let recOffset=parseFloat(localStorage.getItem("rt_offset")); if(isNaN(recOffset)) recOffset=0.03;
+/* 入力オフセット：端末の音声出力＋タッチの遅れぶん、タップは実際より遅れて記録される。
+   この値を引いてから量子化しないと、音符が後ろのグリッドに書かれてしまう。 */
+let recOffset=parseFloat(localStorage.getItem("rt_offset"));
+function ensureOffsetInit(){
+  if(isNaN(recOffset)){                       // 未較正なら端末の申告値から見積もる（較正推奨）
+    const ol=(actx.outputLatency||0)+(actx.baseLatency||0);
+    recOffset=Math.min(0.5,Math.max(0.03,ol)); saveOffset(); updateOffsetUI();
+  }
+}
+function saveOffset(){ localStorage.setItem("rt_offset",String(recOffset)); }
+function updateOffsetUI(){ const i=document.getElementById("offset"); if(i) i.value=Math.round(recOffset*1000); }
 function eventAudioTime(ev){ const c=audio();
   if(ev&&typeof ev.timeStamp==="number"&&ev.timeStamp>0){ const dt=(ev.timeStamp-performance.now())/1000;
     if(dt>-0.5&&dt<0.02) return c.currentTime+dt; }
@@ -570,12 +592,12 @@ function requantize(){
   renderPieces(lastPieces,lastFams); renderTimeline(); return true;
 }
 /* 入力 */
-function padDown(e){ if(e) e.preventDefault(); if(!recording||down) return;
+function padDown(e){ if(e) e.preventDefault(); if(calibrating){ calibTap(e); return; } if(!recording||down) return;
   down={on:eventAudioTime(e),off:null}; tapSound();
   $("tapPad").classList.add("hot"); $("tapCount").textContent=taps.length+1; }
-function padUp(e){ if(!recording||!down) return; down.off=eventAudioTime(e); taps.push(down); down=null;
+function padUp(e){ if(calibrating) return; if(!recording||!down) return; down.off=eventAudioTime(e); taps.push(down); down=null;
   $("tapPad").classList.remove("hot"); }
-function twoTap(rest,e){ if(e) e.preventDefault(); if(!recording) return;
+function twoTap(rest,e){ if(e) e.preventDefault(); if(calibrating){ calibTap(e); return; } if(!recording) return;
   events.push({t:eventAudioTime(e),rest}); rest?restSound():tapSound();
   const btn=$(rest?"twoRest":"twoNote"); btn.classList.add("hot"); setTimeout(()=>btn.classList.remove("hot"),90);
   $("tapCount").textContent=events.length; }
@@ -685,6 +707,48 @@ function rebuildSteps(){
   $("playBtn").disabled=!steps.length;
 }
 
+/* ============ レイテンシー較正 ============ */
+let calibrating=false,calibTaps=[],calibBeats=[],calibTimer=0,padPrevDisplay="";
+function runCalibration(){
+  if(recording||calibrating) return;
+  const c=audio(); calibrating=true; calibTaps=[];
+  const sp=60/100, countIn=4, N=8, T0=c.currentTime+0.5;
+  calibBeats=[];
+  for(let i=0;i<countIn+N;i++) click(T0+i*sp,i%4===0);
+  for(let j=0;j<N;j++) calibBeats.push(T0+(countIn+j)*sp);
+  $("recBtn").disabled=true; $("calibBtn").disabled=true;
+  const pad=$("tapPad");                       // 入力方法に関わらずタップ面を出す
+  padPrevDisplay=pad.style.display; pad.style.display="flex";
+  pad.textContent="合図に合わせてタップ";
+  $("recState").textContent="調整中";
+  const ov=$("overlay"), endT=T0+(countIn+N)*sp+0.4;
+  calibTimer=setInterval(()=>{
+    const t=audio().currentTime;
+    ov.style.display="flex";
+    ov.textContent = t<T0+countIn*sp ? Math.max(1,Math.ceil((T0+countIn*sp-t)/sp)) : "●";
+    if(t>endT) finishCalibration();
+  },40);
+}
+function calibTap(ev){ if(!calibrating) return; calibTaps.push(eventAudioTime(ev)); tapSound(); }
+function finishCalibration(){
+  clearInterval(calibTimer); calibrating=false;
+  $("overlay").style.display="none";
+  $("recBtn").disabled=false; $("calibBtn").disabled=false;
+  const pad=$("tapPad"); pad.style.display=padPrevDisplay;
+  pad.textContent="押している長さで入力　（タップ / スペースキー）";
+  const d=[];
+  for(const t of calibTaps){ let best=1e9;
+    for(const b of calibBeats){ const x=t-b; if(Math.abs(x)<Math.abs(best)) best=x; }
+    if(Math.abs(best)<0.29) d.push(best); }
+  if(d.length>=3){
+    d.sort((a,b)=>a-b);
+    recOffset=Math.min(0.5,Math.max(0,d[Math.floor(d.length/2)]));
+    saveOffset(); updateOffsetUI();
+    $("recState").textContent="調整完了 +"+Math.round(recOffset*1000)+"ms";
+    requantize();
+  }else $("recState").textContent="測定できず";
+}
+
 /* ============ 再生 ============ */
 function playResult(){
   if(!lastPieces) return; readSettings(); spb=60/S.bpm;
@@ -717,6 +781,9 @@ function applyMethod(){
 
 /* ============ 配線 ============ */
 $("recBtn").addEventListener("click",startRec);
+$("advBtn").addEventListener("click",()=>{ const a=$("adv"); a.hidden=!a.hidden; });
+$("calibBtn").addEventListener("click",runCalibration);
+$("offset").addEventListener("change",e=>{ recOffset=Math.min(0.5,Math.max(0,(+e.target.value||0)/1000)); saveOffset(); e.target.value=Math.round(recOffset*1000); requantize(); });
 $("stopBtn").addEventListener("click",stopRec);
 $("playBtn").addEventListener("click",playResult);
 $("clearBtn").addEventListener("click",()=>{ readSettings(); taps=[]; events=[]; lastPieces=null; lastFams=null;
@@ -752,6 +819,7 @@ pad.addEventListener("pointerdown",padDown); pad.addEventListener("pointerup",pa
 $("twoNote").addEventListener("pointerdown",e=>twoTap(false,e));
 $("twoRest").addEventListener("pointerdown",e=>twoTap(true,e));
 document.addEventListener("keydown",e=>{
+  if(calibrating){ if(e.code==="Space"&&!e.repeat){ e.preventDefault(); calibTap(e); } return; }
   if(S.method==="step"){
     if(e.key==="n"||e.key==="N"){ e.preventDefault(); stepAdd(false); }
     else if(e.key==="r"||e.key==="R"){ e.preventDefault(); stepAdd(true); }
@@ -776,7 +844,7 @@ window.__test=function(o){
            fams:r.fams.slice(), lens:r.pieces.filter(p=>p.type==="note").map(p=>p.len), systems:ENG.systems };
 };
 /* ============ 初期化 ============ */
-readSettings(); renderDurBar(); applyMethod();
+readSettings(); if(!isNaN(recOffset)) updateOffsetUI(); renderDurBar(); applyMethod();
 </script>
 </body>
 </html>
