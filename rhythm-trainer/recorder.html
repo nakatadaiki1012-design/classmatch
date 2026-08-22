@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0b0e15">
 <title>リズム採譜</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
 <style>
   :root{
     --bg:#0b0e15; --surface:#131824; --surface-2:#1a2130; --surface-3:#212a3b;
@@ -53,6 +56,7 @@
     background-size:5px 5px,5px 5px;background-repeat:no-repeat;
   }
   input[type=number]{background-image:none;padding-right:10px;}
+  input[type=range]{width:100%;accent-color:var(--accent);}
   select:focus,input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(233,168,101,.16);}
 
   .seg{display:inline-flex;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-sm);padding:3px;gap:2px;}
@@ -186,6 +190,10 @@
     <div id="adv" hidden>
       <div class="advrow">
         <label class="fld" style="max-width:132px;"><span>入力オフセット (ms)</span><input id="offset" type="number" min="0" max="500" step="5" value="30"></label>
+        <label class="fld" style="max-width:150px;"><span>音量</span><input id="vol" type="range" min="0" max="100" value="70"></label>
+        <label class="fld" style="max-width:150px;"><span>クリック音</span>
+          <select id="voice"><option value="wood" selected>ウッドブロック</option><option value="click">電子音</option><option value="soft">やわらかい</option></select>
+        </label>
         <button class="btn sec" id="calibBtn">レイテンシーを自動調整</button>
         <p class="note">端末の音声出力とタッチの遅れぶん、タップは実際より遅れて記録されます。<b>合図に合わせて8回タップ</b>すると遅れを実測して補正します。ズレたまま録ると音符が後ろの位置に書かれます（初回は必ず実行してください）。値はトレーナーと共通です。</p>
       </div>
@@ -332,9 +340,21 @@ function totalBeats(){ return S.measures*S.bpb; }
 function totalSlots(){ return totalBeats()*RES; }
 
 /* ============ 音 ============ */
-let actx=null;
-function audio(){ if(!actx){ actx=new (window.AudioContext||window.webkitAudioContext)({latencyHint:"interactive"}); ensureOffsetInit(); }
+let actx=null,master=null;
+function audio(){ if(!actx){ actx=new (window.AudioContext||window.webkitAudioContext)({latencyHint:"interactive"});
+    master=actx.createGain(); master.gain.value=vol; master.connect(actx.destination); ensureOffsetInit(); }
   if(actx.state==="suspended") actx.resume(); return actx; }
+let vol=parseFloat(localStorage.getItem("rt_vol")); if(isNaN(vol)) vol=0.7;
+let voice=localStorage.getItem("rt_voice")||"wood";
+/* 画面スリープ防止 */
+let wakeLock=null;
+async function keepAwake(on){
+  try{
+    if(on&&"wakeLock" in navigator&&!wakeLock){ wakeLock=await navigator.wakeLock.request("screen");
+      wakeLock.addEventListener("release",()=>{ wakeLock=null; }); }
+    else if(!on&&wakeLock){ await wakeLock.release(); wakeLock=null; }
+  }catch(e){}
+}
 /* 入力オフセット：端末の音声出力＋タッチの遅れぶん、タップは実際より遅れて記録される。
    この値を引いてから量子化しないと、音符が後ろのグリッドに書かれてしまう。 */
 let recOffset=parseFloat(localStorage.getItem("rt_offset"));
@@ -350,22 +370,31 @@ function eventAudioTime(ev){ const c=audio();
   if(ev&&typeof ev.timeStamp==="number"&&ev.timeStamp>0){ const dt=(ev.timeStamp-performance.now())/1000;
     if(dt>-0.5&&dt<0.02) return c.currentTime+dt; }
   return c.currentTime; }
-function click(t,accent){ const c=audio(),o=c.createOscillator(),g=c.createGain();
-  o.type="square"; o.frequency.value=accent?1760:1200;
-  g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(accent?0.45:0.28,t+0.001);
-  g.gain.exponentialRampToValueAtTime(0.0001,t+0.05); o.connect(g).connect(c.destination); o.start(t); o.stop(t+0.06); }
+function click(t,accent){
+  const c=audio(),g=c.createGain(); g.connect(master); const o=c.createOscillator();
+  if(voice==="wood"){ o.type="triangle"; o.frequency.setValueAtTime(accent?1500:1050,t);
+    o.frequency.exponentialRampToValueAtTime(accent?900:640,t+0.028);
+    g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(accent?0.85:0.55,t+0.002);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+0.055); o.connect(g); o.start(t); o.stop(t+0.07); }
+  else if(voice==="soft"){ o.type="sine"; o.frequency.value=accent?1320:880;
+    g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(accent?0.6:0.4,t+0.004);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+0.09); o.connect(g); o.start(t); o.stop(t+0.11); }
+  else{ o.type="square"; o.frequency.value=accent?1760:1200;
+    g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(accent?0.5:0.28,t+0.001);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+0.05); o.connect(g); o.start(t); o.stop(t+0.06); } }
 function noteSound(t,dur){ const c=audio(),o=c.createOscillator(),g=c.createGain();
   o.type="triangle"; o.frequency.value=880; const len=Math.min(Math.max(dur||0.1,0.06),0.5);
   g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.36,t+0.002);
   g.gain.setValueAtTime(0.36,t+len*0.6); g.gain.exponentialRampToValueAtTime(0.0001,t+len);
-  o.connect(g).connect(c.destination); o.start(t); o.stop(t+len+0.02); }
+  o.connect(g).connect(master); o.start(t); o.stop(t+len+0.02); }
 function tapSound(){ const c=audio(),t=c.currentTime,o=c.createOscillator(),g=c.createGain();
   o.type="sine"; o.frequency.setValueAtTime(220,t); o.frequency.exponentialRampToValueAtTime(90,t+0.09);
   g.gain.setValueAtTime(0.45,t); g.gain.exponentialRampToValueAtTime(0.0001,t+0.12);
   o.connect(g).connect(c.destination); o.start(t); o.stop(t+0.13); }
 function restSound(){ const c=audio(),t=c.currentTime,o=c.createOscillator(),g=c.createGain();
   o.type="sine"; o.frequency.value=520; g.gain.setValueAtTime(0.14,t); g.gain.exponentialRampToValueAtTime(0.0001,t+0.06);
-  o.connect(g).connect(c.destination); o.start(t); o.stop(t+0.07); }
+  o.connect(g).connect(master); o.start(t); o.stop(t+0.07);
+  if(navigator.vibrate) try{ navigator.vibrate(6); }catch(e){} }
 
 /* ============ 枠 ============ */
 function drawFrame(svg,ticks){
@@ -548,7 +577,7 @@ function readSettings(){
 }
 function startRec(){
   if(recording||S.method==="step") return; readSettings();
-  const c=audio(); recording=true; taps=[]; events=[]; down=null; lastPieces=null;
+  const c=audio(); recording=true; keepAwake(true); taps=[]; events=[]; down=null; lastPieces=null;
   $("tapCount").textContent="0"; $("playBtn").disabled=true;
   $("recBtn").disabled=true; $("stopBtn").disabled=false;
   $("recdot").classList.add("on"); $("recState").textContent="録音中";
@@ -573,7 +602,7 @@ function frame(){
   rafId=requestAnimationFrame(frame);
 }
 function finishRec(){
-  recording=false; clearInterval(timerId); cancelAnimationFrame(rafId);
+  recording=false; keepAwake(false); clearInterval(timerId); cancelAnimationFrame(rafId);
   $("recdot").classList.remove("on"); $("recState").textContent="変換完了";
   $("recBtn").disabled=false; $("stopBtn").disabled=true;
   $("overlay").style.display="none"; $("tapPad").classList.remove("hot");
@@ -592,13 +621,20 @@ function requantize(){
   renderPieces(lastPieces,lastFams); renderTimeline(); return true;
 }
 /* 入力 */
+function liveMark(t,rest){            // 録音中：叩いた位置をその場で譜面に表示
+  const svg=$("score"), U=ENG.U, bp=(t-recOffset-startMain)/spb;
+  if(bp<0||bp>totalBeats()) return;
+  const pt=beatPt(bp);
+  svg.appendChild(el("circle",{cx:pt.x,cy:pt.y,r:U*0.42,fill:rest?"none":"#e9a865",
+    stroke:rest?"#b9b2a4":"none","stroke-width":U*0.16,"fill-opacity":.9}));
+}
 function padDown(e){ if(e) e.preventDefault(); if(calibrating){ calibTap(e); return; } if(!recording||down) return;
-  down={on:eventAudioTime(e),off:null}; tapSound();
+  down={on:eventAudioTime(e),off:null}; tapSound(); liveMark(down.on,false);
   $("tapPad").classList.add("hot"); $("tapCount").textContent=taps.length+1; }
 function padUp(e){ if(calibrating) return; if(!recording||!down) return; down.off=eventAudioTime(e); taps.push(down); down=null;
   $("tapPad").classList.remove("hot"); }
 function twoTap(rest,e){ if(e) e.preventDefault(); if(calibrating){ calibTap(e); return; } if(!recording) return;
-  events.push({t:eventAudioTime(e),rest}); rest?restSound():tapSound();
+  const tt=eventAudioTime(e); events.push({t:tt,rest}); rest?restSound():tapSound(); liveMark(tt,rest);
   const btn=$(rest?"twoRest":"twoNote"); btn.classList.add("hot"); setTimeout(()=>btn.classList.remove("hot"),90);
   $("tapCount").textContent=events.length; }
 
@@ -711,7 +747,7 @@ function rebuildSteps(){
 let calibrating=false,calibTaps=[],calibBeats=[],calibTimer=0,padPrevDisplay="";
 function runCalibration(){
   if(recording||calibrating) return;
-  const c=audio(); calibrating=true; calibTaps=[];
+  const c=audio(); calibrating=true; keepAwake(true); calibTaps=[];
   const sp=60/100, countIn=4, N=8, T0=c.currentTime+0.5;
   calibBeats=[];
   for(let i=0;i<countIn+N;i++) click(T0+i*sp,i%4===0);
@@ -731,7 +767,7 @@ function runCalibration(){
 }
 function calibTap(ev){ if(!calibrating) return; calibTaps.push(eventAudioTime(ev)); tapSound(); }
 function finishCalibration(){
-  clearInterval(calibTimer); calibrating=false;
+  clearInterval(calibTimer); calibrating=false; keepAwake(false);
   $("overlay").style.display="none";
   $("recBtn").disabled=false; $("calibBtn").disabled=false;
   const pad=$("tapPad"); pad.style.display=padPrevDisplay;
@@ -783,6 +819,8 @@ function applyMethod(){
 $("recBtn").addEventListener("click",startRec);
 $("advBtn").addEventListener("click",()=>{ const a=$("adv"); a.hidden=!a.hidden; });
 $("calibBtn").addEventListener("click",runCalibration);
+$("vol").addEventListener("input",e=>{ vol=(+e.target.value||0)/100; localStorage.setItem("rt_vol",String(vol)); if(master) master.gain.value=vol; });
+$("voice").addEventListener("change",e=>{ voice=e.target.value; localStorage.setItem("rt_voice",voice); });
 $("offset").addEventListener("change",e=>{ recOffset=Math.min(0.5,Math.max(0,(+e.target.value||0)/1000)); saveOffset(); e.target.value=Math.round(recOffset*1000); requantize(); });
 $("stopBtn").addEventListener("click",stopRec);
 $("playBtn").addEventListener("click",playResult);
@@ -844,7 +882,10 @@ window.__test=function(o){
            fams:r.fams.slice(), lens:r.pieces.filter(p=>p.type==="note").map(p=>p.len), systems:ENG.systems };
 };
 /* ============ 初期化 ============ */
-readSettings(); if(!isNaN(recOffset)) updateOffsetUI(); renderDurBar(); applyMethod();
+readSettings(); if(!isNaN(recOffset)) updateOffsetUI();
+$("vol").value=Math.round(vol*100); $("voice").value=voice;
+renderDurBar(); applyMethod();
+if("serviceWorker" in navigator && location.protocol.startsWith("http")) navigator.serviceWorker.register("sw.js").catch(()=>{});
 </script>
 </body>
 </html>
