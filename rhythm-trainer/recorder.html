@@ -282,19 +282,78 @@ function beatPt(gb){
 }
 function slotPt(gb,slot){ return beatPt(gb+slot/RES); }
 /* --- プリミティブ --- */
-function gNotehead(svg,x,y,U){
-  svg.appendChild(el("ellipse",{cx:x,cy:y,rx:U*0.72,ry:U*0.52,fill:INK,transform:`rotate(-21 ${x} ${y})`}));
-  return x+U*0.66;
+/* ===== 浄書グリフ（すべて U＝五線スペースを基準にした比率・塗りで描画） ===== */
+const HEAD_RX=0.63, HEAD_RY=0.46, HEAD_ROT=-21, STEM_W=0.12, STEM_LEN=3.5;
+const BEAM_H=0.5, BEAM_PITCH=0.75, STUB_W=1.05;
+// 傾いた符頭の右端までの距離＝符幹を付ける位置
+const HEAD_HALF=Math.sqrt(Math.pow(HEAD_RX*Math.cos(HEAD_ROT*Math.PI/180),2)+Math.pow(HEAD_RY*Math.sin(HEAD_ROT*Math.PI/180),2));
+function ellPath(rx,ry){ return "M"+(-rx)+",0 A"+rx+","+ry+" 0 1 0 "+rx+",0 A"+rx+","+ry+" 0 1 0 "+(-rx)+",0 Z"; }
+// 折れ線を「太さ可変の塗り」に変換（休符の thick/thin を出すため）
+function thickPoly(pts,ws){
+  const n=pts.length,L=[],R=[];
+  const perp=(i)=>{ let dx=0,dy=0;
+    if(i>0){ const a=pts[i-1],b=pts[i],l=Math.hypot(b[0]-a[0],b[1]-a[1])||1; dx+=(b[0]-a[0])/l; dy+=(b[1]-a[1])/l; }
+    if(i<n-1){ const a=pts[i],b=pts[i+1],l=Math.hypot(b[0]-a[0],b[1]-a[1])||1; dx+=(b[0]-a[0])/l; dy+=(b[1]-a[1])/l; }
+    const l=Math.hypot(dx,dy)||1; return [-dy/l,dx/l]; };
+  for(let i=0;i<n;i++){ const p=perp(i),w=ws[i]/2;
+    L.push([pts[i][0]+p[0]*w,pts[i][1]+p[1]*w]); R.push([pts[i][0]-p[0]*w,pts[i][1]-p[1]*w]); }
+  let d="M"+L[0][0]+","+L[0][1];
+  for(let i=1;i<n;i++) d+=" L"+L[i][0]+","+L[i][1];
+  for(let i=n-1;i>=0;i--) d+=" L"+R[i][0]+","+R[i][1];
+  return d+" Z";
 }
-function gStem(svg,sx,y,U){ svg.appendChild(el("line",{x1:sx,y1:y-U*0.12,x2:sx,y2:y-U*3.5,stroke:INK,"stroke-width":U*0.13,"stroke-linecap":"round"})); }
-function gDot(svg,x,y,U){ svg.appendChild(el("circle",{cx:x+U*1.24,cy:y-U*0.62,r:U*0.19,fill:INK})); }
-function beamYy(y,U,i){ return y-U*3.5+i*U*0.78; }
-function gBeam(svg,x1,x2,y,U,i){ svg.appendChild(el("rect",{x:x1,y:beamYy(y,U,i),width:Math.max(U*0.4,x2-x1),height:U*0.52,fill:INK,rx:U*0.04})); }
-function gStub(svg,x,y,U,i,dir){ const w=U*1.15; svg.appendChild(el("rect",{x:dir>0?x:x-w,y:beamYy(y,U,i),width:w,height:U*0.52,fill:INK,rx:U*0.04})); }
-function gFlag(svg,sx,y,U,n){
-  for(let f=0;f<n;f++){ const fy=y-U*3.5+f*U*0.82;
-    svg.appendChild(el("path",{d:`M${sx},${fy} C${sx+U*1.05},${fy+U*0.45} ${sx+U*0.98},${fy+U*1.35} ${sx+U*0.1},${fy+U*1.85}`,
-      fill:"none",stroke:INK,"stroke-width":U*0.26,"stroke-linecap":"round"})); }
+function gNotehead(svg,x,y,U,open){
+  if(open) // 白抜き符頭：内側の楕円を強めに傾けて壁に太い/細いを作る
+    svg.appendChild(el("path",{d:ellPath(U*0.66,U*0.48)+" "+ellPath(U*0.44,U*0.20),
+      "fill-rule":"evenodd",fill:INK,transform:"translate("+x+","+y+") rotate("+HEAD_ROT+")"}));
+  else
+    svg.appendChild(el("path",{d:ellPath(U*HEAD_RX,U*HEAD_RY),fill:INK,
+      transform:"translate("+x+","+y+") rotate("+HEAD_ROT+")"}));
+  return x+U*(HEAD_HALF-STEM_W/2);
+}
+function gStem(svg,sx,y,U){ svg.appendChild(el("rect",{x:sx,y:y-U*STEM_LEN,width:U*STEM_W,height:U*(STEM_LEN-0.05),fill:INK})); }
+function gDot(svg,x,y,U){ svg.appendChild(el("circle",{cx:x+U*0.98,cy:y-U*0.52,r:U*0.16,fill:INK})); }
+function beamYy(y,U,i){ return y-U*STEM_LEN+i*U*BEAM_PITCH; }
+function gBeam(svg,x1,x2,y,U,i){ svg.appendChild(el("rect",{x:x1,y:beamYy(y,U,i),width:Math.max(U*0.4,x2-x1),height:U*BEAM_H,fill:INK})); }
+function gStub(svg,sx,y,U,i,dir){ const w=U*STUB_W;
+  svg.appendChild(el("rect",{x:dir>0?sx:sx+U*STEM_W-w,y:beamYy(y,U,i),width:w,height:U*BEAM_H,fill:INK})); }
+function gFlag(svg,sx,y,U,n){            // 旗：塗りで先細り
+  const x0=sx+U*STEM_W;
+  for(let f=0;f<n;f++){ const fy=y-U*STEM_LEN+f*U*0.86;
+    svg.appendChild(el("path",{fill:INK,d:
+      "M"+x0+","+fy+
+      " C"+(x0+U*1.02)+","+(fy+U*0.42)+" "+(x0+U*1.16)+","+(fy+U*1.30)+" "+(x0+U*0.48)+","+(fy+U*2.18)+
+      " C"+(x0+U*0.80)+","+(fy+U*1.30)+" "+(x0+U*0.52)+","+(fy+U*0.86)+" "+(x0-U*0.02)+","+(fy+U*0.78)+" Z"})); }
+}
+function gRest(svg,x,y,U,aq){
+  if(aq>=4){ svg.appendChild(el("rect",{x:x-U*0.60,y:y,width:U*1.20,height:U*0.50,fill:INK})); return; }
+  if(aq>=2){ svg.appendChild(el("rect",{x:x-U*0.60,y:y-U*0.50,width:U*1.20,height:U*0.50,fill:INK})); return; }
+  if(aq>=1){                              // 四分休符：ジグザグ（太さ可変）＋下部の返し
+    const o=-0.38, P=(a,b)=>[x+a*U,y+(b+o)*U];
+    svg.appendChild(el("path",{fill:INK,d:thickPoly(
+      [P(-0.40,-1.42),P(0.40,-0.60),P(-0.36,0.16),P(0.46,1.02)],
+      [U*0.17,U*0.34,U*0.24,U*0.30])}));
+    const Y=(b)=>y+(b+o)*U;
+    svg.appendChild(el("path",{fill:INK,d:
+      "M"+(x+0.46*U)+","+Y(1.02)+
+      " C"+(x+0.16*U)+","+Y(0.92)+" "+(x-0.36*U)+","+Y(1.02)+" "+(x-0.36*U)+","+Y(1.42)+
+      " C"+(x-0.36*U)+","+Y(1.80)+" "+(x+0.02*U)+","+Y(2.06)+" "+(x+0.34*U)+","+Y(2.20)+
+      " C"+(x-0.02*U)+","+Y(1.86)+" "+(x-0.10*U)+","+Y(1.52)+" "+(x+0.12*U)+","+Y(1.36)+
+      " C"+(x+0.28*U)+","+Y(1.25)+" "+(x+0.46*U)+","+Y(1.22)+" "+(x+0.60*U)+","+Y(1.22)+" Z"}));
+    return;
+  }
+  const n=aq<=0.26?2:1;                   // 八分・十六分休符：斜線＋涙型の玉
+  const topY=y-(0.86+(n-1)*0.70)*U, botY=y+1.00*U, topX=x+0.34*U, botX=x-0.40*U;
+  svg.appendChild(el("path",{fill:INK,d:
+    "M"+(topX+0.09*U)+","+topY+" L"+(botX+0.07*U)+","+botY+" L"+(botX-0.05*U)+","+botY+" L"+(topX-0.09*U)+","+(topY+0.05*U)+" Z"}));
+  for(let i=0;i<n;i++){
+    const bx=topX-0.10*U-i*0.30*U, by=topY+0.16*U+i*0.70*U;
+    svg.appendChild(el("circle",{cx:bx-0.22*U,cy:by+0.06*U,r:0.235*U,fill:INK}));
+    svg.appendChild(el("path",{fill:INK,d:
+      "M"+(bx-0.24*U)+","+(by-0.12*U)+
+      " C"+(bx-0.02*U)+","+(by-0.30*U)+" "+(bx+0.14*U)+","+(by-0.26*U)+" "+(bx+0.20*U)+","+(by-0.16*U)+
+      " C"+(bx+0.06*U)+","+(by-0.06*U)+" "+(bx-0.08*U)+","+(by+0.04*U)+" "+(bx-0.20*U)+","+(by+0.10*U)+" Z"}));
+  }
 }
 function gTie(svg,x1,x2,y,U){ const h=U*0.85,t=U*0.17,mid=(x1+x2)/2;
   svg.appendChild(el("path",{d:`M${x1},${y} Q${mid},${y+h} ${x2},${y} Q${mid},${y+h-t} ${x1},${y} Z`,fill:INK})); }
@@ -509,6 +568,22 @@ function renderPieces(pieces,fams){
   const U=ENG.U, byBeat={};
   pieces.forEach((p,i)=>{ p._i=i; (byBeat[p.beatIdx]=byBeat[p.beatIdx]||[]).push(p); });
   const pos={};
+  // タイでつながった音が 2拍／4拍にぴったり収まるときは二分・全音符にまとめる（浄書の慣習）
+  const merge={};
+  for(let i=0;i<pieces.length;i++){
+    const p=pieces[i];
+    if(p.type!=="note"||p.tieFromPrev) continue;
+    let j=i, len=p.len;
+    while(pieces[j] && pieces[j].tieToNext){ j++; len+=pieces[j].len; }
+    if(j>i && p.slotInBeat===0){
+      const beats=len/RES; let m=null;
+      if(beats===1.5) m={open:false,dot:true};                       // 付点四分
+      else if(beats===2&&p.beatIdx%2===0) m={open:true,dot:false};   // 二分
+      else if(beats===3&&p.beatIdx%2===0) m={open:true,dot:true};    // 付点二分
+      else if(beats===4&&p.beatIdx%4===0) m={open:true,dot:false,whole:true}; // 全音符
+      if(m){ merge[i]=m; for(let k=i+1;k<=j;k++) merge[k]="skip"; }
+    }
+  }
   for(let gb=0;gb<totalBeats();gb++){
     const trip=(fams&&fams[gb]==="trip");
     const list=(byBeat[gb]||[]).slice().sort((a,b)=>a.slotInBeat-b.slotInBeat);
@@ -516,6 +591,15 @@ function renderPieces(pieces,fams){
     for(const p of list){
       const pt=slotPt(gb,p.slotInBeat);
       if(p.type==="rest"){ drawRestChunks(svg,gb,p.slotInBeat,p.len,trip); continue; }
+      if(merge[p._i]==="skip") continue;                 // まとめた音の後半は描かない
+      const mg=merge[p._i];
+      if(mg){                                            // 付点四分／二分／付点二分／全音符として1つ描く
+        const sx=gNotehead(svg,pt.x,pt.y,U,mg.open);
+        if(!mg.whole) gStem(svg,sx,pt.y,U);
+        if(mg.dot) gDot(svg,pt.x,pt.y,U);
+        items.push({p,x:pt.x,y:pt.y,sx,beams:0});
+        pos[p._i]={x:pt.x,y:pt.y}; continue;
+      }
       const g=glyphOf(p.len,trip);
       const sx=gNotehead(svg,pt.x,pt.y,U); gStem(svg,sx,pt.y,U);
       if(g.dot) gDot(svg,pt.x,pt.y,U);
@@ -528,12 +612,12 @@ function renderPieces(pieces,fams){
       if(items[i].beams===0){ i++; continue; }
       let j=i; while(j+1<items.length&&items[j+1].beams>0&&items[j+1].y===items[i].y) j++;
       if(j>i){
-        gBeam(svg,items[i].sx-U*0.065,items[j].sx+U*0.065,items[i].y,U,0);
+        gBeam(svg,items[i].sx,items[j].sx+U*STEM_W,items[i].y,U,0);
         let q=i;
         while(q<=j){
           if(items[q].beams<2){ q++; continue; }
           let e=q; while(e+1<=j&&items[e+1].beams>=2) e++;
-          if(e>q) gBeam(svg,items[q].sx-U*0.065,items[e].sx+U*0.065,items[i].y,U,1);
+          if(e>q) gBeam(svg,items[q].sx,items[e].sx+U*STEM_W,items[i].y,U,1);
           else gStub(svg,items[q].sx,items[i].y,U,1,(q>i)?-1:1);
           q=e+1;
         }
@@ -543,7 +627,7 @@ function renderPieces(pieces,fams){
     if(trip&&items.length&&!(list.length===1&&list[0].len===RES))
       gTuplet(svg,items[0].x-U*0.5,Math.max(items[items.length-1].x,items[0].x+U*1.8)+U*0.6,items[0].y,U,"3");
   }
-  pieces.forEach((p,i)=>{ if(p.type==="note"&&p.tieToNext){
+  pieces.forEach((p,i)=>{ if(p.type==="note"&&p.tieToNext&&!merge[i]&&merge[i+1]!=="skip"){
     const a=pos[i], b=pos[i+1];
     if(a&&b&&a.y===b.y) gTie(svg,a.x+ENG.U*0.25,b.x-ENG.U*0.25,a.y+ENG.U*0.62,ENG.U); }});
 }
@@ -687,8 +771,7 @@ function durMini(d,w,h){
   const svg=el("svg",{viewBox:`0 0 ${w} ${h}`,width:w,height:h});
   const U=h/6.8, y=h*0.76, g=el("g",{}); svg.appendChild(g);
   const x=w*0.42;
-  if(d>=2){ svg.appendChild(el("ellipse",{cx:x,cy:y,rx:U*0.72,ry:U*0.52,fill:"none",stroke:"#dfe6f3","stroke-width":U*0.2,transform:`rotate(-21 ${x} ${y})`}));
-    g.appendChild(el("line",{x1:x+U*0.66,y1:y-U*0.12,x2:x+U*0.66,y2:y-U*2.8,stroke:"#dfe6f3","stroke-width":U*0.13})); }
+  if(d>=2){ const sx=gNotehead(g,x,y,U,true); gStem(g,sx,y,U); }
   else{
     const sx=gNotehead(g,x,y,U); gStem(g,sx,y,U);
     if(d<1) gFlag(g,sx,y,U,d<=0.25?2:1);
