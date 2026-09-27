@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>かんたん録音 &amp; トリミング</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --panel: #181b24;
+    --panel-2: #1f2330;
+    --border: #2a2f3d;
+    --text: #e6e8ee;
+    --muted: #8b91a3;
+    --accent: #6c8cff;
+    --accent-2: #8f6cff;
+    --rec: #ff4d5e;
+    --ok: #3ecf8e;
+    --wave: #5b6478;
+    --wave-sel: #7fa2ff;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: radial-gradient(1200px 600px at 20% -10%, #1b2140 0%, transparent 60%), var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
+    min-height: 100vh;
+    padding: 24px 16px 48px;
+  }
+  .app { max-width: 860px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+  header h1 { margin: 0; font-size: 1.4rem; letter-spacing: .02em; }
+  header p { margin: 4px 0 0; color: var(--muted); font-size: .88rem; }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.25);
+  }
+  .card h2 {
+    margin: 0 0 14px; font-size: .8rem; font-weight: 600;
+    color: var(--muted); text-transform: uppercase; letter-spacing: .12em;
+  }
+  .disabled { opacity: .45; pointer-events: none; }
+
+  /* ---------- 録音 ---------- */
+  .rec-row { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+  .rec-btn {
+    width: 84px; height: 84px; border-radius: 50%;
+    border: 3px solid var(--border); background: var(--panel-2);
+    display: grid; place-items: center; cursor: pointer;
+    transition: transform .15s, border-color .2s, box-shadow .2s;
+    flex-shrink: 0;
+  }
+  .rec-btn:hover { transform: scale(1.04); border-color: var(--rec); }
+  .rec-btn .dot {
+    width: 34px; height: 34px; border-radius: 50%; background: var(--rec);
+    transition: border-radius .2s, width .2s, height .2s;
+  }
+  .rec-btn.recording { border-color: var(--rec); animation: pulse 1.4s infinite; }
+  .rec-btn.recording .dot { width: 28px; height: 28px; border-radius: 6px; }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(255,77,94,.45); }
+    70% { box-shadow: 0 0 0 18px rgba(255,77,94,0); }
+    100% { box-shadow: 0 0 0 0 rgba(255,77,94,0); }
+  }
+  .rec-info { display: flex; flex-direction: column; gap: 4px; min-width: 150px; }
+  .timer { font-variant-numeric: tabular-nums; font-size: 2.2rem; font-weight: 600; letter-spacing: .03em; }
+  .status { color: var(--muted); font-size: .88rem; }
+  .status.live { color: var(--rec); }
+  .live-canvas {
+    flex: 1; min-width: 180px; height: 64px;
+    background: var(--panel-2); border-radius: 10px; border: 1px solid var(--border);
+  }
+
+  /* ---------- 波形 ---------- */
+  .wave-wrap { position: relative; }
+  #wave {
+    width: 100%; height: 160px; display: block;
+    background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px;
+    cursor: pointer; touch-action: none;
+  }
+  .wave-empty {
+    position: absolute; inset: 0; display: grid; place-items: center;
+    color: var(--muted); font-size: .9rem; pointer-events: none;
+  }
+
+  /* 2つのつまみを持つ範囲スライダー */
+  .range {
+    position: relative; height: 36px; margin-top: 12px;
+  }
+  .range .track {
+    position: absolute; left: 0; right: 0; top: 50%; height: 6px; transform: translateY(-50%);
+    background: var(--panel-2); border-radius: 3px; border: 1px solid var(--border);
+  }
+  .range .fill {
+    position: absolute; top: 50%; height: 6px; transform: translateY(-50%);
+    background: linear-gradient(90deg, var(--accent), var(--accent-2)); border-radius: 3px;
+  }
+  .range input[type=range] {
+    /* つまみの中心が波形の左端〜右端と一致するよう、つまみ半径ぶん外側へ広げる */
+    position: absolute; left: -10px; top: 0; width: calc(100% + 20px); height: 100%;
+    margin: 0; background: none; pointer-events: none;
+    -webkit-appearance: none; appearance: none;
+  }
+  .range input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; pointer-events: auto; cursor: grab; box-sizing: border-box;
+    width: 20px; height: 20px; border-radius: 50%;
+    background: #fff; border: 3px solid var(--accent); box-shadow: 0 2px 6px rgba(0,0,0,.4);
+  }
+  .range input[type=range]::-moz-range-thumb {
+    pointer-events: auto; cursor: grab; box-sizing: border-box;
+    width: 20px; height: 20px; border-radius: 50%;
+    background: #fff; border: 3px solid var(--accent); box-shadow: 0 2px 6px rgba(0,0,0,.4);
+  }
+  .range input[type=range]::-webkit-slider-runnable-track { background: none; }
+  .range input[type=range]::-moz-range-track { background: none; }
+  .range input#endRange::-webkit-slider-thumb { border-color: var(--accent-2); }
+  .range input#endRange::-moz-range-thumb { border-color: var(--accent-2); }
+
+  .times {
+    display: flex; justify-content: space-between; gap: 8px; margin-top: 6px;
+    font-size: .85rem; color: var(--muted); font-variant-numeric: tabular-nums;
+  }
+  .times b { color: var(--text); font-weight: 600; }
+
+  .btn-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+  button.btn {
+    font: inherit; font-size: .92rem; color: var(--text);
+    background: var(--panel-2); border: 1px solid var(--border);
+    padding: 10px 16px; border-radius: 10px; cursor: pointer;
+    transition: background .15s, border-color .15s, transform .1s;
+  }
+  button.btn:hover { border-color: var(--accent); background: #252a3a; }
+  button.btn:active { transform: translateY(1px); }
+  button.btn.primary {
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    border-color: transparent; color: #fff; font-weight: 600;
+  }
+  button.btn.primary:hover { filter: brightness(1.08); }
+
+  /* ---------- ファイル名 ---------- */
+  .tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+  .tag {
+    font: inherit; font-size: .85rem; cursor: pointer;
+    color: var(--text); background: transparent;
+    border: 1px solid var(--border); border-radius: 999px; padding: 6px 14px;
+    transition: all .15s;
+  }
+  .tag:hover { border-color: var(--accent); }
+  .tag.on { background: rgba(108,140,255,.18); border-color: var(--accent); color: #cdd8ff; }
+  .name-row { display: flex; gap: 10px; align-items: stretch; flex-wrap: wrap; }
+  .name-box {
+    flex: 1; min-width: 220px; display: flex; align-items: center;
+    background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px;
+    padding: 0 12px; transition: border-color .15s;
+  }
+  .name-box:focus-within { border-color: var(--accent); }
+  .name-box input {
+    flex: 1; min-width: 0; font: inherit; font-size: 1rem; color: var(--text);
+    background: none; border: none; outline: none; padding: 12px 0;
+  }
+  .name-box .ext { color: var(--muted); font-size: .95rem; }
+  .hint { color: var(--muted); font-size: .8rem; margin-top: 8px; }
+
+  .toast {
+    position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(20px);
+    background: #232838; border: 1px solid var(--border); color: var(--text);
+    padding: 10px 18px; border-radius: 10px; font-size: .9rem;
+    opacity: 0; pointer-events: none; transition: all .25s; max-width: calc(100% - 32px);
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .toast.ok { border-color: var(--ok); }
+  .toast.err { border-color: var(--rec); }
+
+  @media (max-width: 520px) {
+    .timer { font-size: 1.8rem; }
+    .rec-btn { width: 72px; height: 72px; }
+    #wave { height: 130px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>🎙 かんたん録音 &amp; トリミング</h1>
+    <p>すべてブラウザ内で処理されます（オフライン動作・サーバー送信なし）</p>
+  </header>
+
+  <!-- 1. 録音 -->
+  <section class="card">
+    <h2>録音</h2>
+    <div class="rec-row">
+      <button id="recBtn" class="rec-btn" title="録音開始 / 停止"><span class="dot"></span></button>
+      <div class="rec-info">
+        <div id="timer" class="timer">00:00.0</div>
+        <div id="status" class="status">ボタンを押すと録音を開始します</div>
+      </div>
+      <canvas id="live" class="live-canvas"></canvas>
+    </div>
+  </section>
+
+  <!-- 2. 波形 & トリミング -->
+  <section id="editCard" class="card disabled">
+    <h2>波形とトリミング</h2>
+    <div class="wave-wrap">
+      <canvas id="wave"></canvas>
+      <div id="waveEmpty" class="wave-empty">録音するとここに波形が表示されます</div>
+    </div>
+
+    <div class="range">
+      <div class="track"></div>
+      <div id="fill" class="fill"></div>
+      <input id="startRange" type="range" min="0" max="1000" step="1" value="0" aria-label="開始位置">
+      <input id="endRange" type="range" min="0" max="1000" step="1" value="1000" aria-label="終了位置">
+    </div>
+    <div class="times">
+      <span>開始 <b id="tStart">0:00.00</b></span>
+      <span>長さ <b id="tLen">0:00.00</b></span>
+      <span>終了 <b id="tEnd">0:00.00</b></span>
+    </div>
+
+    <div class="btn-row">
+      <button id="autoBtn" class="btn">✂️ 前後の無音を自動カット</button>
+      <button id="resetBtn" class="btn">↺ 全体に戻す</button>
+      <button id="playBtn" class="btn">▶ 選択範囲をプレビュー再生</button>
+    </div>
+  </section>
+
+  <!-- 3. ファイル名 & 保存 -->
+  <section id="saveCard" class="card disabled">
+    <h2>ファイル名と保存</h2>
+    <div class="tags">
+      <button class="tag" data-tag="[会議]">[会議]</button>
+      <button class="tag" data-tag="[アイデア]">[アイデア]</button>
+      <button class="tag" data-tag="[メモ]">[メモ]</button>
+      <button class="tag" data-tag="[取材]">[取材]</button>
+    </div>
+    <div class="name-row">
+      <label class="name-box">
+        <input id="nameInput" type="text" spellcheck="false" autocomplete="off">
+        <span class="ext">.wav</span>
+      </label>
+      <button id="saveBtn" class="btn primary">💾 トリミングして保存</button>
+    </div>
+    <div class="hint">ファイル名欄で Enter キーを押すとすぐに保存されます。タグはもう一度押すと外れます。</div>
+  </section>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+(() => {
+  'use strict';
+
+  // ---------- 要素 ----------
+  const $ = (id) => document.getElementById(id);
+  const recBtn = $('recBtn'), timerEl = $('timer'), statusEl = $('status');
+  const liveCanvas = $('live'), waveCanvas = $('wave'), waveEmpty = $('waveEmpty');
+  const editCard = $('editCard'), saveCard = $('saveCard');
+  const startRange = $('startRange'), endRange = $('endRange'), fill = $('fill');
+  const tStart = $('tStart'), tEnd = $('tEnd'), tLen = $('tLen');
+  const autoBtn = $('autoBtn'), resetBtn = $('resetBtn'), playBtn = $('playBtn');
+  const nameInput = $('nameInput'), saveBtn = $('saveBtn'), toastEl = $('toast');
+  const tagBtns = Array.from(document.querySelectorAll('.tag'));
+
+  const RANGE_MAX = 1000;
+  const MIN_GAP = 2; // 開始と終了の最小間隔（スライダー単位）
+
+  // ---------- 状態 ----------
+  let audioCtx = null;
+  let mediaStream = null, recorder = null, chunks = [];
+  let analyser = null, liveRAF = 0;
+  let recStartTime = 0, timerRAF = 0;
+  let audioBuffer = null;   // 録音したデータ
+  let peaks = null;         // 波形描画用（列ごとの最小・最大）
+  let selStart = 0, selEnd = 0; // 秒
+  let previewSrc = null, previewStartedAt = 0, playRAF = 0, playhead = null;
+
+  function getCtx() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    return audioCtx;
+  }
+
+  // ---------- 便利関数 ----------
+  const pad = (n, w = 2) => String(n).padStart(w, '0');
+  function fmtTimer(sec) {
+    const m = Math.floor(sec / 60), s = Math.floor(sec % 60), d = Math.floor((sec * 10) % 10);
+    return `${pad(m)}:${pad(s)}.${d}`;
+  }
+  function fmtTime(sec) {
+    const m = Math.floor(sec / 60), s = sec - m * 60;
+    return `${m}:${s.toFixed(2).padStart(5, '0')}`;
+  }
+  function defaultName(d = new Date()) {
+    return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}`;
+  }
+  let toastTimer = 0;
+  function toast(msg, type = '') {
+    toastEl.textContent = msg;
+    toastEl.className = 'toast show ' + type;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toastEl.className = 'toast', 2600);
+  }
+  function fitCanvas(c) {
+    const dpr = window.devicePixelRatio || 1;
+    const r = c.getBoundingClientRect();
+    const w = Math.max(1, Math.round(r.width * dpr)), h = Math.max(1, Math.round(r.height * dpr));
+    if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
+    return { w, h, dpr };
+  }
+  function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+
+  // ---------- 1. 録音 ----------
+  recBtn.addEventListener('click', () => {
+    if (recorder && recorder.state === 'recording') stopRecording();
+    else startRecording();
+  });
+
+  async function startRecording() {
+    stopPreview();
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) {
+      toast('このブラウザは録音に対応していません', 'err');
+      return;
+    }
+    try {
+      mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (e) {
+      toast('マイクを使用できません（許可を確認してください）', 'err');
+      statusEl.textContent = 'マイクへのアクセスが拒否されました';
+      return;
+    }
+    const ctx = getCtx();
+    const src = ctx.createMediaStreamSource(mediaStream);
+    analyser = ctx.createAnalyser();
+    analyser.fftSize = 2048;
+    src.connect(analyser);
+
+    chunks = [];
+    recorder = new MediaRecorder(mediaStream);
+    recorder.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
+    recorder.onstop = onRecordingStopped;
+    recorder.start(250);
+
+    recStartTime = performance.now();
+    nameInput.value = defaultName();
+    tagBtns.forEach(b => b.classList.remove('on'));
+    recBtn.classList.add('recording');
+    statusEl.textContent = '● 録音中… もう一度押すと停止';
+    statusEl.classList.add('live');
+    tickTimer();
+    drawLive();
+  }
+
+  function stopRecording() {
+    if (recorder && recorder.state !== 'inactive') recorder.stop();
+    if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
+    cancelAnimationFrame(timerRAF);
+    cancelAnimationFrame(liveRAF);
+    recBtn.classList.remove('recording');
+    statusEl.classList.remove('live');
+    statusEl.textContent = '音声を解析しています…';
+    clearLive();
+  }
+
+  function tickTimer() {
+    timerEl.textContent = fmtTimer((performance.now() - recStartTime) / 1000);
+    timerRAF = requestAnimationFrame(tickTimer);
+  }
+
+  function drawLive() {
+    const { w, h } = fitCanvas(liveCanvas);
+    const g = liveCanvas.getContext('2d');
+    const data = new Uint8Array(analyser.fftSize);
+    analyser.getByteTimeDomainData(data);
+    g.clearRect(0, 0, w, h);
+    g.lineWidth = 2 * (window.devicePixelRatio || 1);
+    g.strokeStyle = cssVar('--rec');
+    g.beginPath();
+    for (let i = 0; i < data.length; i++) {
+      const x = (i / (data.length - 1)) * w;
+      const y = (data[i] / 255) * h;
+      i ? g.lineTo(x, y) : g.moveTo(x, y);
+    }
+    g.stroke();
+    liveRAF = requestAnimationFrame(drawLive);
+  }
+  function clearLive() {
+    const { w, h } = fitCanvas(liveCanvas);
+    const g = liveCanvas.getContext('2d');
+    g.clearRect(0, 0, w, h);
+    g.strokeStyle = cssVar('--border');
+    g.lineWidth = 1;
+    g.beginPath(); g.moveTo(0, h / 2); g.lineTo(w, h / 2); g.stroke();
+  }
+
+  async function onRecordingStopped() {
+    const blob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' });
+    try {
+      const arr = await blob.arrayBuffer();
+      audioBuffer = await getCtx().decodeAudioData(arr);
+    } catch (e) {
+      statusEl.textContent = '音声の読み込みに失敗しました';
+      toast('音声の解析に失敗しました', 'err');
+      return;
+    }
+    timerEl.textContent = fmtTimer(audioBuffer.duration);
+    statusEl.textContent = `録音完了（${fmtTime(audioBuffer.duration)}）`;
+    editCard.classList.remove('disabled');
+    saveCard.classList.remove('disabled');
+    waveEmpty.style.display = 'none';
+    peaks = null;
+    setSelection(0, audioBuffer.duration);
+  }
+
+  // ---------- 2. 波形 ----------
+  function computePeaks(width) {
+    const ch = audioBuffer.numberOfChannels, len = audioBuffer.length;
+    const chans = [];
+    for (let c = 0; c < ch; c++) chans.push(audioBuffer.getChannelData(c));
+    const out = new Float32Array(width * 2);
+    const step = len / width;
+    for (let x = 0; x < width; x++) {
+      const a = Math.floor(x * step), b = Math.min(len, Math.floor((x + 1) * step) || a + 1);
+      let mn = 1, mx = -1;
+      for (let i = a; i < b; i++) {
+        let v = 0;
+        for (let c = 0; c < ch; c++) v += chans[c][i];
+        v /= ch;
+        if (v < mn) mn = v;
+        if (v > mx) mx = v;
+      }
+      if (mn > mx) { mn = 0; mx = 0; }
+      out[x * 2] = mn; out[x * 2 + 1] = mx;
+    }
+    // 小さい声でも見やすいように正規化
+    let peak = 0;
+    for (let i = 0; i < out.length; i++) peak = Math.max(peak, Math.abs(out[i]));
+    if (peak > 0) for (let i = 0; i < out.length; i++) out[i] /= peak;
+    return out;
+  }
+
+  function drawWave() {
+    if (!audioBuffer) return;
+    const { w, h, dpr } = fitCanvas(waveCanvas);
+    if (!peaks || peaks.length !== w * 2) peaks = computePeaks(w);
+    const g = waveCanvas.getContext('2d');
+    const dur = audioBuffer.duration;
+    const sx = (selStart / dur) * w, ex = (selEnd / dur) * w;
+    const mid = h / 2, amp = h * 0.45;
+
+    g.clearRect(0, 0, w, h);
+    // 選択範囲の背景
+    g.fillStyle = 'rgba(108,140,255,0.10)';
+    g.fillRect(sx, 0, ex - sx, h);
+    // 中心線
+    g.fillStyle = cssVar('--border');
+    g.fillRect(0, Math.floor(mid), w, Math.max(1, dpr));
+
+    const cOut = cssVar('--wave'), cIn = cssVar('--wave-sel');
+    for (let x = 0; x < w; x++) {
+      const mn = peaks[x * 2], mx = peaks[x * 2 + 1];
+      const y1 = mid - mx * amp, y2 = mid - mn * amp;
+      g.fillStyle = (x >= sx && x <= ex) ? cIn : cOut;
+      g.fillRect(x, y1, 1, Math.max(1, y2 - y1));
+    }
+    // 選択外を暗く
+    g.fillStyle = 'rgba(10,12,18,0.55)';
+    g.fillRect(0, 0, sx, h);
+    g.fillRect(ex, 0, w - ex, h);
+    // 開始・終了ライン
+    g.fillStyle = cssVar('--accent');
+    g.fillRect(sx - dpr, 0, 2 * dpr, h);
+    g.fillStyle = cssVar('--accent-2');
+    g.fillRect(ex - dpr, 0, 2 * dpr, h);
+    // 再生位置
+    if (playhead !== null) {
+      const px = (playhead / dur) * w;
+      g.fillStyle = '#ffffff';
+      g.fillRect(px - dpr / 2, 0, dpr, h);
+    }
+  }
+
+  function setSelection(s, e, fromSlider) {
+    const dur = audioBuffer.duration;
+    const gap = dur * MIN_GAP / RANGE_MAX;
+    s = Math.max(0, Math.min(s, dur));
+    e = Math.max(0, Math.min(e, dur));
+    if (e - s < gap) {
+      if (fromSlider === 'end') e = Math.min(dur, s + gap); else s = Math.max(0, e - gap);
+    }
+    selStart = s; selEnd = e;
+    if (fromSlider !== 'start') startRange.value = Math.round(s / dur * RANGE_MAX);
+    if (fromSlider !== 'end') endRange.value = Math.round(e / dur * RANGE_MAX);
+    fill.style.left = (s / dur * 100) + '%';
+    fill.style.width = ((e - s) / dur * 100) + '%';
+    tStart.textContent = fmtTime(s);
+    tEnd.textContent = fmtTime(e);
+    tLen.textContent = fmtTime(e - s);
+    drawWave();
+  }
+
+  startRange.addEventListener('input', () => {
+    if (!audioBuffer) return;
+    stopPreview();
+    let v = +startRange.value;
+    if (v > +endRange.value - MIN_GAP) { v = +endRange.value - MIN_GAP; startRange.value = v; }
+    setSelection(v / RANGE_MAX * audioBuffer.duration, selEnd, 'start');
+  });
+  endRange.addEventListener('input', () => {
+    if (!audioBuffer) return;
+    stopPreview();
+    let v = +endRange.value;
+    if (v < +startRange.value + MIN_GAP) { v = +startRange.value + MIN_GAP; endRange.value = v; }
+    setSelection(selStart, v / RANGE_MAX * audioBuffer.duration, 'end');
+  });
+
+  // 波形を直接ドラッグして開始／終了を動かす（近いほうのラインが動く）
+  let dragging = null;
+  function timeAt(ev) {
+    const r = waveCanvas.getBoundingClientRect();
+    const x = Math.min(Math.max(ev.clientX - r.left, 0), r.width);
+    return (x / r.width) * audioBuffer.duration;
+  }
+  waveCanvas.addEventListener('pointerdown', (ev) => {
+    if (!audioBuffer) return;
+    stopPreview();
+    const t = timeAt(ev);
+    dragging = Math.abs(t - selStart) <= Math.abs(t - selEnd) ? 'start' : 'end';
+    waveCanvas.setPointerCapture(ev.pointerId);
+    moveDrag(t);
+  });
+  waveCanvas.addEventListener('pointermove', (ev) => { if (dragging) moveDrag(timeAt(ev)); });
+  const endDrag = () => { dragging = null; };
+  waveCanvas.addEventListener('pointerup', endDrag);
+  waveCanvas.addEventListener('pointercancel', endDrag);
+  function moveDrag(t) {
+    if (dragging === 'start') setSelection(Math.min(t, selEnd), selEnd, null);
+    else setSelection(selStart, Math.max(t, selStart), 'end');
+  }
+
+  resetBtn.addEventListener('click', () => {
+    if (!audioBuffer) return;
+    stopPreview();
+    setSelection(0, audioBuffer.duration);
+  });
+
+  // 前後の無音を自動カット
+  autoBtn.addEventListener('click', () => {
+    if (!audioBuffer) return;
+    stopPreview();
+    const sr = audioBuffer.sampleRate, ch = audioBuffer.numberOfChannels, len = audioBuffer.length;
+    const chans = [];
+    for (let c = 0; c < ch; c++) chans.push(audioBuffer.getChannelData(c));
+    const win = Math.max(1, Math.floor(sr * 0.02)); // 20ms ごとに音量を測る
+    const n = Math.ceil(len / win);
+    const rms = new Float32Array(n);
+    let maxRms = 0;
+    for (let k = 0; k < n; k++) {
+      const a = k * win, b = Math.min(len, a + win);
+      let sum = 0;
+      for (let i = a; i < b; i++) {
+        let v = 0;
+        for (let c = 0; c < ch; c++) v += chans[c][i];
+        v /= ch;
+        sum += v * v;
+      }
+      rms[k] = Math.sqrt(sum / (b - a));
+      if (rms[k] > maxRms) maxRms = rms[k];
+    }
+    // しきい値：最大音量の 8%（ただし最低 -48dB 相当）
+    const th = Math.max(0.004, maxRms * 0.08);
+    let first = -1, last = -1;
+    for (let k = 0; k < n; k++) if (rms[k] > th) { first = k; break; }
+    for (let k = n - 1; k >= 0; k--) if (rms[k] > th) { last = k; break; }
+    if (first < 0) { toast('音声が検出できませんでした', 'err'); return; }
+    const margin = 0.15; // 声の切れ目が不自然にならないよう前後に少し余白
+    const s = Math.max(0, first * win / sr - margin);
+    const e = Math.min(audioBuffer.duration, (last + 1) * win / sr + margin);
+    setSelection(s, e);
+    const cut = audioBuffer.duration - (e - s);
+    toast(cut > 0.05 ? `無音部分 ${cut.toFixed(1)} 秒をカットしました` : 'カットできる無音はありませんでした', 'ok');
+  });
+
+  // プレビュー再生
+  playBtn.addEventListener('click', () => {
+    if (!audioBuffer) return;
+    if (previewSrc) { stopPreview(); return; }
+    const ctx = getCtx();
+    const src = ctx.createBufferSource();
+    src.buffer = audioBuffer;
+    src.connect(ctx.destination);
+    const dur = selEnd - selStart;
+    src.start(0, selStart, dur);
+    previewSrc = src;
+    previewStartedAt = ctx.currentTime;
+    playBtn.textContent = '■ 停止';
+    src.onended = () => { if (previewSrc === src) stopPreview(); };
+    const tick = () => {
+      if (!previewSrc) return;
+      playhead = Math.min(selEnd, selStart + (ctx.currentTime - previewStartedAt));
+      drawWave();
+      playRAF = requestAnimationFrame(tick);
+    };
+    tick();
+  });
+
+  function stopPreview() {
+    if (previewSrc) {
+      const s = previewSrc;
+      previewSrc = null;
+      try { s.stop(); } catch (_) {}
+    }
+    cancelAnimationFrame(playRAF);
+    playhead = null;
+    playBtn.textContent = '▶ 選択範囲をプレビュー再生';
+    drawWave();
+  }
+
+  // ---------- 3. WAV 書き出し ----------
+  function encodeWav(buf, startSec, endSec) {
+    const sr = buf.sampleRate, ch = buf.numberOfChannels;
+    const a = Math.floor(startSec * sr), b = Math.min(buf.length, Math.ceil(endSec * sr));
+    const frames = Math.max(0, b - a);
+    const bytesPerSample = 2;
+    const dataSize = frames * ch * bytesPerSample;
+    const ab = new ArrayBuffer(44 + dataSize);
+    const v = new DataView(ab);
+    const str = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+    str(0, 'RIFF'); v.setUint32(4, 36 + dataSize, true); str(8, 'WAVE');
+    str(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, ch, true);
+    v.setUint32(24, sr, true); v.setUint32(28, sr * ch * bytesPerSample, true);
+    v.setUint16(32, ch * bytesPerSample, true); v.setUint16(34, 16, true);
+    str(36, 'data'); v.setUint32(40, dataSize, true);
+
+    const chans = [];
+    for (let c = 0; c < ch; c++) chans.push(buf.getChannelData(c));
+    // 切れ目の「プツッ」音を防ぐため、両端 5ms をフェード
+    const fadeLen = Math.min(Math.floor(sr * 0.005), Math.floor(frames / 2));
+    let off = 44;
+    for (let i = 0; i < frames; i++) {
+      let gain = 1;
+      if (i < fadeLen) gain = i / fadeLen;
+      else if (i >= frames - fadeLen) gain = (frames - 1 - i) / fadeLen;
+      for (let c = 0; c < ch; c++) {
+        let s = chans[c][a + i] * gain;
+        s = Math.max(-1, Math.min(1, s));
+        v.setInt16(off, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+        off += 2;
+      }
+    }
+    return new Blob([ab], { type: 'audio/wav' });
+  }
+
+  function sanitize(name) {
+    return name.replace(/[\\/:*?"<>|\x00-\x1f]/g, '_').replace(/\.wav$/i, '').trim();
+  }
+
+  function save() {
+    if (!audioBuffer) { toast('先に録音してください', 'err'); return; }
+    stopPreview();
+    const name = sanitize(nameInput.value) || defaultName();
+    const blob = encodeWav(audioBuffer, selStart, selEnd);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name + '.wav';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    toast(`「${name}.wav」を保存しました`, 'ok');
+  }
+  saveBtn.addEventListener('click', save);
+
+  // ---------- ファイル名：タグ & Enter ----------
+  tagBtns.forEach(btn => btn.addEventListener('click', () => {
+    const tag = btn.dataset.tag;
+    let v = nameInput.value;
+    if (v.startsWith(tag) || v.includes(tag)) {
+      v = v.replace(tag, '');
+      btn.classList.remove('on');
+    } else {
+      v = tag + v;
+      btn.classList.add('on');
+    }
+    nameInput.value = v;
+    nameInput.focus();
+    nameInput.setSelectionRange(v.length, v.length);
+  }));
+  nameInput.addEventListener('input', () => {
+    tagBtns.forEach(b => b.classList.toggle('on', nameInput.value.includes(b.dataset.tag)));
+  });
+  nameInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); save(); }
+  });
+
+  // ---------- 初期化 ----------
+  nameInput.value = defaultName();
+  clearLive();
+  window.addEventListener('resize', () => {
+    peaks = null;
+    drawWave();
+    if (!(recorder && recorder.state === 'recording')) clearLive();
+  });
+})();
+</script>
+</body>
+</html>
