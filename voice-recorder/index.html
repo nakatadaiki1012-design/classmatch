@@ -2,7 +2,13 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f1117">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="録音">
+<meta name="format-detection" content="telephone=no">
 <title>かんたん録音 &amp; トリミング</title>
 <style>
   :root {
@@ -18,80 +24,83 @@
     --ok: #3ecf8e;
     --wave: #5b6478;
     --wave-sel: #7fa2ff;
-    --radius: 14px;
+    --radius: 16px;
+    --handle: 44px; /* 指で掴みやすいつまみの当たり判定 */
   }
-  * { box-sizing: border-box; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { margin: 0; }
+  html { -webkit-text-size-adjust: 100%; }
   body {
-    background: radial-gradient(1200px 600px at 20% -10%, #1b2140 0%, transparent 60%), var(--bg);
+    background: radial-gradient(900px 500px at 20% -10%, #1b2140 0%, transparent 60%), var(--bg);
     color: var(--text);
-    font-family: system-ui, -apple-system, "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
-    min-height: 100vh;
-    padding: 24px 16px 48px;
+    font-family: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", "Segoe UI", sans-serif;
+    min-height: 100vh; min-height: 100dvh;
+    padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+             max(40px, calc(env(safe-area-inset-bottom) + 24px)) max(16px, env(safe-area-inset-left));
+    overscroll-behavior-y: none;
   }
-  .app { max-width: 860px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
-  header h1 { margin: 0; font-size: 1.4rem; letter-spacing: .02em; }
-  header p { margin: 4px 0 0; color: var(--muted); font-size: .88rem; }
+  button { touch-action: manipulation; -webkit-user-select: none; user-select: none; }
+  .app { max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+  header { padding: 4px 2px 0; }
+  header h1 { margin: 0; font-size: 1.25rem; letter-spacing: .02em; }
+  header p { margin: 4px 0 0; color: var(--muted); font-size: .8rem; }
 
   .card {
     background: var(--panel);
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    padding: 20px;
+    padding: 18px 16px;
     box-shadow: 0 10px 30px rgba(0,0,0,.25);
   }
   .card h2 {
-    margin: 0 0 14px; font-size: .8rem; font-weight: 600;
-    color: var(--muted); text-transform: uppercase; letter-spacing: .12em;
+    margin: 0 0 12px; font-size: .75rem; font-weight: 600;
+    color: var(--muted); letter-spacing: .12em;
   }
-  .disabled { opacity: .45; pointer-events: none; }
+  .disabled { opacity: .4; pointer-events: none; }
+  .hidden { display: none !important; }
 
   /* ---------- 録音 ---------- */
-  .rec-row { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+  .rec-area { display: flex; flex-direction: column; align-items: center; gap: 12px; }
   .rec-btn {
-    width: 84px; height: 84px; border-radius: 50%;
-    border: 3px solid var(--border); background: var(--panel-2);
+    width: 104px; height: 104px; border-radius: 50%;
+    border: 4px solid var(--border); background: var(--panel-2);
     display: grid; place-items: center; cursor: pointer;
-    transition: transform .15s, border-color .2s, box-shadow .2s;
-    flex-shrink: 0;
+    transition: transform .12s, border-color .2s;
   }
-  .rec-btn:hover { transform: scale(1.04); border-color: var(--rec); }
+  .rec-btn:active { transform: scale(.94); }
   .rec-btn .dot {
-    width: 34px; height: 34px; border-radius: 50%; background: var(--rec);
+    width: 42px; height: 42px; border-radius: 50%; background: var(--rec);
     transition: border-radius .2s, width .2s, height .2s;
   }
   .rec-btn.recording { border-color: var(--rec); animation: pulse 1.4s infinite; }
-  .rec-btn.recording .dot { width: 28px; height: 28px; border-radius: 6px; }
+  .rec-btn.recording .dot { width: 34px; height: 34px; border-radius: 8px; }
   @keyframes pulse {
     0% { box-shadow: 0 0 0 0 rgba(255,77,94,.45); }
-    70% { box-shadow: 0 0 0 18px rgba(255,77,94,0); }
+    70% { box-shadow: 0 0 0 20px rgba(255,77,94,0); }
     100% { box-shadow: 0 0 0 0 rgba(255,77,94,0); }
   }
-  .rec-info { display: flex; flex-direction: column; gap: 4px; min-width: 150px; }
-  .timer { font-variant-numeric: tabular-nums; font-size: 2.2rem; font-weight: 600; letter-spacing: .03em; }
-  .status { color: var(--muted); font-size: .88rem; }
+  .timer { font-variant-numeric: tabular-nums; font-size: 2.6rem; font-weight: 600; letter-spacing: .03em; line-height: 1; }
+  .status { color: var(--muted); font-size: .85rem; text-align: center; min-height: 1.3em; }
   .status.live { color: var(--rec); }
   .live-canvas {
-    flex: 1; min-width: 180px; height: 64px;
+    width: 100%; height: 56px; display: block;
     background: var(--panel-2); border-radius: 10px; border: 1px solid var(--border);
   }
 
   /* ---------- 波形 ---------- */
   .wave-wrap { position: relative; }
   #wave {
-    width: 100%; height: 160px; display: block;
+    width: 100%; height: 150px; display: block;
     background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px;
-    cursor: pointer; touch-action: none;
+    touch-action: none;
   }
   .wave-empty {
-    position: absolute; inset: 0; display: grid; place-items: center;
-    color: var(--muted); font-size: .9rem; pointer-events: none;
+    position: absolute; inset: 0; display: grid; place-items: center; text-align: center;
+    color: var(--muted); font-size: .85rem; pointer-events: none; padding: 0 16px;
   }
 
-  /* 2つのつまみを持つ範囲スライダー */
-  .range {
-    position: relative; height: 36px; margin-top: 12px;
-  }
+  /* 指で操作する2つのつまみ（開始・終了） */
+  .range { position: relative; height: var(--handle); margin-top: 6px; touch-action: none; }
   .range .track {
     position: absolute; left: 0; right: 0; top: 50%; height: 6px; transform: translateY(-50%);
     background: var(--panel-2); border-radius: 3px; border: 1px solid var(--border);
@@ -100,86 +109,90 @@
     position: absolute; top: 50%; height: 6px; transform: translateY(-50%);
     background: linear-gradient(90deg, var(--accent), var(--accent-2)); border-radius: 3px;
   }
-  .range input[type=range] {
-    /* つまみの中心が波形の左端〜右端と一致するよう、つまみ半径ぶん外側へ広げる */
-    position: absolute; left: -10px; top: 0; width: calc(100% + 20px); height: 100%;
-    margin: 0; background: none; pointer-events: none;
-    -webkit-appearance: none; appearance: none;
+  .handle {
+    position: absolute; top: 0; width: var(--handle); height: var(--handle);
+    margin-left: calc(var(--handle) / -2);
+    display: grid; place-items: center; cursor: grab; touch-action: none; outline: none;
   }
-  .range input[type=range]::-webkit-slider-thumb {
-    -webkit-appearance: none; pointer-events: auto; cursor: grab; box-sizing: border-box;
-    width: 20px; height: 20px; border-radius: 50%;
-    background: #fff; border: 3px solid var(--accent); box-shadow: 0 2px 6px rgba(0,0,0,.4);
+  .handle::after {
+    content: ""; width: 26px; height: 26px; border-radius: 50%;
+    background: #fff; border: 4px solid var(--accent); box-shadow: 0 2px 8px rgba(0,0,0,.45);
+    transition: transform .1s;
   }
-  .range input[type=range]::-moz-range-thumb {
-    pointer-events: auto; cursor: grab; box-sizing: border-box;
-    width: 20px; height: 20px; border-radius: 50%;
-    background: #fff; border: 3px solid var(--accent); box-shadow: 0 2px 6px rgba(0,0,0,.4);
-  }
-  .range input[type=range]::-webkit-slider-runnable-track { background: none; }
-  .range input[type=range]::-moz-range-track { background: none; }
-  .range input#endRange::-webkit-slider-thumb { border-color: var(--accent-2); }
-  .range input#endRange::-moz-range-thumb { border-color: var(--accent-2); }
+  .handle.end::after { border-color: var(--accent-2); }
+  .handle.active::after, .handle:focus-visible::after { transform: scale(1.18); }
 
-  .times {
-    display: flex; justify-content: space-between; gap: 8px; margin-top: 6px;
-    font-size: .85rem; color: var(--muted); font-variant-numeric: tabular-nums;
+  .fine {
+    display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: start; margin-top: 4px;
   }
-  .times b { color: var(--text); font-weight: 600; }
+  .fine .col { display: flex; flex-direction: column; gap: 6px; }
+  .fine .col.right { align-items: flex-end; }
+  .fine .col.mid { align-items: center; padding-top: 2px; }
+  .fine .label { font-size: .78rem; color: var(--muted); }
+  .fine .val { font-size: 1rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .nudge { display: flex; gap: 6px; }
+  .nudge button {
+    font: inherit; font-size: .78rem; color: var(--text);
+    background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px;
+    min-width: 50px; height: 36px; padding: 0 6px; cursor: pointer; white-space: nowrap;
+  }
+  .nudge button:active { background: #2a3044; }
 
-  .btn-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+  .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+  .btn-grid .wide { grid-column: 1 / -1; }
   button.btn {
-    font: inherit; font-size: .92rem; color: var(--text);
+    font: inherit; font-size: .95rem; color: var(--text);
     background: var(--panel-2); border: 1px solid var(--border);
-    padding: 10px 16px; border-radius: 10px; cursor: pointer;
-    transition: background .15s, border-color .15s, transform .1s;
+    min-height: 50px; padding: 10px 12px; border-radius: 12px; cursor: pointer;
+    transition: background .12s, border-color .12s, transform .08s;
   }
-  button.btn:hover { border-color: var(--accent); background: #252a3a; }
-  button.btn:active { transform: translateY(1px); }
+  button.btn:active { transform: scale(.98); background: #262c3e; }
   button.btn.primary {
     background: linear-gradient(135deg, var(--accent), var(--accent-2));
     border-color: transparent; color: #fff; font-weight: 600;
   }
-  button.btn.primary:hover { filter: brightness(1.08); }
+  button.btn { white-space: nowrap; }
+  button.btn.playing { border-color: var(--ok); color: var(--ok); }
 
   /* ---------- ファイル名 ---------- */
-  .tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+  .tags { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 10px; }
   .tag {
     font: inherit; font-size: .85rem; cursor: pointer;
     color: var(--text); background: transparent;
-    border: 1px solid var(--border); border-radius: 999px; padding: 6px 14px;
-    transition: all .15s;
+    border: 1px solid var(--border); border-radius: 999px; height: 40px; padding: 0 4px;
+    transition: all .12s; white-space: nowrap;
   }
-  .tag:hover { border-color: var(--accent); }
-  .tag.on { background: rgba(108,140,255,.18); border-color: var(--accent); color: #cdd8ff; }
-  .name-row { display: flex; gap: 10px; align-items: stretch; flex-wrap: wrap; }
+  .tag.on { background: rgba(108,140,255,.2); border-color: var(--accent); color: #cdd8ff; }
   .name-box {
-    flex: 1; min-width: 220px; display: flex; align-items: center;
-    background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px;
+    display: flex; align-items: center;
+    background: var(--panel-2); border: 1px solid var(--border); border-radius: 12px;
     padding: 0 12px; transition: border-color .15s;
   }
   .name-box:focus-within { border-color: var(--accent); }
   .name-box input {
-    flex: 1; min-width: 0; font: inherit; font-size: 1rem; color: var(--text);
-    background: none; border: none; outline: none; padding: 12px 0;
+    flex: 1; min-width: 0; font: inherit; font-size: 16px; /* 16px 未満だと iPhone で勝手に拡大される */
+    color: var(--text); background: none; border: none; outline: none; padding: 14px 0;
   }
-  .name-box .ext { color: var(--muted); font-size: .95rem; }
-  .hint { color: var(--muted); font-size: .8rem; margin-top: 8px; }
+  .name-box .ext { color: var(--muted); font-size: .9rem; }
+  .save-grid { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 12px; }
+  .save-grid.two { grid-template-columns: 1fr 1fr; }
+  .hint { color: var(--muted); font-size: .75rem; margin-top: 10px; line-height: 1.6; }
 
   .toast {
-    position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(20px);
+    position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 20px);
+    transform: translateX(-50%) translateY(20px);
     background: #232838; border: 1px solid var(--border); color: var(--text);
-    padding: 10px 18px; border-radius: 10px; font-size: .9rem;
-    opacity: 0; pointer-events: none; transition: all .25s; max-width: calc(100% - 32px);
+    padding: 12px 18px; border-radius: 12px; font-size: .9rem; text-align: center;
+    opacity: 0; pointer-events: none; transition: all .25s; width: max-content; max-width: calc(100% - 32px);
+    z-index: 10;
   }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
   .toast.ok { border-color: var(--ok); }
   .toast.err { border-color: var(--rec); }
 
-  @media (max-width: 520px) {
-    .timer { font-size: 1.8rem; }
-    .rec-btn { width: 72px; height: 72px; }
-    #wave { height: 130px; }
+  @media (min-width: 700px) {
+    body { padding-top: 32px; }
+    #wave { height: 180px; }
   }
 </style>
 </head>
@@ -187,18 +200,16 @@
 <div class="app">
   <header>
     <h1>🎙 かんたん録音 &amp; トリミング</h1>
-    <p>すべてブラウザ内で処理されます（オフライン動作・サーバー送信なし）</p>
+    <p>すべて端末内で処理されます（サーバー送信なし）</p>
   </header>
 
   <!-- 1. 録音 -->
   <section class="card">
     <h2>録音</h2>
-    <div class="rec-row">
-      <button id="recBtn" class="rec-btn" title="録音開始 / 停止"><span class="dot"></span></button>
-      <div class="rec-info">
-        <div id="timer" class="timer">00:00.0</div>
-        <div id="status" class="status">ボタンを押すと録音を開始します</div>
-      </div>
+    <div class="rec-area">
+      <button id="recBtn" class="rec-btn" aria-label="録音開始 / 停止"><span class="dot"></span></button>
+      <div id="timer" class="timer">00:00.0</div>
+      <div id="status" class="status">ボタンを押すと録音を開始します</div>
       <canvas id="live" class="live-canvas"></canvas>
     </div>
   </section>
@@ -211,22 +222,40 @@
       <div id="waveEmpty" class="wave-empty">録音するとここに波形が表示されます</div>
     </div>
 
-    <div class="range">
+    <div id="range" class="range">
       <div class="track"></div>
-      <div id="fill" class="fill"></div>
-      <input id="startRange" type="range" min="0" max="1000" step="1" value="0" aria-label="開始位置">
-      <input id="endRange" type="range" min="0" max="1000" step="1" value="1000" aria-label="終了位置">
-    </div>
-    <div class="times">
-      <span>開始 <b id="tStart">0:00.00</b></span>
-      <span>長さ <b id="tLen">0:00.00</b></span>
-      <span>終了 <b id="tEnd">0:00.00</b></span>
+      <div id="fill" class="fill" style="left:0;width:100%"></div>
+      <div id="hStart" style="left:0%" class="handle start" role="slider" tabindex="0" aria-label="開始位置"></div>
+      <div id="hEnd" style="left:100%" class="handle end" role="slider" tabindex="0" aria-label="終了位置"></div>
     </div>
 
-    <div class="btn-row">
-      <button id="autoBtn" class="btn">✂️ 前後の無音を自動カット</button>
+    <div class="fine">
+      <div class="col">
+        <span class="label">開始</span>
+        <span id="tStart" class="val">0:00.00</span>
+        <div class="nudge">
+          <button data-nudge="start" data-d="-0.1">−0.1s</button>
+          <button data-nudge="start" data-d="0.1">+0.1s</button>
+        </div>
+      </div>
+      <div class="col mid">
+        <span class="label">長さ</span>
+        <span id="tLen" class="val">0:00.00</span>
+      </div>
+      <div class="col right">
+        <span class="label">終了</span>
+        <span id="tEnd" class="val">0:00.00</span>
+        <div class="nudge">
+          <button data-nudge="end" data-d="-0.1">−0.1s</button>
+          <button data-nudge="end" data-d="0.1">+0.1s</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="btn-grid">
+      <button id="autoBtn" class="btn">✂️ 無音カット</button>
       <button id="resetBtn" class="btn">↺ 全体に戻す</button>
-      <button id="playBtn" class="btn">▶ 選択範囲をプレビュー再生</button>
+      <button id="playBtn" class="btn wide">▶ 選択範囲をプレビュー再生</button>
     </div>
   </section>
 
@@ -239,14 +268,20 @@
       <button class="tag" data-tag="[メモ]">[メモ]</button>
       <button class="tag" data-tag="[取材]">[取材]</button>
     </div>
-    <div class="name-row">
-      <label class="name-box">
-        <input id="nameInput" type="text" spellcheck="false" autocomplete="off">
-        <span class="ext">.wav</span>
-      </label>
+    <label class="name-box">
+      <input id="nameInput" type="text" spellcheck="false" autocomplete="off" autocapitalize="off"
+             autocorrect="off" enterkeyhint="done">
+      <span class="ext">.wav</span>
+    </label>
+    <div id="saveGrid" class="save-grid">
       <button id="saveBtn" class="btn primary">💾 トリミングして保存</button>
+      <button id="shareBtn" class="btn hidden">📤 共有（LINE・メール等）</button>
     </div>
-    <div class="hint">ファイル名欄で Enter キーを押すとすぐに保存されます。タグはもう一度押すと外れます。</div>
+    <div class="hint">
+      ・ファイル名欄でキーボードの「完了 / Enter」を押すとすぐ保存します<br>
+      ・タグはもう一度押すと外れます<br>
+      ・録音中は画面を閉じたり他のアプリに切り替えないでください
+    </div>
   </section>
 </div>
 
@@ -261,29 +296,37 @@
   const recBtn = $('recBtn'), timerEl = $('timer'), statusEl = $('status');
   const liveCanvas = $('live'), waveCanvas = $('wave'), waveEmpty = $('waveEmpty');
   const editCard = $('editCard'), saveCard = $('saveCard');
-  const startRange = $('startRange'), endRange = $('endRange'), fill = $('fill');
+  const rangeEl = $('range'), hStart = $('hStart'), hEnd = $('hEnd'), fill = $('fill');
   const tStart = $('tStart'), tEnd = $('tEnd'), tLen = $('tLen');
   const autoBtn = $('autoBtn'), resetBtn = $('resetBtn'), playBtn = $('playBtn');
-  const nameInput = $('nameInput'), saveBtn = $('saveBtn'), toastEl = $('toast');
+  const nameInput = $('nameInput'), saveBtn = $('saveBtn'), shareBtn = $('shareBtn');
+  const saveGrid = $('saveGrid'), toastEl = $('toast');
   const tagBtns = Array.from(document.querySelectorAll('.tag'));
 
-  const RANGE_MAX = 1000;
-  const MIN_GAP = 2; // 開始と終了の最小間隔（スライダー単位）
+  const TARGET_RATE = 24000;   // 声の録音に十分な音質で、ファイルサイズを約半分にする
+  const MIN_LEN = 0.05;        // 選択範囲の最小の長さ（秒）
+  const isTouch = window.matchMedia('(pointer: coarse)').matches;
 
   // ---------- 状態 ----------
   let audioCtx = null;
   let mediaStream = null, recorder = null, chunks = [];
   let analyser = null, liveRAF = 0;
   let recStartTime = 0, timerRAF = 0;
-  let audioBuffer = null;   // 録音したデータ
+  let wakeLock = null;
+  let audioBuffer = null;   // 録音したデータ（モノラル）
   let peaks = null;         // 波形描画用（列ごとの最小・最大）
   let selStart = 0, selEnd = 0; // 秒
   let previewSrc = null, previewStartedAt = 0, playRAF = 0, playhead = null;
 
+  // iPhone ではタップした瞬間に AudioContext を作らないと音が出ないため、必ずタップ処理の中で呼ぶ
   function getCtx() {
     if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    if (audioCtx.state === 'suspended') audioCtx.resume();
+    if (audioCtx.state !== 'running') audioCtx.resume().catch(() => {});
     return audioCtx;
+  }
+  // iPhone（Safari 16.4+）でマナーモード中でもプレビュー音が鳴るようにする
+  function setAudioSession(type) {
+    try { if (navigator.audioSession) navigator.audioSession.type = type; } catch (_) {}
   }
 
   // ---------- 便利関数 ----------
@@ -306,6 +349,7 @@
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => toastEl.className = 'toast', 2600);
   }
+  function vibrate(ms) { try { navigator.vibrate && navigator.vibrate(ms); } catch (_) {} }
   function fitCanvas(c) {
     const dpr = window.devicePixelRatio || 1;
     const r = c.getBoundingClientRect();
@@ -315,6 +359,17 @@
   }
   function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
 
+  // 録音中に画面が消えないようにする（対応ブラウザのみ）
+  async function keepScreenOn(on) {
+    try {
+      if (on && 'wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen');
+      else if (!on && wakeLock) { await wakeLock.release(); wakeLock = null; }
+    } catch (_) { wakeLock = null; }
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && recorder && recorder.state === 'recording') keepScreenOn(true);
+  });
+
   // ---------- 1. 録音 ----------
   recBtn.addEventListener('click', () => {
     if (recorder && recorder.state === 'recording') stopRecording();
@@ -323,28 +378,35 @@
 
   async function startRecording() {
     stopPreview();
+    const ctx = getCtx(); // await より前（タップの直後）に作る
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) {
-      toast('このブラウザは録音に対応していません', 'err');
+      toast(location.protocol === 'file:' ? 'https のページで開いてください' : 'このブラウザは録音に対応していません', 'err');
       return;
     }
+    setAudioSession('play-and-record');
     try {
-      mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaStream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+      });
     } catch (e) {
-      toast('マイクを使用できません（許可を確認してください）', 'err');
-      statusEl.textContent = 'マイクへのアクセスが拒否されました';
+      toast('マイクを使用できません（ブラウザの設定で許可してください）', 'err');
+      statusEl.textContent = 'マイクへのアクセスが許可されていません';
       return;
     }
-    const ctx = getCtx();
     const src = ctx.createMediaStreamSource(mediaStream);
     analyser = ctx.createAnalyser();
-    analyser.fftSize = 2048;
+    analyser.fftSize = 1024;
     src.connect(analyser);
+    // 電話の着信などでマイクが切れたら録音を止める
+    mediaStream.getAudioTracks().forEach(t => t.addEventListener('ended', () => {
+      if (recorder && recorder.state === 'recording') stopRecording();
+    }));
 
     chunks = [];
     recorder = new MediaRecorder(mediaStream);
     recorder.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
     recorder.onstop = onRecordingStopped;
-    recorder.start(250);
+    recorder.start(1000);
 
     recStartTime = performance.now();
     nameInput.value = defaultName();
@@ -352,6 +414,10 @@
     recBtn.classList.add('recording');
     statusEl.textContent = '● 録音中… もう一度押すと停止';
     statusEl.classList.add('live');
+    editCard.classList.add('disabled');
+    saveCard.classList.add('disabled');
+    vibrate(30);
+    keepScreenOn(true);
     tickTimer();
     drawLive();
   }
@@ -364,6 +430,9 @@
     recBtn.classList.remove('recording');
     statusEl.classList.remove('live');
     statusEl.textContent = '音声を解析しています…';
+    vibrate([20, 60, 20]);
+    keepScreenOn(false);
+    setAudioSession('playback');
     clearLive();
   }
 
@@ -372,18 +441,19 @@
     timerRAF = requestAnimationFrame(tickTimer);
   }
 
+  let liveData = null;
   function drawLive() {
-    const { w, h } = fitCanvas(liveCanvas);
+    const { w, h, dpr } = fitCanvas(liveCanvas);
     const g = liveCanvas.getContext('2d');
-    const data = new Uint8Array(analyser.fftSize);
-    analyser.getByteTimeDomainData(data);
+    if (!liveData || liveData.length !== analyser.fftSize) liveData = new Uint8Array(analyser.fftSize);
+    analyser.getByteTimeDomainData(liveData);
     g.clearRect(0, 0, w, h);
-    g.lineWidth = 2 * (window.devicePixelRatio || 1);
+    g.lineWidth = 2 * dpr;
     g.strokeStyle = cssVar('--rec');
     g.beginPath();
-    for (let i = 0; i < data.length; i++) {
-      const x = (i / (data.length - 1)) * w;
-      const y = (data[i] / 255) * h;
+    for (let i = 0; i < liveData.length; i++) {
+      const x = (i / (liveData.length - 1)) * w;
+      const y = (liveData[i] / 255) * h;
       i ? g.lineTo(x, y) : g.moveTo(x, y);
     }
     g.stroke();
@@ -398,11 +468,35 @@
     g.beginPath(); g.moveTo(0, h / 2); g.lineTo(w, h / 2); g.stroke();
   }
 
+  // 録音データを「モノラル・24kHz」に変換（スマホのメモリ節約とファイルサイズ削減）
+  async function toMonoLowRate(buf) {
+    const needMix = buf.numberOfChannels > 1, needRate = buf.sampleRate > TARGET_RATE;
+    if (!needMix && !needRate) return buf;
+    const rate = needRate ? TARGET_RATE : buf.sampleRate;
+    try {
+      const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+      const frames = Math.ceil(buf.duration * rate);
+      const off = new OAC(1, frames, rate);
+      const src = off.createBufferSource();
+      src.buffer = buf;
+      src.connect(off.destination);
+      src.start(0);
+      return await off.startRendering();
+    } catch (_) {
+      return buf; // 変換できない端末ではそのまま使う
+    }
+  }
+
   async function onRecordingStopped() {
     const blob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' });
+    chunks = [];
     try {
       const arr = await blob.arrayBuffer();
-      audioBuffer = await getCtx().decodeAudioData(arr);
+      const decoded = await new Promise((res, rej) => {
+        const p = getCtx().decodeAudioData(arr, res, rej); // 古い Safari はコールバック形式
+        if (p && p.then) p.then(res, rej);
+      });
+      audioBuffer = await toMonoLowRate(decoded);
     } catch (e) {
       statusEl.textContent = '音声の読み込みに失敗しました';
       toast('音声の解析に失敗しました', 'err');
@@ -425,7 +519,7 @@
     const out = new Float32Array(width * 2);
     const step = len / width;
     for (let x = 0; x < width; x++) {
-      const a = Math.floor(x * step), b = Math.min(len, Math.floor((x + 1) * step) || a + 1);
+      const a = Math.floor(x * step), b = Math.min(len, Math.max(a + 1, Math.floor((x + 1) * step)));
       let mn = 1, mx = -1;
       for (let i = a; i < b; i++) {
         let v = 0;
@@ -454,10 +548,8 @@
     const mid = h / 2, amp = h * 0.45;
 
     g.clearRect(0, 0, w, h);
-    // 選択範囲の背景
     g.fillStyle = 'rgba(108,140,255,0.10)';
     g.fillRect(sx, 0, ex - sx, h);
-    // 中心線
     g.fillStyle = cssVar('--border');
     g.fillRect(0, Math.floor(mid), w, Math.max(1, dpr));
 
@@ -468,80 +560,97 @@
       g.fillStyle = (x >= sx && x <= ex) ? cIn : cOut;
       g.fillRect(x, y1, 1, Math.max(1, y2 - y1));
     }
-    // 選択外を暗く
     g.fillStyle = 'rgba(10,12,18,0.55)';
     g.fillRect(0, 0, sx, h);
     g.fillRect(ex, 0, w - ex, h);
-    // 開始・終了ライン
     g.fillStyle = cssVar('--accent');
     g.fillRect(sx - dpr, 0, 2 * dpr, h);
     g.fillStyle = cssVar('--accent-2');
     g.fillRect(ex - dpr, 0, 2 * dpr, h);
-    // 再生位置
     if (playhead !== null) {
       const px = (playhead / dur) * w;
       g.fillStyle = '#ffffff';
-      g.fillRect(px - dpr / 2, 0, dpr, h);
+      g.fillRect(px - dpr, 0, 2 * dpr, h);
     }
   }
 
-  function setSelection(s, e, fromSlider) {
+  // which: 'start' / 'end' / 省略（両方を指定どおりに）
+  function setSelection(s, e, which) {
     const dur = audioBuffer.duration;
-    const gap = dur * MIN_GAP / RANGE_MAX;
+    const gap = Math.min(MIN_LEN, dur);
     s = Math.max(0, Math.min(s, dur));
     e = Math.max(0, Math.min(e, dur));
     if (e - s < gap) {
-      if (fromSlider === 'end') e = Math.min(dur, s + gap); else s = Math.max(0, e - gap);
+      if (which === 'end') e = Math.min(dur, s + gap), s = Math.min(s, e - gap);
+      else s = Math.max(0, e - gap), e = Math.max(e, s + gap);
     }
     selStart = s; selEnd = e;
-    if (fromSlider !== 'start') startRange.value = Math.round(s / dur * RANGE_MAX);
-    if (fromSlider !== 'end') endRange.value = Math.round(e / dur * RANGE_MAX);
-    fill.style.left = (s / dur * 100) + '%';
-    fill.style.width = ((e - s) / dur * 100) + '%';
+    const sp = s / dur * 100, ep = e / dur * 100;
+    hStart.style.left = sp + '%';
+    hEnd.style.left = ep + '%';
+    fill.style.left = sp + '%';
+    fill.style.width = (ep - sp) + '%';
+    hStart.setAttribute('aria-valuetext', fmtTime(s));
+    hEnd.setAttribute('aria-valuetext', fmtTime(e));
     tStart.textContent = fmtTime(s);
     tEnd.textContent = fmtTime(e);
     tLen.textContent = fmtTime(e - s);
     drawWave();
   }
+  function moveHandle(which, t) {
+    if (which === 'start') setSelection(Math.min(t, selEnd), selEnd, 'start');
+    else setSelection(selStart, Math.max(t, selStart), 'end');
+  }
 
-  startRange.addEventListener('input', () => {
-    if (!audioBuffer) return;
-    stopPreview();
-    let v = +startRange.value;
-    if (v > +endRange.value - MIN_GAP) { v = +endRange.value - MIN_GAP; startRange.value = v; }
-    setSelection(v / RANGE_MAX * audioBuffer.duration, selEnd, 'start');
-  });
-  endRange.addEventListener('input', () => {
-    if (!audioBuffer) return;
-    stopPreview();
-    let v = +endRange.value;
-    if (v < +startRange.value + MIN_GAP) { v = +startRange.value + MIN_GAP; endRange.value = v; }
-    setSelection(selStart, v / RANGE_MAX * audioBuffer.duration, 'end');
-  });
-
-  // 波形を直接ドラッグして開始／終了を動かす（近いほうのラインが動く）
-  let dragging = null;
-  function timeAt(ev) {
-    const r = waveCanvas.getBoundingClientRect();
+  // つまみ・波形を指でドラッグ（近いほうのつまみが動く）
+  function timeAt(el, ev) {
+    const r = el.getBoundingClientRect();
     const x = Math.min(Math.max(ev.clientX - r.left, 0), r.width);
     return (x / r.width) * audioBuffer.duration;
   }
-  waveCanvas.addEventListener('pointerdown', (ev) => {
+  function attachDrag(el, pick) {
+    let which = null;
+    el.addEventListener('pointerdown', (ev) => {
+      if (!audioBuffer) return;
+      ev.preventDefault();
+      stopPreview();
+      const t = timeAt(rangeEl, ev);
+      which = pick(ev, t);
+      (which === 'start' ? hStart : hEnd).classList.add('active');
+      el.setPointerCapture(ev.pointerId);
+      moveHandle(which, t);
+    });
+    el.addEventListener('pointermove', (ev) => { if (which) moveHandle(which, timeAt(rangeEl, ev)); });
+    const end = () => {
+      if (!which) return;
+      hStart.classList.remove('active'); hEnd.classList.remove('active');
+      which = null;
+    };
+    el.addEventListener('pointerup', end);
+    el.addEventListener('pointercancel', end);
+  }
+  const nearest = (_, t) => Math.abs(t - selStart) <= Math.abs(t - selEnd) ? 'start' : 'end';
+  attachDrag(rangeEl, (ev, t) => ev.target === hStart ? 'start' : ev.target === hEnd ? 'end' : nearest(ev, t));
+  attachDrag(waveCanvas, nearest);
+
+  // キーボード（PC）でも操作できるように
+  [hStart, hEnd].forEach(h => h.addEventListener('keydown', (e) => {
+    if (!audioBuffer) return;
+    const d = { ArrowLeft: -0.1, ArrowRight: 0.1, ArrowDown: -1, ArrowUp: 1 }[e.key];
+    if (d === undefined) return;
+    e.preventDefault();
+    stopPreview();
+    const which = h === hStart ? 'start' : 'end';
+    moveHandle(which, (which === 'start' ? selStart : selEnd) + d);
+  }));
+
+  // ±0.1秒の微調整ボタン
+  document.querySelectorAll('[data-nudge]').forEach(b => b.addEventListener('click', () => {
     if (!audioBuffer) return;
     stopPreview();
-    const t = timeAt(ev);
-    dragging = Math.abs(t - selStart) <= Math.abs(t - selEnd) ? 'start' : 'end';
-    waveCanvas.setPointerCapture(ev.pointerId);
-    moveDrag(t);
-  });
-  waveCanvas.addEventListener('pointermove', (ev) => { if (dragging) moveDrag(timeAt(ev)); });
-  const endDrag = () => { dragging = null; };
-  waveCanvas.addEventListener('pointerup', endDrag);
-  waveCanvas.addEventListener('pointercancel', endDrag);
-  function moveDrag(t) {
-    if (dragging === 'start') setSelection(Math.min(t, selEnd), selEnd, null);
-    else setSelection(selStart, Math.max(t, selStart), 'end');
-  }
+    const which = b.dataset.nudge, d = parseFloat(b.dataset.d);
+    moveHandle(which, (which === 'start' ? selStart : selEnd) + d);
+  }));
 
   resetBtn.addEventListener('click', () => {
     if (!audioBuffer) return;
@@ -590,15 +699,16 @@
   playBtn.addEventListener('click', () => {
     if (!audioBuffer) return;
     if (previewSrc) { stopPreview(); return; }
+    setAudioSession('playback');
     const ctx = getCtx();
     const src = ctx.createBufferSource();
     src.buffer = audioBuffer;
     src.connect(ctx.destination);
-    const dur = selEnd - selStart;
-    src.start(0, selStart, dur);
+    src.start(0, selStart, selEnd - selStart);
     previewSrc = src;
     previewStartedAt = ctx.currentTime;
     playBtn.textContent = '■ 停止';
+    playBtn.classList.add('playing');
     src.onended = () => { if (previewSrc === src) stopPreview(); };
     const tick = () => {
       if (!previewSrc) return;
@@ -618,6 +728,7 @@
     cancelAnimationFrame(playRAF);
     playhead = null;
     playBtn.textContent = '▶ 選択範囲をプレビュー再生';
+    playBtn.classList.remove('playing');
     drawWave();
   }
 
@@ -626,31 +737,30 @@
     const sr = buf.sampleRate, ch = buf.numberOfChannels;
     const a = Math.floor(startSec * sr), b = Math.min(buf.length, Math.ceil(endSec * sr));
     const frames = Math.max(0, b - a);
-    const bytesPerSample = 2;
-    const dataSize = frames * ch * bytesPerSample;
+    const dataSize = frames * ch * 2;
     const ab = new ArrayBuffer(44 + dataSize);
     const v = new DataView(ab);
     const str = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
     str(0, 'RIFF'); v.setUint32(4, 36 + dataSize, true); str(8, 'WAVE');
     str(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, ch, true);
-    v.setUint32(24, sr, true); v.setUint32(28, sr * ch * bytesPerSample, true);
-    v.setUint16(32, ch * bytesPerSample, true); v.setUint16(34, 16, true);
+    v.setUint32(24, sr, true); v.setUint32(28, sr * ch * 2, true);
+    v.setUint16(32, ch * 2, true); v.setUint16(34, 16, true);
     str(36, 'data'); v.setUint32(40, dataSize, true);
 
     const chans = [];
     for (let c = 0; c < ch; c++) chans.push(buf.getChannelData(c));
     // 切れ目の「プツッ」音を防ぐため、両端 5ms をフェード
     const fadeLen = Math.min(Math.floor(sr * 0.005), Math.floor(frames / 2));
-    let off = 44;
+    const out = new Int16Array(ab, 44, frames * ch);
+    let o = 0;
     for (let i = 0; i < frames; i++) {
       let gain = 1;
       if (i < fadeLen) gain = i / fadeLen;
       else if (i >= frames - fadeLen) gain = (frames - 1 - i) / fadeLen;
       for (let c = 0; c < ch; c++) {
         let s = chans[c][a + i] * gain;
-        s = Math.max(-1, Math.min(1, s));
-        v.setInt16(off, s < 0 ? s * 0x8000 : s * 0x7fff, true);
-        off += 2;
+        s = s < -1 ? -1 : s > 1 ? 1 : s;
+        out[o++] = s < 0 ? s * 0x8000 : s * 0x7fff;
       }
     }
     return new Blob([ab], { type: 'audio/wav' });
@@ -659,53 +769,81 @@
   function sanitize(name) {
     return name.replace(/[\\/:*?"<>|\x00-\x1f]/g, '_').replace(/\.wav$/i, '').trim();
   }
+  function makeFile() {
+    const name = (sanitize(nameInput.value) || defaultName()) + '.wav';
+    return { name, blob: encodeWav(audioBuffer, selStart, selEnd) };
+  }
 
   function save() {
     if (!audioBuffer) { toast('先に録音してください', 'err'); return; }
     stopPreview();
-    const name = sanitize(nameInput.value) || defaultName();
-    const blob = encodeWav(audioBuffer, selStart, selEnd);
+    nameInput.blur(); // スマホのキーボードを閉じる
+    const { name, blob } = makeFile();
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = name + '.wav';
+    a.download = name;
     document.body.appendChild(a);
     a.click();
     a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 5000);
-    toast(`「${name}.wav」を保存しました`, 'ok');
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    vibrate(30);
+    toast(`「${name}」を保存しました`, 'ok');
   }
   saveBtn.addEventListener('click', save);
+
+  // 共有（スマホの共有メニュー：LINE・メール・「ファイルに保存」など）
+  const canShareFiles = (() => {
+    try {
+      return !!(navigator.canShare &&
+        navigator.canShare({ files: [new File([new Uint8Array(44)], 't.wav', { type: 'audio/wav' })] }));
+    } catch (_) { return false; }
+  })();
+  if (canShareFiles) { shareBtn.classList.remove('hidden'); saveGrid.classList.add('two'); saveBtn.textContent = '💾 保存'; shareBtn.textContent = '📤 共有'; }
+  shareBtn.addEventListener('click', async () => {
+    if (!audioBuffer) return;
+    stopPreview();
+    const { name, blob } = makeFile();
+    try {
+      await navigator.share({ files: [new File([blob], name, { type: 'audio/wav' })], title: name });
+    } catch (e) {
+      if (e && e.name !== 'AbortError') toast('共有できませんでした。「保存」を使ってください', 'err');
+    }
+  });
 
   // ---------- ファイル名：タグ & Enter ----------
   tagBtns.forEach(btn => btn.addEventListener('click', () => {
     const tag = btn.dataset.tag;
     let v = nameInput.value;
-    if (v.startsWith(tag) || v.includes(tag)) {
-      v = v.replace(tag, '');
-      btn.classList.remove('on');
-    } else {
-      v = tag + v;
-      btn.classList.add('on');
-    }
+    if (v.includes(tag)) v = v.replace(tag, '');
+    else v = tag + v;
     nameInput.value = v;
-    nameInput.focus();
-    nameInput.setSelectionRange(v.length, v.length);
+    syncTags();
+    vibrate(10);
+    if (!isTouch) { // スマホでは毎回キーボードが出ると邪魔なのでフォーカスしない
+      nameInput.focus();
+      nameInput.setSelectionRange(v.length, v.length);
+    }
   }));
-  nameInput.addEventListener('input', () => {
+  function syncTags() {
     tagBtns.forEach(b => b.classList.toggle('on', nameInput.value.includes(b.dataset.tag)));
-  });
+  }
+  nameInput.addEventListener('input', syncTags);
   nameInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); save(); }
+    if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); save(); }
   });
 
   // ---------- 初期化 ----------
   nameInput.value = defaultName();
   clearLive();
+  let resizeTimer = 0;
   window.addEventListener('resize', () => {
-    peaks = null;
-    drawWave();
-    if (!(recorder && recorder.state === 'recording')) clearLive();
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      peaks = null;
+      drawWave();
+      if (!(recorder && recorder.state === 'recording')) clearLive();
+    }, 100);
   });
 })();
 </script>
