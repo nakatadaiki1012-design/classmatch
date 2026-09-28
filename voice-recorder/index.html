@@ -154,6 +154,50 @@
   button.btn { white-space: nowrap; }
   button.btn.playing { border-color: var(--ok); color: var(--ok); }
 
+  /* 印（マーカー） */
+  button.btn.mark {
+    width: 100%; margin-top: 4px; border-color: #d9963f; color: #ffcf8f;
+    background: rgba(217,150,63,.12);
+  }
+  button.btn.mark:active { background: rgba(217,150,63,.24); }
+  .markers { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .markers .chip {
+    font: inherit; font-size: .85rem; cursor: pointer; color: var(--text);
+    background: var(--panel-2); border: 1px solid var(--border);
+    border-radius: 10px; height: 40px; padding: 0 12px;
+    display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+  }
+  .markers .chip .no { color: #ffcf8f; font-weight: 600; }
+  .markers .chip.on { border-color: #d9963f; background: rgba(217,150,63,.16); }
+  .markers .chip .del { color: var(--muted); font-size: 1.1rem; line-height: 1; padding: 0 2px; }
+
+  /* 再生・ループ・速度 */
+  .play-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+  button.btn.looping { border-color: var(--accent); color: #cdd8ff; background: rgba(108,140,255,.14); }
+  .speed-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  .speed-label { font-size: .82rem; color: var(--muted); }
+  .speed-note { font-size: .72rem; color: var(--muted); margin-left: auto; }
+  button.sp {
+    font: inherit; font-size: .85rem; color: var(--text);
+    background: var(--panel-2); border: 1px solid var(--border);
+    border-radius: 10px; height: 40px; min-width: 56px; cursor: pointer;
+  }
+  button.sp.on { background: rgba(108,140,255,.2); border-color: var(--accent); color: #cdd8ff; font-weight: 600; }
+
+  /* 音程・テンポ */
+  .an-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+  .an-row .btn { flex-shrink: 0; }
+  .an-out { flex: 1; font-size: 1.05rem; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.35; }
+  .an-out .sub { display: block; font-size: .78rem; font-weight: 400; color: var(--muted); }
+  .an-out.high { color: #ffb454; } .an-out.low { color: #6cc1ff; } .an-out.ok { color: var(--ok); }
+  .an-ref { display: flex; align-items: center; gap: 6px; font-size: .82rem; color: var(--muted); margin-bottom: 14px; flex-wrap: wrap; }
+  button.ref {
+    font: inherit; font-size: .82rem; color: var(--text);
+    background: var(--panel-2); border: 1px solid var(--border);
+    border-radius: 8px; height: 34px; min-width: 46px; cursor: pointer;
+  }
+  button.ref.on { background: rgba(108,140,255,.2); border-color: var(--accent); color: #cdd8ff; }
+
   /* ---------- ファイル名 ---------- */
   .tags { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 10px; }
   .tag {
@@ -211,6 +255,7 @@
       <div id="timer" class="timer">00:00.0</div>
       <div id="status" class="status">ボタンを押すと録音を開始します</div>
       <canvas id="live" class="live-canvas"></canvas>
+      <button id="markBtn" class="btn mark hidden">🚩 ここに印をつける</button>
     </div>
   </section>
 
@@ -252,11 +297,46 @@
       </div>
     </div>
 
+    <div id="markers" class="markers hidden"></div>
+
     <div class="btn-grid">
       <button id="autoBtn" class="btn">✂️ 無音カット</button>
       <button id="resetBtn" class="btn">↺ 全体に戻す</button>
-      <button id="playBtn" class="btn wide">▶ 選択範囲をプレビュー再生</button>
     </div>
+
+    <div class="play-row">
+      <button id="playBtn" class="btn">▶ 選択範囲を再生</button>
+      <button id="loopBtn" class="btn">🔁 くり返し</button>
+    </div>
+    <div class="speed-row">
+      <span class="speed-label">速さ</span>
+      <button class="sp" data-speed="0.5">0.5×</button>
+      <button class="sp" data-speed="0.75">0.75×</button>
+      <button class="sp on" data-speed="1">1.0×</button>
+      <span class="speed-note">音程はそのまま</span>
+    </div>
+  </section>
+
+  <!-- 音程・テンポ -->
+  <section id="analyzeCard" class="card disabled">
+    <h2>音程・テンポの確認（吹奏楽向け）</h2>
+    <div class="an-row">
+      <button id="pitchBtn" class="btn">🎵 音程を測定</button>
+      <div id="pitchOut" class="an-out">—</div>
+    </div>
+    <div class="an-ref">
+      <span>基準 A =</span>
+      <button class="ref" data-ref="440">440</button>
+      <button class="ref on" data-ref="442">442</button>
+      <button class="ref" data-ref="443">443</button>
+      <button class="ref" data-ref="444">444</button>
+      <span>Hz</span>
+    </div>
+    <div class="an-row">
+      <button id="tempoBtn" class="btn">🥁 テンポを測定</button>
+      <div id="tempoOut" class="an-out">—</div>
+    </div>
+    <p class="hint">選択範囲を分析します。音程は「単音をのばした音」、テンポは「一定のリズムがあるとき」に正確です。</p>
   </section>
 
   <!-- 3. ファイル名 & 保存 -->
@@ -302,6 +382,10 @@
   const nameInput = $('nameInput'), saveBtn = $('saveBtn'), shareBtn = $('shareBtn');
   const saveGrid = $('saveGrid'), toastEl = $('toast');
   const tagBtns = Array.from(document.querySelectorAll('.tag'));
+  const markBtn = $('markBtn'), markersEl = $('markers');
+  const loopBtn = $('loopBtn'), analyzeCard = $('analyzeCard');
+  const pitchBtn = $('pitchBtn'), pitchOut = $('pitchOut');
+  const tempoBtn = $('tempoBtn'), tempoOut = $('tempoOut');
 
   const TARGET_RATE = 24000;   // 声の録音に十分な音質で、ファイルサイズを約半分にする
   const MIN_LEN = 0.05;        // 選択範囲の最小の長さ（秒）
@@ -316,7 +400,18 @@
   let audioBuffer = null;   // 録音したデータ（モノラル）
   let peaks = null;         // 波形描画用（列ごとの最小・最大）
   let selStart = 0, selEnd = 0; // 秒
-  let previewSrc = null, previewStartedAt = 0, playRAF = 0, playhead = null;
+  let markers = [];         // 録音中に付けた印（秒）
+  let playRAF = 0, playhead = null;
+  let speed = 1, loopOn = false, previewURL = null;
+  let refA = 442;           // チューナーの基準ピッチ（Hz）
+
+  // 再生・ループ・速度変更用の <audio>。preservesPitch で音程を変えずに遅くできる
+  const audioEl = new Audio();
+  audioEl.preservesPitch = true;
+  audioEl.mozPreservesPitch = true;
+  audioEl.webkitPreservesPitch = true;
+  audioEl.playsInline = true;
+  audioEl.addEventListener('ended', () => { if (!loopOn) stopPreview(); });
 
   // iPhone ではタップした瞬間に AudioContext を作らないと音が出ないため、必ずタップ処理の中で呼ぶ
   function getCtx() {
@@ -409,6 +504,7 @@
     recorder.start(1000);
 
     recStartTime = performance.now();
+    markers = [];
     nameInput.value = defaultName();
     tagBtns.forEach(b => b.classList.remove('on'));
     recBtn.classList.add('recording');
@@ -416,6 +512,10 @@
     statusEl.classList.add('live');
     editCard.classList.add('disabled');
     saveCard.classList.add('disabled');
+    analyzeCard.classList.add('disabled');
+    markBtn.classList.remove('hidden');
+    markBtn.textContent = '🚩 ここに印をつける';
+    markersEl.classList.add('hidden');
     vibrate(30);
     keepScreenOn(true);
     tickTimer();
@@ -428,6 +528,7 @@
     cancelAnimationFrame(timerRAF);
     cancelAnimationFrame(liveRAF);
     recBtn.classList.remove('recording');
+    markBtn.classList.add('hidden');
     statusEl.classList.remove('live');
     statusEl.textContent = '音声を解析しています…';
     vibrate([20, 60, 20]);
@@ -440,6 +541,16 @@
     timerEl.textContent = fmtTimer((performance.now() - recStartTime) / 1000);
     timerRAF = requestAnimationFrame(tickTimer);
   }
+
+  // 録音中に印をつける
+  markBtn.addEventListener('click', () => {
+    if (!(recorder && recorder.state === 'recording')) return;
+    const t = (performance.now() - recStartTime) / 1000;
+    markers.push(t);
+    vibrate(20);
+    markBtn.textContent = `🚩 印をつけた（${markers.length}個）`;
+    toast(`印 ${markers.length}：${fmtTime(t)}`, 'ok');
+  });
 
   let liveData = null;
   function drawLive() {
@@ -506,9 +617,36 @@
     statusEl.textContent = `録音完了（${fmtTime(audioBuffer.duration)}）`;
     editCard.classList.remove('disabled');
     saveCard.classList.remove('disabled');
+    analyzeCard.classList.remove('disabled');
     waveEmpty.style.display = 'none';
     peaks = null;
+    // 録音の実測時間よりわずかに長い印は末尾に丸める
+    markers = markers.map(t => Math.min(t, audioBuffer.duration)).filter(t => t >= 0).sort((a, b) => a - b);
+    pitchOut.textContent = tempoOut.textContent = '—';
+    pitchOut.className = tempoOut.className = 'an-out';
+    renderMarkers();
     setSelection(0, audioBuffer.duration);
+  }
+
+  // 印のチップを描く。タップで「その印から次の印まで」を選択
+  function renderMarkers() {
+    markersEl.innerHTML = '';
+    if (!markers.length) { markersEl.classList.add('hidden'); return; }
+    markersEl.classList.remove('hidden');
+    markers.forEach((t, i) => {
+      const chip = document.createElement('button');
+      chip.className = 'chip';
+      const next = i + 1 < markers.length ? markers[i + 1] : audioBuffer.duration;
+      chip.innerHTML = `<span class="no">${i + 1}</span> ${fmtTime(t)}<span class="del">×</span>`;
+      chip.addEventListener('click', (e) => {
+        if (e.target.classList.contains('del')) { markers.splice(i, 1); renderMarkers(); drawWave(); return; }
+        stopPreview();
+        setSelection(t, next);
+        markersEl.querySelectorAll('.chip').forEach(c => c.classList.remove('on'));
+        chip.classList.add('on');
+      });
+      markersEl.appendChild(chip);
+    });
   }
 
   // ---------- 2. 波形 ----------
@@ -563,6 +701,18 @@
     g.fillStyle = 'rgba(10,12,18,0.55)';
     g.fillRect(0, 0, sx, h);
     g.fillRect(ex, 0, w - ex, h);
+    // 印（マーカー）の縦線と番号
+    if (markers && markers.length) {
+      for (let i = 0; i < markers.length; i++) {
+        const mxp = (markers[i] / dur) * w;
+        g.fillStyle = '#d9963f';
+        g.fillRect(mxp - dpr / 2, 0, dpr, h);
+        g.fillStyle = '#d9963f';
+        g.font = `${11 * dpr}px sans-serif`;
+        g.textBaseline = 'top';
+        g.fillText(String(i + 1), mxp + 3 * dpr, 3 * dpr);
+      }
+    }
     g.fillStyle = cssVar('--accent');
     g.fillRect(sx - dpr, 0, 2 * dpr, h);
     g.fillStyle = cssVar('--accent-2');
@@ -695,24 +845,25 @@
     toast(cut > 0.05 ? `無音部分 ${cut.toFixed(1)} 秒をカットしました` : 'カットできる無音はありませんでした', 'ok');
   });
 
-  // プレビュー再生
+  // プレビュー再生（選択範囲を WAV にして <audio> で再生。ループ・速度変更に対応）
   playBtn.addEventListener('click', () => {
     if (!audioBuffer) return;
-    if (previewSrc) { stopPreview(); return; }
+    if (!audioEl.paused) { stopPreview(); return; }
     setAudioSession('playback');
-    const ctx = getCtx();
-    const src = ctx.createBufferSource();
-    src.buffer = audioBuffer;
-    src.connect(ctx.destination);
-    src.start(0, selStart, selEnd - selStart);
-    previewSrc = src;
-    previewStartedAt = ctx.currentTime;
+    const blob = encodeWav(audioBuffer, selStart, selEnd);
+    if (previewURL) URL.revokeObjectURL(previewURL);
+    previewURL = URL.createObjectURL(blob);
+    audioEl.src = previewURL;
+    audioEl.loop = loopOn;
+    audioEl.playbackRate = speed;
+    audioEl.preservesPitch = audioEl.mozPreservesPitch = audioEl.webkitPreservesPitch = true;
+    audioEl.currentTime = 0;
+    audioEl.play().catch(() => toast('再生できませんでした', 'err'));
     playBtn.textContent = '■ 停止';
     playBtn.classList.add('playing');
-    src.onended = () => { if (previewSrc === src) stopPreview(); };
     const tick = () => {
-      if (!previewSrc) return;
-      playhead = Math.min(selEnd, selStart + (ctx.currentTime - previewStartedAt));
+      if (audioEl.paused) return;
+      playhead = Math.min(selEnd, selStart + audioEl.currentTime);
       drawWave();
       playRAF = requestAnimationFrame(tick);
     };
@@ -720,17 +871,29 @@
   });
 
   function stopPreview() {
-    if (previewSrc) {
-      const s = previewSrc;
-      previewSrc = null;
-      try { s.stop(); } catch (_) {}
-    }
+    if (!audioEl.paused) { try { audioEl.pause(); } catch (_) {} }
     cancelAnimationFrame(playRAF);
     playhead = null;
-    playBtn.textContent = '▶ 選択範囲をプレビュー再生';
+    playBtn.textContent = '▶ 選択範囲を再生';
     playBtn.classList.remove('playing');
     drawWave();
   }
+
+  // くり返し（ループ）
+  loopBtn.addEventListener('click', () => {
+    loopOn = !loopOn;
+    loopBtn.classList.toggle('looping', loopOn);
+    audioEl.loop = loopOn;
+    vibrate(10);
+  });
+
+  // 速さ（0.5 / 0.75 / 1.0 倍。音程は変えない）
+  document.querySelectorAll('.sp').forEach(b => b.addEventListener('click', () => {
+    speed = parseFloat(b.dataset.speed);
+    document.querySelectorAll('.sp').forEach(x => x.classList.toggle('on', x === b));
+    audioEl.playbackRate = speed; // 再生中でも即反映
+    vibrate(10);
+  }));
 
   // ---------- 3. WAV 書き出し ----------
   function encodeWav(buf, startSec, endSec) {
@@ -832,6 +995,139 @@
   nameInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); save(); }
   });
+
+  // ---------- 音程・テンポ ----------
+  // 選択範囲をモノラルの Float32Array で取り出す
+  function selectedMono() {
+    const sr = audioBuffer.sampleRate, ch = audioBuffer.numberOfChannels;
+    const a = Math.floor(selStart * sr), b = Math.min(audioBuffer.length, Math.ceil(selEnd * sr));
+    const n = Math.max(0, b - a);
+    const out = new Float32Array(n);
+    for (let c = 0; c < ch; c++) {
+      const d = audioBuffer.getChannelData(c);
+      for (let i = 0; i < n; i++) out[i] += d[a + i] / ch;
+    }
+    return { data: out, sr };
+  }
+
+  // 自己相関で音の高さ（Hz）を求める。音がなければ -1。
+  // 正規化した相関の「山のうち一番小さいラグ＝基音」を採り、オクターブ誤検出を防ぐ
+  function autoCorrelate(buf, sr) {
+    const N = buf.length;
+    let rms = 0;
+    for (let i = 0; i < N; i++) rms += buf[i] * buf[i];
+    rms = Math.sqrt(rms / N);
+    if (rms < 0.008) return -1; // 静かすぎる
+    // 前後の無音を軽く除く
+    let s = 0, e = N - 1, th = 0.15 * rms;
+    while (s < e && Math.abs(buf[s]) < th) s++;
+    while (e > s && Math.abs(buf[e]) < th) e--;
+    let b = buf.subarray(s, e + 1);
+    if (b.length > sr * 0.5) b = b.subarray(0, Math.floor(sr * 0.5)); // 0.5秒あれば十分・高速化
+    const m = b.length;
+    if (m < 256) return -1;
+    const maxLag = Math.min(m - 1, Math.floor(sr / 60));   // 60Hz まで
+    const minLag = Math.max(2, Math.floor(sr / 1200));     // 1200Hz まで
+    const nac = new Float32Array(maxLag + 2);
+    let e0 = 0;
+    for (let i = 0; i < m; i++) e0 += b[i] * b[i];
+    for (let lag = minLag; lag <= maxLag; lag++) {
+      let c = 0, el = 0;
+      for (let i = 0; i < m - lag; i++) { c += b[i] * b[i + lag]; el += b[i + lag] * b[i + lag]; }
+      nac[lag] = c / (Math.sqrt(e0 * el) + 1e-9);
+    }
+    let gm = 0;
+    for (let lag = minLag; lag <= maxLag; lag++) if (nac[lag] > gm) gm = nac[lag];
+    if (gm < 0.3) return -1; // はっきりした音程がない
+    const thr = 0.9 * gm;
+    let best = -1;
+    for (let lag = minLag + 1; lag < maxLag; lag++) {
+      if (nac[lag] >= thr && nac[lag] >= nac[lag - 1] && nac[lag] >= nac[lag + 1]) { best = lag; break; }
+    }
+    if (best < 0) return -1;
+    const y1 = nac[best - 1], y2 = nac[best], y3 = nac[best + 1];
+    const d = (y3 - y1) / (2 * (2 * y2 - y1 - y3)); // 放物線補間
+    if (isFinite(d)) best += d;
+    return sr / best;
+  }
+
+  const NOTE_JP = ['ド','ド♯','レ','レ♯','ミ','ファ','ファ♯','ソ','ソ♯','ラ','ラ♯','シ'];
+  const NOTE_EN = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+  pitchBtn.addEventListener('click', () => {
+    if (!audioBuffer) return;
+    stopPreview();
+    const { data, sr } = selectedMono();
+    const f = autoCorrelate(data, sr);
+    if (f <= 0) {
+      pitchOut.className = 'an-out';
+      pitchOut.innerHTML = '音の高さを検出できませんでした<span class="sub">単音を少し長めに選んでください</span>';
+      return;
+    }
+    // 基準 A から音名とズレ（セント）を計算
+    const midi = 69 + 12 * Math.log2(f / refA);
+    const nearest = Math.round(midi);
+    const cents = Math.round((midi - nearest) * 100);
+    const name = NOTE_JP[(nearest % 12 + 12) % 12] + '（' + NOTE_EN[(nearest % 12 + 12) % 12] + Math.floor(nearest / 12 - 1) + '）';
+    const dirCls = Math.abs(cents) <= 10 ? 'ok' : (cents > 0 ? 'high' : 'low');
+    const dirTxt = Math.abs(cents) <= 10 ? 'ほぼ合っています' : (cents > 0 ? `${cents} セント高い` : `${-cents} セント低い`);
+    pitchOut.className = 'an-out ' + dirCls;
+    pitchOut.innerHTML = `${name} <span class="sub">${f.toFixed(1)} Hz ／ 基準 ${dirTxt}</span>`;
+    vibrate(15);
+  });
+
+  tempoBtn.addEventListener('click', () => {
+    if (!audioBuffer) return;
+    stopPreview();
+    const { data, sr } = selectedMono();
+    const hop = Math.max(1, Math.floor(sr * 0.005)); // 5ms ごと
+    const n = Math.floor(data.length / hop);
+    if (n < 40) { tempoOut.className = 'an-out'; tempoOut.innerHTML = '短すぎて測定できません<span class="sub">数秒以上のリズムを選んでください</span>'; return; }
+    // 音の立ち上がり（新しい音が始まった量）を並べる
+    const nov = new Float32Array(n);
+    let prev = 0, mean = 0;
+    for (let k = 0; k < n; k++) {
+      let sum = 0;
+      for (let i = k * hop; i < (k + 1) * hop; i++) sum += data[i] * data[i];
+      const e = Math.sqrt(sum / hop);
+      nov[k] = Math.max(0, e - prev); // エネルギーが増えた分だけ
+      prev = e; mean += nov[k];
+    }
+    mean /= n;
+    for (let k = 0; k < n; k++) nov[k] -= mean; // 平均を引いて相関を安定させる
+    // 自己相関で一番くり返している間隔を探す（40〜240 BPM）。一番小さいラグの山を採用
+    const hopT = hop / sr;
+    const minLag = Math.max(1, Math.round(60 / 240 / hopT));
+    const maxLag = Math.min(n - 1, Math.round(60 / 40 / hopT));
+    const ac = new Float32Array(maxLag + 2);
+    let gm = 0;
+    for (let lag = minLag; lag <= maxLag; lag++) {
+      let c = 0;
+      for (let i = 0; i < n - lag; i++) c += nov[i] * nov[i + lag];
+      ac[lag] = c / (n - lag);
+      if (ac[lag] > gm) gm = ac[lag];
+    }
+    if (gm <= 0) { tempoOut.className = 'an-out'; tempoOut.innerHTML = 'テンポを検出できませんでした<span class="sub">一定のリズムがある部分を選んでください</span>'; return; }
+    const thr = 0.75 * gm;
+    let best = -1;
+    for (let lag = minLag + 1; lag < maxLag; lag++) {
+      if (ac[lag] >= thr && ac[lag] >= ac[lag - 1] && ac[lag] > ac[lag + 1]) { best = lag; break; }
+    }
+    if (best < 0) { tempoOut.className = 'an-out'; tempoOut.innerHTML = 'テンポを検出できませんでした<span class="sub">一定のリズムがある部分を選んでください</span>'; return; }
+    const y1 = ac[best - 1], y2 = ac[best], y3 = ac[best + 1];
+    const dd = (y3 - y1) / (2 * (2 * y2 - y1 - y3));
+    const lagF = best + (isFinite(dd) ? dd : 0);
+    let bpm = 60 / (lagF * hopT);
+    while (bpm < 60) bpm *= 2;   // 聞きやすい範囲に寄せる
+    while (bpm > 200) bpm /= 2;
+    tempoOut.className = 'an-out ok';
+    tempoOut.innerHTML = `♩ = ${Math.round(bpm)} <span class="sub">おおよそのテンポ（BPM）</span>`;
+    vibrate(15);
+  });
+
+  document.querySelectorAll('.ref').forEach(b => b.addEventListener('click', () => {
+    refA = parseFloat(b.dataset.ref);
+    document.querySelectorAll('.ref').forEach(x => x.classList.toggle('on', x === b));
+  }));
 
   // ---------- 初期化 ----------
   nameInput.value = defaultName();
