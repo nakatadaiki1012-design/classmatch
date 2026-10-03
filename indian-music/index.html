@@ -104,12 +104,56 @@
   dl{margin:0; font-size:.85rem;} dt{font-weight:800; color:var(--accent); margin-top:8px;} dd{margin:0 0 0 1em;}
   .keys{font-size:.78rem; color:var(--sub);}
   .keys kbd{background:var(--panel2); border:1px solid var(--line); border-radius:4px; padding:0 5px; color:var(--text);}
+  .orig{font-size:.75rem !important; padding:4px 8px; border-radius:8px; display:inline-block;}
+  .orig.trad{background:rgba(124,207,138,.12); color:#9be6a7;} .orig.app{background:rgba(255,179,71,.1); color:#ffd08a;}
+  /* レッスン・練習・耳トレ */
+  .units h3{margin-top:14px;}
+  .lessons{display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:8px;}
+  .lcard{background:var(--panel2); border:1px solid var(--line); border-radius:10px; padding:10px; cursor:pointer; text-align:left; color:var(--text); font-weight:500; font-size:.85rem;}
+  .lcard:hover{border-color:var(--accent);}
+  .lcard .ln{font-size:.7rem; color:var(--sub);} .lcard .st{float:right; color:var(--accent); letter-spacing:1px;}
+  .lcard.done{border-color:#5b8f5f;}
+  .lcard.next{box-shadow:0 0 0 2px var(--accent);}
+  .steps{margin:.4rem 0; padding-left:1.3em; font-size:.88rem;} .steps li{margin:.25rem 0;}
+  .tip{background:rgba(95,211,198,.08); border-left:3px solid var(--accent2); padding:6px 10px; border-radius:6px; font-size:.82rem; margin:6px 0;}
+  .pbox{background:var(--panel2); border:1px solid var(--line); border-radius:12px; padding:12px; margin-top:10px;}
+  .pcount{font-size:2.6rem; font-weight:900; color:var(--accent); text-align:center; min-height:0;}
+  .pgrid{display:flex; flex-wrap:wrap; gap:5px; margin:8px 0;}
+  .pgrid .pb{min-width:50px; background:var(--panel); border:1px solid var(--line); border-radius:7px; padding:3px 4px; text-align:center;}
+  .pgrid .pb.cur{box-shadow:0 0 0 2px var(--accent) inset;}
+  .pgrid .pb .no{font-size:.6rem; color:var(--sub);}
+  .pgrid .pb .mk{font-size:.66rem; font-weight:800; height:1.05em;}
+  .pgrid .tk{font-weight:700; font-size:.88rem; white-space:nowrap;}
+  .pgrid .tk span{padding:0 2px; border-radius:3px;}
+  .pgrid.blind .tk{visibility:hidden;}
+  .j-perfect{background:#2e7d4f; color:#fff;} .j-good{background:#4f8f3a; color:#fff;} .j-ok{background:#8a7a2a; color:#fff;}
+  .j-partial{background:#a8632a; color:#fff;} .j-wrong{background:#9b3b3b; color:#fff;} .j-miss{background:#5a2a2a; color:#d9a0a0; text-decoration:line-through;}
+  .pads{display:grid; grid-template-columns:repeat(auto-fill,minmax(84px,1fr)); gap:8px; margin-top:10px; user-select:none; touch-action:manipulation;}
+  .pad{min-height:64px; font-size:1rem; background:#3a2a1c; color:var(--text); border:1px solid var(--line); border-radius:12px; line-height:1.15;}
+  .pad small{display:block; font-size:.66rem; color:var(--sub); font-weight:500;}
+  .pad.left{background:#2b2236;} .pad.both{background:#3d2d14;}
+  .pad.dim{opacity:.35;}
+  .pad.hit{filter:brightness(1.8);}
+  .judge{font-size:1.3rem; font-weight:900; text-align:center; min-height:1.6em;}
+  .res{background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:12px; margin-top:10px;}
+  .res .big{font-size:2rem; font-weight:900; color:var(--accent);}
+  .res .stars{font-size:1.6rem; color:var(--accent); letter-spacing:3px;}
+  .cnts{display:flex; flex-wrap:wrap; gap:6px; margin:6px 0;} .cnts span{font-size:.75rem; padding:2px 8px; border-radius:99px;}
+  .qopts{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:8px; margin:10px 0;}
+  .qopt{background:var(--panel2); color:var(--text); border:1px solid var(--line); padding:12px 8px; font-size:1rem; line-height:1.2;}
+  .qopt small{display:block; font-size:.7rem; color:var(--sub); font-weight:500;}
+  .qopt.ok{background:#2e7d4f; color:#fff;} .qopt.ng{background:#9b3b3b; color:#fff;}
+  .prog{height:8px; background:var(--panel2); border-radius:99px; overflow:hidden; margin:6px 0;} .prog i{display:block; height:100%; background:var(--accent);}
+  .backlink{background:none; color:var(--accent2); padding:0; font-weight:600; font-size:.85rem;}
   #loading{position:fixed; inset:0; background:rgba(0,0,0,.6); display:none; align-items:center; justify-content:center; z-index:99; font-weight:700;}
 
   @media (max-width:760px){
     body{padding:8px;}
     .stage{grid-template-columns:1fr;}
     .beat{min-width:44px;} .beat .tk{font-size:.76rem;}
+    .pads{position:sticky; bottom:0; z-index:5; background:var(--panel2); padding:8px 0 4px; grid-template-columns:repeat(3,1fr);}
+    .pad.dim{display:none;}
+    .pgrid .pb{min-width:44px;}
     button{padding:11px 14px;}
     select,input[type=number]{font-size:16px; min-height:42px;}
   }
@@ -136,7 +180,8 @@
   <div id="grid"></div>
   <div class="row" style="margin-top:10px;">
     <button class="stop" id="stopBtn">■ 停止</button>
-    <label class="chk"><input type="checkbox" id="lehraChk" checked>レヘラー（伴奏旋律）</label>
+    <label class="chk" title="このアプリで作曲したヤマン風の旋律です（伝統曲ではありません）"><input type="checkbox" id="lehraChk" checked>レヘラー（伴奏旋律）</label>
+    <label class="chk" title="ターリー（2,3,X）で手拍子の音が鳴ります。唱える練習（パダント）用"><input type="checkbox" id="clapChk">手拍子の音</label>
     <label class="chk"><input type="checkbox" id="tanChk">タンプーラ（持続音）</label>
     <label class="ctl">調（ダーヤーンの音程＝サ）
       <select id="keySel">
@@ -150,7 +195,10 @@
 </div>
 
 <div class="tabs" id="tabs">
-  <button data-t="play" class="on">🥁 叩いてみる</button>
+  <button data-t="lesson" class="on">📚 レッスン（初心者はここから）</button>
+  <button data-t="play">🥁 叩いてみる</button>
+  <button data-t="practice">🎯 練習（採点）</button>
+  <button data-t="ear">👂 耳トレ</button>
   <button data-t="taal">🔄 ターラ（リズム周期）</button>
   <button data-t="flow">🎼 演奏の流れ・自動演奏</button>
   <button data-t="compose">✍️ 自分で作る</button>
@@ -158,7 +206,11 @@
 </div>
 
 <!-- 叩いてみる -->
-<div class="tab on" id="tab-play">
+<div class="tab on" id="tab-lesson"><div id="lessonRoot"></div></div>
+<div class="tab" id="tab-practice"><div id="practiceRoot"></div></div>
+<div class="tab" id="tab-ear"><div id="earRoot"></div></div>
+
+<div class="tab" id="tab-play">
   <div class="panel">
     <h2>ボル（口で唱える太鼓の言葉）を鳴らす</h2>
     <p class="small">タブラーでは打ち方ひとつひとつに「ボル（言葉）」がついていて、演奏者は曲を口で唱えて覚えます。<b>ダー＝ナー＋ゲー</b>のように、右手と左手を組み合わせたボルもあります。</p>
@@ -222,6 +274,7 @@
     <p class="small">独奏中は、ハルモニウムやサーランギーが<b>レヘラー（ナグマー）</b>という短い旋律を周期ごとに繰り返し、聴き手と奏者に「今どこか」を示します。全体として<b>遅く・単純 → 速く・複雑</b>へ進み、最後は<b>ティハーイー</b>で鮮やかにサムへ着地して終わります。（流派＝ガラーナーや奏者によって順番や曲目は変わります）</p>
     <div class="row">
       <button id="flowAll">▶ 最初から通しで自動演奏（約3分）</button>
+      <label class="ctl">再生速度 <span><input type="range" id="flowSpeed" min="40" max="100" value="100" step="5"> <b id="flowSpeedV">100%</b></span></label>
       <span class="legend small"><span class="tag-p1">■ ティハーイー1回目</span><span class="tag-p2">■ 2回目</span><span class="tag-p3">■ 3回目</span><span class="tag-theka">■ テーカ</span></span>
     </div>
   </div>
@@ -396,7 +449,12 @@ function showInfo(key){
   const typ = {open:'開放（響く）', closed:'閉じた（響かない）', mixed:'混合'}[b.type];
   $('#info').innerHTML = `<b class="big">${name}</b><b>${b.kana}</b> <span class="chip">${b.hand}</span><span class="chip ${b.type}">${typ}</span><br>${b.desc}`;
 }
-function playBol(key, vel){ boot(); tabla.bol(key, E.ctx.currentTime + .005, vel); showInfo(key); }
+function playBol(key, vel){
+  boot();
+  // 練習（採点）中は入力として記録。自分の音を消す設定なら鳴らさない
+  if (window.PracticeHook && window.PracticeHook(key)) return;
+  tabla.bol(key, E.ctx.currentTime + .005, vel); showInfo(key);
+}
 function playWord(word){
   boot();
   const toks = IM.parseWord(word); const t0 = E.ctx.currentTime + .02; const step = .11;
@@ -514,6 +572,7 @@ const Player = {
   playing:false,
   start(prog){
     this.stop(true); boot();
+    if (window.Practice) window.Practice.stop(true);
     this.prog = prog; this.si = 0; this.bi = 0; this.gb = 0; this.landing = null;
     this.nextT = E.ctx.currentTime + .25; this.vis = []; this.playing = true; this.lastCycleKey = null; this.ended = false;
     drawWheel(prog.taal);
@@ -530,8 +589,9 @@ const Player = {
   bpmOf(seg){
     const live = this.prog.liveBpm ? this.prog.liveBpm() : null;
     if (live) return live;
-    if (seg.bpmTo) return seg.bpm + (seg.bpmTo - seg.bpm) * (this.bi / seg.beats.length);
-    return seg.bpm;
+    const sp = this.prog.speed ? this.prog.speed() : 1;
+    if (seg.bpmTo) return sp * (seg.bpm + (seg.bpmTo - seg.bpm) * (this.bi / seg.beats.length));
+    return sp * seg.bpm;
   },
   pump(){
     if (!this.playing) return;
@@ -551,6 +611,9 @@ const Player = {
     const cyc = this.gb % taal.beats;
     // 周期の頭でレヘラー
     if (cyc === 0 && $('#lehraChk').checked && taal.beats === 16) this.lehra(this.nextT, spb);
+    // 手拍子（ターリー）。カーリーは手を振るだけなので音なし
+    const mk = beatMarks(taal)[cyc];
+    if (mk && $('#clapChk').checked && markType(mk) !== 'khali' && mk !== 'X/0') tabla.clap(this.nextT, mk.startsWith('X') ? 1 : .8);
     beat.forEach((tok, k) => {
       const tt = this.nextT + k * spb / n;
       let key = tok.key;
@@ -693,40 +756,45 @@ const chakra = tihaiSection({phrase:'Dha S Ti Ra Ki Ta Ta Ka Ti Ra Ki Ta Dha S S
 const thekaW = W(T16.theka);
 
 const FLOW = [
-  {id:'theka', no:1, name:'テーカ（導入）', rom:'Theka', laya:'マディヤ（中くらい）・約72', bpm:72,
+  {id:'theka', no:1, trad:1, orig:'伝統的な形：ティーンタールの標準的なテーカそのものです。', name:'テーカ（導入）', rom:'Theka', laya:'マディヤ（中くらい）・約72', bpm:72,
    beats:[...thekaW, ...thekaW], text:'まず基本パターンで周期（ここではティーンタール16拍）を示し、伴奏旋律レヘラーと一緒にテンポを確立します。',
    point:'9〜12拍目（カーリー）で低音が消えて軽くなるのを確認。'},
-  {id:'peshkar', no:2, name:'ペーシュカール', rom:'Peshkar', laya:'ゆったり・約72', bpm:72,
+  {id:'peshkar', no:2, trad:0, orig:'このアプリのオリジナル：ペーシュカールらしいボルと構成で作曲したものです（特定の伝統曲ではありません）。', name:'ペーシュカール', rom:'Peshkar', laya:'ゆったり・約72', bpm:72,
    beats:W(PESHKAR), text:'独奏の幕開けとなる、ゆったりした即興的な部分。「ディン」「ダー」などの開放音を中心に、間（ま）を生かして空間を探るように始めます。',
    point:'前半（バリー＝低音あり）と後半（カーリー＝低音なし）が対になる構造。'},
-  {id:'qaida', no:3, name:'カーイダ（主題と変奏）', rom:'Qaida', laya:'同じテンポで音数を増やす・約80', bpm:80,
+  {id:'qaida', no:3, trad:1, orig:'主題は伝統的：デリー派の有名なカーイダ「ダーティ・ダーゲ・ナーダー・ティラキタ」。変奏とティハーイーはこのアプリで作ったものです。', name:'カーイダ（主題と変奏）', rom:'Qaida', laya:'同じテンポで音数を増やす・約80', bpm:80,
    beats:[...W(QAIDA_MUKH), ...W(QAIDA_P1), ...qTihai.beats], tags:[...W(QAIDA_MUKH).map(b=>b.map(()=>'')), ...W(QAIDA_P1).map(b=>b.map(()=>'')), ...qTihai.tags], landing:qTihai.landing,
    text:'決まった主題（ムク）を、そのボルだけを使って並べ替えて変奏（パルター）していく、タブラー独奏の中心。「ルール（=カーイダ）」という意味。主題 → 変奏 → ティハーイーで締める。',
    point:'有名なデリー派の主題「ダーティ・ダーゲ・ナーダー・ティラキタ」。後半は低音が抜け（ターティ・ターケ…）、最後の4拍で戻ります。'},
-  {id:'rela', no:4, name:'レーラ（高速ロール）', rom:'Rela', laya:'速く・104→124（加速）', bpm:104, bpmTo:124,
+  {id:'rela', no:4, trad:0, orig:'このアプリのオリジナル：レーラでよく使われる語（ディラディラ、キタタカ等）を組み合わせて作曲。', name:'レーラ（高速ロール）', rom:'Rela', laya:'速く・104→124（加速）', bpm:104, bpmTo:124,
    beats:W(RELA), text:'「流れ」の意味。細かい音を途切れなく連ねる高速の部分で、テクニックの見せ場。だんだん速くなります。',
    point:'1拍に4つの音がずっと続く。ディラディラ＝手のひら側と指を交互に。'},
-  {id:'tukra', no:5, name:'トゥクラー', rom:'Tukra', laya:'速い・約124', bpm:124,
+  {id:'tukra', no:5, trad:0, orig:'このアプリのオリジナル：トゥクラーの型（短い曲＋ティハーイーでサム着地）に沿って作曲。', name:'トゥクラー', rom:'Tukra', laya:'速い・約124', bpm:124,
    beats:tukra.beats, tags:tukra.tags, landing:tukra.landing,
    text:'「かけら」の意味。1〜2周期の短い決め曲で、最後はティハーイー（同じフレーズを3回）でサムに着地します。似た曲にガット、パランなどがあります。',
    point:'色の付いた3つのフレーズ（赤→黄→緑）が同じ形の繰り返し。3回目の最後の「ダー」がサムに来る！'},
-  {id:'chakra', no:6, name:'チャクラダール・ティハーイー（終曲）', rom:'Chakradar', laya:'速い・約124', bpm:124,
+  {id:'chakra', no:6, trad:0, orig:'このアプリのオリジナル：チャクラダールの型（ティハーイー入りフレーズ×3）に沿って作曲。', name:'チャクラダール・ティハーイー（終曲）', rom:'Chakradar', laya:'速い・約124', bpm:124,
    beats:chakra.beats, tags:chakra.tags, landing:chakra.landing,
    text:'「車輪」の意味。ティハーイーを含んだフレーズを、さらに3回くり返す（＝ティハーイーのティハーイー）。最後の最後の「ダー」がサムに着地して独奏が終わります。',
    point:'1つのフレーズの中に小さな「ターカ・ダー」×3があり、それ全体が×3。計9回目の「ダー」がサム。'}
 ];
+const flowSpeed = () => +$('#flowSpeed').value / 100;
+$('#flowSpeed').oninput = () => { $('#flowSpeedV').textContent = $('#flowSpeed').value + '%'; };
 const flowSegs = FLOW.map(f => ({id:f.id, title:`${f.no}. ${f.name}`, desc:f.point, bpm:f.bpm, bpmTo:f.bpmTo, beats:f.beats, tags:f.tags, landing:f.landing}));
 $('#flowLine').innerHTML = FLOW.map(f => `<span>${f.no}. ${f.name.replace(/（.*/, '')}</span>`).join('<i>→</i>') + '<i>→</i><span>サムで終演</span>';
 FLOW.forEach((f, i) => {
   const c = document.createElement('div'); c.className = 'card'; c.dataset.id = f.id;
   c.innerHTML = `<h4><span class="num">${f.no}</span>${f.name} <span class="small">${f.rom}</span></h4>
     <div class="laya">テンポ：${f.laya}</div><p>${f.text}</p><p class="small">👂 聴きどころ：${f.point}</p>
-    <button class="sec">▶ この部分だけ演奏</button>`;
-  c.querySelector('button').onclick = () => Player.start({taal:T16, segments:[flowSegs[i]], onEnd:()=>{}});
+    <p class="orig ${f.trad ? 'trad' : 'app'}">${f.trad ? '📜 ' : '🛠 '}${f.orig}</p>
+    <div class="row"><button class="sec" data-a="once">▶ この部分だけ演奏</button><button class="sec" data-a="loop">🔁 くり返し聴く</button><button class="sec" data-a="prac">🎯 叩いて練習</button></div>`;
+  c.querySelector('[data-a=once]').onclick = () => Player.start({taal:T16, segments:[flowSegs[i]], speed:flowSpeed, onEnd:()=>{}});
+  c.querySelector('[data-a=loop]').onclick = () => Player.start({taal:T16, segments:[flowSegs[i]], speed:flowSpeed, loop:true});
+  c.querySelector('[data-a=prac]').onclick = () => window.openPractice && window.openPractice({title:f.name, taal:T16, beats:f.beats, bpm:Math.round(f.bpm * .6), expect:'bols', cycles:1});
   $('#flowCards').appendChild(c);
 });
-$('#flowAll').onclick = () => { thekaPlaying = false; Player.start({taal:T16, segments:flowSegs}); };
-document.querySelectorAll('#flowAll, .card button').forEach(b => b.addEventListener('click', () => window.scrollTo({top:0, behavior:'smooth'})));
+$('#flowAll').onclick = () => { thekaPlaying = false; Player.start({taal:T16, segments:flowSegs, speed:flowSpeed}); };
+document.querySelectorAll('#flowAll, .card [data-a=once], .card [data-a=loop]').forEach(b => b.addEventListener('click', () => window.scrollTo({top:0, behavior:'smooth'})));
 
 // ================= 自作 =================
 const EXAMPLES = {
@@ -764,5 +832,6 @@ $('#tanChk').onchange = e => { boot(); e.target.checked ? tan.start() : tan.stop
 
 showTaalInfo();
 </script>
+<script src="lessons.js"></script>
 </body>
 </html>

@@ -173,6 +173,26 @@
     return out;
   }
 
+  // 手拍子（ターリー）：数ミリ秒ずれた複数の手のひらの破裂音
+  function renderClap(sr, seed) {
+    const r = rng(seed || 5), n = Math.floor(sr * .25), out = new Float32Array(n);
+    [0, .006, .013, .021].forEach((off, k) => {
+      const i0 = Math.floor(off * sr), a0 = k === 3 ? 1 : .55;
+      for (let i = i0; i < n; i++) out[i] += (r() * 2 - 1) * a0 * Math.exp(-(i - i0) / (sr * (k === 3 ? .03 : .004)));
+    });
+    filterInPlace(out, biquadCoeffs('bandpass', 1300, .8, sr));
+    filterInPlace(out, biquadCoeffs('highpass', 500, .7, sr));
+    normalize(out, .8); fadeTail(out, sr, .05);
+    return out;
+  }
+  // カウント用のクリック音
+  function renderTick(sr, hz) {
+    const n = Math.floor(sr * .08), out = new Float32Array(n);
+    for (let i = 0; i < n; i++) out[i] = Math.sin(2 * Math.PI * hz * i / sr) * Math.exp(-i / (sr * .012));
+    normalize(out, .6);
+    return out;
+  }
+
   // ---------------------------------------------------------------
   // 撥弦（シタール／タンプーラ）：倍音加算合成＋ジャワーリー
   //   ジャワーリー＝平らな駒に弦が触れたり離れたりして生まれる独特の「ビーン」。
@@ -423,7 +443,17 @@
         const base = STROKES[name].drum === 'd' ? this.dayanHz : this.bayanHz;
         this.buffers[name] = [0, 1, 2].map(v => this.e.toBuffer(renderStroke(name, base, sr, 11 + v * 97 + name.length * 13)));
       }
+      this.clapBufs = [1, 2, 3].map(k => this.e.toBuffer(renderClap(sr, k)));
+      this.tickBufs = [this.e.toBuffer(renderTick(sr, 1760)), this.e.toBuffer(renderTick(sr, 1175))];
       this.ready = true;
+    }
+    clap(when, vel) {
+      if (!this.clapBufs) return;
+      this.e.play(this.clapBufs[(Math.random() * 3) | 0], when, this.dBus, (vel || 1) * .7);
+    }
+    tick(when, accent) {
+      if (!this.tickBufs) return;
+      this.e.play(this.tickBufs[accent ? 0 : 1], when, this.dBus, accent ? .7 : .5);
     }
     stroke(name, when, vel) {
       const vars = this.buffers[name]; if (!vars) return null;
@@ -631,7 +661,7 @@
   }
 
   global.IM = {
-    rng, biquadCoeffs, filterInPlace, renderStroke, renderPluck, STROKES, BOLS,
+    rng, biquadCoeffs, filterInPlace, renderStroke, renderPluck, renderClap, renderTick, STROKES, BOLS,
     parseWord, parseBeats, beatsFromUnits, tihai, placeOnSam, chunk,
     Engine, Tabla, Tanpura, Harmonium, Sitar, SARGAM, SWARA_INFO, swaraName, parseSargam
   };
