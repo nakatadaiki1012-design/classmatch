@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>タブラー演奏シミュレーター</title>
+<style>
+  :root{
+    --bg:#140f0c; --panel:#211913; --panel2:#2c221a; --line:#4a3a2c;
+    --text:#f6ece0; --sub:#c2ab94; --accent:#ffb347; --accent2:#5fd3c6;
+    --sam:#ff6b5b; --tali:#ffb347; --khali:#5fa8ff;
+    --p1:#ff8a65; --p2:#ffd54f; --p3:#81c784;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; padding:0;}
+  body{
+    font-family:-apple-system,"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,system-ui,sans-serif;
+    background:var(--bg); color:var(--text); line-height:1.6; padding:12px; max-width:1060px; margin:0 auto;
+  }
+  h1{font-size:1.3rem; margin:.2rem 0 .1rem;}
+  h2{font-size:1.05rem; margin:.2rem 0 .6rem;}
+  h3{font-size:.95rem; margin:.8rem 0 .4rem; color:var(--accent);}
+  .lead{color:var(--sub); font-size:.86rem; margin:0 0 8px;}
+  a{color:var(--accent2);}
+  .panel{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:14px; margin-bottom:12px;}
+  .row{display:flex; flex-wrap:wrap; gap:10px 14px; align-items:center;}
+  .small{font-size:.78rem; color:var(--sub);}
+  button{
+    font-family:inherit; cursor:pointer; border:none; border-radius:10px; padding:9px 15px;
+    font-size:.92rem; font-weight:700; color:#1d1208; background:var(--accent); transition:filter .12s, transform .05s;
+  }
+  button:hover{filter:brightness(1.08);} button:active{transform:translateY(1px);}
+  button.sec{background:var(--panel2); color:var(--text); border:1px solid var(--line);}
+  button.stop{background:#e8574a; color:#fff;}
+  select,input[type=number],textarea{
+    background:var(--panel2); color:var(--text); border:1px solid var(--line); border-radius:8px; padding:7px 9px; font-size:.95rem; font-family:inherit;
+  }
+  label.ctl{display:flex; flex-direction:column; font-size:.72rem; color:var(--sub); gap:3px;}
+  .chk{display:flex; align-items:center; gap:6px; font-size:.85rem; cursor:pointer;}
+  .chk input{width:18px; height:18px; accent-color:var(--accent);}
+  input[type=range]{accent-color:var(--accent);}
+
+  /* ステージ */
+  .stage{display:grid; grid-template-columns:1.35fr 1fr; gap:12px; align-items:stretch;}
+  #drums{width:100%; height:auto; display:block; touch-action:none; user-select:none;}
+  .zone{cursor:pointer; transition:filter .08s;}
+  .zone:hover{filter:brightness(1.15);}
+  .flash{animation:flash .35s ease-out;}
+  @keyframes flash{0%{filter:brightness(2.2) drop-shadow(0 0 8px #fff);}100%{filter:none;}}
+  .zlabel{font-size:11px; fill:#2a1a10; pointer-events:none; font-weight:700;}
+  .zlabel.l{fill:#f6ece0;}
+  .ripple{pointer-events:none; animation:rip .5s ease-out forwards;}
+  @keyframes rip{from{r:6; opacity:.9;} to{r:40; opacity:0;}}
+  .now{display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;}
+  #wheel{width:100%; max-width:300px; height:auto;}
+  #nowSec{font-weight:800; color:var(--accent); text-align:center; font-size:.95rem; min-height:1.4em;}
+  #nowDesc{font-size:.8rem; color:var(--sub); text-align:center; min-height:2.6em;}
+  .info{background:var(--panel2); border:1px solid var(--line); border-radius:10px; padding:10px 12px; margin-top:8px; font-size:.85rem; min-height:64px;}
+  .info b.big{font-size:1.25rem; color:var(--accent); margin-right:6px;}
+  .chip{display:inline-block; font-size:.7rem; padding:1px 8px; border-radius:99px; border:1px solid var(--line); margin-right:4px; color:var(--sub);}
+  .chip.open{border-color:#7ccf8a; color:#9be6a7;} .chip.closed{border-color:#e88d7a; color:#f3a99a;} .chip.mixed{border-color:#d9c06b; color:#ecd68c;}
+
+  /* サイクル表示 */
+  #grid{display:flex; flex-wrap:wrap; gap:6px; margin-top:6px;}
+  .vib{display:flex; gap:3px; padding:4px; border-radius:10px; background:rgba(255,255,255,.03); border:1px solid var(--line);}
+  .beat{min-width:54px; border-radius:7px; background:var(--panel2); padding:3px 4px 5px; text-align:center; transition:background .08s;}
+  .beat .mk{font-size:.7rem; font-weight:800; height:1.1em;}
+  .beat .no{font-size:.62rem; color:var(--sub);}
+  .beat .tk{font-size:.86rem; font-weight:700; white-space:nowrap; letter-spacing:-.02em;}
+  .beat .tk span{padding:0 1px; border-radius:3px;}
+  .beat.cur{background:#5b3d1f; box-shadow:0 0 0 2px var(--accent) inset;}
+  .beat .tk span.cur{background:var(--accent); color:#1d1208;}
+  .mk.sam{color:var(--sam);} .mk.tali{color:var(--tali);} .mk.khali{color:var(--khali);}
+  .tag-p1{color:var(--p1);} .tag-p2{color:var(--p2);} .tag-p3{color:var(--p3);} .tag-theka{color:var(--sub);} .tag-gap{color:#777;}
+  .tk .rest{color:#7d6a58;}
+
+  /* タブ */
+  .tabs{display:flex; gap:6px; flex-wrap:wrap; margin:6px 0 10px;}
+  .tabs button{background:var(--panel2); color:var(--sub); border:1px solid var(--line);}
+  .tabs button.on{background:var(--accent); color:#1d1208; border-color:var(--accent);}
+  .tab{display:none;} .tab.on{display:block;}
+
+  .bolbtns{display:grid; grid-template-columns:repeat(auto-fill,minmax(92px,1fr)); gap:7px;}
+  .bolbtn{background:var(--panel2); color:var(--text); border:1px solid var(--line); padding:8px 4px; font-size:.95rem; line-height:1.2;}
+  .bolbtn small{display:block; font-size:.66rem; color:var(--sub); font-weight:500;}
+  .bolbtn kbd{font-size:.62rem; background:#000a; padding:0 4px; border-radius:3px; color:var(--accent);}
+  table{border-collapse:collapse; width:100%; font-size:.82rem;}
+  th,td{border-bottom:1px solid var(--line); padding:6px 5px; text-align:left; vertical-align:top;}
+  th{color:var(--sub); font-weight:600; font-size:.74rem;}
+  .play-mini{padding:3px 9px; font-size:.75rem;}
+  .cards{display:grid; gap:10px;}
+  .card{background:var(--panel2); border:1px solid var(--line); border-radius:12px; padding:12px; transition:border-color .2s, box-shadow .2s;}
+  .card.on{border-color:var(--accent); box-shadow:0 0 0 2px rgba(255,179,71,.35);}
+  .card h4{margin:0 0 4px; font-size:.98rem;}
+  .card .num{display:inline-flex; width:26px; height:26px; border-radius:50%; background:var(--accent); color:#1d1208; align-items:center; justify-content:center; font-weight:800; margin-right:6px; font-size:.85rem;}
+  .card p{margin:.3rem 0; font-size:.84rem;}
+  .laya{font-size:.72rem; color:var(--accent2); font-weight:700;}
+  .flow{display:flex; flex-wrap:wrap; align-items:center; gap:4px; font-size:.8rem; margin:6px 0 10px;}
+  .flow span{background:var(--panel2); border:1px solid var(--line); border-radius:99px; padding:2px 10px;}
+  .flow i{color:var(--sub); font-style:normal;}
+  textarea{width:100%; min-height:110px; font-size:1rem; line-height:1.6;}
+  .err{color:#ff8a7a; font-size:.8rem; min-height:1.2em;}
+  .legend span{margin-right:10px; font-size:.75rem;}
+  dl{margin:0; font-size:.85rem;} dt{font-weight:800; color:var(--accent); margin-top:8px;} dd{margin:0 0 0 1em;}
+  .keys{font-size:.78rem; color:var(--sub);}
+  .keys kbd{background:var(--panel2); border:1px solid var(--line); border-radius:4px; padding:0 5px; color:var(--text);}
+  #loading{position:fixed; inset:0; background:rgba(0,0,0,.6); display:none; align-items:center; justify-content:center; z-index:99; font-weight:700;}
+
+  @media (max-width:760px){
+    body{padding:8px;}
+    .stage{grid-template-columns:1fr;}
+    .beat{min-width:44px;} .beat .tk{font-size:.76rem;}
+    button{padding:11px 14px;}
+    select,input[type=number]{font-size:16px; min-height:42px;}
+  }
+</style>
+</head>
+<body>
+<h1>🪘 タブラー＆バーヤーン 演奏シミュレーター</h1>
+<p class="lead">北インド古典音楽の太鼓「タブラー」を、叩いて・聴いて・理論を学べるシミュレーター。音はすべてブラウザ内で太鼓膜の振動を計算して合成しています。</p>
+<p style="font-size:.85rem;margin:0 0 10px;">🎸 おまけ：<a href="sitar.html">シタール演奏シミュレーターへ</a></p>
+
+<!-- ステージ（太鼓＋サイクル） -->
+<div class="panel">
+  <div class="stage">
+    <div>
+      <svg id="drums" viewBox="0 0 660 330" aria-label="タブラー（上から見た図）"></svg>
+      <div class="info" id="info">👆 太鼓の場所をクリック／タップ、またはキーボードで演奏できます。<br><span class="small">左＝バーヤーン（低音・左手）、右＝ダーヤーン（音程のある高音・右手）。バーヤーンは押したまま横にドラッグすると音程が上がります（手首で押す奏法）。</span></div>
+    </div>
+    <div class="now">
+      <svg id="wheel" viewBox="0 0 300 300"></svg>
+      <div id="nowSec">停止中</div>
+      <div id="nowDesc">「ターラ」「演奏の流れ」タブから自動演奏できます</div>
+    </div>
+  </div>
+  <div id="grid"></div>
+  <div class="row" style="margin-top:10px;">
+    <button class="stop" id="stopBtn">■ 停止</button>
+    <label class="chk"><input type="checkbox" id="lehraChk" checked>レヘラー（伴奏旋律）</label>
+    <label class="chk"><input type="checkbox" id="tanChk">タンプーラ（持続音）</label>
+    <label class="ctl">調（ダーヤーンの音程＝サ）
+      <select id="keySel">
+        <option value="261.63">C（ド）</option><option value="277.18" selected>C♯</option>
+        <option value="293.66">D</option><option value="311.13">D♯</option><option value="329.63">E</option>
+      </select>
+    </label>
+    <label class="ctl">バーヤーンの音程 <input type="range" id="bayanSl" min="70" max="130" value="98"></label>
+    <label class="ctl">響き（リバーブ）<input type="range" id="verbSl" min="0" max="100" value="60"></label>
+  </div>
+</div>
+
+<div class="tabs" id="tabs">
+  <button data-t="play" class="on">🥁 叩いてみる</button>
+  <button data-t="taal">🔄 ターラ（リズム周期）</button>
+  <button data-t="flow">🎼 演奏の流れ・自動演奏</button>
+  <button data-t="compose">✍️ 自分で作る</button>
+  <button data-t="learn">📖 楽器と用語</button>
+</div>
+
+<!-- 叩いてみる -->
+<div class="tab on" id="tab-play">
+  <div class="panel">
+    <h2>ボル（口で唱える太鼓の言葉）を鳴らす</h2>
+    <p class="small">タブラーでは打ち方ひとつひとつに「ボル（言葉）」がついていて、演奏者は曲を口で唱えて覚えます。<b>ダー＝ナー＋ゲー</b>のように、右手と左手を組み合わせたボルもあります。</p>
+    <h3>基本の打ち方（ひとつの手）</h3>
+    <div class="bolbtns" id="bolSingle"></div>
+    <h3>組み合わせのボル（両手）</h3>
+    <div class="bolbtns" id="bolCombo"></div>
+    <h3>よく使うフレーズ</h3>
+    <div class="bolbtns" id="bolPhrase"></div>
+    <p class="keys" style="margin-top:10px;">
+      キーボード：左手 <kbd>A</kbd>ケ <kbd>S</kbd>ゲー <kbd>D</kbd>ゲー↑(ミーンド)　右手 <kbd>J</kbd>ナー <kbd>K</kbd>ティン <kbd>L</kbd>トゥン <kbd>U</kbd>テ <kbd>I</kbd>ラ　両手 <kbd>G</kbd>ダー <kbd>H</kbd>ディン <kbd>T</kbd>クラ<br>
+      💡 <kbd>S</kbd>と<kbd>J</kbd>を同時に押すと自然に「ダー」になります。
+    </p>
+  </div>
+  <div class="panel">
+    <h2>ボル辞典</h2>
+    <table id="bolTable"><thead><tr><th></th><th>ボル</th><th>手</th><th>音の種類</th><th>打ち方</th></tr></thead><tbody></tbody></table>
+    <p class="small">音の種類：<span class="chip open">開放（響く）</span><span class="chip closed">閉じた（響かない）</span><span class="chip mixed">混合</span>　同じ字でも文脈で打ち方が変わることがあります（例：ティラキタの「ティ」は閉じた音）。</p>
+  </div>
+</div>
+
+<!-- ターラ -->
+<div class="tab" id="tab-taal">
+  <div class="panel">
+    <h2>ターラ ＝ くり返すリズムの周期</h2>
+    <div class="row">
+      <label class="ctl">ターラ <select id="taalSel"></select></label>
+      <label class="ctl">テンポ（1分間の拍数） <span><input type="range" id="bpmSl" min="30" max="300" value="90"> <b id="bpmV">90</b></span></label>
+      <label class="ctl">密度（ラヤカーリー）
+        <select id="densSel"><option value="1">ふつう（1拍に1ボル）</option><option value="2">ドゥグン（2倍）</option><option value="4">チャウグン（4倍）</option></select>
+      </label>
+    </div>
+    <div class="row" style="margin-top:8px;">
+      <button id="thekaPlay">▶ テーカを再生（ループ）</button>
+      <button class="sec" data-bpm="45">ヴィランビト（遅い）</button>
+      <button class="sec" data-bpm="100">マディヤ（中くらい）</button>
+      <button class="sec" data-bpm="220">ドゥルト（速い）</button>
+    </div>
+    <div id="taalInfo" style="margin-top:10px;"></div>
+  </div>
+  <div class="panel">
+    <h2>ターラの読み方</h2>
+    <dl>
+      <dt>マートラー（拍）</dt><dd>周期を作る1つ1つの拍。ティーンタールは16マートラー。</dd>
+      <dt>ヴィバーグ（区切り）</dt><dd>拍のまとまり。ティーンタールは4+4+4+4。演奏者や聴衆は手で拍を数えて周期を追います。</dd>
+      <dt><span style="color:var(--sam)">X サム</span>（1拍目）</dt><dd>周期のいちばん大事な拍。即興や作品は最後に必ずここに「着地」します。上手く着地すると聴衆から歓声が上がる、演奏のクライマックス。</dd>
+      <dt><span style="color:var(--tali)">2・3 ターリー</span>（手拍子）</dt><dd>手を叩いて数える区切り。</dd>
+      <dt><span style="color:var(--khali)">0 カーリー</span>（空）</dt><dd>手を振って（叩かずに）数える区切り。タブラーではここで<b>左手（バーヤーン）の低音を鳴らさない</b>ので、音が軽くなります（ダー→ター、ディン→ティン）。耳で周期の位置がわかる仕組み。</dd>
+      <dt>テーカ</dt><dd>そのターラを表す基本パターン。伴奏ではこれを繰り返しながら装飾します。</dd>
+      <dt>アーヴァルタン</dt><dd>周期1周ぶん。</dd>
+      <dt>ラヤ（テンポ）</dt><dd>ヴィランビト（遅い）→ マディヤ（中）→ ドゥルト（速い）。演奏は一般に遅いところから始まり、だんだん速くなります。</dd>
+    </dl>
+  </div>
+</div>
+
+<!-- 演奏の流れ -->
+<div class="tab" id="tab-flow">
+  <div class="panel">
+    <h2>タブラー独奏は、だいたいこの順番で演奏されます</h2>
+    <div class="flow" id="flowLine"></div>
+    <p class="small">独奏中は、ハルモニウムやサーランギーが<b>レヘラー（ナグマー）</b>という短い旋律を周期ごとに繰り返し、聴き手と奏者に「今どこか」を示します。全体として<b>遅く・単純 → 速く・複雑</b>へ進み、最後は<b>ティハーイー</b>で鮮やかにサムへ着地して終わります。（流派＝ガラーナーや奏者によって順番や曲目は変わります）</p>
+    <div class="row">
+      <button id="flowAll">▶ 最初から通しで自動演奏（約3分）</button>
+      <span class="legend small"><span class="tag-p1">■ ティハーイー1回目</span><span class="tag-p2">■ 2回目</span><span class="tag-p3">■ 3回目</span><span class="tag-theka">■ テーカ</span></span>
+    </div>
+  </div>
+  <div class="cards" id="flowCards"></div>
+  <div class="panel" style="margin-top:12px;">
+    <h2>伴奏のときの流れ（声楽・シタールなど）</h2>
+    <p style="font-size:.86rem;">歌やシタールの演奏では、最初の<b>アーラープ</b>（拍のない導入）でタブラーは休み。曲（バンディッシュ／ガット）が始まるとタブラーが入り、<b>ヴィランビト（遅い）→ドゥルト（速い）</b>と2曲続けることが多いです。タブラーはテーカを刻みつつ、旋律の即興がサムへ戻るたびに一緒に着地し、時には短いソロ（ラッギー、ティハーイー）を挟みます。→ <a href="sitar.html">シタールのページ</a>で体験できます。</p>
+  </div>
+</div>
+
+<!-- 自作 -->
+<div class="tab" id="tab-compose">
+  <div class="panel">
+    <h2>ボルを書いて演奏させる</h2>
+    <p class="small"><b>書き方：</b>スペースで区切った1語＝1拍。1語の中に大文字で始まるボルを並べると、その拍を等分して速く打ちます（例 <code>DhaGe</code>＝1拍に2つ、<code>TiRaKiTa</code>＝1拍に4つ）。休み／のばしは <code>S</code> または <code>ऽ</code>。<code>|</code> は見やすさ用の区切りで無視されます。</p>
+    <textarea id="compText">Dha Dhin Dhin Dha | Dha Dhin Dhin Dha | Dha Tin Tin Ta | Ta Dhin Dhin Dha</textarea>
+    <div class="err" id="compErr"></div>
+    <div class="row">
+      <label class="ctl">周期表示に使うターラ <select id="compTaal"></select></label>
+      <label class="ctl">テンポ <input type="number" id="compBpm" value="90" min="20" max="400"></label>
+      <label class="chk"><input type="checkbox" id="compLoop" checked>くり返す</label>
+      <button id="compPlay">▶ 演奏</button>
+    </div>
+    <h3>例を読み込む</h3>
+    <div class="row" id="compEx"></div>
+  </div>
+</div>
+
+<!-- 用語 -->
+<div class="tab" id="tab-learn">
+  <div class="panel">
+    <h2>タブラーのしくみ</h2>
+    <dl>
+      <dt>ダーヤーン（右・木製）</dt><dd>高い音の太鼓。音程があり、演奏者は曲の主音（サ）にチューニングします。胴のまわりの木の円柱（ガッタ）と革ひもで音程を調整。</dd>
+      <dt>バーヤーン（左・金属製）</dt><dd>低音の太鼓。手首の付け根で膜を押す強さを変えて、音程を上下させられる（ミーンド）。「ウォン↑」という独特の表情はここから。</dd>
+      <dt>シャーヒー（スヤーヒー）</dt><dd>膜の中央の黒い円。鉄粉などを練った層を何十回も塗り重ねたもの。これのおかげで膜の倍音が整数倍に揃い、太鼓なのに<b>はっきりした音程</b>が出ます（物理学者C.V.ラマンが研究したことでも有名）。</dd>
+      <dt>キナール（縁）／マイダーン（中間）</dt><dd>叩く場所で音色が大きく変わります。縁＝ナー（キラッ）、中間＝ティン（響く）、中央＝トゥン（深い）・テ（閉じる）。</dd>
+      <dt>開放音と閉じた音</dt><dd>叩いてすぐ指を離すと膜が響き（開放）、押さえたままだと響きません（閉じた音）。この2つの組み合わせがタブラーのリズムの表情を生みます。</dd>
+      <dt>ボル（言葉）</dt><dd>打ち方を表す音節。曲は口で唱えて伝承されます（日本の口唱歌「ドンドンカッカ」と似た考え方）。</dd>
+      <dt>ガラーナー（流派）</dt><dd>デリー、アジュラーラー、ラクナウ、ファルッカーバード、ベナレス、パンジャーブの6流派が有名。デリー派は指先の細かい技（カーイダ）、ベナレス派は力強い全手の技が特徴。</dd>
+    </dl>
+    <h3>このシミュレーターの音づくり</h3>
+    <p class="small">録音ではなく、膜の固有振動（モード）を1本ずつ計算して合成しています。ダーヤーンは倍音が1:2:3:4…の整数比、ナーでは薬指で基音を消すので倍音が強調、テは指で押さえるので一瞬で減衰、ゲーは叩いた直後の音程の沈み込みや手首による音程上昇まで再現しています。</p>
+  </div>
+</div>
+
+<div id="loading">音を準備中…</div>
+
+<script src="audio.js"></script>
+<script>
+'use strict';
+const $ = s => document.querySelector(s);
+const E = new IM.Engine();
+const tabla = new IM.Tabla(E);
+const tan = new IM.Tanpura(E);
+const harm = new IM.Harmonium(E);
+let booted = false;
+function boot(){
+  if (booted) { E.ensure(); return; }
+  booted = true;
+  E.ensure(); tabla.setTuning(+$('#keySel').value, +$('#bayanSl').value); tabla.init();
+  tan.setSa(+$('#keySel').value / 2);
+  E.setReverb($('#verbSl').value/100*1.6);
+}
+
+// ================= ターラのデータ =================
+const TAALS = {
+  teentaal:{name:'ティーンタール（16拍）', beats:16, vib:[4,4,4,4], marks:['X','2','0','3'],
+    theka:'Dha Dhin Dhin Dha Dha Dhin Dhin Dha Dha Tin Tin Ta Ta Dhin Dhin Dha', bpm:90,
+    desc:'最もよく使われるターラ。4拍×4。9〜12拍目がカーリー（0）で、ディン→ティンと低音が抜けて軽くなるのを聴いてみよう。13拍目からまたディンに戻り、サムへ向かう。'},
+  jhaptaal:{name:'ジャプタール（10拍）', beats:10, vib:[2,3,2,3], marks:['X','2','0','3'],
+    theka:'Dhi Na Dhi Dhi Na Ti Na Dhi Dhi Na', bpm:100,
+    desc:'2+3+2+3 の非対称な10拍。「ディ・ナ／ディ・ディ・ナ」の跳ねるような流れ。6拍目（カーリー）で「ティ・ナ」と軽くなる。'},
+  ektaal:{name:'エークタール（12拍）', beats:12, vib:[2,2,2,2,2,2], marks:['X','0','2','0','3','4'],
+    theka:'Dhin Dhin DhaGe TiRaKiTa Tu Na Kat Ta DhaGe TiRaKiTa Dhi Na', bpm:70,
+    desc:'2拍×6。カーリーが2つある。ゆっくりの声楽（バラー・カヤール）によく使われ、ティラキタの細かい音が特徴。'},
+  rupak:{name:'ルーパク（7拍）', beats:7, vib:[3,2,2], marks:['X/0','1','2'],
+    theka:'Tin Tin Na Dhi Na Dhi Na', bpm:110,
+    desc:'3+2+2 の7拍。珍しいことに<b>サム（1拍目）がカーリー</b>なので、1拍目が軽い「ティン」で始まる。'},
+  dadra:{name:'ダードラー（6拍）', beats:6, vib:[3,3], marks:['X','0'],
+    theka:'Dha Dhi Na Dha Ti Na', bpm:120,
+    desc:'3+3 の6拍。軽い歌（バジャン、ガザル、民謡）でよく使われる、3拍子系の親しみやすいターラ。'},
+  keherwa:{name:'ケヘルワー（8拍）', beats:8, vib:[4,4], marks:['X','0'],
+    theka:'Dha Ge Na Ti Na Ke Dhi Na', bpm:110,
+    desc:'4+4 の8拍。映画音楽・ポピュラー・民謡で大活躍する軽快なターラ。'}
+};
+const markType = m => m.startsWith('X') ? 'sam' : m === '0' ? 'khali' : 'tali';
+function beatMarks(taal){
+  const arr = []; let i = 0;
+  taal.vib.forEach((n, v) => { for (let k=0;k<n;k++,i++) arr.push(k===0 ? taal.marks[v] : ''); });
+  return arr;
+}
+
+// レヘラー（ティーンタール用、ラーガ・ヤマン風）[サからの半音, 拍数]
+const LEHRA = [[0,1],[-1,.5],[2,.5],[4,1],[2,.5],[4,.5],[6,1],[7,1],[9,.5],[7,.5],[6,.5],[4,.5],
+               [7,1],[6,.5],[4,.5],[2,1],[4,.5],[2,.5],[-1,1],[2,.5],[4,.5],[2,.5],[-1,.5],[-3,.5],[-1,.5]];
+
+// ================= 太鼓のSVG =================
+const NS = 'http://www.w3.org/2000/svg';
+function el(tag, attrs, parent){ const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; }
+const drums = $('#drums');
+const ZONES = {}; // stroke -> element list
+function buildDrums(){
+  const defs = el('defs', {}, drums);
+  const g1 = el('radialGradient', {id:'copper', cx:'45%', cy:'40%', r:'70%'}, defs);
+  el('stop', {offset:'0%', 'stop-color':'#d08a4e'}, g1); el('stop', {offset:'100%', 'stop-color':'#6a3a1c'}, g1);
+  const g2 = el('radialGradient', {id:'skin', cx:'45%', cy:'40%', r:'70%'}, defs);
+  el('stop', {offset:'0%', 'stop-color':'#f4e3c4'}, g2); el('stop', {offset:'100%', 'stop-color':'#d8bf94'}, g2);
+  const g3 = el('radialGradient', {id:'wood', cx:'45%', cy:'40%', r:'70%'}, defs);
+  el('stop', {offset:'0%', 'stop-color':'#9b6236'}, g3); el('stop', {offset:'100%', 'stop-color':'#4a2a14'}, g3);
+  const g4 = el('radialGradient', {id:'syahi', cx:'40%', cy:'35%', r:'70%'}, defs);
+  el('stop', {offset:'0%', 'stop-color':'#4b4b52'}, g4); el('stop', {offset:'100%', 'stop-color':'#0d0d10'}, g4);
+
+  // バーヤーン（左）
+  el('circle', {cx:180, cy:170, r:150, fill:'url(#copper)'}, drums);
+  const bHead = el('circle', {cx:180, cy:170, r:132, fill:'url(#skin)', class:'zone', 'data-s':'ge'}, drums);
+  const bSy = el('circle', {cx:205, cy:150, r:46, fill:'url(#syahi)', class:'zone', 'data-s':'ke'}, drums);
+  for (let a=0;a<16;a++){ const t=a/16*Math.PI*2; el('line',{x1:180+Math.cos(t)*134,y1:170+Math.sin(t)*134,x2:180+Math.cos(t)*150,y2:170+Math.sin(t)*150,stroke:'#3a2312','stroke-width':2.5,'pointer-events':'none'},drums); }
+  txt(110, 230, 'ゲー（開放）', '');
+  txt(205, 154, 'ケ（手のひら）', 'l');
+  txt(180, 22, 'バーヤーン（左手・低音）', 'l', 13);
+  // ダーヤーン（右）
+  el('circle', {cx:490, cy:175, r:128, fill:'url(#wood)'}, drums);
+  const dKinar = el('circle', {cx:490, cy:175, r:112, fill:'#e9d6b0', stroke:'#b39467', 'stroke-width':2, class:'zone', 'data-s':'na'}, drums);
+  const dMaid = el('circle', {cx:490, cy:175, r:96, fill:'url(#skin)', class:'zone', 'data-s':'tin'}, drums);
+  const dSy = el('circle', {cx:490, cy:175, r:54, fill:'url(#syahi)', class:'zone', 'data-s':'te'}, drums);
+  const dSyC = el('circle', {cx:490, cy:175, r:22, fill:'#26262c', stroke:'#555', 'stroke-width':1, class:'zone', 'data-s':'tun'}, drums);
+  for (let a=0;a<16;a++){ const t=a/16*Math.PI*2; el('line',{x1:490+Math.cos(t)*113,y1:175+Math.sin(t)*113,x2:490+Math.cos(t)*128,y2:175+Math.sin(t)*128,stroke:'#2a170a','stroke-width':3,'pointer-events':'none'},drums); }
+  txt(490, 70, 'ナー（縁）', '');
+  txt(490, 266, 'ティン（中間）', '');
+  txt(490, 150, 'テ（閉）', 'l');
+  txt(490, 179, 'トゥン', 'l', 10);
+  txt(490, 30, 'ダーヤーン（右手・音程あり）', 'l', 13);
+  ZONES.ge = [bHead]; ZONES.ghe = [bHead]; ZONES.ke = [bSy];
+  ZONES.na = [dKinar]; ZONES.tin = [dMaid]; ZONES.te = [dSy]; ZONES.ra = [dSy]; ZONES.tun = [dSyC];
+}
+function txt(x, y, s, cls, size){ const t = el('text', {x, y, 'text-anchor':'middle', class:'zlabel '+(cls||'')}, drums); if (size) t.setAttribute('font-size', size); t.textContent = s; return t; }
+function flashStroke(s){
+  (ZONES[s]||[]).forEach(z => { z.classList.remove('flash'); void z.getBBox(); z.classList.add('flash'); });
+}
+function ripple(x, y){
+  const c = el('circle', {cx:x, cy:y, r:6, fill:'none', stroke:'#fff', 'stroke-width':3, class:'ripple'}, drums);
+  setTimeout(() => c.remove(), 520);
+}
+buildDrums();
+
+// 太鼓のクリック
+let bendActive = null;
+function svgPoint(ev){ const pt = drums.createSVGPoint(); pt.x = ev.clientX; pt.y = ev.clientY; return pt.matrixTransform(drums.getScreenCTM().inverse()); }
+drums.addEventListener('pointerdown', ev => {
+  const z = ev.target.closest('.zone'); if (!z) return;
+  ev.preventDefault(); boot();
+  const s = z.dataset.s, p = svgPoint(ev);
+  ripple(p.x, p.y);
+  const bolFor = {na:'Na', tin:'Tin', tun:'Tun', te:'Te', ra:'Ra', ge:'Ge', ke:'Ke'};
+  playBol(bolFor[s]);
+  if (s === 'ge') { bendActive = {x0:p.x}; drums.setPointerCapture(ev.pointerId); }
+});
+drums.addEventListener('pointermove', ev => {
+  if (!bendActive) return;
+  const p = svgPoint(ev);
+  tabla.bendGe(Math.max(0, Math.min(1, (p.x - bendActive.x0) / 120)));
+});
+const endBend = () => { bendActive = null; };
+drums.addEventListener('pointerup', endBend); drums.addEventListener('pointercancel', endBend);
+
+// ボルが鳴ったら表示
+tabla.onBol((key, b) => { b.parts.forEach(p => flashStroke(p.replace('+',''))); });
+function showInfo(key){
+  const b = IM.BOLS[key]; if (!b) return;
+  const name = key.startsWith('_') ? (key === '_TaC' ? 'Ta' : key === '_TiO' ? 'Ti' : 'Dhi') : key;
+  const typ = {open:'開放（響く）', closed:'閉じた（響かない）', mixed:'混合'}[b.type];
+  $('#info').innerHTML = `<b class="big">${name}</b><b>${b.kana}</b> <span class="chip">${b.hand}</span><span class="chip ${b.type}">${typ}</span><br>${b.desc}`;
+}
+function playBol(key, vel){ boot(); tabla.bol(key, E.ctx.currentTime + .005, vel); showInfo(key); }
+function playWord(word){
+  boot();
+  const toks = IM.parseWord(word); const t0 = E.ctx.currentTime + .02; const step = .11;
+  toks.forEach((t, i) => { if (t.key && IM.BOLS[t.key]) tabla.bol(t.key, t0 + i*step); });
+  $('#info').innerHTML = `<b class="big">${word}</b> ${toks.map(t=>t.disp).join('・')}<br><span class="small">${PHRASE_DESC[word]||''}</span>`;
+}
+
+// ================= ボルのボタンと辞典 =================
+const SINGLE = [['Na','J'],['Tin','K'],['Tun','L'],['Te','U'],['Ra','I'],['Ge','S'],['Ghe','D'],['Ke','A']];
+const COMBO = [['Dha','G'],['Dhin','H'],['Dhet',''],['Kra','T']];
+const PHRASES = ['TiRaKiTa','DhaGe','TeReKiTa','DhiRaDhiRa','KiTaTaKa','DhaTiDhaGe','TinNaKiNa','DhinNaGiNa'];
+const PHRASE_DESC = {
+  TiRaKiTa:'ティ(閉)・ラ(閉)・キ(左手閉)・タ(閉)。最重要の速いフレーズ。カーイダやエークタールに頻出。',
+  DhaGe:'ダーのあとに左手のゲー。',
+  TeReKiTa:'ティラキタと同じ動きの別表記。',
+  DhiRaDhiRa:'レーラ（速いロール）の基本。手のひら側と指を交互に高速で。',
+  KiTaTaKa:'左右交互の速い4つ打ち。',
+  DhaTiDhaGe:'デリー派カーイダの代表的な語。',
+  TinNaKiNa:'カーイダの前半（バリー）の終わりで、カーリー（後半）への合図になる。',
+  DhinNaGiNa:'カーイダの後半の終わり。低音が戻りサムへ向かう。'
+};
+function mkBtn(parent, label, sub, kbd, onClick){
+  const b = document.createElement('button'); b.className = 'bolbtn';
+  b.innerHTML = `${label}${kbd?` <kbd>${kbd}</kbd>`:''}<small>${sub}</small>`;
+  b.addEventListener('pointerdown', e => { e.preventDefault(); onClick(); });
+  parent.appendChild(b);
+}
+SINGLE.forEach(([k,kb]) => mkBtn($('#bolSingle'), k, IM.BOLS[k].kana+'・'+IM.BOLS[k].hand, kb, () => playBol(k)));
+COMBO.forEach(([k,kb]) => mkBtn($('#bolCombo'), k, IM.BOLS[k].kana, kb, () => playBol(k)));
+PHRASES.forEach(w => mkBtn($('#bolPhrase'), w, IM.parseWord(w).map(t => IM.BOLS[t.key]?.kana || t.disp).join('・'), '', () => playWord(w)));
+(function(){
+  const tb = $('#bolTable tbody');
+  const typ = {open:'開放', closed:'閉じた', mixed:'混合'};
+  for (const [k,b] of Object.entries(IM.BOLS)) {
+    if (b.hidden) continue;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td><button class="play-mini">▶</button></td><td><b>${k}</b><br><span class="small">${b.kana}</span></td><td>${b.hand}</td><td><span class="chip ${b.type}">${typ[b.type]}</span></td><td>${b.desc}</td>`;
+    tr.querySelector('button').onclick = () => playBol(k);
+    tb.appendChild(tr);
+  }
+})();
+
+// キーボード
+const KEYMAP = {a:'Ke', s:'Ge', d:'Ghe', j:'Na', k:'Tin', l:'Tun', u:'Te', i:'Ra', g:'Dha', h:'Dhin', t:'Kra'};
+document.addEventListener('keydown', e => {
+  if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) && document.activeElement.type !== 'range' && document.activeElement.type !== 'checkbox') return;
+  const k = KEYMAP[e.key.toLowerCase()];
+  if (k) { e.preventDefault(); playBol(k); }
+});
+
+// ================= サイクル表示（円＋グリッド） =================
+const wheel = $('#wheel');
+let wheelTaal = null, wheelDots = [];
+function drawWheel(taal){
+  wheelTaal = taal; wheel.innerHTML = ''; wheelDots = [];
+  const cx=150, cy=150, R=112, marks = beatMarks(taal);
+  el('circle', {cx, cy, r:R, fill:'none', stroke:'#4a3a2c', 'stroke-width':2}, wheel);
+  // ヴィバーグの弧
+  let start = 0;
+  taal.vib.forEach((n, v) => {
+    const a0 = (start/taal.beats)*Math.PI*2 - Math.PI/2 + .06, a1 = ((start+n)/taal.beats)*Math.PI*2 - Math.PI/2 - .06;
+    const t = markType(taal.marks[v]);
+    const col = t==='sam' ? '#ff6b5b' : t==='khali' ? '#5fa8ff' : '#ffb347';
+    const large = (a1-a0) > Math.PI ? 1 : 0;
+    el('path', {d:`M ${cx+Math.cos(a0)*(R+14)} ${cy+Math.sin(a0)*(R+14)} A ${R+14} ${R+14} 0 ${large} 1 ${cx+Math.cos(a1)*(R+14)} ${cy+Math.sin(a1)*(R+14)}`, fill:'none', stroke:col, 'stroke-width':4, 'stroke-linecap':'round', opacity:.7}, wheel);
+    start += n;
+  });
+  for (let i=0;i<taal.beats;i++){
+    const a = i/taal.beats*Math.PI*2 - Math.PI/2;
+    const x = cx+Math.cos(a)*R, y = cy+Math.sin(a)*R;
+    const m = marks[i], t = m ? markType(m) : '';
+    const isKhaliVib = (()=>{ let s=0; for (let v=0; v<taal.vib.length; v++){ if (i < s+taal.vib[v]) return markType(taal.marks[v])==='khali' || taal.marks[v]==='X/0'; s+=taal.vib[v]; } })();
+    const dot = el('circle', {cx:x, cy:y, r: i===0?11:8, fill: isKhaliVib ? '#1d2a3c' : '#5b3d1f', stroke: t==='sam'?'#ff6b5b':t==='khali'?'#5fa8ff':t==='tali'?'#ffb347':'#7a5a3c', 'stroke-width':2}, wheel);
+    wheelDots.push(dot);
+    const tx = el('text', {x:cx+Math.cos(a)*(R-24), y:cy+Math.sin(a)*(R-24)+4, 'text-anchor':'middle', 'font-size':m?13:10, 'font-weight':m?800:400, fill: t==='sam'?'#ff6b5b':t==='khali'?'#5fa8ff':t==='tali'?'#ffb347':'#9c8670'}, wheel);
+    tx.textContent = m || (i+1);
+  }
+  el('text', {x:cx, y:cy-8, 'text-anchor':'middle', 'font-size':30, 'font-weight':800, fill:'#ffb347', id:'wBol'}, wheel).textContent = '';
+  el('text', {x:cx, y:cy+18, 'text-anchor':'middle', 'font-size':12, fill:'#c2ab94', id:'wSub'}, wheel).textContent = taal.name;
+  el('text', {x:cx, y:cy+38, 'text-anchor':'middle', 'font-size':20, id:'wClap'}, wheel).textContent = '';
+}
+function wheelBeat(i){
+  wheelDots.forEach((d, k) => { d.setAttribute('r', k===i ? 14 : (k===0?11:8)); d.style.filter = k===i ? 'brightness(2)' : ''; });
+}
+let gridBeats = [];
+function drawGrid(beats, taal, startNo, tags){
+  const g = $('#grid'); g.innerHTML = ''; gridBeats = [];
+  const marks = beatMarks(taal);
+  const vibStarts = new Set(); let acc = 0; taal.vib.forEach(n => { vibStarts.add(acc); acc += n; });
+  let box = null;
+  beats.forEach((beat, idx) => {
+    const pos = (startNo + idx) % taal.beats;
+    if (!box || vibStarts.has(pos)) { box = document.createElement('div'); box.className = 'vib'; g.appendChild(box); }
+    const m = marks[pos];
+    const toks = beat.map((t, k) => {
+      const tg = tags && tags[idx] ? tags[idx][k] : '';
+      return `<span class="${t.key ? '' : 'rest'} ${tg ? 'tag-'+tg : ''}">${t.disp}</span>`;
+    }).join('');
+    const b = document.createElement('div'); b.className = 'beat';
+    b.innerHTML = `<div class="mk ${m?markType(m):''}">${m||''}</div><div class="tk">${toks || '<span class="rest">ऽ</span>'}</div><div class="no">${pos+1}</div>`;
+    box.appendChild(b); gridBeats.push(b);
+  });
+}
+function gridHighlight(beatIdx, tokIdx){
+  gridBeats.forEach((b, i) => {
+    b.classList.toggle('cur', i === beatIdx);
+    b.querySelectorAll('.tk span').forEach((s, k) => s.classList.toggle('cur', i === beatIdx && k === tokIdx));
+  });
+}
+
+// ================= 自動演奏プレイヤー =================
+// prog: { segments:[{title,desc,bpm,bpmTo,beats,tags,landing,id}], taal, loop, onEnd }
+const Player = {
+  playing:false,
+  start(prog){
+    this.stop(true); boot();
+    this.prog = prog; this.si = 0; this.bi = 0; this.gb = 0; this.landing = null;
+    this.nextT = E.ctx.currentTime + .25; this.vis = []; this.playing = true; this.lastCycleKey = null; this.ended = false;
+    drawWheel(prog.taal);
+    this.timer = setInterval(() => this.pump(), 25);
+    this.pump();
+    const loop = () => { if (!this.playing && !this.vis.length) return; this.draw(); this.raf = requestAnimationFrame(loop); };
+    this.raf = requestAnimationFrame(loop);
+  },
+  stop(silent){
+    this.playing = false; clearInterval(this.timer); cancelAnimationFrame(this.raf); this.vis = [];
+    document.querySelectorAll('.card.on').forEach(c => c.classList.remove('on'));
+    if (!silent) { $('#nowSec').textContent = '停止中'; $('#nowDesc').textContent = ''; gridHighlight(-1,-1); }
+  },
+  bpmOf(seg){
+    const live = this.prog.liveBpm ? this.prog.liveBpm() : null;
+    if (live) return live;
+    if (seg.bpmTo) return seg.bpm + (seg.bpmTo - seg.bpm) * (this.bi / seg.beats.length);
+    return seg.bpm;
+  },
+  pump(){
+    if (!this.playing) return;
+    const ahead = E.ctx.currentTime + .18;
+    while (this.playing && this.nextT < ahead) this.scheduleBeat();
+  },
+  scheduleBeat(){
+    const P = this.prog, taal = P.taal;
+    let seg = P.segments[this.si];
+    if (!seg) {
+      if (P.loop) { this.si = 0; this.bi = 0; seg = P.segments[0]; }
+      else { this.finish(); return; }
+    }
+    const spb = 60 / this.bpmOf(seg);
+    const beat = seg.beats[this.bi] || [];
+    const n = Math.max(1, beat.length);
+    const cyc = this.gb % taal.beats;
+    // 周期の頭でレヘラー
+    if (cyc === 0 && $('#lehraChk').checked && taal.beats === 16) this.lehra(this.nextT, spb);
+    beat.forEach((tok, k) => {
+      const tt = this.nextT + k * spb / n;
+      let key = tok.key;
+      let vel = .86 + Math.random() * .1;
+      if (k === 0 && cyc === 0) vel = 1.08;
+      if (k > 0) vel *= .9;
+      if (this.landing && this.bi === 0 && k === 0) {
+        if (key !== this.landing) tabla.bol(this.landing, tt, 1.2);
+        vel = 1.2; this.landing = null;
+      }
+      if (key && IM.BOLS[key]) tabla.bol(key, tt + (Math.random()-.5)*.004, vel);
+      this.vis.push({t:tt, si:this.si, bi:this.bi, k, gb:this.gb, disp:tok.disp});
+    });
+    if (!beat.length) this.vis.push({t:this.nextT, si:this.si, bi:this.bi, k:0, gb:this.gb, disp:''});
+    this.nextT += spb; this.bi++; this.gb++;
+    if (this.bi >= seg.beats.length) { this.landing = seg.landing || null; this.si++; this.bi = 0; }
+  },
+  finish(){
+    if (this.ended) return; this.ended = true;
+    const t = this.nextT;
+    if (this.landing) {
+      tabla.bol(this.landing, t, 1.25);
+      this.vis.push({t, si:this.si - 1, bi:-1, k:0, gb:this.gb, disp:this.landing, final:true});
+    }
+    this.playing = false; clearInterval(this.timer);
+    setTimeout(() => { if (!this.playing) { this.vis = []; $('#nowSec').textContent = '終演 🙏'; this.prog.onEnd && this.prog.onEnd(); } }, (t - E.ctx.currentTime) * 1000 + 1800);
+  },
+  lehra(t0, spb){
+    const sa = tabla.dayanHz; let pos = 0;
+    for (const [semi, len] of LEHRA) {
+      harm.note(sa * Math.pow(2, semi/12), t0 + pos*spb, len*spb*.96, pos === 0 ? 1 : .85);
+      pos += len;
+    }
+  },
+  draw(){
+    const now = E.ctx.currentTime;
+    let ev = null;
+    while (this.vis.length && this.vis[0].t <= now) ev = this.vis.shift();
+    if (!ev) return;
+    const P = this.prog, taal = P.taal;
+    if (ev.final) {
+      wheelBeat(0); $('#wBol').textContent = ev.disp; $('#wClap').textContent = '🎉 サム！';
+      gridHighlight(-1,-1); return;
+    }
+    const seg = P.segments[ev.si]; if (!seg) return;
+    const cyc = ev.gb % taal.beats;
+    // 周期が変わったらグリッドを描き直す
+    const cycStartBi = ev.bi - cyc < 0 ? 0 : ev.bi - cyc;
+    const key = ev.si + ':' + cycStartBi;
+    if (key !== this.lastCycleKey) {
+      this.lastCycleKey = key;
+      const start = ev.bi - cyc < 0 ? 0 : ev.bi - cyc;
+      const startNo = (ev.gb - (ev.bi - start)) % taal.beats;
+      drawGrid(seg.beats.slice(start, start + taal.beats - startNo), taal, startNo, seg.tags ? seg.tags.slice(start, start + taal.beats - startNo) : null);
+      this.gridStart = start;
+      $('#nowSec').textContent = seg.title;
+      $('#nowDesc').innerHTML = seg.desc || '';
+      document.querySelectorAll('.card').forEach(c => c.classList.toggle('on', c.dataset.id === seg.id));
+    }
+    wheelBeat(cyc);
+    gridHighlight(ev.bi - this.gridStart, ev.k);
+    if (ev.disp && ev.disp !== 'ऽ') $('#wBol').textContent = ev.disp;
+    if (ev.k === 0) {
+      const m = beatMarks(taal)[cyc];
+      $('#wClap').textContent = m ? (markType(m) === 'khali' || m === 'X/0' ? '👋 カーリー（手を振る）' : m === 'X' ? '👏 サム！' : '👏 ターリー') : '';
+    }
+  }
+};
+$('#stopBtn').onclick = () => { Player.stop(); thekaPlaying = false; $('#thekaPlay').textContent = '▶ テーカを再生（ループ）'; };
+
+// ================= ターラ・タブ =================
+const taalSel = $('#taalSel'), compTaal = $('#compTaal');
+for (const [k,t] of Object.entries(TAALS)) { taalSel.add(new Option(t.name, k)); compTaal.add(new Option(t.name, k)); }
+function thekaBeats(taal, dens){
+  const words = taal.theka.split(' ');
+  const flat = words.flatMap(w => IM.parseWord(w).length > 1 && dens > 1 ? [w] : [w]);
+  const out = [];
+  for (let i=0;i<taal.beats;i++){
+    if (dens === 1) out.push(IM.parseWord(flat[i]));
+    else { const ws = []; for (let j=0;j<dens;j++) ws.push(flat[(i*dens + j) % flat.length]); out.push(IM.parseWord(ws.join(''))); }
+  }
+  return out;
+}
+function showTaalInfo(){
+  const t = TAALS[taalSel.value], marks = beatMarks(t);
+  const cells = t.theka.split(' ').map((w,i) => `<td style="text-align:center"><div class="mk ${marks[i]?markType(marks[i]):''}" style="font-weight:800">${marks[i]||'&nbsp;'}</div><b>${w}</b><div class="small">${i+1}</div></td>`).join('');
+  $('#taalInfo').innerHTML = `<h3>${t.name}　<span class="small">区切り：${t.vib.join('+')}</span></h3>
+    <div style="overflow-x:auto"><table><tr>${cells}</tr></table></div><p style="font-size:.86rem">${t.desc}</p>
+    ${t.beats !== 16 ? '<p class="small">※ レヘラー（伴奏旋律）はティーンタールのときだけ鳴ります。</p>' : ''}`;
+  if (!Player.playing) { drawWheel(t); drawGrid(thekaBeats(t, 1), t, 0); }
+}
+let thekaPlaying = false;
+function startTheka(){
+  const t = TAALS[taalSel.value], dens = +$('#densSel').value;
+  const densName = {1:'', 2:'（ドゥグン＝2倍の密度）', 4:'（チャウグン＝4倍の密度）'}[dens];
+  Player.start({taal:t, loop:true, liveBpm:() => +$('#bpmSl').value,
+    segments:[{title:t.name + ' のテーカ' + densName, desc:'色付きの円：<span style="color:var(--sam)">赤=サム</span> <span style="color:var(--tali)">橙=ターリー</span> <span style="color:var(--khali)">青=カーリー</span>', bpm:+$('#bpmSl').value, beats:thekaBeats(t, dens)}]});
+  thekaPlaying = true; $('#thekaPlay').textContent = '⟳ 再スタート';
+}
+taalSel.onchange = () => { $('#bpmSl').value = TAALS[taalSel.value].bpm; $('#bpmV').textContent = $('#bpmSl').value; showTaalInfo(); if (thekaPlaying && Player.playing) startTheka(); };
+$('#densSel').onchange = () => { if (thekaPlaying && Player.playing) startTheka(); };
+$('#bpmSl').oninput = () => { $('#bpmV').textContent = $('#bpmSl').value; };
+document.querySelectorAll('[data-bpm]').forEach(b => b.onclick = () => { $('#bpmSl').value = b.dataset.bpm; $('#bpmV').textContent = b.dataset.bpm; if (!Player.playing) startTheka(); });
+$('#thekaPlay').onclick = startTheka;
+
+// ================= 演奏の流れ（独奏の構成） =================
+const T16 = TAALS.teentaal;
+const W = s => IM.parseBeats(s);
+const U = s => s.trim().split(/\s+/);
+const thekaUnits = sub => T16.theka.split(' ').flatMap(w => [w, ...Array(sub-1).fill('S')]);
+const unitsToBeats = (units, sub) => IM.chunk(IM.parseWord(units.join('')), sub);
+// ティハーイー付きの区間（色分けタグ付き）
+function tihaiSection({body = [], phrase, gap, sub = 4}){
+  const P = U(phrase), Bd = body.length ? U(body) : [];
+  const cycleU = T16.beats * sub;
+  const seq = [], tags = [];
+  Bd.forEach(x => { seq.push(x); tags.push('body'); });
+  for (let r=0;r<3;r++){
+    P.forEach(x => { seq.push(x); tags.push('p'+(r+1)); });
+    if (r < 2) for (let g=0; g<gap; g++){ seq.push('S'); tags.push('gap'); }
+  }
+  const landing = seq.pop(); tags.pop();
+  const k = Math.max(1, Math.ceil(seq.length / cycleU));
+  const need = k * cycleU - seq.length, fill = thekaUnits(sub);
+  const pre = Array.from({length:need}, (_, i) => fill[i % fill.length]);
+  const units = [...pre, ...seq], allTags = [...pre.map(() => 'theka'), ...tags];
+  return { beats: unitsToBeats(units, sub), tags: IM.chunk(allTags, sub), landing };
+}
+
+const QAIDA_MUKH = 'DhaTi DhaGe NaDha TiRaKiTa DhaTi DhaGe TinNa KiNa TaTi TaKe NaTa TiRaKiTa DhaTi DhaGe DhinNa GiNa';
+const QAIDA_P1 = 'DhaTi DhaGe NaDha TiRaKiTa DhaTi DhaGe NaDha TiRaKiTa DhaTi DhaGe NaDha TiRaKiTa DhaTi DhaGe TinNa KiNa ' +
+                 'TaTi TaKe NaTa TiRaKiTa TaTi TaKe NaTa TiRaKiTa DhaTi DhaGe NaDha TiRaKiTa DhaTi DhaGe DhinNa GiNa';
+const RELA = 'DhiRaDhiRa KiTaTaKa DhiRaDhiRa KiTaTaKa TiRaKiTa TaKaTiRa KiTaTaKa DhaTiDhaGe DhiRaDhiRa KiTaTaKa TiRaKiTa TaKaTiRa KiTaTaKa TiRaKiTa DhaTiDhaGe TinNaKiNa ' +
+             'TiRaTiRa KiTaTaKa TiRaTiRa KiTaTaKa TiRaKiTa TaKaTiRa KiTaTaKa TaTiTaKe TiRaTiRa KiTaTaKa TiRaKiTa TaKaTiRa KiTaTaKa TiRaKiTa DhaTiDhaGe DhinNaGiNa';
+const PESHKAR = 'DhiSSKra DhinSDhaDha DhinSDhaDha DhaTiDhaS DhiSSKra DhinSDhaDha TinSTaTa TinSTaS TiSSKra TinSTaTa TinSTaTa TaTiTaS DhiSSKra DhinSDhaDha DhinSDhaDha DhaTiDhaS';
+
+const qTihai = tihaiSection({phrase:'Dha S Ti S Dha S Ge S Na S Dha S Ti Ra Ki Ta Dha', gap:3});
+const tukra = tihaiSection({body:'Kra S Dhe Te Te Ka Dha S Ti Ra Ki Ta Ta Ka Ti Ra Ki Ta Ta Ka Dha S S S Dhi S Na S Dha S S S', phrase:'Ti Ra Ki Ta Ta Ka Dhi S Na S Dha', gap:5});
+const chakra = tihaiSection({phrase:'Dha S Ti Ra Ki Ta Ta Ka Ti Ra Ki Ta Dha S S S Ta Ka Dha S Ta Ka Dha S Ta Ka Dha', gap:5});
+const thekaW = W(T16.theka);
+
+const FLOW = [
+  {id:'theka', no:1, name:'テーカ（導入）', rom:'Theka', laya:'マディヤ（中くらい）・約72', bpm:72,
+   beats:[...thekaW, ...thekaW], text:'まず基本パターンで周期（ここではティーンタール16拍）を示し、伴奏旋律レヘラーと一緒にテンポを確立します。',
+   point:'9〜12拍目（カーリー）で低音が消えて軽くなるのを確認。'},
+  {id:'peshkar', no:2, name:'ペーシュカール', rom:'Peshkar', laya:'ゆったり・約72', bpm:72,
+   beats:W(PESHKAR), text:'独奏の幕開けとなる、ゆったりした即興的な部分。「ディン」「ダー」などの開放音を中心に、間（ま）を生かして空間を探るように始めます。',
+   point:'前半（バリー＝低音あり）と後半（カーリー＝低音なし）が対になる構造。'},
+  {id:'qaida', no:3, name:'カーイダ（主題と変奏）', rom:'Qaida', laya:'同じテンポで音数を増やす・約80', bpm:80,
+   beats:[...W(QAIDA_MUKH), ...W(QAIDA_P1), ...qTihai.beats], tags:[...W(QAIDA_MUKH).map(b=>b.map(()=>'')), ...W(QAIDA_P1).map(b=>b.map(()=>'')), ...qTihai.tags], landing:qTihai.landing,
+   text:'決まった主題（ムク）を、そのボルだけを使って並べ替えて変奏（パルター）していく、タブラー独奏の中心。「ルール（=カーイダ）」という意味。主題 → 変奏 → ティハーイーで締める。',
+   point:'有名なデリー派の主題「ダーティ・ダーゲ・ナーダー・ティラキタ」。後半は低音が抜け（ターティ・ターケ…）、最後の4拍で戻ります。'},
+  {id:'rela', no:4, name:'レーラ（高速ロール）', rom:'Rela', laya:'速く・104→124（加速）', bpm:104, bpmTo:124,
+   beats:W(RELA), text:'「流れ」の意味。細かい音を途切れなく連ねる高速の部分で、テクニックの見せ場。だんだん速くなります。',
+   point:'1拍に4つの音がずっと続く。ディラディラ＝手のひら側と指を交互に。'},
+  {id:'tukra', no:5, name:'トゥクラー', rom:'Tukra', laya:'速い・約124', bpm:124,
+   beats:tukra.beats, tags:tukra.tags, landing:tukra.landing,
+   text:'「かけら」の意味。1〜2周期の短い決め曲で、最後はティハーイー（同じフレーズを3回）でサムに着地します。似た曲にガット、パランなどがあります。',
+   point:'色の付いた3つのフレーズ（赤→黄→緑）が同じ形の繰り返し。3回目の最後の「ダー」がサムに来る！'},
+  {id:'chakra', no:6, name:'チャクラダール・ティハーイー（終曲）', rom:'Chakradar', laya:'速い・約124', bpm:124,
+   beats:chakra.beats, tags:chakra.tags, landing:chakra.landing,
+   text:'「車輪」の意味。ティハーイーを含んだフレーズを、さらに3回くり返す（＝ティハーイーのティハーイー）。最後の最後の「ダー」がサムに着地して独奏が終わります。',
+   point:'1つのフレーズの中に小さな「ターカ・ダー」×3があり、それ全体が×3。計9回目の「ダー」がサム。'}
+];
+const flowSegs = FLOW.map(f => ({id:f.id, title:`${f.no}. ${f.name}`, desc:f.point, bpm:f.bpm, bpmTo:f.bpmTo, beats:f.beats, tags:f.tags, landing:f.landing}));
+$('#flowLine').innerHTML = FLOW.map(f => `<span>${f.no}. ${f.name.replace(/（.*/, '')}</span>`).join('<i>→</i>') + '<i>→</i><span>サムで終演</span>';
+FLOW.forEach((f, i) => {
+  const c = document.createElement('div'); c.className = 'card'; c.dataset.id = f.id;
+  c.innerHTML = `<h4><span class="num">${f.no}</span>${f.name} <span class="small">${f.rom}</span></h4>
+    <div class="laya">テンポ：${f.laya}</div><p>${f.text}</p><p class="small">👂 聴きどころ：${f.point}</p>
+    <button class="sec">▶ この部分だけ演奏</button>`;
+  c.querySelector('button').onclick = () => Player.start({taal:T16, segments:[flowSegs[i]], onEnd:()=>{}});
+  $('#flowCards').appendChild(c);
+});
+$('#flowAll').onclick = () => { thekaPlaying = false; Player.start({taal:T16, segments:flowSegs}); };
+document.querySelectorAll('#flowAll, .card button').forEach(b => b.addEventListener('click', () => window.scrollTo({top:0, behavior:'smooth'})));
+
+// ================= 自作 =================
+const EXAMPLES = {
+  'ティーンタール':['Dha Dhin Dhin Dha | Dha Dhin Dhin Dha | Dha Tin Tin Ta | Ta Dhin Dhin Dha','teentaal',90],
+  'カーイダ':[QAIDA_MUKH.replace(/(\S+ \S+ \S+ \S+) /g,'$1 | '),'teentaal',80],
+  'ティハーイーの練習':['Dha Dhin Dhin Dha | Dha Dhin Dhin Dha | Dha Tin Tin Ta | TiRaKiTa DhaS TiRaKiTa DhaS | TiRaKiTa Dha','teentaal',80],
+  'ジャプタール':['Dhi Na | Dhi Dhi Na | Ti Na | Dhi Dhi Na','jhaptaal',100],
+  'ケヘルワー（ドゥグン）':['DhaGe NaTi NaKe DhiNa DhaGe NaTi NaKe DhiNa','keherwa',90],
+  'ゲーのミーンド':['Ghe S Ghe Na | Ghe S TiRaKiTa DhaGe | Ghe S Ghe Na | Ka S TiRaKiTa DhaGe','teentaal',70]
+};
+for (const [name,[text,taal,bpm]] of Object.entries(EXAMPLES)) {
+  const b = document.createElement('button'); b.className = 'sec'; b.textContent = name;
+  b.onclick = () => { $('#compText').value = text; compTaal.value = taal; $('#compBpm').value = bpm; };
+  $('#compEx').appendChild(b);
+}
+$('#compPlay').onclick = () => {
+  const beats = W($('#compText').value);
+  const bad = [...new Set(beats.flat().filter(t => t.key && !IM.BOLS[t.key]).map(t => t.disp))];
+  $('#compErr').textContent = bad.length ? `知らないボル（鳴りません）：${bad.join(', ')}` : '';
+  if (!beats.length) return;
+  thekaPlaying = false;
+  Player.start({taal:TAALS[compTaal.value], loop:$('#compLoop').checked,
+    segments:[{title:'自作のフレーズ', desc:`${beats.length}拍`, bpm:Math.max(20, Math.min(400, +$('#compBpm').value || 90)), beats}]});
+};
+
+// ================= 共通設定 =================
+document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('#tabs button').forEach(x => x.classList.toggle('on', x === b));
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.id === 'tab-' + b.dataset.t));
+});
+$('#keySel').onchange = () => { const hz = +$('#keySel').value; if (booted) { tabla.setTuning(hz, +$('#bayanSl').value); tan.setSa(hz/2); if (tan.on) { tan.stop(); tan.start(); } } };
+$('#bayanSl').onchange = () => { if (booted) tabla.setTuning(+$('#keySel').value, +$('#bayanSl').value); };
+$('#verbSl').oninput = () => { if (booted) E.setReverb($('#verbSl').value/100*1.6); };
+$('#tanChk').onchange = e => { boot(); e.target.checked ? tan.start() : tan.stop(); };
+
+showTaalInfo();
+</script>
+</body>
+</html>
