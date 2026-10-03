@@ -14,13 +14,14 @@
     --wood1:#8b3a1e; --wood2:#5b2210;
     --c-gong:#e0683c; --c-kenong:#e9b44c; --c-kempul:#d98c4a; --c-kethuk:#9fb6c8;
     --c-bal:#7fd3a0; --c-elab:#c59bff; --c-drum:#ff7b9c;
+    color-scheme:dark;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   html,body{margin:0; padding:0;}
   body{
     font-family:-apple-system,"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,system-ui,sans-serif;
     background:var(--bg); color:var(--text); line-height:1.5;
-    padding:10px 12px 40px; max-width:1100px; margin:0 auto;
+    padding:10px 16px 40px; max-width:1100px; margin:0 auto;
     background-image:radial-gradient(circle at 20% 0%, #3a2414 0, transparent 50%), radial-gradient(circle at 100% 30%, #2b1a10 0, transparent 40%);
     background-attachment:fixed;
   }
@@ -54,7 +55,7 @@
   .chk input{width:18px; height:18px; accent-color:var(--accent);}
 
   /* tabs */
-  .tabs{display:flex; gap:6px; margin:8px 0 12px; position:sticky; top:0; z-index:20; background:var(--bg); padding:6px 0;}
+  .tabs{display:flex; gap:6px; margin:8px 0 12px; position:sticky; top:env(safe-area-inset-top, 0px); z-index:20; background:var(--bg); padding:6px 0;}
   .tabs button{flex:1; background:var(--panel); color:var(--sub); border:1px solid var(--line); padding:10px 6px;}
   .tabs button.active{background:var(--accent); color:#2a1606; border-color:var(--accent);}
   .page{display:none;} .page.active{display:block;}
