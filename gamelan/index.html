@@ -135,7 +135,7 @@
   /* 自動演奏 */
   .autogrid{display:grid; grid-template-columns:minmax(0,1fr); gap:12px;}
   @media (min-width:820px){ .autogrid{grid-template-columns:340px minmax(0,1fr);} }
-  .cyclebox{display:flex; flex-direction:column; align-items:center;}
+  .cyclebox{display:flex; flex-direction:column;}
   #cycleSvg{width:100%; max-width:330px; height:auto;}
   .legend{display:flex; flex-wrap:wrap; gap:4px 10px; font-size:.72rem; color:var(--sub); justify-content:center;}
   .legend i{display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:3px; vertical-align:-1px;}
@@ -145,11 +145,11 @@
   .gatra .cell.now{background:var(--accent); color:var(--onaccent);}
   .gatra .cell .mk{position:absolute; top:-.9em; left:0; right:0; font-size:.5rem; font-weight:700; color:var(--sub);}
   .lanes{display:flex; flex-direction:column; gap:4px; margin-top:8px;}
-  .lane{display:grid; grid-template-columns:22px 96px minmax(0,1fr) 54px; align-items:center; gap:6px; background:var(--panel2); border-radius:8px; padding:5px 8px; font-size:.8rem;}
+  .lane{display:grid; grid-template-columns:22px 96px minmax(0,1fr) 66px; align-items:center; gap:6px; background:var(--panel2); border-radius:8px; padding:5px 8px; font-size:.8rem;}
   .lane .dot{width:14px; height:14px; border-radius:50%; opacity:.35; transition:opacity .1s, transform .1s;}
   .lane .dot.flash{opacity:1; transform:scale(1.3);}
   .lane .role{color:var(--sub); font-size:.7rem; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;}
-  .lane .cur{font-size:.95rem; text-align:center;}
+  .lane .cur{font-size:.85rem; text-align:center; white-space:nowrap;}
   .lane.off{opacity:.4;}
   .lane input{width:18px; height:18px; accent-color:var(--accent); margin:0;}
   .status{font-size:.85rem; padding:6px 10px; border-radius:8px; background:var(--panel2); display:inline-block;}
@@ -235,6 +235,41 @@
   label.ctl:has(#pieceSel){max-width:100%; min-width:0;}
   #pieceSel{width:100%;}
   .gong::after{content:''; position:absolute; inset:6%; border-radius:50%; box-shadow:inset 0 0 0 3px rgba(61,39,9,.55); pointer-events:none;}
+  .cycwrap{width:100%; max-width:380px; margin:0 auto;}
+  .cyc{width:100%; height:auto; display:block; overflow:visible;}
+  .cyc .cwl{font-size:9.5px; fill:#c9b294; opacity:.75; font-weight:700;}
+  .cyc .cw{transition:fill .25s;}
+  .cyc .cw.on{fill:#523823;}
+  .cyc .cml{font-size:10.5px; font-weight:800;}
+  .cyc .cn{fill:#f6ead8; font-weight:800; transition:fill .15s;}
+  .cyc .cn.on{fill:#e9b44c;}
+  .cyc .cbig{font-size:30px; font-weight:800; fill:#f6ead8;}
+  .cyc .csub{font-size:10.5px; fill:#c9b294;}
+  .cyc .csub2{font-size:11px; fill:#e9b44c; font-weight:800;}
+  .cyc .cb{transform-box:fill-box; transform-origin:center; cursor:pointer;}
+  .cyc .cb.pulse{animation:cbpulse .5s ease-out;}
+  @keyframes cbpulse{0%{transform:scale(1.9)} 100%{transform:scale(1)}}
+  .cyc.gongflash{animation:gflash 1s ease-out;}
+  @keyframes gflash{0%{filter:drop-shadow(0 0 18px rgba(224,104,60,.95))} 100%{filter:none}}
+  .gstrip{display:grid; grid-template-columns:repeat(4,1fr); gap:4px; margin:8px auto 0; max-width:380px;}
+  .gstrip div{background:var(--panel2); border:1px solid var(--line); border-radius:8px; text-align:center; padding:4px 2px 6px; font-size:1.15rem; position:relative;}
+  .gstrip div small{display:block; font-size:.62rem; color:var(--sub); font-weight:600;}
+  .gstrip div.now{background:var(--accent); color:var(--onaccent); border-color:var(--accent);}
+  .gstrip div.now small{color:var(--onaccent);}
+  .gstrip div.seleh{border-color:var(--good);}
+  .guide{display:flex; flex-direction:column; gap:6px; margin-top:10px; width:100%;}
+  .gitem{border-left:4px solid var(--line); background:var(--panel2); border-radius:0 8px 8px 0; padding:6px 10px; font-size:.84rem; display:flex; flex-direction:column; transition:opacity .3s;}
+  .gitem b{font-size:.88rem;} .gitem span{color:var(--sub);}
+  .gitem.old{opacity:.55;}
+  .gitem.new{animation:gin .35s ease-out;}
+  @keyframes gin{from{transform:translateY(-6px); opacity:0}}
+  .k-gong{border-color:var(--c-gong);} .k-kenong{border-color:var(--c-kenong);} .k-kempul{border-color:var(--c-kempul);} .k-start{border-color:var(--good);}
+  .k-warn{border-color:var(--accent2);} .k-buka{border-color:var(--c-drum);} .k-wela{border-color:var(--c-kethuk);} .k-pick{border-color:var(--accent);}
+  .tlwrap{overflow-x:auto; border-radius:10px; border:1px solid var(--line);}
+  .tlwrap canvas{display:block;}
+  .pcount{font-size:.82rem; color:var(--accent); font-weight:700; font-variant-numeric:tabular-nums;}
+  .score td.hd .mk .mG{color:var(--c-gong);} .score td.hd .mk .mN{color:var(--c-kenong);} .score td.hd .mk .mP{color:var(--c-kempul);}
+  @media (prefers-reduced-motion:reduce){ .cyc .cb.pulse,.cyc.gongflash,.gitem.new{animation:none;} }
   #unlock{position:fixed; inset:0; background:rgba(15,8,4,.86); z-index:100; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:12px; text-align:center; padding:20px;}
   #unlock .big{font-size:1.1rem; font-weight:800;}
 </style>
@@ -292,6 +327,12 @@
     <p class="muted" style="margin-top:0">楽器を選ぶと、その楽器の役割・決まりごと（セオリー）・楽譜の例が出ます。「お手本」で聴いて、「一緒に弾く」で合奏の中に入って練習できます。</p>
     <div class="tgroups" id="tGroups"></div>
   </div>
+  <div class="panel">
+    <h2>楽器の音の高さ地図</h2>
+    <p class="note" style="margin-top:0">右へ行くほど高い音。縦の線は「1」の音（1オクターブごと）です。同じ旋律を、楽器ごとにちがうオクターブで鳴らしているのがわかります。点をタップすると音が鳴ります。</p>
+    <div class="row" id="rmLaras" style="gap:4px;margin-bottom:6px"><button class="sec on" data-l="slendro">スレンドロ</button><button class="sec" data-l="pelog">ペロッグ</button></div>
+    <div class="scorewrap" id="rangeMap"></div>
+  </div>
   <div class="panel theory" id="tCard"></div>
 </section>
 
@@ -342,15 +383,16 @@
 
   <div class="autogrid">
     <div class="panel cyclebox">
-      <h2 style="align-self:flex-start;">ゴンガン（ゴングの周期）</h2>
-      <svg id="cycleSvg" viewBox="0 0 300 300"></svg>
+      <h2>ゴンガン（ゴングの周期）</h2>
+      <p class="note" style="margin-top:0">針が1周すると最後の拍でゴングが鳴り、また上から始まります。扇形1つ＝ガトラ（4拍）、点線＝クノンの区切り、太線＝ゴング。中央の数字はいまの拍、🔔はゴングまでの残りの拍数です。点をタップするとその拍の役割が出ます。</p>
+      <div id="autoCycle" class="cycwrap"></div>
       <div class="legend" id="legend">
         <span><i style="background:var(--c-gong)"></i>G ゴング</span>
         <span><i style="background:var(--c-kenong)"></i>N クノン</span>
         <span><i style="background:var(--c-kempul)"></i>P クンプル</span>
         <span><i style="background:var(--c-kethuk)"></i>t クトゥッ</span>
       </div>
-      <p class="note">時計のように一周すると最後にゴングが鳴り、また最初へ戻ります。ガムランの曲はこの「ぐるぐる回る時間」で組み立てられています。</p>
+      <div id="autoGuide" class="guide"></div>
     </div>
     <div class="panel" style="min-width:0">
       <h2>バルンガン（骨組みの旋律）</h2>
@@ -358,6 +400,12 @@
       <h3>楽器ごとの役割（チェックを外すとその楽器が消えます）</h3>
       <div class="lanes" id="lanes"></div>
     </div>
+  </div>
+
+  <div class="panel">
+    <h2>全楽器のタイムライン（1周ぶん）</h2>
+    <p class="note" style="margin-top:0">横が時間、縦が楽器です。上の飾りの楽器ほど細かく、下のゴングほどゆっくり鳴ります。白い線がいまの位置で、鳴った音が光ります。</p>
+    <div id="autoTL"></div>
   </div>
 
   <div class="panel">
@@ -483,10 +531,15 @@ function initAudio(){
   if (ctx) { if (ctx.state !== 'running') ctx.resume(); return; }
   try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch(e){}
   ctx = new (window.AudioContext || window.webkitAudioContext)();
+  buildGraph();
+  const s = ctx.createBufferSource(); s.buffer = ctx.createBuffer(1,1,22050); s.connect(ctx.destination); s.start(0);
+}
+// 音の通り道：各楽器 → bus → (残響) → コンプレッサー → 高音を少し抑える → 出力
+function buildGraph(){
   const comp = ctx.createDynamicsCompressor();
   comp.threshold.value = -18; comp.knee.value = 12; comp.ratio.value = 3.5; comp.attack.value = 0.005; comp.release.value = 0.3;
   const shelf = ctx.createBiquadFilter(); shelf.type = 'highshelf'; shelf.frequency.value = 6500; shelf.gain.value = -4; // 耳に痛い高音を少し抑える
-  const master = ctx.createGain(); master.gain.value = 0.95;
+  const master = ctx.createGain(); master.gain.value = 0.85;
   bus = ctx.createGain(); bus.gain.value = 0.5;
   // 残響：屋根だけの東屋「プンドポ」をイメージ（初期反射＋柔らかい残響）
   const pre = ctx.createDelay(0.1); pre.delayTime.value = 0.018;
@@ -496,7 +549,6 @@ function initAudio(){
   comp.connect(shelf); shelf.connect(master); master.connect(ctx.destination);
   noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
   const nd = noiseBuf.getChannelData(0); for (let i=0;i<nd.length;i++) nd[i] = Math.random()*2-1;
-  const s = ctx.createBufferSource(); s.buffer = ctx.createBuffer(1,1,22050); s.connect(ctx.destination); s.start(0);
 }
 function makeIR(sec){
   const sr = ctx.sampleRate, len = Math.floor(sr*sec), ir = ctx.createBuffer(2, len, sr);
@@ -522,7 +574,7 @@ function voice(freq, t, vel, partials, opt={}){
   const out = ctx.createGain(); out.gain.value = 1;
   if (opt.pan && ctx.createStereoPanner){ const p = ctx.createStereoPanner(); p.pan.value = opt.pan; out.connect(p); p.connect(bus); }
   else out.connect(bus);
-  const atk0 = opt.attack ?? 0.003;
+  const atk0 = opt.attack ?? 0.003, srcs = [];
   for (const [r, a, dec, addHz=0, atk=atk0] of partials){
     const f = freq*r + addHz;
     if (f > 15000 || f < 20 || a*vel < 0.002) continue;
@@ -534,7 +586,7 @@ function voice(freq, t, vel, partials, opt={}){
     g.gain.linearRampToValueAtTime(a*vel, t + atk);
     g.gain.exponentialRampToValueAtTime(0.0001, t + atk + dec);
     o.connect(g); g.connect(out);
-    o.start(t); o.stop(t + atk + dec + 0.05);
+    o.start(t); o.stop(t + atk + dec + 0.05); srcs.push(o);
   }
   for (const nz of (opt.noise||[])){
     const n = ctx.createBufferSource(); n.buffer = noiseBuf;
@@ -544,7 +596,9 @@ function voice(freq, t, vel, partials, opt={}){
     n.connect(f); f.connect(g); g.connect(out);
     n.start(t, Math.random()*0.5); n.stop(t + nz.d + 0.02);
   }
-  return { damp(at){ const tt = Math.max(at, ctx.currentTime); out.gain.setTargetAtTime(0, tt, 0.022); } };
+  // ダンプ：響きを手で止める。止めた音の発振器も早めに止めてスマホの負担を減らす
+  return { damp(at){ const tt = Math.max(at, ctx.currentTime); out.gain.setTargetAtTime(0, tt, 0.022);
+    for (const o of srcs){ try { o.stop(tt + 0.2); } catch(e){} } } };
 }
 function pair(a, b){ return { damp(x){ a.damp(x); b.damp(x); } }; }
 
@@ -559,7 +613,7 @@ const SYNTH = {
   },
   // スレンテム：薄い板＋竹筒の共鳴。共鳴管が少し遅れてふくらむ
   slenthem(f, t, v, pan=0){
-    return voice(f, t, v, [[1,.5,4.6,0,.004],[1,.26,4.2,.7,.07],[2,.11,1.7],[3,.045,.8],[4.1,.02,.4]],
+    return voice(f, t, v, [[1,.5,10,0,.004],[1,.26,9,.7,.07],[2,.11,3.6],[3,.045,1.6],[4.1,.02,.8]],
       {pan, noise:[{type:'lowpass', f:700, q:.7, a:.05, d:.03}]});
   },
   // ボナン：こぶ付きの小さな壺型ゴング。布を巻いたバチで柔らかく
@@ -569,20 +623,20 @@ const SYNTH = {
   },
   // クンプル：吊りゴング。叩いた瞬間少し高く、ゆっくり「うなり」ながら消える
   kempul(f, t, v, pan=0){
-    return voice(f, t, v, [[1,.5,5],[1,.34,5,1.4],[2,.28,3.6,0,.02],[2,.17,3.6,2.1,.02],[3.01,.17,2.6,0,.03],[4.06,.1,1.7],[5.3,.06,1.1],[6.7,.03,.7]],
+    return voice(f, t, v, [[1,.5,12],[1,.34,12,1.4],[2,.28,8,0,.02],[2,.17,8,2.1,.02],[3.01,.17,5.5,0,.03],[4.06,.1,3.5],[5.3,.06,2.2],[6.7,.03,1.4]],
       {pan, attack:.008, glide:1.012, glideTime:.25, noise:[{type:'lowpass', f:320, q:.6, a:.14, d:.07}]});
   },
   // クノン：台に置いた大きな壺型ゴング「ノン」
   kenong(f, t, v, pan=0){
-    return voice(f, t, v, [[1,.55,4.2],[1,.24,4.2,1.1],[2.01,.2,2.3],[2.01,.08,2.3,1.7],[3.03,.11,1.3],[4.1,.05,.8]],
+    return voice(f, t, v, [[1,.55,10],[1,.24,10,1.1],[2.01,.2,5],[2.01,.08,5,1.7],[3.03,.11,2.8],[4.1,.05,1.6]],
       {pan, attack:.006, glide:1.004, glideTime:.12, noise:[{type:'lowpass', f:600, q:.7, a:.08, d:.04}]});
   },
   // ゴン・アグン：低い基音＋ゆっくりふくらむ倍音＋大きなうなり（オンバ）
   gong(t, v, ombak=1.8, pan=0){
     const f = 45;
     return voice(f, t, v, [
-      [1,.85,10,0,.03],[1,.65,10,ombak,.03],[2,.48,8.5,0,.14],[2,.33,8.5,ombak*1.3,.14],
-      [2.93,.27,6.5,0,.24],[4.05,.21,5,0,.3],[4.05,.14,5,ombak,.3],[5.2,.13,3.8,0,.36],[6.4,.09,3,0,.36],[8.1,.05,2.2,0,.3],[10.3,.025,1.4,0,.25],
+      [1,.85,24,0,.03],[1,.65,24,ombak,.03],[2,.48,18,0,.14],[2,.33,18,ombak*1.3,.14],
+      [2.93,.27,13,0,.24],[4.05,.21,10,0,.3],[4.05,.14,10,ombak,.3],[5.2,.13,7,0,.36],[6.4,.09,5.5,0,.36],[8.1,.05,4,0,.3],[10.3,.025,2.6,0,.25],
     ], {pan, glide:1.03, glideTime:.45, noise:[{type:'lowpass', f:220, q:.6, a:.32, d:.16},{type:'bandpass', f:900, q:1, a:.03, d:.05}]});
   },
   // クトゥッ：すぐ手で止める鈍い「トゥッ」
@@ -591,7 +645,7 @@ const SYNTH = {
       {pan, attack:.002, glide:1.03, glideTime:.05, noise:[{type:'lowpass', f:800, q:.8, a:.2, d:.04}]});
   },
   kempyang(f, t, v, pan=0){
-    return voice(f, t, v, [[1,.34,.26],[2.62,.1,.09],[4.1,.03,.04]], {pan, attack:.002, noise:[{type:'bandpass', f:3200, q:1.5, a:.06, d:.02}]});
+    return voice(f, t, v, [[1,.5,.3],[2.62,.12,.1],[4.1,.03,.04]], {pan, attack:.002, noise:[{type:'bandpass', f:3200, q:1.5, a:.08, d:.02}]});
   },
   kajar(t, v, pan=0){
     return voice(610, t, v, [[1,.5,.12],[2.3,.14,.06]], {pan, attack:.001, glide:1.02, glideTime:.03, noise:[{type:'bandpass', f:2400, q:1.2, a:.1, d:.025}]});
@@ -607,7 +661,7 @@ const SYNTH = {
       case 'P': return voice(232, t, v, [[1,.62,.3],[1.59,.18,.14],[2.14,.06,.08]],
         {pan, attack:.002, glide:1.07, glideTime:.05, noise:[{type:'bandpass', f:1500, q:1, a:.09, d:.02}]});
       case 't': return voice(380, t, v, [[1,.12,.05],[1.59,.05,.03]],
-        {pan, attack:.001, noise:[{type:'bandpass', f:1250, q:.75, a:.85, d:.055},{type:'highpass', f:3200, q:.7, a:.28, d:.022}]});
+        {pan, attack:.001, noise:[{type:'bandpass', f:1250, q:.75, a:1.3, d:.06},{type:'highpass', f:3200, q:.7, a:.4, d:.025}]});
       case 'L': SYNTH.drum('t', t, v*.6, pan); return SYNTH.drum('D', t, v*.75, pan);
       case 'k': return voice(310, t, v, [[1,.06,.02]], {pan, attack:.001, noise:[{type:'bandpass', f:850, q:1.1, a:.32, d:.022}]});
     }
@@ -619,7 +673,7 @@ const SYNTH = {
 const INSTNAME = {bal:'バルンガン', saron:'サロン', demung:'デムン', slenthem:'スレンテム', peking:'ペキン', bonang:'ボナン', panerus:'パネルス',
   gong:'ゴング', kenong:'クノン', kempul:'クンプル', kethuk:'クトゥッ', kempyang:'クンピャン', kajar:'カジャール', kendhang:'クンダン',
   polos:'ポロス', sangsih:'サンシ', calung:'チャルン', jegogan:'ジェゴガン', ceng:'チェンチェン', gangsa:'ガンサ'};
-const MIX = {saron:.72, demung:.68, slenthem:.85, peking:.4, bonang:.5, panerus:.3, gong:1, kenong:.78, kempul:.85, kethuk:.75, kempyang:.42,
+const MIX = {saron:.72, demung:.68, slenthem:.85, peking:.4, bonang:.5, panerus:.3, gong:1, kenong:.78, kempul:.85, kethuk:.75, kempyang:.7,
   kajar:.5, kendhang:.75, polos:.5, sangsih:.5, gangsa:.6, calung:.55, jegogan:.8, ceng:.55};
 const PAN = {saron:-.05, demung:-.3, slenthem:-.4, peking:.28, bonang:-.22, panerus:.22, gong:.38, kenong:.15, kempul:.32, kethuk:.08, kempyang:.1,
   kajar:.05, kendhang:0, polos:-.3, sangsih:.3, calung:-.15, jegogan:.15, ceng:.2, gangsa:0};
@@ -631,23 +685,23 @@ function playInst(inst, ev, t, laras, vel=1, pan=PAN[inst]||0){
   const v = Math.min(1.2, vel * (MIX[inst]||.7));
   const F = (o) => freqOf(laras, ev.d, ev.o + o);
   switch(inst){
-    case 'saron':    return SYNTH.bar(F(1), t, v, 2.3, pan);
-    case 'demung':   return SYNTH.bar(F(0), t, v, 3.3, pan, .8);
-    case 'peking':   return SYNTH.bar(F(2), t, v, 1.5, pan, 1.3);
+    case 'saron':    return SYNTH.bar(F(1), t, v, 6, pan);
+    case 'demung':   return SYNTH.bar(F(0), t, v, 8, pan, .8);
+    case 'peking':   return SYNTH.bar(F(2), t, v, 4, pan, 1.3);
     case 'slenthem': return SYNTH.slenthem(F(-1), t, v, pan);
-    case 'bonang':   return SYNTH.kettle(F(0), t, v, 1.5, pan);
-    case 'panerus':  return SYNTH.kettle(F(1), t, v, 1.0, pan);
+    case 'bonang':   return SYNTH.kettle(F(0), t, v, 4, pan);
+    case 'panerus':  return SYNTH.kettle(F(1), t, v, 3, pan);
     case 'kenong':   return SYNTH.kenong(freqOf(laras, ev.d, 0), t, v, pan);
     case 'kempul':   return SYNTH.kempul(freqOf(laras, ev.d, -1), t, v, pan);
     case 'gong':     return SYNTH.gong(t, v, ev.bali ? 2.6 : 1.8, pan);
-    case 'kethuk':   return SYNTH.kethuk(freqOf(laras, 2, -1), t, v, pan);
-    case 'kempyang': return SYNTH.kempyang(freqOf(laras, 6, 1)*1.5, t, v, pan);
+    case 'kethuk':   return SYNTH.kethuk(freqOf(laras, 2, 0), t, v, pan);
+    case 'kempyang': return SYNTH.kempyang(freqOf(laras, laras==='pelog' ? 6 : 6, 1), t, v, pan);
     case 'kajar':    return SYNTH.kajar(t, v, pan);
     case 'ceng':     return SYNTH.ceng(t, v, pan);
     case 'kendhang': return SYNTH.drum(ev.k, t, v, pan);
     case 'polos': case 'sangsih': case 'gangsa': // 2台1組（低めのペンゴンバン＋高めのペンギセップ）でうなりを作る
-      return pair(SYNTH.bar(F(1), t, v*.72, 1.7, pan-.1), SYNTH.bar(F(1)+ombakHz, t, v*.72, 1.7, pan+.1));
-    case 'calung':   return pair(SYNTH.bar(F(0), t, v*.72, 2.6, pan, .8), SYNTH.bar(F(0)+ombakHz*.6, t, v*.72, 2.6, pan, .8));
+      return pair(SYNTH.bar(F(1), t, v*.72, 4, pan-.1), SYNTH.bar(F(1)+ombakHz, t, v*.72, 4, pan+.1));
+    case 'calung':   return pair(SYNTH.bar(F(0), t, v*.72, 6, pan, .8), SYNTH.bar(F(0)+ombakHz*.6, t, v*.72, 6, pan, .8));
     case 'jegogan':  return pair(SYNTH.slenthem(F(-1), t, v*.75, pan), SYNTH.slenthem(F(-1)+ombakHz*.35, t, v*.75, pan));
   }
 }
@@ -774,7 +828,7 @@ function renderScore(el, der, insts, a, b, prefix=''){
   for (let s=a; s<=b; s+=per){
     const e = Math.min(b, s+per-1);
     h += '<div class="scorewrap"><table class="score"><tr><th></th>';
-    for (let k=s;k<=e;k++){ const mk = (der.colo[k]||[]).filter(x=>'GNP'.includes(x)).join(''); h += `<td class="hd ${(k-1)%4===0?'g4':''}" data-beat="${k}">${k}拍${mk?`<span class="mk">${mk}</span>`:''}</td>`; }
+    for (let k=s;k<=e;k++){ const mk = (der.colo[k]||[]).filter(x=>'GNP'.includes(x)).join(''); h += `<td class="hd ${(k-1)%4===0?'g4':''}" data-beat="${k}">${k}拍${mk?`<span class="mk">${mk.split('').map(c=>`<span class="m${c}">${c}</span>`).join('')}</span>`:''}</td>`; }
     h += '</tr>';
     for (const inst of insts){
       h += `<tr><th>${INSTNAME[inst]}</th>`;
@@ -937,7 +991,7 @@ function loadPiece(p){
   S.tempo = S.target = p.tempo;
   $('#tempo').value = p.tempo; $('#tempoV').textContent = p.tempo;
   setIrama(1, true);
-  renderBalungan(); renderCycle(); renderLanes();
+  renderBalungan(); renderLanes(); vizRebuild();
   const bali = S.form==='bali';
   $('#legend').innerHTML = bali
     ? '<span><i style="background:var(--c-gong)"></i>G ゴング</span><span><i style="background:var(--c-kenong)"></i>N クモン</span><span><i style="background:var(--c-kempul)"></i>P クンプール</span><span><i style="background:#4a3526"></i>拍 カジャール</span>'
@@ -964,12 +1018,13 @@ function scheduler(){
     let list = S.phase==='buka' ? D.buka[T] : D.byTick[T];
     if (S.phase==='main' && S.ending && T > (S.N-4)*TPB && S.form!=='bali') list = list.filter(e=>e.inst!=='kendhang').concat(D.endK[T]||[]);
     for (const e of list){
-      const lane = laneOf(e.inst); if (S.muted[lane]) continue;
+      const lane = laneOf(e.inst); if (S.muted[lane] && S.phase!=='buka') continue; // 前奏（ブカ）はいつも鳴らす
       const tt = t + (e.inst==='gong' ? 0 : (Math.random()-.5)*0.008); // 人間らしいわずかなズレ
       const h = playInst(e.inst, e, tt, S.laras, e.v*(0.92+Math.random()*0.14));
       if (DAMP.has(e.inst)) damped(S.handles, e.inst, h, tt);
       hit(lane, t, evLabel(e));
     }
+    logTick(T, t, S.phase);
     if (T % TPB === 0){ const beat = T/TPB, buka = S.phase==='buka'; vis(t, ()=>showBeat(beat, buka)); }
     S.tempo += (S.target - S.tempo) * (S.ending ? 0.02 : 0.012); // 生演奏のように少しずつテンポが変わる
     S.nextTime += 60 / S.tempo / TPB;
@@ -989,7 +1044,7 @@ function startAuto(){
   initAudio();
   if (PW) stopPractice(PW);
   if (S.playing) return;
-  S.playing = true; S.ending = false; S.cycle = 0; S.handles = {};
+  S.playing = true; S.ending = false; S.cycle = 0; S.handles = {}; TL.length = 0; S._tail = false;
   S.phase = 'buka'; S.tick = (S.N - 4) * TPB + 1;
   S.tempo = S.target = +$('#tempo').value;
   S.irama = S.pendingIrama || S.irama; S.pendingIrama = null;
@@ -1001,14 +1056,14 @@ function startAuto(){
 }
 function suwuk(){ if (!S.playing || S.ending) return; S.ending = true; setAutoUI('スウック（終わりに向かう）…'); }
 function finishAuto(at){
-  clearInterval(S.timer); S.timer = null; S.playing = false;
+  clearInterval(S.timer); S.timer = null; S.playing = false; S._tail = true; // 最後のゴングまで針を動かす
   const cb = S.onEnd; S.onCycle = S.onBeat = S.onEnd = null; S.endAfter = 0;
-  setTimeout(()=>{ setAutoUI('停止中'); clearBeat(); if (cb) cb(); }, Math.max(0, (at - ctx.currentTime))*1000 + 400);
+  setTimeout(()=>{ S._tail = false; setAutoUI('停止中'); clearBeat(); if (cb) cb(); }, Math.max(0, (at - ctx.currentTime))*1000 + 400);
 }
 function stopAuto(silent){
   if (S.timer) clearInterval(S.timer);
   const was = S.playing;
-  S.timer = null; S.playing = false; S.ending = false; S.onCycle = S.onBeat = null; S.endAfter = 0;
+  S.timer = null; S.playing = false; S.ending = false; S.onCycle = S.onBeat = null; S.endAfter = 0; S._tail = false; TL.length = 0;
   const cb = S.onEnd; S.onEnd = null;
   visQ.length = 0;
   if (ctx) for (const k in S.handles) S.handles[k].damp(ctx.currentTime);
@@ -1022,32 +1077,226 @@ function setAutoUI(text){
   $('#startBtn').disabled = S.playing; $('#suwukBtn').disabled = !S.playing; $('#stopBtn').disabled = !S.playing;
 }
 
-/* ---- 表示 ---- */
-function renderCycle(){
-  const svg = $('#cycleSvg'), N = S.N, cx = 150, cy = 150, R = 118;
-  S._rot = 0; S._lastBeat = null;
-  let h = `<circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="#5a3f2a" stroke-width="2"/>`;
-  for (let b=1;b<=N;b++){
-    const a = (b/N)*Math.PI*2 - Math.PI/2, x = cx + R*Math.cos(a), y = cy + R*Math.sin(a);
-    const marks = S.colo[b] || [];
-    let col = '#4a3526', r = 5;
-    if (marks.includes('G')) { col='var(--c-gong)'; r=13; }
-    else if (marks.includes('N')) { col='var(--c-kenong)'; r=9; }
-    else if (marks.includes('P')) { col='var(--c-kempul)'; r=8; }
-    else if (marks.includes('t')) { col='var(--c-kethuk)'; r=5; }
-    h += `<circle class="cb" data-b="${b}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r}" fill="${col}" stroke="#1b120c" stroke-width="2"/>`;
-    const lab = marks.filter(k=>'GNPt'.includes(k)).join('');
-    if (lab){ const lx = cx + (R+20)*Math.cos(a), ly = cy + (R+20)*Math.sin(a);
-      h += `<text x="${lx.toFixed(1)}" y="${(ly+4).toFixed(1)}" text-anchor="middle" font-size="10" fill="#c9b294" font-weight="700">${lab}</text>`; }
-    const n = S.bal[b-1], ix = cx + (R-24)*Math.cos(a), iy = cy + (R-24)*Math.sin(a);
-    h += `<text x="${ix.toFixed(1)}" y="${(iy+5).toFixed(1)}" text-anchor="middle" font-size="${N>16?11:14}" fill="#f6ead8" font-weight="800">${n.d||'·'}</text>`;
-    if (n.d && n.o) h += `<circle cx="${ix.toFixed(1)}" cy="${(n.o>0? iy-9 : iy+9).toFixed(1)}" r="1.6" fill="#f6ead8"/>`;
+/* =========================================================
+ *  7.5 周期の見える化：ゴング時計・ガイド・全楽器タイムライン
+ * ========================================================= */
+const TL = []; // 予約したティックの記録（音の時刻と位置を対応させる）
+function logTick(T, t, phase){ TL.push({T, t, phase}); if (TL.length > 600) TL.splice(0, 300); }
+function enginePos(){ // いま鳴っている位置（拍単位の小数）
+  if (!ctx || !TL.length || !S.playing && !S._tail) return null;
+  const now = ctx.currentTime;
+  for (let i=TL.length-1; i>=0; i--){
+    const a = TL[i]; if (a.t > now) continue;
+    const b = TL[i+1]; let T = a.T;
+    if (b && b.T === a.T+1 && b.phase === a.phase) T += Math.min(1, (now-a.t)/(b.t-a.t));
+    return {pos: T/TPB, phase: a.phase};
   }
-  h += `<line id="hand" x1="${cx}" y1="${cy}" x2="${cx}" y2="${cy-R+18}" stroke="#e9b44c" stroke-width="3" stroke-linecap="round" style="transform-origin:${cx}px ${cy}px; transition:transform .15s linear"/>`;
-  h += `<circle cx="${cx}" cy="${cy}" r="30" fill="#2a1c13" stroke="#5a3f2a"/>`;
-  h += `<text id="cycText" x="${cx}" y="${cy+5}" text-anchor="middle" font-size="13" fill="#f6ead8" font-weight="700">${N}拍</text>`;
-  svg.innerHTML = h;
+  return null;
 }
+const COLO_NAME = () => S.form==='bali' ? {G:'ゴング', N:'クモン', P:'クンプール', t:'', p:''} : {G:'ゴング', N:'クノン', P:'クンプル', t:'クトゥッ', p:'クンピャン'};
+const f1 = v => v.toFixed(1);
+function polar(cx, cy, r, frac){ const a = frac*Math.PI*2 - Math.PI/2; return [cx + r*Math.cos(a), cy + r*Math.sin(a)]; }
+function arcPath(cx, cy, r, f0, f1_){
+  if (f1_ - f0 >= 0.9999) return `M${cx} ${cy-r} A${r} ${r} 0 1 1 ${cx-0.01} ${cy-r}`;
+  const [x0,y0] = polar(cx,cy,r,f0), [x1,y1] = polar(cx,cy,r,f1_);
+  return `M${f1(x0)} ${f1(y0)} A${r} ${r} 0 ${f1_-f0>0.5?1:0} 1 ${f1(x1)} ${f1(y1)}`;
+}
+function wedgePath(cx, cy, r, f0, f1_){ const [x0,y0] = polar(cx,cy,r,f0), [x1,y1] = polar(cx,cy,r,f1_);
+  return `M${cx} ${cy} L${f1(x0)} ${f1(y0)} A${r} ${r} 0 ${f1_-f0>0.5?1:0} 1 ${f1(x1)} ${f1(y1)} Z`; }
+
+/* ---- ゴング時計 ---- */
+const CYCLE_VIEWS = new Set();
+class CycleView {
+  constructor(el){ this.el = el; CYCLE_VIEWS.add(this); this.build(); }
+  build(){
+    const N = S.N, G = Math.ceil(N/4), cx = 170, cy = 170, R = 120, names = COLO_NAME();
+    let h = '';
+    // ガトラごとの扇形（4拍で1まとまり。扇の終わり＝ガトラの最後の音）
+    for (let g=0; g<G; g++) h += `<path class="cw" data-g="${g+1}" d="${wedgePath(cx,cy,R-2,(g*4)/N,(g*4+4)/N)}" fill="${g%2?'#3a281b':'#2f2016'}"/>`;
+    for (let g=0; g<G; g++){ const [x,y] = polar(cx,cy,N>16?R*0.64:R*0.6,(g*4+2)/N); h += `<text x="${f1(x)}" y="${f1(y+4)}" class="cwl" text-anchor="middle"${N>16?' font-size="8.5"':''}>${N>16?'G':'ガトラ'}${g+1}</text>`; }
+    // クノンとゴングの区切り線（円を区切る）
+    for (let b=1;b<=N;b++){ const m = S.colo[b]||[]; if (m.includes('N') || m.includes('G')){ const [x,y] = polar(cx,cy,R-34,b/N), [x0,y0] = polar(cx,cy,50,b/N);
+      h += `<line x1="${f1(x0)}" y1="${f1(y0)}" x2="${f1(x)}" y2="${f1(y)}" stroke="${m.includes('G')?'#e0683c':'#e9b44c'}" stroke-width="${m.includes('G')?2.4:1.6}" stroke-dasharray="${m.includes('G')?'':'4 4'}" opacity=".75"/>`; } }
+    h += `<circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="#5a3f2a" stroke-width="6"/>`;
+    h += `<path class="cprog" d="" fill="none" stroke="#e9b44c" stroke-width="6" stroke-linecap="round"/>`;
+    for (let b=1;b<=N;b++){
+      const m = S.colo[b]||[], [x,y] = polar(cx,cy,R,b/N);
+      let col = '#6a4d35', r = 4.5, k = '';
+      if (m.includes('G')){ col='#e0683c'; r=14; k='G'; }
+      else if (m.includes('N')){ col='#e9b44c'; r=10; k='N'; }
+      else if (m.includes('P')){ col='#d98c4a'; r=8.5; k='P'; }
+      else if (m.includes('t')){ col='#9fb6c8'; r=5.5; k='t'; }
+      h += `<circle class="cb" data-b="${b}" cx="${f1(x)}" cy="${f1(y)}" r="${r}" fill="${col}" stroke="#1b120c" stroke-width="2"/>`;
+      if (k==='G'||k==='N'||k==='P'){ const [lx,ly] = polar(cx,cy,R+(k==='G'?30:24),b/N); h += `<text x="${f1(lx)}" y="${f1(ly+4)}" text-anchor="middle" class="cml" fill="${col}">${names[k]}</text>`; }
+      const n = S.bal[b-1], [ix,iy] = polar(cx,cy,R-22,b/N);
+      h += `<text class="cn" data-b="${b}" x="${f1(ix)}" y="${f1(iy+5)}" text-anchor="middle" font-size="${N>16?11:14}">${n.d||'·'}</text>`;
+      if (n.d && n.o) h += `<circle cx="${f1(ix)}" cy="${f1(n.o>0? iy-9 : iy+9)}" r="1.6" fill="#f6ead8"/>`;
+    }
+    h += `<line class="chand" x1="${cx}" y1="${cy}" x2="${cx}" y2="${cy-R+34}" stroke="#f6ead8" stroke-width="3" stroke-linecap="round" style="transform-origin:${cx}px ${cy}px"/>`;
+    h += `<circle cx="${cx}" cy="${cy}" r="48" fill="#24170f" stroke="#5a3f2a" stroke-width="2"/>`;
+    h += `<text class="cbig" x="${cx}" y="${cy+4}" text-anchor="middle">${N}</text><text class="csub" x="${cx}" y="${cy+22}" text-anchor="middle">拍で1周</text><text class="csub2" x="${cx}" y="${cy-24}" text-anchor="middle"></text>`;
+    this.el.innerHTML = `<svg class="cyc" viewBox="0 0 340 340" role="img" aria-label="ゴングの周期を表す時計">${h}</svg><div class="gstrip" aria-label="いまのガトラ"></div>`;
+    this.q = s => this.el.querySelector(s);
+    this.el.querySelector('svg').onclick = e => { const c = e.target.closest('.cb'); if (c && this.onPick) this.onPick(+c.dataset.b); };
+    this.lastG = null; this.lastCur = undefined; this.strip(null);
+  }
+  strip(cur){ // いまのガトラ（4拍）を大きく表示。4拍目＝着地点
+    if (cur === this.lastCur) return; this.lastCur = cur;
+    const g = cur ? Math.ceil(cur/4) : 1; let h = '';
+    for (let b=(g-1)*4+1; b<=g*4; b++){ const n = S.bal[b-1]; if (!n) continue;
+      const m = (S.colo[b]||[]).filter(k=>'GNP'.includes(k)).join('');
+      h += `<div class="${b===cur?'now':''} ${b%4===0?'seleh':''}"><small>${b}拍目${m?' '+m:''}</small>${noteHTML(n.d,n.o)}${b%4===0?'<small>着地（セレ）</small>':''}</div>`; }
+    this.q('.gstrip').innerHTML = h;
+  }
+  frame(p){
+    const N = S.N, prog = this.q('.cprog'), hand = this.q('.chand');
+    if (!prog) return;
+    if (!p){ prog.setAttribute('d',''); hand.style.transform = 'rotate(0deg)'; this.q('.cbig').textContent = N; this.q('.csub').textContent = '拍で1周'; this.q('.csub2').textContent = ''; this.setG(null); this.strip(null); return; }
+    const pos = Math.min(N, Math.max(0, p.pos));
+    prog.setAttribute('d', pos > 0.02 ? arcPath(170,170,120,0,pos/N) : '');
+    hand.style.transform = `rotate(${pos/N*360}deg)`;
+    const cur = Math.floor(pos+1e-6) || N, left = N - (Math.floor(pos+1e-6) % N);
+    this.q('.cbig').textContent = p.phase==='buka' ? 'ブカ' : cur;
+    this.q('.csub').textContent = p.phase==='buka' ? '前奏' : `拍目 / ${N}`;
+    this.q('.csub2').textContent = p.phase==='buka' ? '' : (left===N || cur===N && pos-Math.floor(pos)<.5 ? 'ゴン！' : `🔔 あと${left}拍`);
+    this.setG(p.phase==='buka' ? null : Math.ceil(Math.max(pos, 0.01)/4));
+    this.strip(p.phase==='buka' ? null : cur);
+  }
+  setG(g){ if (g===this.lastG) return; this.lastG = g; this.el.querySelectorAll('.cw').forEach(w=>w.classList.toggle('on', +w.dataset.g===g)); }
+  beat(b){ const c = this.q(`.cb[data-b="${b}"]`); if (c){ c.classList.remove('pulse'); void c.getBBox(); c.classList.add('pulse'); }
+    const n = this.q(`.cn[data-b="${b}"]`); if (n){ n.classList.add('on'); setTimeout(()=>n.classList.remove('on'), 300); }
+    if ((S.colo[b]||[]).includes('G')){ const s = this.q('svg'); s.classList.remove('gongflash'); void s.getBBox(); s.classList.add('gongflash'); } }
+}
+
+/* ---- ガイド（いま何が起きているかを文章で） ---- */
+function guideFor(b, buka){
+  const N = S.N, m = S.colo[b]||[], bali = S.form==='bali', names = COLO_NAME();
+  const n = resolvedIn(S.bal, b), nt = `「${n.d}」`, out = [];
+  if (buka){
+    if (b===N-3) out.push(['buka','ブカ（前奏）', bali ? 'クンダンがひとりで合図のリズムを叩きます。' : 'ボナンがひとりで最後のガトラを弾きます。最後のゴングで全員が入ります。']);
+    if (b===N) out.push(['gong','ゴン！ 合奏スタート','この瞬間が1周目の「始まり」。ここから全員で演奏します。']);
+    return out;
+  }
+  const kBeats = []; for (let k=1;k<=N;k++) if ((S.colo[k]||[]).includes('N')) kBeats.push(k);
+  if (b===1) out.push(['start','1拍目：新しい周のはじまり','ゴングの余韻の中で、時計の針がまた上から回り始めます。']);
+  if (m.includes('G')) out.push(['gong',`ゴン！（${b}拍目）`, `1周の終わり＝次の周の始まり。旋律はここで${nt}に着地します。${m.includes('N')?`${names.N}も同時に鳴ります。`:''}`]);
+  else if (m.includes('N')) out.push(['kenong',`${names.N}（${b}拍目）`, `周期を${kBeats.length}つに区切る、${kBeats.indexOf(b)+1}つ目の区切り。旋律の音${nt}を鳴らします。`]);
+  if (m.includes('P')) out.push(['kempul',`${names.P}（${b}拍目）`, `区切りと区切りの間に入るゴング。音は${nt}。`]);
+  if (!bali && kBeats.length && Object.values(S.colo).some(x=>x.includes('P'))){
+    const wela = Math.round(kBeats[0]/2); if (b===wela && !m.includes('P')) out.push(['wela',`ウェラ（${b}拍目）`, `ここはクンプルの場所ですが、ゴングの直後なのでお休みします。`]);
+  }
+  if (b===N-3) out.push(['warn','もうすぐゴング', S.ending ? 'スウック：クンダンの合図でゆっくりになり、次のゴングで曲が終わります。' : (bali ? '最後のガトラ。ゴングに向かいます。' : '最後のガトラ。クンダンの型が変わって「もうすぐゴング」と知らせます。')]);
+  return out;
+}
+const GUIDES = new Set();
+class GuideView {
+  constructor(el){ this.el = el; GUIDES.add(this); this.items = []; this.render(); }
+  push(list){ for (const it of list) this.items.unshift(it); this.items = this.items.slice(0, 4); this.render(true); }
+  clear(){ this.items = []; this.render(); }
+  render(fresh){
+    if (!this.items.length){ this.el.innerHTML = `<div class="gitem idle"><b>ガイド</b><span>再生すると、いま何が起きているかをここで説明します。時計の点をタップすると、その拍の役割が出ます。</span></div>`; return; }
+    this.el.innerHTML = this.items.map(([k,t,x],i)=>`<div class="gitem k-${k} ${i===0&&fresh?'new':''} ${i>0?'old':''}"><b>${t}</b><span>${x}</span></div>`).join('');
+  }
+}
+function explainBeat(b){ // 時計の点をタップしたときの説明
+  const m = S.colo[b]||[], names = COLO_NAME(), n = S.bal[b-1], g = Math.ceil(b/4), pos = (b-1)%4+1;
+  const parts = [];
+  if (m.includes('G')) parts.push('ゴング（1周の終わり＝始まり）');
+  if (m.includes('N')) parts.push(names.N+'（大きな区切り）');
+  if (m.includes('P')) parts.push(names.P+'（区切りの間）');
+  if (m.includes('t')) parts.push('クトゥッ（細かい区切り）');
+  if (m.includes('p')) parts.push('クンピャン');
+  return ['pick', `${b}拍目（ガトラ${g}の${pos}拍目）`, `旋律：${n.d ? '「'+n.d+'」' : '休み（前の音が続く）'}${pos===4?' ← ガトラの着地点（セレ）':''}。${parts.length ? '鳴る楽器：'+parts.join('・') : 'ゴング類は鳴りません'}。`];
+}
+
+/* ---- 全楽器タイムライン（どの楽器が、どの細かさで鳴るか） ---- */
+const TIMELINES = new Set();
+const TL_ROWS = {
+  java:[['panerus','パネルス','#c59bff'],['bonang','ボナン','#c59bff'],['peking','ペキン','#c59bff'],['saron','サロン','#7fd3a0'],['demung','デムン','#7fd3a0'],['slenthem','スレンテム','#7fd3a0'],
+        ['kendhang','クンダン','#ff7b9c'],['kempyang','クンピャン','#9fb6c8'],['kethuk','クトゥッ','#9fb6c8'],['kempul','クンプル','#d98c4a'],['kenong','クノン','#e9b44c'],['gong','ゴング','#e0683c']],
+  bali:[['polos','ポロス','#c59bff'],['sangsih','サンシ','#ff9f4f'],['calung','チャルン','#7fd3a0'],['jegogan','ジェゴガン','#7fd3a0'],['ceng','チェンチェン','#9fb6c8'],
+        ['kendhang','クンダン','#ff7b9c'],['kajar','カジャール','#9fb6c8'],['kempul','クンプール','#d98c4a'],['kenong','クモン','#e9b44c'],['gong','ゴング','#e0683c']],
+};
+class TimelineView {
+  constructor(el){
+    this.el = el; TIMELINES.add(this);
+    el.innerHTML = `<div class="tlwrap"><canvas></canvas></div>`;
+    this.wrap = el.querySelector('.tlwrap'); this.cv = el.querySelector('canvas'); this.build();
+  }
+  build(){
+    const D = S.der[S.irama] || S.der[1]; if (!D) return;
+    this.key = `${S.N}|${S.irama}|${S.form}|${JSON.stringify(S.muted)}|${S.bal.map(n=>n.d).join('')}`;
+    const rows = TL_ROWS[S.form==='bali'?'bali':'java'].filter(r=>(D.parts[r[0]]||[]).length);
+    const N = S.N, lw = 66, top = 30, rh = 19;
+    const avail = Math.max(260, this.wrap.clientWidth || 320);
+    const bw = Math.max(N>16 ? 26 : 30, (avail - lw - 6)/N);
+    const W = Math.ceil(lw + N*bw + 6), H = top + rows.length*rh + 8, dpr = Math.min(2, window.devicePixelRatio||1);
+    Object.assign(this, {rows, N, lw, top, rh, bw, W, H, dpr, D});
+    this.cv.width = W*dpr; this.cv.height = H*dpr; this.cv.style.width = W+'px'; this.cv.style.height = H+'px';
+    const off = document.createElement('canvas'); off.width = W*dpr; off.height = H*dpr;
+    const g = off.getContext('2d'); g.scale(dpr, dpr);
+    g.fillStyle = '#24170f'; g.fillRect(0,0,W,H);
+    const X = T => lw + (T/TPB)*bw;
+    for (let k=0;k<N/4;k++){ g.fillStyle = k%2 ? '#2a1c13' : '#30201a'; g.fillRect(lw + k*4*bw, top-4, 4*bw, H-top); }
+    g.font = '600 10px system-ui, sans-serif'; g.textAlign = 'center';
+    for (let b=1;b<=N;b++){
+      const x = lw + b*bw, m = S.colo[b]||[];
+      g.strokeStyle = b%4===0 ? '#7a5a3e' : '#3e2c1f'; g.lineWidth = b%4===0 ? 1.6 : 1;
+      g.beginPath(); g.moveTo(x, top-4); g.lineTo(x, H-4); g.stroke();
+      g.fillStyle = '#c9b294'; g.fillText(String(b), x - 1, 12);
+      const k = m.includes('G') ? 'G' : m.includes('N') ? 'N' : m.includes('P') ? 'P' : '';
+      if (k){ g.fillStyle = {G:'#e0683c',N:'#e9b44c',P:'#d98c4a'}[k]; g.fillText(k, x - 1, 24); }
+    }
+    g.textAlign = 'left';
+    rows.forEach(([inst, name, col], i) => {
+      const y = top + i*rh + rh/2, lane = laneOf(inst), off_ = S.muted[lane];
+      g.fillStyle = off_ ? '#6a5848' : '#e9dcc6'; g.font = '600 10.5px system-ui, sans-serif'; g.fillText(name, 4, y + 4);
+      g.globalAlpha = off_ ? .22 : 1; g.fillStyle = col;
+      for (const e of D.parts[inst]){ const x = X(e.T); g.beginPath(); g.roundRect ? g.roundRect(x-4, y-6, 6, 12, 2) : g.rect(x-4, y-6, 6, 12); g.fill(); }
+      g.globalAlpha = 1;
+    });
+    this.static = off; this.draw(null);
+  }
+  draw(p){
+    const g = this.cv.getContext('2d'); g.setTransform(1,0,0,1,0,0); g.drawImage(this.static, 0, 0); g.setTransform(this.dpr,0,0,this.dpr,0,0);
+    if (!p){ this.labels(g); return; }
+    const pos = p.pos, x = this.lw + pos*this.bw, T = pos*TPB;
+    // いま鳴った音を光らせる
+    this.rows.forEach(([inst, , col], i) => {
+      if (S.muted[laneOf(inst)]) return;
+      const y = this.top + i*this.rh + this.rh/2;
+      for (const e of this.D.parts[inst]){ const d = T - e.T; if (d >= 0 && d < 3){ const xx = this.lw + (e.T/TPB)*this.bw;
+        g.globalAlpha = 1 - d/3; g.strokeStyle = '#fff6d8'; g.lineWidth = 2; g.beginPath(); g.arc(xx-1, y, 5 + d*1.5, 0, Math.PI*2); g.stroke();
+        g.fillStyle = '#fff6d8'; g.fillRect(xx-4, y-6, 6, 12); g.globalAlpha = 1; } }
+    });
+    g.fillStyle = 'rgba(233,180,76,.12)'; g.fillRect(this.lw, this.top-4, x - this.lw, this.H - this.top);
+    g.strokeStyle = '#f6ead8'; g.lineWidth = 2; g.beginPath(); g.moveTo(x, 2); g.lineTo(x, this.H-2); g.stroke();
+    const vis0 = this.wrap.scrollLeft, vw = this.wrap.clientWidth;
+    if (x > vis0 + vw*0.8 || x < vis0 + this.lw) this.wrap.scrollLeft = Math.max(0, x - vw*0.35);
+    this.labels(g);
+  }
+  labels(g){ // 横にスクロールしても楽器名が左に残るように描き直す
+    const sl = this.wrap.scrollLeft; if (sl < 1) return;
+    g.fillStyle = '#24170f'; g.fillRect(sl, 0, this.lw, this.H);
+    g.font = '600 10.5px system-ui, sans-serif'; g.textAlign = 'left';
+    this.rows.forEach(([inst, name], i) => { g.fillStyle = S.muted[laneOf(inst)] ? '#6a5848' : '#e9dcc6'; g.fillText(name, sl+4, this.top + i*this.rh + this.rh/2 + 4); });
+    g.strokeStyle = '#5a3f2a'; g.beginPath(); g.moveTo(sl+this.lw-1, 0); g.lineTo(sl+this.lw-1, this.H); g.stroke();
+  }
+}
+function vizFrame(){
+  for (const v of CYCLE_VIEWS){ if (!v.el.isConnected){ CYCLE_VIEWS.delete(v); continue; } }
+  for (const v of TIMELINES){ if (!v.el.isConnected){ TIMELINES.delete(v); continue; } }
+  for (const v of GUIDES){ if (!v.el.isConnected) GUIDES.delete(v); }
+  const p = (S.playing || S._tail) ? enginePos() : null;
+  for (const v of CYCLE_VIEWS) if (v.el.offsetParent) v.frame(p);
+  for (const v of TIMELINES){ if (!v.el.offsetParent) continue;
+    const key = `${S.N}|${S.irama}|${S.form}|${JSON.stringify(S.muted)}|${S.bal.map(n=>n.d).join('')}`;
+    if (key !== v.key || Math.abs((v.wrap.clientWidth||0) - (v._w||0)) > 40){ v._w = v.wrap.clientWidth; v.build(); }
+    v.draw(p); }
+}
+function vizRebuild(){ for (const v of CYCLE_VIEWS) v.build(); for (const v of TIMELINES) v.build(); for (const g of GUIDES) g.clear(); }
+
+/* ---- 表示 ---- */
 function renderBalungan(){
   let h = '';
   for (let g=0; g<S.N/4; g++){
@@ -1075,21 +1324,15 @@ $('#lanes').addEventListener('change', e=>{
 });
 let lastBeatEl = null;
 function showBeat(beat, buka){
-  const N = S.N, hand = $('#hand');
-  if (hand){
-    if (S._lastBeat && beat < S._lastBeat) S._rot = (S._rot||0) + 360;
-    S._lastBeat = beat;
-    hand.style.transform = `rotate(${(beat/N)*360 + (S._rot||0)}deg)`;
-  }
-  const c = document.querySelector(`#cycleSvg .cb[data-b="${beat}"]`);
-  if (c){ c.setAttribute('stroke','#fff'); setTimeout(()=>c.setAttribute('stroke','#1b120c'), 180); }
+  const N = S.N;
+  for (const v of CYCLE_VIEWS) v.beat(beat);
+  const gl = guideFor(beat, buka); if (gl.length) for (const g of GUIDES) g.push(gl);
   if (lastBeatEl) lastBeatEl.classList.remove('now');
   lastBeatEl = document.querySelector(`#balView .cell[data-b="${beat}"]`);
   if (lastBeatEl) lastBeatEl.classList.add('now');
   $('#statBeat').textContent = `${beat}/${N}`;
   $('#statTempo').textContent = Math.round(S.tempo);
   if (S.playing && !S.ending) setAutoUI(buka ? 'ブカ（前奏）…' : `演奏中：${FORM_NAME[S.form]}・イラマ${S.irama===1?'I':'II'}`);
-  if (beat === N && !buka){ const t = $('#cycText'); if (t){ t.textContent='GONG!'; setTimeout(()=>{t.textContent=`${N}拍`;}, 600);} }
   if (S.onBeat) S.onBeat(beat, buka);
 }
 function clearBeat(){ if (lastBeatEl) lastBeatEl.classList.remove('now'); lastBeatEl = null; $('#statBeat').textContent = '-'; }
@@ -1172,6 +1415,7 @@ function mountPractice(el, cfg){
       <label class="chk"><input type="checkbox" class="pguide" ${w.guide?'checked':''}>お手本の音も小さく鳴らす</label>
       ${cfg.iramaToggle ? `<div class="row" style="gap:4px"><button class="sec on pi1">イラマ I</button><button class="sec pi2">イラマ II</button></div>` : ''}
     </div>
+    <div class="pcount"></div>
     <div class="pmsg">${cfg.intro || '「お手本を聴く」で流れをつかんでから、「一緒に弾く」で挑戦しよう。光る鍵盤が次に叩く音です。'}</div>
     <div class="pstats"><span class="bigstat">ぴったり <b class="sg">0</b></span><span class="bigstat">おしい <b class="so">0</b></span><span class="bigstat">ミス <b class="sm">0</b></span></div>
     <div class="pscore"></div>
@@ -1223,7 +1467,7 @@ function stopPractice(w){
   w.timer = null; w.running = false;
   if (wasActive){ PW = null; visQ.length = 0; }
   if (ctx) for (const k in w.handles) w.handles[k].damp(ctx.currentTime);
-  w.kb.setTarget(null); w._tk = undefined;
+  w.kb.setTarget(null); w._tk = undefined; w.q('.pcount').textContent = '';
   w.scoreEl.querySelectorAll('.nowcol').forEach(x=>x.classList.remove('nowcol'));
   w.q('.pgo').disabled = w.q('.pdemo').disabled = false; w.q('.pstop').disabled = true;
   if (!wasActive) return;
@@ -1256,6 +1500,9 @@ function practiceSched(w){
         if (DAMP.has(e.inst)) damped(w.handles, e.inst, h, tt);
       }
     }
+    if (T % TPB === 0){ const beat = T/TPB, N = w.der.N, m = w.der.colo[beat]||[];
+      const txt = `拍 ${beat}/${N} ・ ガトラ${Math.ceil(beat/4)}の${(beat-1)%4+1}拍目` + (m.includes('G') ? ' ・ 🔔 ゴング！' : (w.b===N ? ` ・ ゴングまで あと${N-beat}拍` : ` ・ ${w.a}〜${w.b}拍目をくり返し`));
+      vis(t, ()=>{ w.q('.pcount').textContent = txt; }); }
     if (T % TPB === 0){ const beat = T/TPB; vis(t, ()=>{ w.scoreEl.querySelectorAll('.nowcol').forEach(x=>x.classList.remove('nowcol')); w.scoreEl.querySelectorAll(`td[data-beat="${beat}"]`).forEach(x=>x.classList.add('nowcol')); }); }
     w.T++;
     if (w.T > w.Tb){
@@ -1331,7 +1578,7 @@ function visLoop(){
     const now = ctx.currentTime;
     if (visQ.length > 1) visQ.sort((a,b)=>a.time-b.time);
     while (visQ.length && visQ[0].time <= now + 0.01){ const v = visQ.shift(); try{ v.fn(); }catch(e){ console.error(e); } }
-    practiceFrame();
+    practiceFrame(); vizFrame();
   }
   requestAnimationFrame(visLoop);
 }
@@ -1413,6 +1660,24 @@ function mountQuiz(el, spec, onPass){
     else { b.classList.add('wrong'); el.querySelector('.qexp').innerHTML = '❌ ちがいます。' + (spec.hint || 'もう一度考えてみよう。'); }
   };
 }
+function mountCycle(el, spec, onPass){
+  el.innerHTML = `<div class="row"><button class="sec" data-m="gong">▶ ゴング類だけで聴く</button><button class="sec" data-m="all">▶ 全員で聴く</button><button class="sec cstop">■ 止める</button></div>
+    <div class="cycwrap"></div><div class="guide"></div>`;
+  const cv = new CycleView(el.querySelector('.cycwrap')), gv = new GuideView(el.querySelector('.guide'));
+  cv.onPick = b => gv.push([explainBeat(b)]);
+  el.querySelector('.row').onclick = e => {
+    if (e.target.closest('.cstop')){ stopAll(); return; }
+    const b = e.target.closest('[data-m]'); if (!b) return;
+    initAudio(); stopAll(); usePiece(spec.piece ?? 0);
+    if (b.dataset.m === 'gong'){ lanesNow().forEach(l=>S.muted[l.id] = l.id!=='gong'); renderLanes(); vizRebuild(); }
+    S.endAfter = 2; S.onEnd = () => { lanesNow().forEach(l=>S.muted[l.id] = false); renderLanes(); vizRebuild(); };
+    $('#tempo').value = spec.bpm || 66; startAuto(); onPass();
+  };
+}
+function mountTimeline(el, spec, onPass){
+  el.innerHTML = `<div class="tlbox"></div><p class="note">${spec.note || '横が時間（1周）、縦が楽器。上の「聴く」ボタンで再生すると、白い線が動いて鳴った音が光ります。'}</p>`;
+  new TimelineView(el.querySelector('.tlbox')); onPass();
+}
 function mountGrid(el, spec, onPass){
   const p = PIECES[spec.piece ?? 0], der = derive(parseBal(p.bal), p.laras, p.form, spec.irama||1);
   el.innerHTML = `<div class="gwrap"></div>${spec.note ? `<p class="note">${spec.note}</p>` : ''}`;
@@ -1461,6 +1726,7 @@ const LESSONS = [
     <p>ゴングの拍は「終わり」でもあり、次の周の「始まり」でもあります。時計の針が12時に戻るイメージです（自動演奏タブの円を見てみてください）。</p>`,
     point:'<b>ポイント</b> ゴングは1周に1回だけ。だからこそ、鳴った瞬間に「ひと回りした！」と全員がわかります。',
     widgets:[
+      {type:'cycle', title:'周期を時計で見ながら聴こう', piece:0, bpm:66},
       {type:'listen', title:'ゴングの音を聴こう', items:[{label:'ゴン・アグンのうなり', fn:()=>DEMOS.gong()},{label:'ゴング類だけで1周', fn:()=>DEMOS.colo()}]},
       {type:'practice', title:'16拍目でゴングを鳴らそう', cfg:{piece:0, user:'gong', beats:[1,16], bpm:84, backing:['saron','demung','slenthem','kenong','kempul','kethuk'], passRatio:1,
         intro:'バルンガンを数えながら、16拍目（最後）にゴングを叩こう。楽譜の G の位置です。'}},
@@ -1473,6 +1739,7 @@ const LESSONS = [
     <p>ゴングのすぐ後の最初の区切り（2拍目）だけはクンプルを鳴らしません。この空白を<b>ウェラ</b>といいます。クノンとクンプルは、その拍のバルンガンと<b>同じ音の高さ</b>で鳴らします。このしくみを<b>コロトミー構造</b>といいます。</p>`,
     point:'<b>ポイント</b> 大きい楽器ほどゆっくり、小さい楽器ほど細かく。時間が入れ子になっています。',
     widgets:[
+      {type:'cycle', title:'区切りを時計で確かめよう', piece:0, bpm:66},
       {type:'quiz', title:'クイズ', q:'ランチャラン形式で、クノンが鳴るのは？', options:['2拍ごと','4拍ごと','8拍ごと'], answer:1, explain:'4・8・12・16拍目、4拍ごとに鳴ります。'},
       {type:'practice', title:'クノンを担当しよう', cfg:{piece:0, user:'kenong', beats:[1,16], bpm:80, backing:['saron','demung','slenthem','gong','kempul','kethuk'], passRatio:.75,
         intro:'4拍ごと（楽譜の N）にクノンを叩こう。音の高さは自動でその拍のバルンガンに合います。'}},
@@ -1502,6 +1769,7 @@ const LESSONS = [
     widgets:[
       {type:'grid', title:'楽譜で見くらべよう', piece:0, insts:['bal','peking','bonang','panerus','kendhang'], beats:[1,4]},
       {type:'listen', title:'1周ごとに楽器を重ねて聴こう', items:[{label:'▶ 層を重ねて聴く', fn:say=>DEMOS.layers(say)}]},
+      {type:'timeline', title:'全楽器のタイムラインで見る', note:'「層を重ねて聴く」を再生しながら見てください。まだ鳴っていない楽器はうすく表示されます。上ほど細かく、下ほどゆっくり。'},
     ] },
   { title:'イラマ：遅くなると細かくなる',
     body:`<p>ガムランでは、テンポが半分になると、飾りの楽器は<b>1拍に入れる音数を2倍</b>にします。全体の流れの速さは保ったまま、骨組みだけがゆったりになるのです。この関係を<b>イラマ</b>といいます。</p>
@@ -1509,6 +1777,7 @@ const LESSONS = [
     point:'<b>ポイント</b> イラマ I（タングン）→ II（ダドス）：バルンガンは半分の速さ、ペキンやボナンは1拍に2音 → 4音。',
     widgets:[
       {type:'listen', title:'イラマが変わる瞬間を聴こう', items:[{label:'▶ イラマ I → II', fn:say=>DEMOS.irama(say)}]},
+      {type:'timeline', title:'タイムラインで見る', note:'イラマ II に切り替わると、タイムラインの飾りの楽器の点がぎっしり細かくなります。'},
       {type:'grid', title:'イラマ II のペキンとボナン', piece:0, irama:2, insts:['bal','peking','bonang'], beats:[1,4], note:'レッスン7・8の楽譜とくらべると、1拍の中の音が倍になっています。'},
       {type:'quiz', title:'クイズ', q:'イラマ I から II になると、ペキンの1拍あたりの音数は？', options:['半分になる','同じ','2倍になる'], answer:2, explain:'バルンガンがゆっくりになった分、飾りが細かくなります。'},
     ] },
@@ -1538,9 +1807,17 @@ const LESSONS = [
       {type:'practice', title:'全員の合奏でサロンを弾こう', cfg:{piece:0, user:'saron', beats:[1,16], bpm:60, backing:'all', passRatio:.8, passMsg:'卒業おめでとう！'}},
     ] },
 ];
-const LS_KEY = 'gamelan-lessons-v1';
+const LS_KEY = 'gamelan-lessons-v2';
 let LP = {cur:0, w:{}};
-try { const s = JSON.parse(localStorage.getItem(LS_KEY)||'null'); if (s && typeof s==='object') LP = Object.assign(LP, s); } catch(e){}
+try {
+  const s2 = JSON.parse(localStorage.getItem(LS_KEY)||'null');
+  if (s2 && typeof s2==='object') LP = Object.assign(LP, s2);
+  else { // 旧版の進み具合を引きつぐ（クリア済みのレッスンはそのまま）
+    const s1 = JSON.parse(localStorage.getItem('gamelan-lessons-v1')||'null');
+    const OLD = [1,2,2,1,2,3,2,3,2,3,3,2,1];
+    if (s1 && s1.w){ LP.cur = s1.cur||0; OLD.forEach((n,i)=>{ let all = true; for (let j=0;j<n;j++) if (!s1.w[`${i}-${j}`]) all = false; if (all && LESSONS[i]) LESSONS[i].widgets.forEach((_,j)=>LP.w[`${i}-${j}`] = true); }); }
+  }
+} catch(e){}
 function saveLP(){ try { localStorage.setItem(LS_KEY, JSON.stringify(LP)); } catch(e){} }
 function lessonDone(i){ return LESSONS[i].widgets.every((_,j)=>LP.w[`${i}-${j}`]); }
 function renderLessonHead(){
@@ -1573,6 +1850,8 @@ function openLesson(i){
     else if (w.type==='seq') mountSeq(body, w, onPass);
     else if (w.type==='quiz') mountQuiz(body, w, onPass);
     else if (w.type==='grid') mountGrid(body, w, onPass);
+    else if (w.type==='cycle') mountCycle(body, w, onPass);
+    else if (w.type==='timeline') mountTimeline(body, w, onPass);
     else if (w.type==='practice') mountPractice(body, Object.assign({}, w.cfg, {onPass}));
   });
   card.querySelector('.lprev').onclick = () => { openLesson(LP.cur-1); card.scrollIntoView({behavior:'smooth'}); };
@@ -1835,6 +2114,31 @@ const THEORY = [
    rules:['ゆっくりした曲では、これらの「柔らかい楽器」が主役になる。','バルンガンをもとに、「チェンコッ」と呼ばれる決まった旋律の型を組み合わせて、即興的に演奏する。','どんなに自由に動いても、ガトラの最後の音（セレ）でみんながそろう。'],
    tips:['このアプリの合成音では扱っていません。本物の演奏を聴くと、骨組みとの関係がよくわかります。']},
 ];
+let rmLaras = 'slendro';
+function renderRangeMap(){
+  const laras = rmLaras, ns = LARAS[laras].notes, W = 380, lw = 74, top = 18, rh = 22;
+  const kettle = [...ns.map(d=>[d,0]), ...ns.map(d=>[d,1])], one = ns.map(d=>[d,0]);
+  const rows = [['peking','ペキン',2,barKeys(laras),'#c59bff'],['saron','サロン',1,barKeys(laras),'#7fd3a0'],['demung','デムン',0,barKeys(laras),'#7fd3a0'],
+    ['slenthem','スレンテム',-1,barKeys(laras),'#7fd3a0'],['panerus','パネルス',1,kettle,'#c59bff'],['bonang','ボナン',0,kettle,'#c59bff'],
+    ['kenong','クノン',0,one,'#e9b44c'],['kempul','クンプル',-1,one,'#d98c4a'],['gong','ゴン・アグン',null,null,'#e0683c']];
+  const lo = 38, hi = 2600, X = f => lw + Math.log2(f/lo)/Math.log2(hi/lo)*(W-lw-8), H = top + rows.length*rh + 26;
+  let h = '';
+  for (let o=-2;o<=3;o++){ const f = freqOf(laras, ns[0], o); if (f<lo||f>hi) continue; const x = X(f).toFixed(1);
+    h += `<line x1="${x}" y1="${top-6}" x2="${x}" y2="${H-22}" stroke="#5a3f2a" stroke-dasharray="3 3"/><text x="${x}" y="${top-8}" font-size="9" fill="#c9b294" text-anchor="middle">1</text>`; }
+  [50,100,200,500,1000,2000].forEach(f=>{ const x = X(f).toFixed(1); h += `<text x="${x}" y="${H-8}" font-size="9" fill="#8a7358" text-anchor="middle">${f>=1000?f/1000+'k':f}Hz</text>`; });
+  rows.forEach(([inst,name,oc,keys,col],i)=>{
+    const y = top + i*rh + rh/2;
+    h += `<text x="4" y="${y+4}" font-size="10.5" fill="#e9dcc6" font-weight="600">${name}</text>`;
+    if (oc===null){ const x = X(45).toFixed(1); h += `<circle class="rmk" data-i="gong" cx="${x}" cy="${y}" r="7" fill="${col}"/><text x="${(+x+12).toFixed(1)}" y="${y+4}" font-size="9" fill="#c9b294">約45Hz（低い倍音も重なる）</text>`; return; }
+    const fs = keys.map(([d,o])=>freqOf(laras,d,o+oc));
+    h += `<line x1="${X(Math.min(...fs)).toFixed(1)}" y1="${y}" x2="${X(Math.max(...fs)).toFixed(1)}" y2="${y}" stroke="${col}" stroke-opacity=".35" stroke-width="8" stroke-linecap="round"/>`;
+    keys.forEach(([d,o],k)=>{ h += `<circle class="rmk" data-i="${inst}" data-d="${d}" data-o="${o}" cx="${X(fs[k]).toFixed(1)}" cy="${y}" r="3.6" fill="${col}"/>`; });
+  });
+  $('#rangeMap').innerHTML = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;min-width:340px;height:auto;display:block" role="img" aria-label="楽器ごとの音の高さの範囲">${h}</svg>`;
+}
+$('#rangeMap').onclick = e => { const c = e.target.closest('.rmk'); if (!c) return; initAudio();
+  playInst(c.dataset.i, {d:+(c.dataset.d||1), o:+(c.dataset.o||0), k:{gong:'G',kenong:'N',kempul:'P'}[c.dataset.i]}, ctx.currentTime+.01, rmLaras, 1.1, 0); };
+$('#rmLaras').onclick = e => { const b = e.target.closest('[data-l]'); if (!b) return; rmLaras = b.dataset.l; document.querySelectorAll('#rmLaras button').forEach(x=>x.classList.toggle('on', x===b)); renderRangeMap(); };
 let curTheory = 'saron';
 function renderTheoryGroups(){
   const groups = [...new Set(THEORY.map(t=>t.group))];
@@ -1866,8 +2170,11 @@ $('#unlockBtn').onclick = () => { initAudio(); $('#unlock').remove(); };
 document.addEventListener('visibilitychange', ()=>{ if (!document.hidden && ctx && ctx.state!=='running') ctx.resume(); });
 
 buildChips(); renderStage(); fillPieces(); loadPiece(PIECES[0]);
+const autoCycle = new CycleView($('#autoCycle')), autoGuide = new GuideView($('#autoGuide'));
+autoCycle.onPick = b => autoGuide.push([explainBeat(b)]);
+new TimelineView($('#autoTL'));
 openLesson(LP.cur || 0);
-renderTheoryGroups(); renderTheory();
+renderTheoryGroups(); renderTheory(); renderRangeMap();
 </script>
 </body>
 </html>
