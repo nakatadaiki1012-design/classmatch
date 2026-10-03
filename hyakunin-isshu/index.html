@@ -14,6 +14,7 @@
     --good:#4fbf7a; --miss:#e8584f;
     --washi:#fbf6e6; --ink:#1b1712; --edge:#2e5f3a; --edge2:#1f4428;
     --card-font:"Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho",serif;
+    color-scheme:dark;
   }
   body.brush{ --card-font:"Yuji Syuku","Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho",serif; }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
@@ -151,7 +152,7 @@
 
   /* ===== 対戦（取る・早取り） ===== */
   .reader{
-    position:sticky; top:0; z-index:5; background:rgba(20,22,29,.94); backdrop-filter:blur(6px);
+    position:sticky; top:env(safe-area-inset-top,0px); z-index:5; background:rgba(20,22,29,.94); backdrop-filter:blur(6px);
     border:1px solid var(--line); border-radius:14px; padding:10px 14px; margin-bottom:10px;
   }
   .reader .top{display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; font-size:.85rem; color:var(--sub);}
@@ -555,7 +556,13 @@ $('#setBtn').onclick = () => {
   loadVoices(); $('#settings').showModal();
 };
 $('#sTest').onclick = () => { S.voice = true; $('#sVoice').checked = true; S.voiceName = $('#sVoiceName').value; hush(); speak('あきのたの かりおのいおの とまをあらみ', 0.8); };
-$('#sReset').onclick = () => { if (confirm('覚えた記録をすべて消しますか？')) { memorized.clear(); saveMem(); refreshHome(); } };
+// 2回押すとリセット（確認ダイアログを使わない）
+$('#sReset').onclick = () => {
+  const b = $('#sReset');
+  if (b.dataset.armed) { memorized.clear(); saveMem(); refreshHome(); b.textContent = 'リセットしました'; delete b.dataset.armed; return; }
+  b.dataset.armed = '1'; b.textContent = 'もう一度押すと消えます';
+  setTimeout(() => { delete b.dataset.armed; b.textContent = '覚えた記録をリセット'; }, 3000);
+};
 $('#sClose').onclick = () => $('#settings').close();
 $('#settings').addEventListener('close', () => {
   S.range = $('#sRange').value; S.voice = $('#sVoice').checked; S.voiceName = $('#sVoiceName').value;
