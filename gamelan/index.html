@@ -270,6 +270,21 @@
   .pcount{font-size:.82rem; color:var(--accent); font-weight:700; font-variant-numeric:tabular-nums;}
   .score td.hd .mk .mG{color:var(--c-gong);} .score td.hd .mk .mN{color:var(--c-kenong);} .score td.hd .mk .mP{color:var(--c-kempul);}
   @media (prefers-reduced-motion:reduce){ .cyc .cb.pulse,.cyc.gongflash,.gitem.new{animation:none;} }
+  .hintk{outline:3px solid var(--good)!important; outline-offset:3px; filter:brightness(1.4);}
+  .calib{background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:10px; display:flex; flex-direction:column; gap:8px;}
+  .calpad{height:110px; border-radius:14px; background:var(--panel2); border:2px dashed var(--accent); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:1.05rem; cursor:pointer; touch-action:none; user-select:none; -webkit-user-select:none; transition:background .08s;}
+  .calpad.flash{background:#5a4220;}
+  .calbeats{display:flex; gap:6px; justify-content:center;}
+  .calbeats i{width:14px; height:14px; border-radius:50%; background:var(--line); display:block;}
+  .calbeats i.on{background:var(--accent);}
+  .smallbtn{font-size:.78rem; padding:6px 10px;}
+  .congrats{background:var(--good); color:var(--onaccent); border-radius:10px; padding:8px 12px; font-weight:800; text-align:center;}
+  .seg{display:grid; grid-template-columns:1fr 1fr; gap:4px; width:100%; max-width:360px;}
+  .seg button{padding:8px 6px; line-height:1.2;}
+  .seg button small{display:block; font-size:.7rem; font-weight:600; opacity:.8;}
+  #accCycle .gstrip{display:none;}
+  .ctlgrid{display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:10px; max-width:520px;}
+  .ctlgrid button{line-height:1.2;} .ctlgrid button small{display:block; font-size:.7rem; font-weight:600; opacity:.8;}
   #unlock{position:fixed; inset:0; background:rgba(15,8,4,.86); z-index:100; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:12px; text-align:center; padding:20px;}
   #unlock .big{font-size:1.1rem; font-weight:800;}
 </style>
@@ -349,8 +364,10 @@
       <label class="ctl" id="ombakCtl" hidden>オンバ（うなり）<b><input type="range" id="ombakFree" min="0" max="12" step="0.5" value="6"> <span id="ombakFreeV">6</span> Hz</b></label>
     </div>
     <p class="instinfo" id="instInfo"></p>
-    <div id="freeFig"></div>
+    <div class="row" style="margin-top:6px"><button class="sec" id="accBtn">▶ ゴングと太鼓の伴奏で弾く</button><span class="muted" id="accMsg">伴奏に合わせて自由に弾けます。ゴングの周期を感じながら即興してみよう。</span></div>
     <div class="stage" id="stage"></div>
+    <div id="accCycle" class="cycwrap" style="max-width:240px;margin-top:10px" hidden></div>
+    <div id="freeFig"></div>
     <p class="note">複数の指で同時に叩けます。サロン類は本物と同じく、次の音を叩くと前の音を手で押さえて止めます（ダンプ）。</p>
   </div>
 </section>
@@ -363,15 +380,17 @@
         <select id="pieceSel"></select>
       </label>
       <label class="ctl">テンポ（拍/分）<b><input type="range" id="tempo" min="24" max="160" value="60"> <span id="tempoV">60</span></b></label>
-      <div class="row" style="gap:4px;">
-        <button class="sec on" id="irama1">イラマ I（タングン）</button>
-        <button class="sec" id="irama2">イラマ II（ダドス）</button>
+      <div class="seg">
+        <button class="sec on" id="irama1">イラマ I<small>タングン</small></button>
+        <button class="sec" id="irama2">イラマ II<small>ダドス</small></button>
       </div>
     </div>
-    <div class="row" style="margin-top:10px;">
-      <button id="startBtn">▶ 開始（ブカ）</button>
-      <button class="sec" id="suwukBtn" disabled>⏹ 終わる（スウック）</button>
-      <button class="sec" id="stopBtn" disabled>すぐ止める</button>
+    <div class="ctlgrid">
+      <button id="startBtn">▶ 開始<small>ブカ（前奏）から</small></button>
+      <button class="sec" id="suwukBtn" disabled>■ 終わる<small>スウック</small></button>
+      <button class="sec" id="slowBtn" disabled>ゆっくり<small>だんだん遅く</small></button>
+      <button class="sec" id="fastBtn" disabled>速く<small>セセッ</small></button>
+      <button class="sec" id="stopBtn" disabled style="grid-column:1/-1">すぐ止める</button>
     </div>
     <div class="row" style="margin-top:8px;">
       <span class="status" id="autoStatus">停止中</span>
@@ -570,7 +589,11 @@ function makeIR(sec){
  * partials: [倍率, 音量, 減衰秒, 加算Hz, 立ち上がり秒]
  * opt.noise: バチが当たる音などの雑音成分 [{type,f,q,a,d}]
  * opt.glide: 叩いた瞬間だけ少し高く→落ち着く（ゴングの特徴） */
+let ACTIVE = 0; // いま鳴っている音の数。多すぎるときは弱い倍音を省いてスマホの負担を減らす
 function voice(freq, t, vel, partials, opt={}){
+  if (ACTIVE > 70) partials = partials.filter(p=>p[1] >= .14).slice(0, 3);
+  const life = Math.max(...partials.map(p=>(p[4] ?? opt.attack ?? .003) + p[2]), .1) + Math.max(0, t - ctx.currentTime);
+  ACTIVE++; setTimeout(()=>{ ACTIVE--; }, life*1000);
   const out = ctx.createGain(); out.gain.value = 1;
   if (opt.pan && ctx.createStereoPanner){ const p = ctx.createStereoPanner(); p.pan.value = opt.pan; out.connect(p); p.connect(bus); }
   else out.connect(bus);
@@ -867,6 +890,7 @@ function drumHTML(){
   return `<div class="kendhang"><div class="drumbody"><div class="head big" data-key="D">ドゥン<br><small>dhung</small></div><div class="shell"></div><div class="head small" data-key="t">タッ<br><small>tak</small></div></div></div>
   <div class="drumpads"><div class="pad" data-key="P">トゥン<br><small>thung</small></div><div class="pad" data-key="L">ドラン<br><small>dlang</small></div><div class="pad" data-key="k">ケッ<br><small>ket</small></div></div>`;
 }
+let LAST_KB = null; // PCのキーボード操作で叩く対象
 function buildKeyboard(el, inst, laras, onHit, small=false){
   let h;
   if (['saron','demung','peking'].includes(inst)) h = barsHTML(barKeys(laras), '', small);
@@ -879,7 +903,9 @@ function buildKeyboard(el, inst, laras, onHit, small=false){
   el.innerHTML = h;
   el.onpointerdown = e => {
     const k = e.target.closest('[data-key]'); if (!k) return;
-    e.preventDefault(); initAudio(); flashEl(k, inst==='gong'?260:140); onHit(k.dataset.key, k);
+    e.preventDefault(); initAudio(); flashEl(k, inst==='gong'?260:140); LAST_KB = el;
+    if (e.isTrusted && navigator.vibrate) try { navigator.vibrate(8); } catch(_){}
+    onHit(k.dataset.key, k);
   };
   return {
     el,
@@ -1049,7 +1075,7 @@ function startAuto(){
   S.tempo = S.target = +$('#tempo').value;
   S.irama = S.pendingIrama || S.irama; S.pendingIrama = null;
   S.nextTime = ctx.currentTime + 0.15;
-  S.timer = setInterval(scheduler, 25);
+  S.timer = setInterval(scheduler, 25); keepAwake(true);
   scheduler();
   setAutoUI('ブカ（前奏）…');
   $('#statCycle').textContent = '0';
@@ -1058,12 +1084,13 @@ function suwuk(){ if (!S.playing || S.ending) return; S.ending = true; setAutoUI
 function finishAuto(at){
   clearInterval(S.timer); S.timer = null; S.playing = false; S._tail = true; // 最後のゴングまで針を動かす
   const cb = S.onEnd; S.onCycle = S.onBeat = S.onEnd = null; S.endAfter = 0;
-  setTimeout(()=>{ S._tail = false; setAutoUI('停止中'); clearBeat(); if (cb) cb(); }, Math.max(0, (at - ctx.currentTime))*1000 + 400);
+  setTimeout(()=>{ S._tail = false; if (!PW) keepAwake(false); setAutoUI('停止中'); clearBeat(); if (cb) cb(); }, Math.max(0, (at - ctx.currentTime))*1000 + 400);
 }
 function stopAuto(silent){
   if (S.timer) clearInterval(S.timer);
   const was = S.playing;
   S.timer = null; S.playing = false; S.ending = false; S.onCycle = S.onBeat = null; S.endAfter = 0; S._tail = false; TL.length = 0;
+  if (!PW) keepAwake(false);
   const cb = S.onEnd; S.onEnd = null;
   visQ.length = 0;
   if (ctx) for (const k in S.handles) S.handles[k].damp(ctx.currentTime);
@@ -1075,6 +1102,7 @@ function stopAuto(silent){
 function setAutoUI(text){
   $('#autoStatus').textContent = text;
   $('#startBtn').disabled = S.playing; $('#suwukBtn').disabled = !S.playing; $('#stopBtn').disabled = !S.playing;
+  $('#fastBtn').disabled = $('#slowBtn').disabled = !S.playing;
 }
 
 /* =========================================================
@@ -1355,6 +1383,16 @@ $('#irama2').onclick = () => setIrama(2);
 $('#startBtn').onclick = startAuto;
 $('#suwukBtn').onclick = suwuk;
 $('#stopBtn').onclick = () => stopAuto(false);
+function tempoNudge(up){ // クンダンの合図でテンポを上げ下げ（すぐではなく、だんだん変わる）
+  if (!S.playing || S.ending) return;
+  const nt = Math.max(24, Math.min(160, Math.round(S.target * (up ? 1.25 : 0.8))));
+  S.target = nt; $('#tempo').value = nt; $('#tempoV').textContent = nt;
+  const msg = up ? ['warn','セセッ（速く）','クンダンの合図で、全員がだんだん速くします。ガムランではテンポが急に変わらず、少しずつ変わるのが特徴です。']
+                 : ['start','ゆっくり','クンダンの合図で、全員がだんだんゆっくりにします。'];
+  for (const g of GUIDES) g.push([msg]);
+}
+$('#fastBtn').onclick = () => tempoNudge(true);
+$('#slowBtn').onclick = () => tempoNudge(false);
 const pieceSel = $('#pieceSel');
 function fillPieces(){ pieceSel.innerHTML = PIECES.map((p,i)=>`<option value="${i}">${p.name}</option>`).join(''); }
 pieceSel.onchange = () => loadPiece(PIECES[+pieceSel.value]);
@@ -1372,6 +1410,7 @@ $('#applyCustom').onclick = () => {
   if (bad){ err.textContent = `${LARAS[laras].name}には ${bad.d} の音がありません（使える音：${LARAS[laras].notes.join(' ')}）。`; return; }
   if (!bal[bal.length-1].d){ err.textContent = '最後の拍（ゴングの拍）には音を書いてください。'; return; }
   const p = {name:'✏️ 自作の曲', laras, form, tempo: form==='bali'?84:(form==='ladrang'?52:64), bal:txt};
+  try { localStorage.setItem('gamelan-custom', JSON.stringify({txt, form, laras})); } catch(e){}
   const i = PIECES.findIndex(x=>x.name===p.name);
   if (i>=0) PIECES[i] = p; else PIECES.push(p);
   fillPieces(); usePiece(PIECES.indexOf(p));
@@ -1413,8 +1452,11 @@ function mountPractice(el, cfg){
     <div class="row">
       <label class="ctl">テンポ（拍/分）<b><input type="range" class="ptempo" min="30" max="120" value="${w.bpm}"> <span class="ptv">${w.bpm}</span></b></label>
       <label class="chk"><input type="checkbox" class="pguide" ${w.guide?'checked':''}>お手本の音も小さく鳴らす</label>
+      <label class="chk"><input type="checkbox" class="pup">合格したら少しずつ速く</label>
+      <button class="sec smallbtn pcal">⏱ ずれ調整</button>
       ${cfg.iramaToggle ? `<div class="row" style="gap:4px"><button class="sec on pi1">イラマ I</button><button class="sec pi2">イラマ II</button></div>` : ''}
     </div>
+    <div class="pcalbox" hidden></div>
     <div class="pcount"></div>
     <div class="pmsg">${cfg.intro || '「お手本を聴く」で流れをつかんでから、「一緒に弾く」で挑戦しよう。光る鍵盤が次に叩く音です。'}</div>
     <div class="pstats"><span class="bigstat">ぴったり <b class="sg">0</b></span><span class="bigstat">おしい <b class="so">0</b></span><span class="bigstat">ミス <b class="sm">0</b></span></div>
@@ -1435,6 +1477,7 @@ function mountPractice(el, cfg){
   w.q('.pstop').onclick = () => stopPractice(w);
   w.q('.ptempo').oninput = e => { w.bpm = +e.target.value; w.q('.ptv').textContent = w.bpm; };
   w.q('.pguide').onchange = e => { w.guide = e.target.checked; };
+  w.q('.pcal').onclick = () => { const b = w.q('.pcalbox'); b.hidden = !b.hidden; if (!b.hidden && !b.firstChild) mountCalib(b); };
   if (cfg.iramaToggle){
     const setI = n => { if (n===w.irama) return; if (w.running) stopPractice(w); w.irama = n; w.q('.pi1').classList.toggle('on', n===1); w.q('.pi2').classList.toggle('on', n===2);
       w.bpm = n===2 ? Math.max(30, Math.round(w.bpm/2)) : Math.min(120, w.bpm*2); w.q('.ptempo').value = w.bpm; w.q('.ptv').textContent = w.bpm; w.rebuild(); };
@@ -1443,6 +1486,13 @@ function mountPractice(el, cfg){
   return w;
 }
 function pmsg(w, html, pass){ const m = w.q('.pmsg'); m.innerHTML = html; m.classList.toggle('pass', !!pass); }
+let WAKE = null; // 演奏中は画面が消えないようにする
+async function keepAwake(on){
+  try {
+    if (on && !WAKE && navigator.wakeLock){ WAKE = await navigator.wakeLock.request('screen'); WAKE.addEventListener('release', ()=>{ WAKE = null; }); }
+    else if (!on && WAKE){ const w = WAKE; WAKE = null; await w.release(); }
+  } catch(e){ WAKE = null; }
+}
 function stopAll(){ stopAuto(true); if (PW) stopPractice(PW); }
 function practiceStart(w, demo){
   stopAll(); initAudio();
@@ -1455,7 +1505,7 @@ function practiceStart(w, demo){
   let gap = w.Tb - w.Ta + 1; for (let i=1;i<ts.length;i++) gap = Math.min(gap, ts[i]-ts[i-1]);
   w.gapTicks = Math.max(1, gap);
   w.next = ctx.currentTime + 0.2;
-  w.timer = setInterval(()=>practiceSched(w), 25);
+  w.timer = setInterval(()=>practiceSched(w), 25); keepAwake(true);
   ['sg','so','sm'].forEach(c=>w.q('.'+c).textContent = '0');
   w.q('.pgo').disabled = w.q('.pdemo').disabled = true; w.q('.pstop').disabled = false;
   pmsg(w, demo ? 'お手本を演奏します。光る鍵盤と楽譜の色を見てね。' : 'カウントのあとに始まります…');
@@ -1465,7 +1515,7 @@ function stopPractice(w){
   if (w.timer) clearInterval(w.timer);
   const wasActive = PW === w;
   w.timer = null; w.running = false;
-  if (wasActive){ PW = null; visQ.length = 0; }
+  if (wasActive){ PW = null; visQ.length = 0; if (!S.playing) keepAwake(false); }
   if (ctx) for (const k in w.handles) w.handles[k].damp(ctx.currentTime);
   w.kb.setTarget(null); w._tk = undefined; w.q('.pcount').textContent = '';
   w.scoreEl.querySelectorAll('.nowcol').forEach(x=>x.classList.remove('nowcol'));
@@ -1516,7 +1566,39 @@ function practiceSched(w){
   }
 }
 function markCell(w, T, cls){ const c = w.scoreEl.querySelector(`[data-i="p-${w.cfg.user}"][data-t="${T}"]`); if (c){ c.classList.remove('j-good','j-ok','j-miss','j-wrong','j-demo'); c.classList.add(cls); } }
-function latency(){ return Math.min(0.2, (ctx.outputLatency||0) + (ctx.baseLatency||0)); }
+// 判定のずれ補正：自分で測った値があればそれを使い、なければ端末が報告する遅れを使う
+let CALIB = null;
+try { const v = parseFloat(localStorage.getItem('gamelan-offset')); if (isFinite(v)) CALIB = v; } catch(e){}
+function latency(){ return CALIB != null ? CALIB : Math.min(0.2, (ctx.outputLatency||0) + (ctx.baseLatency||0)); }
+function calibText(){ return CALIB != null ? `いまの補正：${Math.round(CALIB*1000)}ミリ秒（測定済み）` : 'いまの補正：自動（端末の値）'; }
+function mountCalib(el){
+  el.innerHTML = `<div class="calib"><b>⏱ タイミングのずれ調整</b>
+    <span class="muted">イヤホンや機種によって、音が少し遅れて聞こえます。カチッという音に合わせて下の枠を8回叩くと、あなたの環境のずれを測って判定に使います。</span>
+    <div class="row"><button class="calgo smallbtn">▶ 測定を始める</button><button class="sec calreset smallbtn">自動に戻す</button><span class="muted calv">${calibText()}</span></div>
+    <div class="calbeats">${'<i></i>'.repeat(12)}</div>
+    <div class="calpad">ここを叩く</div><div class="nowp calmsg"></div></div>`;
+  const q = s => el.querySelector(s), beats = [...el.querySelectorAll('.calbeats i')];
+  let clicks = [], taps = [], running = false;
+  q('.calgo').onclick = () => {
+    stopAll(); initAudio(); clicks = []; taps = []; running = true;
+    const t0 = ctx.currentTime + 0.4, gap = 0.6;
+    for (let i=0;i<12;i++){ const t = t0 + i*gap; clicks.push(t); SYNTH.click(t, i<4); vis(t, ()=>{ beats.forEach((b,k)=>b.classList.toggle('on', k===i)); }); }
+    q('.calmsg').textContent = '最初の4回は聞くだけ。5回目から合わせて叩いてください。';
+    setTimeout(()=>{
+      running = false; beats.forEach(b=>b.classList.remove('on'));
+      const diffs = [];
+      for (const tp of taps){ let best = null; for (const c of clicks.slice(4)){ const d = tp - c; if (Math.abs(d) < 0.3 && (best===null || Math.abs(d) < Math.abs(best))) best = d; } if (best !== null) diffs.push(best); }
+      if (diffs.length < 5){ q('.calmsg').textContent = `うまく測れませんでした（合った回数 ${diffs.length}）。もう一度試してください。`; return; }
+      diffs.sort((a,b)=>a-b); const med = diffs[Math.floor(diffs.length/2)];
+      CALIB = Math.max(-0.05, Math.min(0.35, med));
+      try { localStorage.setItem('gamelan-offset', String(CALIB)); } catch(e){}
+      q('.calv').textContent = calibText();
+      q('.calmsg').textContent = `測定できました（${diffs.length}回）。叩くのが平均 ${Math.round(med*1000)} ミリ秒${med>=0?'遅れて':'早めに'}いたので、その分を判定で補正します。`;
+    }, (12*gap + 0.9)*1000);
+  };
+  q('.calreset').onclick = () => { CALIB = null; try { localStorage.removeItem('gamelan-offset'); } catch(e){} q('.calv').textContent = calibText(); q('.calmsg').textContent = '自動に戻しました。'; };
+  q('.calpad').onpointerdown = e => { e.preventDefault(); if (!ctx) return; const pad = q('.calpad'); pad.classList.add('flash'); setTimeout(()=>pad.classList.remove('flash'), 90); if (running) taps.push(ctx.currentTime); };
+}
 function windows(w){ const gap = w.gapTicks*60/w.bpm/TPB; const ok = Math.min(0.22, gap*0.48); return {ok, good:Math.min(0.09, ok*0.55)}; }
 function judge(w, tg, kind){
   tg.j = kind;
@@ -1547,7 +1629,9 @@ function practiceTap(w, key, kel){
   }
   if (!pick) return;
   if (pick.e.key === key) judge(w, pick, pd < win.good ? 'good' : 'ok');
-  else { judge(w, pick, 'wrong'); w.kb.wrong(kel); }
+  else { judge(w, pick, 'wrong'); w.kb.wrong(kel);
+    const right = w.kb.el.querySelector(`[data-key="${pick.e.key}"]`); // 正しい音を一瞬見せる
+    if (right){ right.classList.add('hintk'); setTimeout(()=>right.classList.remove('hintk'), 450); } }
 }
 function practiceFrame(){
   const w = PW; if (!w || w.demo || !w.targets || !ctx) return;
@@ -1566,9 +1650,11 @@ function practiceFrame(){
     if (o.shown || +L >= w.loop || o.done < o.n) continue;
     o.shown = true;
     const r = o.n ? o.hit/o.n : 0, need = w.cfg.passRatio ?? 0.75;
+    if (r >= need && w.q('.pup').checked && w.bpm < 120){ // 合格ラインを超えたら少し速く
+      w.bpm = Math.min(120, w.bpm + 4); w.q('.ptempo').value = w.bpm; w.q('.ptv').textContent = w.bpm; }
     if (r >= need && !w.passed){ w.passed = true; pmsg(w, `🎉 合格！ ${o.hit}/${o.n} 音できました。${w.cfg.passMsg||''}`, true); if (w.cfg.onPass) w.cfg.onPass(); }
     else if (!w.passed) pmsg(w, `この周は ${o.hit}/${o.n} 音。${Math.ceil(need*o.n)} 音できたら合格。${r<0.4?'テンポを下げたり、お手本の音をよく聴いてみよう。':'もう少し！'}`);
-    else pmsg(w, `この周は ${o.hit}/${o.n} 音。いい調子！`, true);
+    else pmsg(w, `この周は ${o.hit}/${o.n} 音。いい調子！${w.q('.pup').checked ? `（テンポ ${w.bpm}）` : ''}`, true);
   }
   if (w.targets.length > 400) w.targets = w.targets.filter(tg=>!tg.j || now - tg.time < 3);
 }
@@ -1824,6 +1910,9 @@ function renderLessonHead(){
   const done = LESSONS.filter((_,i)=>lessonDone(i)).length;
   $('#lDone').textContent = done; $('#lTotal').textContent = LESSONS.length;
   $('#lBar').style.width = (done/LESSONS.length*100)+'%';
+  let cg = $('#lCongrats');
+  if (done === LESSONS.length && !cg){ cg = document.createElement('div'); cg.id = 'lCongrats'; cg.className = 'congrats'; cg.textContent = '🎉 全レッスン修了！「セオリー」タブで他の楽器にも挑戦してみよう'; $('#lBar').parentElement.after(cg); }
+  else if (done < LESSONS.length && cg) cg.remove();
   $('#lChips').innerHTML = LESSONS.map((l,i)=>`<button class="sec ${i===LP.cur?'on':''} ${lessonDone(i)?'done':''}" data-l="${i}">${i+1}. ${l.title}</button>`).join('');
   const act = $('#lChips .on'); if (act && act.parentElement) act.parentElement.scrollLeft = Math.max(0, act.offsetLeft - 40);
 }
@@ -2167,9 +2256,49 @@ document.querySelector('.tabs').addEventListener('click', e=>{
   document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active', p.id==='page-'+b.dataset.tab));
 });
 $('#unlockBtn').onclick = () => { initAudio(); $('#unlock').remove(); };
-document.addEventListener('visibilitychange', ()=>{ if (!document.hidden && ctx && ctx.state!=='running') ctx.resume(); });
+// PCのキーボードでも叩ける：数字1〜7＝音（Shiftで高い音）、スペース＝ゴングなど、D T P K L＝クンダン
+document.addEventListener('keydown', e => {
+  if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
+  const tag = (document.activeElement && document.activeElement.tagName) || '';
+  if (/INPUT|TEXTAREA|SELECT/.test(tag) && document.activeElement.type !== 'checkbox' && document.activeElement.type !== 'range') return;
+  let kb = PW ? PW.kb.el : (LAST_KB && LAST_KB.isConnected && LAST_KB.offsetParent ? LAST_KB : null);
+  if (!kb && $('#page-play').classList.contains('active')) kb = stageEl;
+  if (!kb || !kb.offsetParent) return;
+  let el = null;
+  const dm = /^Digit([1-7])$/.exec(e.code);
+  if (dm){
+    const c = [...kb.querySelectorAll(`[data-key^="${dm[1]}:"]`)];
+    const want = e.shiftKey ? 1 : 0;
+    el = c.find(x=>x.dataset.key.endsWith(':'+want)) || c.find(x=>x.dataset.key.endsWith(':0')) || c[0];
+  } else if (e.code === 'Space' || e.code === 'Enter'){
+    el = kb.querySelector('[data-key="G"],[data-key="N"],[data-key="P"],[data-key="t"],[data-key="p"],[data-key="j"]');
+  } else {
+    const m = {KeyD:'D', KeyT:'t', KeyP:'P', KeyK:'k', KeyL:'L'}[e.code];
+    if (m) el = kb.querySelector(`[data-key="${m}"]`);
+  }
+  if (!el) return;
+  e.preventDefault();
+  el.dispatchEvent(new PointerEvent('pointerdown', {bubbles:true}));
+});
+document.addEventListener('visibilitychange', ()=>{ if (!document.hidden){ if (ctx && ctx.state!=='running') ctx.resume(); if (S.playing || PW) keepAwake(true); } });
 
 buildChips(); renderStage(); fillPieces(); loadPiece(PIECES[0]);
+try { // 前回書いた曲を復元
+  const c = JSON.parse(localStorage.getItem('gamelan-custom')||'null');
+  if (c && c.txt){ $('#customBal').value = c.txt; $('#customForm').value = c.form; $('#customLaras').value = c.laras; $('#applyCustom').click(); usePiece(0); }
+} catch(e){}
+// 自由演奏の伴奏：ゴング類とクンダンだけを鳴らし、その上で自由に弾く
+let accCycle = null;
+$('#accBtn').onclick = () => {
+  if (S.playing && S._acc){ stopAuto(false); return; }
+  stopAll(); initAudio(); usePiece(freeLaras==='pelog' ? 1 : 0);
+  lanesNow().forEach(l=>S.muted[l.id] = !(l.id==='gong' || l.id==='kendhang')); renderLanes(); vizRebuild();
+  S._acc = true; $('#accBtn').textContent = '■ 伴奏を止める';
+  $('#accCycle').hidden = false; if (!accCycle) accCycle = new CycleView($('#accCycle')); else accCycle.build();
+  S.onEnd = () => { S._acc = false; lanesNow().forEach(l=>S.muted[l.id] = false); renderLanes(); vizRebuild();
+    $('#accBtn').textContent = '▶ ゴングと太鼓の伴奏で弾く'; $('#accCycle').hidden = true; };
+  startAuto();
+};
 const autoCycle = new CycleView($('#autoCycle')), autoGuide = new GuideView($('#autoGuide'));
 autoCycle.onPick = b => autoGuide.push([explainBeat(b)]);
 new TimelineView($('#autoTL'));
