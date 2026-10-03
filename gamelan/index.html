@@ -225,11 +225,37 @@
   .theory ul{margin:.3rem 0; padding-left:1.2em; font-size:.9rem;}
   .theory li{margin:.2rem 0;}
 
+  .illu-fig{margin:10px 0; padding:10px 8px 8px; background:radial-gradient(circle at 50% 40%, #3a281b, #24170f); border:1px solid var(--line); border-radius:12px;}
+  .illu{display:block; width:100%; max-width:460px; height:auto; margin:0 auto;}
+  .illu-fig.small .illu{max-width:340px;}
+  .illu-fig figcaption{font-size:.78rem; color:var(--sub); text-align:center; margin-top:4px; line-height:1.5;}
+  a.photo{color:var(--accent); font-weight:700; text-decoration:none; display:inline-block; padding:4px 0;}
+  a.photo:hover,a.photo:focus-visible{text-decoration:underline;}
+  .panel{scroll-margin-top:90px;}
+  label.ctl:has(#pieceSel){max-width:100%; min-width:0;}
+  #pieceSel{width:100%;}
+  .gong::after{content:''; position:absolute; inset:6%; border-radius:50%; box-shadow:inset 0 0 0 3px rgba(61,39,9,.55); pointer-events:none;}
   #unlock{position:fixed; inset:0; background:rgba(15,8,4,.86); z-index:100; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:12px; text-align:center; padding:20px;}
   #unlock .big{font-size:1.1rem; font-weight:800;}
 </style>
 </head>
 <body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="gBar" x1="0" x2="1"><stop offset="0" stop-color="#6e4a17"/><stop offset=".2" stop-color="#b8862f"/><stop offset=".5" stop-color="#f3d27a"/><stop offset=".8" stop-color="#b8862f"/><stop offset="1" stop-color="#6e4a17"/></linearGradient>
+    <linearGradient id="gBarThin" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#f0cf78"/><stop offset="1" stop-color="#9c7228"/></linearGradient>
+    <linearGradient id="gWood" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#9b4423"/><stop offset="1" stop-color="#5b2210"/></linearGradient>
+    <linearGradient id="gWoodH" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#6b2f14"/><stop offset=".45" stop-color="#b8693a"/><stop offset="1" stop-color="#5b2210"/></linearGradient>
+    <linearGradient id="gKside" x1="0" x2="1"><stop offset="0" stop-color="#5a3a10"/><stop offset=".45" stop-color="#c9a04a"/><stop offset="1" stop-color="#4a300c"/></linearGradient>
+    <radialGradient id="gKtop" cx=".45" cy=".4" r=".7"><stop offset="0" stop-color="#f3d27a"/><stop offset=".7" stop-color="#b8862f"/><stop offset="1" stop-color="#6e4a17"/></radialGradient>
+    <radialGradient id="gBoss" cx=".4" cy=".35" r=".7"><stop offset="0" stop-color="#fff0b0"/><stop offset=".5" stop-color="#e2b75a"/><stop offset="1" stop-color="#8c6420"/></radialGradient>
+    <radialGradient id="gFace" cx=".45" cy=".42" r=".65"><stop offset="0" stop-color="#e2b75a"/><stop offset=".6" stop-color="#a87b2c"/><stop offset="1" stop-color="#5a3a10"/></radialGradient>
+    <radialGradient id="gSkin" cx=".4" cy=".4" r=".7"><stop offset="0" stop-color="#f5e8cc"/><stop offset="1" stop-color="#c9ad7e"/></radialGradient>
+    <linearGradient id="gTube" x1="0" x2="1"><stop offset="0" stop-color="#3a2a18"/><stop offset=".5" stop-color="#8a7556"/><stop offset="1" stop-color="#3a2a18"/></linearGradient>
+    <linearGradient id="gBamboo" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#e2c27a"/><stop offset="1" stop-color="#9c7a3a"/></linearGradient>
+  </defs>
+</svg>
 
 <div id="unlock">
   <div class="big">🎶 ガムラン・シミュレーター</div>
@@ -282,6 +308,7 @@
       <label class="ctl" id="ombakCtl" hidden>オンバ（うなり）<b><input type="range" id="ombakFree" min="0" max="12" step="0.5" value="6"> <span id="ombakFreeV">6</span> Hz</b></label>
     </div>
     <p class="instinfo" id="instInfo"></p>
+    <div id="freeFig"></div>
     <div class="stage" id="stage"></div>
     <p class="note">複数の指で同時に叩けます。サロン類は本物と同じく、次の音を叩くと前の音を手で押さえて止めます（ダンプ）。</p>
   </div>
@@ -296,8 +323,8 @@
       </label>
       <label class="ctl">テンポ（拍/分）<b><input type="range" id="tempo" min="24" max="160" value="60"> <span id="tempoV">60</span></b></label>
       <div class="row" style="gap:4px;">
-        <button class="sec on" id="irama1">イラマ I</button>
-        <button class="sec" id="irama2">イラマ II</button>
+        <button class="sec on" id="irama1">イラマ I（タングン）</button>
+        <button class="sec" id="irama2">イラマ II（ダドス）</button>
       </div>
     </div>
     <div class="row" style="margin-top:10px;">
@@ -317,7 +344,7 @@
     <div class="panel cyclebox">
       <h2 style="align-self:flex-start;">ゴンガン（ゴングの周期）</h2>
       <svg id="cycleSvg" viewBox="0 0 300 300"></svg>
-      <div class="legend">
+      <div class="legend" id="legend">
         <span><i style="background:var(--c-gong)"></i>G ゴング</span>
         <span><i style="background:var(--c-kenong)"></i>N クノン</span>
         <span><i style="background:var(--c-kempul)"></i>P クンプル</span>
@@ -438,8 +465,8 @@ const FORM_NAME = {lancaran:'ランチャラン', ketawang:'クタワン', ladra
 const PIECES = [
   {name:'ランチャラン「はじめの一歩」（スレンドロ）', laras:'slendro', form:'lancaran', tempo:72,
    bal:'6, 1 2 3  6, 1 2 3  5 6 5 3  2 1 2 6,'},
-  {name:'クタワン「月のしずく」（ペロッグ）', laras:'pelog', form:'ketawang', tempo:56,
-   bal:'3 5 6 7  6 5 3 2  5 3 2 1  2 3 2 1'},
+  {name:'クタワン「月のしずく」（ペロッグ・パテット・バラン）', laras:'pelog', form:'ketawang', tempo:56,
+   bal:'6 7 6 5  3 2 7 6  2 3 5 6  7 5 3 2'},
   {name:'ラドラン「ゆるやかな川」（スレンドロ）', laras:'slendro', form:'ladrang', tempo:52,
    bal:'2 1 2 6,  2 1 2 6,  3 5 6 5  3 2 1 2  . . 2 3  5 6 5 3  6 5 3 2  5 3 2 1'},
   {name:'バリ風「火の鳥」コテカン（ペロッグ）', laras:'pelog', form:'bali', tempo:84,
@@ -828,6 +855,7 @@ const stageEl = $('#stage');
 function renderStage(){
   const def = FREE_INST[freeInst];
   $('#instInfo').textContent = def.info;
+  $('#freeFig').innerHTML = figureHTML({gongs:'gong', gangsa:'polos'}[freeInst] || freeInst, true);
   $('#ombakCtl').hidden = freeInst!=='gangsa';
   if (freeInst==='gongs'){
     const ns = LARAS[freeLaras].notes;
@@ -884,7 +912,7 @@ const LANES_JAVA = [
 ];
 const LANES_BALI = [
   {id:'kendhang', name:'クンダン', role:'太鼓・リーダー', color:'var(--c-drum)', insts:['kendhang']},
-  {id:'gong',     name:'ゴング類', role:'ゴング・クンプール・カジャール', color:'var(--c-gong)', insts:['gong','kenong','kempul','kajar']},
+  {id:'gong',     name:'ゴング類', role:'ゴング・クンプール・クモン・カジャール', color:'var(--c-gong)', insts:['gong','kenong','kempul','kajar']},
   {id:'ceng',     name:'チェンチェン', role:'小さなシンバル', color:'var(--c-kethuk)', insts:['ceng']},
   {id:'jegogan',  name:'ジェゴガン', role:'骨組み（2拍に1音・低音）', color:'var(--c-bal)', insts:['jegogan']},
   {id:'calung',   name:'チャルン', role:'骨組みの旋律', color:'var(--c-bal)', insts:['calung']},
@@ -910,11 +938,16 @@ function loadPiece(p){
   $('#tempo').value = p.tempo; $('#tempoV').textContent = p.tempo;
   setIrama(1, true);
   renderBalungan(); renderCycle(); renderLanes();
+  const bali = S.form==='bali';
+  $('#legend').innerHTML = bali
+    ? '<span><i style="background:var(--c-gong)"></i>G ゴング</span><span><i style="background:var(--c-kenong)"></i>N クモン</span><span><i style="background:var(--c-kempul)"></i>P クンプール</span><span><i style="background:#4a3526"></i>拍 カジャール</span>'
+    : '<span><i style="background:var(--c-gong)"></i>G ゴング</span><span><i style="background:var(--c-kenong)"></i>N クノン</span><span><i style="background:var(--c-kempul)"></i>P クンプル</span><span><i style="background:var(--c-kethuk)"></i>t クトゥッ</span>';
 }
 function evLabel(e){
   if (e.inst==='kendhang') return {D:'ドゥン',P:'トゥン',t:'タッ',k:'ケッ',L:'ドラン'}[e.k];
   if (e.inst==='kenong') return 'N'+e.d;
   if (e.inst==='kempul') return 'P'+e.d;
+  if (e.inst==='kajar') return 'j';
   if (e.k) return {G:'G',t:'t',p:'p',j:'j',c:''}[e.k] ?? '';
   return noteHTML(e.d, e.o);
 }
@@ -1065,6 +1098,7 @@ function clearBeat(){ if (lastBeatEl) lastBeatEl.classList.remove('now'); lastBe
 $('#tempo').oninput = e => { $('#tempoV').textContent = e.target.value; S.target = +e.target.value; if (!S.playing) S.tempo = S.target; };
 function setIrama(n, immediate){
   if (S.form==='bali') n = 1; // バリ風はイラマ切替なし
+  $('#irama2').disabled = S.form==='bali';
   $('#irama1').classList.toggle('on', n===1); $('#irama2').classList.toggle('on', n===2);
   if (immediate || !S.playing){ S.irama = n; S.pendingIrama = null; return; }
   if (n === S.irama && !S.pendingIrama) return;
@@ -1400,14 +1434,15 @@ const LESSONS = [
   { title:'音の名前は「数字」',
     body:`<p>ガムランの楽譜は、音を数字で書きます（<b>クパティハン譜</b>）。数字の下の点は低い音、上の点は高い音です。</p>
     <table><tr><th>数字</th><td>1</td><td>2</td><td>3</td><td>4</td><td>5</td><td>6</td><td>7</td></tr><tr><th>読み</th><td>ji</td><td>ro</td><td>lu</td><td>pat</td><td>mo</td><td>nem</td><td>pi</td></tr></table>
-    <p>音階は2種類あります。<b>スレンドロ</b>は1オクターブをほぼ均等に5つに分けた音階（4と7がない）、<b>ペロッグ</b>は広い音程と狭い音程がまざった7音の音階です。ドレミとは音の高さが少しずつちがいます。</p>`,
+    <p>音階は2種類あります。<b>スレンドロ</b>は1オクターブをほぼ均等に5つに分けた音階（4と7がない）、<b>ペロッグ</b>は広い音程と狭い音程がまざった7音の音階です。ドレミとは音の高さが少しずつちがい、楽団ごとに調律も少しずつ異なります。</p>
+    <p>ペロッグの曲は、ふつう7音を全部は使いません。<b>パテット</b>（旋法）によって中心になる5音が決まり、パテット・リモやヌムでは「1」を使って「7」を使わず、パテット・バランでは「7」を使って「1」を使いません（「4」は経過的に使うことがあります）。スレンドロにもヌム・サンゴ・マニュロの3つのパテットがあります。</p>`,
     point:'<b>ポイント</b> 「6」の下に点があれば低い6、「1」の上に点があれば高い1です。',
     widgets:[
       {type:'seq', title:'サロンで低い方から順に叩こう', inst:'saron', target:['6:-1','1:0','2:0','3:0','5:0','6:0','1:1']},
       {type:'listen', title:'音階を聴きくらべよう', items:[{label:'スレンドロ', fn:()=>DEMOS.scale('slendro')},{label:'ペロッグ', fn:()=>DEMOS.scale('pelog')},{label:'くらべる：ドレミ', fn:()=>DEMOS.western()}]},
     ] },
   { title:'叩いたら止める（ダンプ）',
-    body:`<p>サロンは右手のバチで叩き、同時に<b>左手で直前に叩いた鍵盤をつまんで響きを止めます</b>。止めないと前の音が残って、旋律がにごってしまいます。</p>
+    body:`<p>サロンは右手のバチで叩き、同時に<b>左手で直前に叩いた鍵盤をつまんで響きを止めます</b>（ジャワ語で<b>ミテット</b>）。止めないと前の音が残って、旋律がにごってしまいます。</p>
     <p>このアプリの鍵盤は、次の音を叩くと自動で前の音を止めます。下の2つを聴きくらべてみましょう。</p>`,
     point:'<b>ポイント</b> 「右手で叩く」と「左手で止める」は同時。慣れると流れるように弾けます。',
     widgets:[
@@ -1435,7 +1470,7 @@ const LESSONS = [
     <table><tr><th>楽器</th><th>ランチャラン形式（16拍）</th></tr>
     <tr><td>ゴン・アグン G</td><td>16拍目</td></tr><tr><td>クノン N</td><td>4・8・12・16拍目</td></tr>
     <tr><td>クンプル P</td><td>6・10・14拍目</td></tr><tr><td>クトゥッ t</td><td>奇数拍</td></tr></table>
-    <p>クノンとクンプルは、その拍のバルンガンと<b>同じ音の高さ</b>で鳴らします。このしくみを<b>コロトミー構造</b>といいます。</p>`,
+    <p>ゴングのすぐ後の最初の区切り（2拍目）だけはクンプルを鳴らしません。この空白を<b>ウェラ</b>といいます。クノンとクンプルは、その拍のバルンガンと<b>同じ音の高さ</b>で鳴らします。このしくみを<b>コロトミー構造</b>といいます。</p>`,
     point:'<b>ポイント</b> 大きい楽器ほどゆっくり、小さい楽器ほど細かく。時間が入れ子になっています。',
     widgets:[
       {type:'quiz', title:'クイズ', q:'ランチャラン形式で、クノンが鳴るのは？', options:['2拍ごと','4拍ごと','8拍ごと'], answer:1, explain:'4・8・12・16拍目、4拍ごとに鳴ります。'},
@@ -1469,15 +1504,16 @@ const LESSONS = [
       {type:'listen', title:'1周ごとに楽器を重ねて聴こう', items:[{label:'▶ 層を重ねて聴く', fn:say=>DEMOS.layers(say)}]},
     ] },
   { title:'イラマ：遅くなると細かくなる',
-    body:`<p>ガムランでは、テンポが半分になると、飾りの楽器は<b>1拍に入れる音数を2倍</b>にします。全体の流れの速さは保ったまま、骨組みだけがゆったりになるのです。この関係を<b>イラマ</b>といいます。</p>`,
-    point:'<b>ポイント</b> イラマ I → II：バルンガンは半分の速さ、ペキンやボナンは1拍に2音 → 4音。',
+    body:`<p>ガムランでは、テンポが半分になると、飾りの楽器は<b>1拍に入れる音数を2倍</b>にします。全体の流れの速さは保ったまま、骨組みだけがゆったりになるのです。この関係を<b>イラマ</b>といいます。</p>
+    <p>実際のジャワのガムランには、速い順に<b>ランチャル → タングン（I） → ダドス（II） → ウィレッ（III） → ランケップ（IV）</b>という段階があり、1段ゆっくりになるごとに飾りの音数が倍になります。このアプリではタングンとダドスの2段階を体験できます。</p>`,
+    point:'<b>ポイント</b> イラマ I（タングン）→ II（ダドス）：バルンガンは半分の速さ、ペキンやボナンは1拍に2音 → 4音。',
     widgets:[
       {type:'listen', title:'イラマが変わる瞬間を聴こう', items:[{label:'▶ イラマ I → II', fn:say=>DEMOS.irama(say)}]},
       {type:'grid', title:'イラマ II のペキンとボナン', piece:0, irama:2, insts:['bal','peking','bonang'], beats:[1,4], note:'レッスン7・8の楽譜とくらべると、1拍の中の音が倍になっています。'},
       {type:'quiz', title:'クイズ', q:'イラマ I から II になると、ペキンの1拍あたりの音数は？', options:['半分になる','同じ','2倍になる'], answer:2, explain:'バルンガンがゆっくりになった分、飾りが細かくなります。'},
     ] },
   { title:'クンダン：太鼓が指揮者',
-    body:`<p>ガムランには指揮者がいません。太鼓<b>クンダン</b>の奏者が、テンポを上げ下げしたり、曲を終わらせたりする合図を出します。</p>
+    body:`<p>ガムランには指揮者がいません。太鼓<b>クンダン</b>（大きなクンダン・アグンと小さなクティプンの2つを組み合わせることが多い）の奏者が、テンポを上げ下げしたり、曲を終わらせたりする合図を出します。</p>
     <ul><li><b>ブカ</b>：曲の始まり。1人の奏者が短い前奏を弾き、ゴングで全員が入る。</li><li><b>スウック</b>：曲の終わり。クンダンの合図でだんだん遅くなり、ゴングで終わる。</li></ul>
     <p>音は、大きい面の低い<b>ドゥン</b>、小さい面を平手で叩く<b>タッ</b>、指で叩く<b>トゥン</b>など。ガトラ（4拍）単位の型をくり返し、ゴングの前で型を変えて知らせます。</p>`,
     point:'<b>ポイント</b> ガトラの最後（セレ）に「ドゥン」が来ると、旋律の着地が強調されます。',
@@ -1488,7 +1524,7 @@ const LESSONS = [
     ] },
   { title:'バリ：2人でかみ合わせる（コテカン）',
     body:`<p>バリ島のガムランでは、2人の奏者（<b>ポロス</b>と<b>サンシ</b>）が音を交互に入れ合って、1人では弾けない速い旋律を作ります。これを<b>コテカン</b>といいます。</p>
-    <p>また、楽器は2台1組で、片方をわずかに高く調律してあります。同時に鳴ると「ワンワン」とうなる<b>オンバ（波）</b>が生まれ、バリのガムランのきらきらした響きになります。</p>`,
+    <p>また、楽器は2台1組で、低めの<b>プンゴンバン</b>と高めの<b>プンギセップ</b>のように、片方をわずかに高く調律してあります。同時に鳴ると「ワンワン」とうなる<b>オンバ（波）</b>が生まれ、バリのガムランのきらきらした響きになります。</p>`,
     point:'<b>ポイント</b> 1人のパートだけだと穴あきの旋律。2人そろって初めて1本の旋律になります。',
     widgets:[
       {type:'listen', title:'分解して聴こう', items:[{label:'コテカンを分解', fn:say=>DEMOS.kotekan(say)},{label:'オンバなし', fn:()=>DEMOS.ombak(0)},{label:'オンバあり', fn:()=>DEMOS.ombak(6)}]},
@@ -1515,11 +1551,12 @@ function renderLessonHead(){
   const act = $('#lChips .on'); if (act && act.parentElement) act.parentElement.scrollLeft = Math.max(0, act.offsetLeft - 40);
 }
 $('#lChips').onclick = e => { const b = e.target.closest('[data-l]'); if (b) openLesson(+b.dataset.l); };
+const LESSON_ILL = {3:'saron', 4:'gong', 5:'kenong', 6:'peking', 7:'bonang', 10:'kendhang', 11:'polos'};
 function openLesson(i){
   stopAll();
   LP.cur = Math.max(0, Math.min(LESSONS.length-1, i|0)); saveLP();
   const L = LESSONS[LP.cur], card = $('#lCard');
-  card.innerHTML = `<div class="lnum">LESSON ${LP.cur+1} / ${LESSONS.length}</div><h2>${L.title}</h2><div class="lbody">${L.body}</div><div class="point">${L.point}</div>
+  card.innerHTML = `<div class="lnum">LESSON ${LP.cur+1} / ${LESSONS.length}</div><h2>${L.title}</h2><div class="lbody">${L.body}</div>${LP.cur===0 ? `<figure class="illu-fig">${ILL.layout()}<figcaption>ジャワのガムランの並び方の一例（楽団や会場によってちがいます）。色は「骨組み＝緑・区切り＝橙・飾り＝紫・指揮＝桃・柔らかい楽器と歌＝灰」。</figcaption></figure>` : ''}${LESSON_ILL[LP.cur] ? figureHTML(LESSON_ILL[LP.cur], true) : ''}<div class="point">${L.point}</div>
     ${L.widgets.map((w,j)=>`<div class="widget" data-w="${j}"><div class="whead"><span class="wt">やってみよう：${w.title}</span><span class="pill">${LP.w[`${LP.cur}-${j}`]?'✓ クリア':'まだ'}</span></div><div class="wbody"></div></div>`).join('')}
     <div class="lnav"><button class="sec lprev" ${LP.cur===0?'disabled':''}>← 前へ</button><button class="lnext ${lessonDone(LP.cur)?'':'sec'}">${LP.cur===LESSONS.length-1?'さいしょへ':(lessonDone(LP.cur)?'次のレッスンへ →':'とばして次へ →')}</button></div>`;
   L.widgets.forEach((w,j)=>{
@@ -1544,12 +1581,198 @@ function openLesson(i){
 }
 
 /* =========================================================
+ *  10.5 楽器のイラスト（実物の形をもとにした図。部位に名前つき）
+ * ========================================================= */
+const SUB = '#c9b294', TXT = '#f6ead8';
+function svgWrap(body, vb='0 0 360 210'){ return `<svg class="illu" viewBox="${vb}" role="img">${body}</svg>`; }
+function lab(x1, y1, x2, y2, t, anc='start'){
+  const dx = anc==='start' ? 3 : anc==='end' ? -3 : 0;
+  return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${SUB}" stroke-width="1"/><circle cx="${x1}" cy="${y1}" r="2.2" fill="${SUB}"/><text x="${x2+dx}" y="${y2+4}" font-size="11.5" fill="${TXT}" text-anchor="${anc}" font-weight="600">${t}</text>`;
+}
+function mallet(kind, x, y, rot){
+  const handle = `<rect x="0" y="-2.5" width="54" height="5" rx="2" fill="#9a6a35"/>`;
+  const head = {
+    wood:`<rect x="50" y="-11" width="11" height="22" rx="3" fill="#6b3f1d"/>`,
+    horn:`<path d="M50 -12 L60 -9 L60 9 L50 12 Z" fill="#e8dcc2" stroke="#9c8a66" stroke-width=".8"/>`,
+    pad:`<ellipse cx="57" cy="0" rx="8" ry="11" fill="#7a2f22"/><path d="M52 -8 L62 -8 M51 -3 L63 -3 M51 3 L63 3 M52 8 L62 8" stroke="#c98a5a" stroke-width="1"/>`,
+    disc:`<ellipse cx="56" cy="0" rx="5" ry="13" fill="#7a2f22"/>`,
+    ball:`<circle cx="62" cy="0" r="13" fill="#7a2f22"/><circle cx="58" cy="-4" r="4" fill="#a2503c"/>`,
+  }[kind];
+  return `<g transform="translate(${x},${y}) rotate(${rot})">${handle}${head}</g>`;
+}
+function bars(n, x0, x1, yb, longest, shortest, fill='url(#gBar)', pins=true, gap=6){
+  let s = ''; const bw = (x1-x0-(n-1)*gap)/n;
+  for (let i=0;i<n;i++){
+    const x = x0 + i*(bw+gap), L = longest - (longest-shortest)*i/Math.max(1,n-1), yt = yb - L;
+    s += `<rect x="${x.toFixed(1)}" y="${yt.toFixed(1)}" width="${bw.toFixed(1)}" height="${L.toFixed(1)}" rx="4" fill="${fill}" stroke="#4a300c" stroke-width=".8"/>`;
+    if (pins) s += `<circle cx="${(x+bw/2).toFixed(1)}" cy="${(yt+5).toFixed(1)}" r="2" fill="#3b2306"/><circle cx="${(x+bw/2).toFixed(1)}" cy="${(yb-5).toFixed(1)}" r="2" fill="#3b2306"/>`;
+  }
+  return s;
+}
+function trough(){ // サロン類の木の台（ランチャカン）：舟形で中が空洞
+  return `<path d="M28 96 L332 96 L314 154 L46 154 Z" fill="url(#gWood)"/>
+  <path d="M28 96 L332 96 L324 88 L36 88 Z" fill="#a14b25"/>
+  <path d="M28 96 C14 92 12 76 22 70 C26 80 32 86 40 88 Z" fill="#7a3216"/><path d="M332 96 C346 92 348 76 338 70 C334 80 328 86 320 88 Z" fill="#7a3216"/>
+  <path d="M74 126 H286" stroke="#d6a548" stroke-width="2.4" stroke-dasharray="1 7" stroke-linecap="round" opacity=".85"/>
+  <rect x="58" y="154" width="16" height="9" fill="#4a1a0b"/><rect x="286" y="154" width="16" height="9" fill="#4a1a0b"/>`;
+}
+function kettle(cx, cy, r, h=.75){ // こぶ付きの壺型ゴング（ペンチョン）
+  const b = cy + r*h, f = v => v.toFixed(1);
+  return `<path d="M${f(cx-r)} ${cy} C${f(cx-r)} ${f(b)} ${f(cx-r*.8)} ${f(b)} ${f(cx-r*.55)} ${f(b)} L${f(cx+r*.55)} ${f(b)} C${f(cx+r*.8)} ${f(b)} ${f(cx+r)} ${f(b)} ${f(cx+r)} ${cy} Z" fill="url(#gKside)" stroke="#3d2709" stroke-width=".7"/>
+  <ellipse cx="${cx}" cy="${cy}" rx="${r}" ry="${f(r*.42)}" fill="url(#gKtop)" stroke="#3d2709" stroke-width=".7"/>
+  <ellipse cx="${cx}" cy="${f(cy-r*.06)}" rx="${f(r*.36)}" ry="${f(r*.17)}" fill="#5a3a10" opacity=".7"/>
+  <ellipse cx="${cx}" cy="${f(cy-r*.2)}" rx="${f(r*.27)}" ry="${f(r*.22)}" fill="url(#gBoss)"/>`;
+}
+function hgong(cx, cy, R){ // 吊りゴング（正面）：厚い縁＋中央のこぶ
+  const f = v => v.toFixed(1);
+  return `<line x1="${f(cx-R*.35)}" y1="${f(cy-R*.86)}" x2="${f(cx-R*.2)}" y2="${f(cy-R-24)}" stroke="#d9c39a" stroke-width="1.6"/>
+  <line x1="${f(cx+R*.35)}" y1="${f(cy-R*.86)}" x2="${f(cx+R*.2)}" y2="${f(cy-R-24)}" stroke="#d9c39a" stroke-width="1.6"/>
+  <circle cx="${cx}" cy="${cy}" r="${R}" fill="#3d2709"/>
+  <circle cx="${cx}" cy="${cy}" r="${f(R*.9)}" fill="url(#gFace)"/>
+  <circle cx="${cx}" cy="${cy}" r="${f(R*.42)}" fill="none" stroke="#7a5418" stroke-width="${f(R*.05)}" opacity=".7"/>
+  <circle cx="${cx}" cy="${cy}" r="${f(R*.25)}" fill="url(#gBoss)" stroke="#5a3a10" stroke-width="1"/>
+  <circle cx="${f(cx-R*.07)}" cy="${f(cy-R*.08)}" r="${f(R*.07)}" fill="#fff3c4" opacity=".55"/>`;
+}
+function gayor(x0, x1, top, bottom, ornate){ // ゴングを吊るす木の台
+  let s = `<rect x="${x0}" y="${top}" width="12" height="${bottom-top}" fill="url(#gWood)"/><rect x="${x1-12}" y="${top}" width="12" height="${bottom-top}" fill="url(#gWood)"/>
+  <rect x="${x0-6}" y="${top}" width="${x1-x0+12}" height="11" rx="2" fill="#8b3a1e"/>
+  <rect x="${x0-14}" y="${bottom-6}" width="28" height="8" fill="#4a1a0b"/><rect x="${x1-14}" y="${bottom-6}" width="28" height="8" fill="#4a1a0b"/>`;
+  if (ornate) s += `<path d="M${x0+6} ${top} C${x0-8} ${top-14} ${x0+10} ${top-26} ${x0+22} ${top-16} C${x0+14} ${top-14} ${x0+12} ${top-6} ${x0+18} ${top}" fill="#d6a548"/>
+  <path d="M${x1-6} ${top} C${x1+8} ${top-14} ${x1-10} ${top-26} ${x1-22} ${top-16} C${x1-14} ${top-14} ${x1-12} ${top-6} ${x1-18} ${top}" fill="#d6a548"/>`;
+  return s;
+}
+function baliFrame(x0, x1, y0, y1){ // バリの朱塗り・金彫刻の台
+  let s = `<path d="M${x0} ${y0} L${x1} ${y0} L${x1-14} ${y1} L${x0+14} ${y1} Z" fill="#8d1e14" stroke="#d6a548" stroke-width="2"/>`;
+  for (let x = x0+30; x < x1-24; x += 30) s += `<path d="M${x} ${(y0+y1)/2+4} c0 -12 14 -12 14 0 c0 8 -9 8 -9 2" fill="none" stroke="#e8c060" stroke-width="2"/>`;
+  s += `<rect x="${x0+20}" y="${y1}" width="10" height="16" fill="#5b1a10"/><rect x="${x1-30}" y="${y1}" width="10" height="16" fill="#5b1a10"/>`;
+  return s;
+}
+const ILL = {
+  saron: () => svgWrap(trough() + bars(7, 58, 302, 92, 58, 40) + mallet('wood', 236, 192, -22)
+    + lab(80, 40, 30, 16, '厚い青銅の鍵盤') + lab(242, 40, 330, 16, 'ピンで台に留める', 'end')
+    + lab(120, 140, 20, 190, '中が空洞の木の台') + lab(300, 170, 340, 200, 'バチ（タブ）', 'end')),
+  demung: () => svgWrap(trough() + bars(6, 54, 306, 92, 66, 50) + mallet('wood', 236, 192, -22)
+    + lab(80, 34, 30, 14, 'サロンより大きく厚い鍵盤') + lab(120, 140, 20, 190, '大きな木の台') + lab(300, 170, 340, 200, '大きめのバチ', 'end')),
+  peking: () => svgWrap(trough() + bars(7, 70, 290, 92, 42, 32) + mallet('horn', 236, 192, -22)
+    + lab(100, 54, 30, 22, 'いちばん小さな鍵盤') + lab(120, 140, 20, 190, '小さな木の台') + lab(300, 172, 340, 200, '水牛の角のバチ', 'end')),
+  slenthem: () => svgWrap(`<rect x="40" y="96" width="280" height="62" fill="url(#gWood)"/><rect x="36" y="90" width="288" height="8" fill="#a14b25"/>
+    <rect x="52" y="100" width="256" height="52" fill="#1c0e07" opacity=".55" stroke="#d6a548" stroke-dasharray="3 3"/>
+    ${[0,1,2,3,4,5,6].map(i=>`<rect x="${60+i*36.5}" y="${102+i*2}" width="22" height="${48-i*2}" rx="3" fill="url(#gTube)"/>`).join('')}
+    ${bars(7, 54, 306, 90, 34, 28, 'url(#gBarThin)', false, 4)}
+    <line x1="48" y1="63" x2="312" y2="63" stroke="#d9c39a" stroke-width="1.5"/><line x1="48" y1="82" x2="312" y2="82" stroke="#d9c39a" stroke-width="1.5"/>
+    <rect x="44" y="160" width="12" height="10" fill="#4a1a0b"/><rect x="304" y="160" width="12" height="10" fill="#4a1a0b"/>` + mallet('disc', 240, 194, -20)
+    + lab(70, 58, 26, 18, '薄く幅広い鍵盤') + lab(300, 63, 334, 22, 'ひもで吊るす', 'end')
+    + lab(80, 130, 18, 192, '下に並ぶ共鳴管（筒）') + lab(300, 174, 342, 204, '円盤形のバチ', 'end')),
+  bonang: () => {
+    let s = `<rect x="34" y="80" width="292" height="8" fill="#7a3216"/>`;
+    for (let i=0;i<7;i++) s += `<path d="M${50+i*40} 80 L${74+i*40} 124 M${74+i*40} 80 L${50+i*40} 124" stroke="#d9c39a" stroke-width="1.2"/>`;
+    for (let i=0;i<7;i++) s += kettle(62+i*40, 74, 15);
+    s += `<rect x="26" y="118" width="308" height="14" fill="url(#gWood)"/>`;
+    for (let i=0;i<7;i++) s += kettle(62+i*40, 112, 17, .62);
+    s += `<rect x="26" y="134" width="308" height="20" fill="url(#gWood)"/><rect x="26" y="74" width="10" height="90" fill="#6b2a12"/><rect x="324" y="74" width="10" height="90" fill="#6b2a12"/>
+      <path d="M70 144 H290" stroke="#d6a548" stroke-width="2.4" stroke-dasharray="1 7" stroke-linecap="round"/>`;
+    s += mallet('pad', 196, 192, -16) + mallet('pad', 208, 202, -6);
+    return svgWrap(s + lab(62, 64, 26, 20, 'こぶ（ペンチョン）を叩く') + lab(222, 72, 334, 20, '2列に並ぶ壺型ゴング', 'end')
+      + lab(300, 100, 344, 54, 'ひもの上に置く', 'end') + lab(100, 150, 16, 196, '長い木の枠') + lab(262, 196, 344, 196, '2本のバチ', 'end'));
+  },
+  kenong: () => {
+    let s = '';
+    for (let i=0;i<3;i++){ const x = 70+i*110;
+      s += `<rect x="${x-44}" y="112" width="88" height="10" fill="#6b2a12"/><path d="M${x-40} 116 L${x+40} 128 M${x+40} 116 L${x-40} 128" stroke="#d9c39a" stroke-width="1.3"/>`;
+      s += kettle(x, 84, 34, 1.05);
+      s += `<rect x="${x-46}" y="120" width="92" height="44" rx="3" fill="url(#gWood)"/><path d="M${x-30} 142 H${x+30}" stroke="#d6a548" stroke-width="2.4" stroke-dasharray="1 7" stroke-linecap="round"/>`; }
+    return svgWrap(s + lab(70, 64, 22, 20, '大きなこぶ') + lab(214, 98, 338, 22, '背の高い大きな壺型ゴング', 'end')
+      + lab(290, 128, 340, 196, '交差したひもの上に置く', 'end') + lab(60, 156, 14, 196, '1つずつ箱（ランチャカン）に'));
+  },
+  kethuk: () => svgWrap(`<rect x="64" y="110" width="232" height="10" fill="#6b2a12"/>
+    <path d="M80 114 L160 126 M160 114 L80 126 M200 114 L280 126 M280 114 L200 126" stroke="#d9c39a" stroke-width="1.3"/>
+    ${kettle(120, 90, 30, .9)}${kettle(240, 96, 22, .9)}
+    <rect x="60" y="118" width="240" height="44" rx="3" fill="url(#gWood)"/><path d="M90 140 H270" stroke="#d6a548" stroke-width="2.4" stroke-dasharray="1 7" stroke-linecap="round"/>`
+    + mallet('pad', 250, 196, -14)
+    + lab(120, 70, 30, 24, 'クトゥッ（低め・すぐ止める）') + lab(240, 80, 336, 46, 'クンピャン（高め）', 'end') + lab(100, 154, 16, 196, '1つの箱に並べる')),
+  kempul: () => svgWrap(gayor(26, 334, 30, 200, false) + hgong(92, 112, 40) + hgong(180, 118, 36) + hgong(268, 122, 33)
+    + lab(180, 118, 196, 16, '中央のこぶを叩く') + lab(92, 150, 20, 204, '厚い縁（ふち）') + lab(268, 92, 340, 204, 'ひもで吊るす', 'end')),
+  gong: () => svgWrap(gayor(40, 320, 26, 204, true) + hgong(180, 116, 78) + mallet('ball', 250, 176, -48)
+    + lab(180, 116, 240, 52, 'こぶ（ここを叩く）') + lab(110, 150, 16, 196, '直径およそ80cm〜1m') + lab(52, 60, 14, 14, '木の台（ガヨール）')
+    + lab(298, 124, 346, 190, '布を巻いたバチ', 'end')),
+  kendhang: () => {
+    let s = `<path d="M140 196 L220 150 M220 196 L140 150" stroke="#6b2a12" stroke-width="9" stroke-linecap="round"/><rect x="130" y="192" width="100" height="6" rx="2" fill="#4a1a0b"/>`;
+    s += `<path d="M86 56 C160 38 230 50 286 72 L286 140 C230 162 160 174 86 156 Z" fill="url(#gWoodH)"/>`;
+    let zig = ''; for (let k=0;k<11;k++) zig += `${k?'L':'M'}${92} ${62+k*9} L${280} ${78+k*5.8} `;
+    s += `<path d="${zig}" fill="none" stroke="#ead2a6" stroke-width="1.3" opacity=".85"/>`;
+    for (let k=0;k<10;k++) s += `<rect x="${244}" y="${74+k*6.2}" width="10" height="3" rx="1" fill="#c79a5a"/>`;
+    s += `<ellipse cx="86" cy="106" rx="14" ry="50" fill="url(#gSkin)" stroke="#5b3a1a" stroke-width="3"/><ellipse cx="286" cy="106" rx="9" ry="34" fill="url(#gSkin)" stroke="#5b3a1a" stroke-width="3"/>`;
+    return svgWrap(s + lab(80, 90, 14, 20, '大きい面：ドゥン（低い音）') + lab(290, 100, 346, 38, '小さい面：タッ・トゥン', 'end')
+      + lab(180, 70, 196, 14, '革ひもで皮を張る') + lab(140, 156, 16, 200, '木をくりぬいた胴') + lab(226, 190, 334, 204, '台', 'end'));
+  },
+  gangsa: () => svgWrap(baliFrame(26, 334, 100, 160)
+    + bars(10, 44, 316, 96, 46, 32, 'url(#gBar)', false, 5)
+    + `<line x1="38" y1="58" x2="322" y2="58" stroke="#d9c39a" stroke-width="1.4"/><line x1="38" y1="86" x2="322" y2="86" stroke="#d9c39a" stroke-width="1.4"/>`
+    + mallet('wood', 238, 196, -20)
+    + lab(70, 70, 22, 22, '10枚の鍵盤をひもで吊るす') + lab(200, 132, 338, 24, '朱塗りと金の彫刻の台', 'end')
+    + lab(120, 150, 16, 196, '中に竹の共鳴筒') + lab(300, 176, 344, 204, '木づち（パングル）', 'end')),
+  calung: () => svgWrap(baliFrame(36, 324, 104, 160)
+    + bars(5, 56, 304, 100, 60, 46, 'url(#gBar)', false, 8)
+    + `<line x1="48" y1="56" x2="312" y2="56" stroke="#d9c39a" stroke-width="1.4"/><line x1="48" y1="88" x2="312" y2="88" stroke="#d9c39a" stroke-width="1.4"/>`
+    + mallet('pad', 238, 196, -20)
+    + lab(90, 70, 22, 24, '大きな5枚の鍵盤') + lab(200, 136, 338, 24, '下に太い竹の筒', 'end') + lab(300, 178, 344, 204, 'バチ', 'end')),
+  soft: () => {
+    let s = `<path d="M60 26 L60 150" stroke="#6b3f1d" stroke-width="5"/><rect x="52" y="22" width="16" height="6" rx="2" fill="#4a1a0b"/>
+      <path d="M50 40 h-8 M70 40 h8" stroke="#4a1a0b" stroke-width="4"/>
+      <path d="M60 112 C36 112 34 150 60 164 C86 150 84 112 60 112 Z" fill="url(#gWoodH)"/><ellipse cx="60" cy="140" rx="14" ry="16" fill="url(#gSkin)"/>
+      <path d="M60 164 L60 190" stroke="#4a1a0b" stroke-width="4"/>
+      <path d="M20 128 Q60 96 110 112" fill="none" stroke="#c79a5a" stroke-width="2"/>`;
+    s += `<rect x="140" y="92" width="200" height="46" fill="url(#gWood)"/>${[0,1,2,3,4,5,6].map(i=>`<rect x="${150+i*27}" y="${96+i}" width="12" height="${38-i}" rx="3" fill="url(#gTube)"/>`).join('')}
+      ${bars(7, 146, 334, 88, 26, 20, 'url(#gBarThin)', false, 4)}<line x1="142" y1="70" x2="338" y2="70" stroke="#d9c39a" stroke-width="1.2"/>`;
+    s += `<rect x="160" y="168" width="170" height="11" rx="5" fill="url(#gBamboo)"/>${[0,1,2,3,4,5].map(i=>`<circle cx="${230+i*14}" cy="173.5" r="2.4" fill="#3b2306"/>`).join('')}`;
+    return svgWrap(s + `<text x="60" y="206" font-size="11.5" fill="${TXT}" text-anchor="middle" font-weight="600">ルバブ（弦）</text>
+      <text x="240" y="60" font-size="11.5" fill="${TXT}" text-anchor="middle" font-weight="600">グンデル（薄い鍵盤＋筒）</text>
+      <text x="245" y="200" font-size="11.5" fill="${TXT}" text-anchor="middle" font-weight="600">スリン（竹の笛）</text>`);
+  },
+  layout: () => {
+    const box = (x, y, w, h, t, c) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="5" fill="${c}" fill-opacity=".22" stroke="${c}" stroke-width="1.5"/><text x="${x+w/2}" y="${y+h/2+4}" font-size="10.5" fill="${TXT}" text-anchor="middle" font-weight="700">${t}</text>`;
+    const G = '#e0683c', B = '#7fd3a0', E = '#c59bff', D = '#ff7b9c', S = '#9fb6c8';
+    let s = `<rect x="4" y="4" width="352" height="232" rx="10" fill="#24170f" stroke="#5a3f2a"/>`;
+    s += box(232, 14, 116, 30, 'ゴング・クンプル', G) + box(120, 14, 104, 30, 'クノン・クトゥッ', G);
+    s += box(14, 58, 80, 28, 'スレンテム', B) + box(100, 58, 78, 28, 'デムン×2', B) + box(184, 58, 78, 28, 'サロン×2', B) + box(268, 58, 80, 28, 'ペキン', E);
+    s += box(14, 100, 120, 28, 'ボナン・バルン', E) + box(140, 100, 120, 28, 'ボナン・パネルス', E) + box(266, 100, 82, 28, 'サロン', B);
+    s += box(14, 142, 104, 28, 'グンデル・ガンバン', S) + box(128, 142, 104, 28, 'クンダン（中央）', D) + box(242, 142, 106, 28, 'ルバブ・スリン', S);
+    s += box(84, 184, 192, 26, 'シンデン（歌）・ゲロン（男声合唱）', S);
+    s += `<text x="180" y="230" font-size="10" fill="${SUB}" text-anchor="middle">▼ 客席側</text>`;
+    return svgWrap(s, '0 0 360 240');
+  },
+};
+const ILL_INFO = {
+  saron:{ill:'saron', cap:'厚い青銅の鍵盤を、中が空洞の木の台にピンで留めてある。', q:'saron gamelan'},
+  demung:{ill:'demung', cap:'サロンを大きくした形。鍵盤が厚く大きい。', q:'demung gamelan'},
+  peking:{ill:'peking', cap:'サロンを小さくした形。バチは水牛の角。', q:'peking saron gamelan'},
+  slenthem:{ill:'slenthem', cap:'薄く幅の広い鍵盤をひもで吊り、その下に共鳴管が並ぶ。', q:'slenthem gamelan'},
+  bonang:{ill:'bonang', cap:'こぶ付きの壺型ゴングを、ひもを張った長い木枠に2列に並べる（スレンドロ用は12個、ペロッグ用は14個が多い）。', q:'bonang gamelan'},
+  panerus:{ill:'bonang', cap:'ボナン・バルンと同じ形で、ひとまわり小さく高い音。', q:'bonang panerus'},
+  gong:{ill:'gong', cap:'いちばん大きなゴング。彫刻のある木の台（ガヨール）に吊るす。', q:'gong ageng gamelan'},
+  kempul:{ill:'kempul', cap:'中くらいの吊りゴング。音の高さ別に何個か並べて吊るす。', q:'kempul gamelan'},
+  kenong:{ill:'kenong', cap:'背の高い大きな壺型ゴングを、1つずつ箱の上の交差したひもに置く。', q:'kenong gamelan'},
+  kethuk:{ill:'kethuk', cap:'小さな壺型ゴング2つ（クトゥッとクンピャン）を1つの箱に並べることが多い。', q:'kethuk kempyang'},
+  kempyang:{ill:'kethuk', cap:'クトゥッと並べて置かれる、高い音の小さな壺型ゴング。', q:'kethuk kempyang'},
+  kendhang:{ill:'kendhang', cap:'木をくりぬいた胴の両側に皮を張り、Y字の革ひもで締める。左右で面の大きさがちがう。', q:'kendhang gamelan'},
+  polos:{ill:'gangsa', cap:'バリのガンサ。朱塗りに金の彫刻の台に、ひもで吊った鍵盤。中に竹の共鳴筒。', q:'gangsa gamelan bali'},
+  sangsih:{ill:'gangsa', cap:'ポロスと同じガンサ。わずかに高く調律した相方と2台1組で使う。', q:'gangsa gamelan bali'},
+  calung:{ill:'calung', cap:'バリの低音の鍵盤楽器。チャルン（ジュブラッグ）とジェゴガン。', q:'jegogan gamelan'},
+  soft:{ill:'soft', cap:'柔らかい音の楽器。左からルバブ、グンデル、スリン。', q:'gender rebab gamelan'},
+};
+function photoLink(q){ return `<a class="photo" href="https://commons.wikimedia.org/w/index.php?search=${encodeURIComponent(q)}&title=Special:MediaSearch&type=image" target="_blank" rel="noopener">📷 本物の写真を見る（Wikimedia Commons）↗</a>`; }
+function figureHTML(id, small){
+  const info = ILL_INFO[id]; if (!info) return '';
+  return `<figure class="illu-fig ${small?'small':''}">${ILL[info.ill]()}<figcaption>${info.cap}${small?'':'<br>'}${photoLink(info.q)}</figcaption></figure>`;
+}
+
+/* =========================================================
  *  11. 楽器のセオリー（楽器ごとの決まりごと）
  * ========================================================= */
 const THEORY = [
   {group:'骨組み（バルンガン）', id:'saron', name:'サロン（サロン・バルン）', p:{piece:0, beats:[1,8], bpm:60},
    facts:[['役割','バルンガン（骨組みの旋律）を叩く。合奏の背骨'],['音域','中音。7枚の鍵盤で約1オクターブ'],['1拍の音数','1音（イラマが変わっても同じ）'],['道具','木や水牛の角でできた木づち（タブ）を右手に']],
-   rules:['楽譜の数字を、1拍に1音ずつそのまま叩く。','「.」の拍は叩かない。前の音の響きが続く。','次の音を叩くのと同時に、左手で前の鍵盤をつまんで響きを止める（ダンプ）。','4音のまとまり（ガトラ）の最後の音「セレ」が旋律の着地点。','テンポは自分で決めず、クンダン（太鼓）に合わせる。'],
+   rules:['楽譜の数字を、1拍に1音ずつそのまま叩く。','「.」の拍は叩かない。前の音の響きが続く。','次の音を叩くのと同時に、左手で前の鍵盤をつまんで響きを止める（ダンプ。ジャワ語でミテット）。','4音のまとまり（ガトラ）の最後の音「セレ」が旋律の着地点。','テンポは自分で決めず、クンダン（太鼓）に合わせる。'],
    tips:['鍵盤の真ん中あたりを叩くとよく響く。','叩く手と止める手を「同時に」動かすのがコツ。','飾りの楽器が先回りして弾くので、つられて急がない。']},
   {group:'骨組み（バルンガン）', id:'demung', name:'デムン', p:{piece:0, beats:[1,8], bpm:60},
    facts:[['役割','サロンと同じバルンガンを低い音で支える'],['音域','サロンより1オクターブ低い'],['1拍の音数','1音'],['道具','サロンより大きな木づち']],
@@ -1565,7 +1788,7 @@ const THEORY = [
    tips:['「次の音はこれだよ」と予告するつもりで。','明るく硬い音なので、強く叩きすぎない。']},
   {group:'飾り（旋律を細かくする）', id:'bonang', name:'ボナン（ボナン・バルン）', p:{piece:0, beats:[1,8], bpm:46, iramaToggle:true},
    facts:[['役割','旋律を飾り、合奏をリードする'],['楽器','小さな壺型ゴングを2列に並べたもの（約2オクターブ）'],['1拍の音数','イラマI＝2音、イラマII＝4音'],['道具','紐を巻いた2本のバチ（両手）']],
-   rules:['2拍を1組（x y）として、「x y x y」と2つの音を行き来する（ミピル奏法）。','組の最後の音が、バルンガンの2拍目とぴったり重なる。','休み（.）のときは直前の音が続いているとみなす。','多くの曲で、前奏（ブカ）をひとりで弾いて合奏をリードする。','ほかに、オクターブを同時に打つ「グンビャン」など多くの奏法がある（このアプリではミピルを簡単にしたものだけ）。'],
+   rules:['2拍を1組（x y）として、「x y x y」と2つの音を行き来する（ミピル奏法）。','組の最後の音が、バルンガンの2拍目とぴったり重なる。','休み（.）のときは直前の音が続いているとみなす。','多くの曲で、前奏（ブカ）をひとりで弾いて合奏をリードする。','ランチャランなど速い形式では、オクターブを裏拍で打つなど別の弾き方をすることも多い。','ほかに、オクターブを同時に打つ「グンビャン」など多くの奏法がある（このアプリではミピルを簡単にしたものだけ）。'],
    tips:['楽譜の「次の2音」をいつも先に見ておく。','高い列と低い列を行き来するときは、手の動きを小さく。']},
   {group:'飾り（旋律を細かくする）', id:'panerus', name:'ボナン・パネルス', p:{piece:0, beats:[1,4], bpm:40, iramaToggle:true, show:['bal','bonang','panerus']},
    facts:[['役割','ボナン・バルンの動きを倍の速さで重ね、きらめきを加える'],['音域','ボナン・バルンより1オクターブ高い'],['1拍の音数','イラマI＝4音、イラマII＝8音'],['道具','紐を巻いた2本のバチ']],
@@ -1573,7 +1796,7 @@ const THEORY = [
    tips:['速いので、まずはテンポを下げて「x y」の往復に慣れよう。']},
   {group:'区切り（ゴング類）', id:'gong', name:'ゴン・アグン（大ゴング）', p:{piece:0, beats:[1,16], bpm:84},
    facts:[['役割','周期（ゴンガン）の終わり＝始まりを告げる'],['楽器','直径1m近い吊りゴング'],['鳴らす拍','1周に1回、最後の拍'],['道具','布を巻いた大きなバチ']],
-   rules:['ゴンガン（1周）の最後の拍で1回だけ鳴らす。','最後の拍は「終わり」であり、次の周の「始まり」でもある。','ゴングの拍の旋律の音（ゴング音）は、曲の中で最も大事な着地点。','曲はゴングで始まり、ゴングで終わる。'],
+   rules:['ゴンガン（1周）の最後の拍で1回だけ鳴らす。','最後の拍は「終わり」であり、次の周の「始まり」でもある。','ゴングの拍の旋律の音（ゴング音）は、曲の中で最も大事な着地点。','曲はゴングで始まり、ゴングで終わる。','楽団には一回り小さい「ゴン・スウカン」もあり、曲の形式によって使い分ける。'],
    tips:['ゆったり構え、響きを途中で止めない。','低い「うなり」はスマホのスピーカーでは聞こえにくいので、イヤホンがおすすめ。']},
   {group:'区切り（ゴング類）', id:'kempul', name:'クンプル', p:{piece:0, beats:[1,16], bpm:84},
    facts:[['役割','クノンとクノンの間を区切る'],['楽器','吊るした中くらいのゴング（音の高さ別に数個）'],['鳴らす拍','ランチャラン：6・10・14拍目／ラドラン：12・20・28拍目'],['道具','布を巻いたバチ']],
@@ -1592,11 +1815,11 @@ const THEORY = [
    rules:['クタワン・ラドランで、クトゥッと交互に細かく時間を刻む。','高く短い「ピャン」という音。'],
    tips:['クトゥッと組み合わさって「ピャン・トゥッ・ピャン・…」と細かい時計の音のように聞こえる。']},
   {group:'指揮（太鼓）', id:'kendhang', name:'クンダン', p:{piece:0, beats:[1,8], bpm:54, iramaToggle:true},
-   facts:[['役割','合奏の指揮者。テンポ・終わり・イラマ変更の合図'],['楽器','両面太鼓（大・中・小がある）'],['1拍の音数','型による（イラマIで最大2音）'],['道具','手（両手で両面を叩く）']],
+   facts:[['役割','合奏の指揮者。テンポ・終わり・イラマ変更の合図'],['楽器','両面太鼓。大きなクンダン・アグン＋小さなクティプンの2つ組（クンダン・カリ）や、踊りの曲で使う中くらいのチブロンなど'],['1拍の音数','型による（イラマIで最大2音）'],['道具','手（両手で両面を叩く）']],
    rules:['テンポを上げる・下げる、曲を終わらせる（スウック）、イラマを変える合図を出す。','ガトラ（4拍）単位で型をくり返し、ゴングの前で型を変えて「もうすぐゴング」と知らせる。','大きい面＝ドゥン（低い音）、小さい面を平手で＝タッ（乾いた音）、指で＝トゥン、両面同時＝ドラン。','ガトラの最後（セレ）にドゥンを置いて、旋律の着地を強調する。'],
    tips:['合奏のみんなが聴いている、と意識して堂々と。']},
   {group:'バリのガムラン', id:'polos', name:'ガンサ・ポロス', p:{piece:3, beats:[1,4], bpm:42, show:['bal','polos','sangsih']},
-   facts:[['役割','コテカン（かみ合わせ）の「表」'],['楽器','10鍵の鍵盤楽器。2台1組でうなり（オンバ）を作る'],['1拍の音数','2音（サンシと合わせて4音）'],['道具','木づち（片手で叩き、もう片方の手で止める）']],
+   facts:[['役割','コテカン（かみ合わせ）の「表」'],['楽器','10鍵の鍵盤楽器。中音のプマデと高音のカンティランがあり、それぞれ2台1組でうなり（オンバ）を作る'],['1拍の音数','2音（サンシと合わせて4音）'],['道具','木づち（片手で叩き、もう片方の手で止める）']],
    rules:['サンシと交互に音を入れ合い、2人で1本の速い旋律を作る（コテカン）。','このアプリでは、拍の瞬間を含む位置をポロスが担当する。','拍の最後でバルンガン（ポコッ）の音に到着する。','楽器は2台1組。片方を少し高く調律して、うなりを作る。'],
    tips:['自分のパートだけだと穴あきに聞こえるのが正しい。相手の音を聴いて隙間にはめこむ。']},
   {group:'バリのガムラン', id:'sangsih', name:'ガンサ・サンシ', p:{piece:3, beats:[1,4], bpm:42, show:['bal','polos','sangsih']},
@@ -1617,11 +1840,12 @@ function renderTheoryGroups(){
   const groups = [...new Set(THEORY.map(t=>t.group))];
   $('#tGroups').innerHTML = groups.map(g=>`<div class="tgroup"><div class="gl">${g}</div><div class="chips">${THEORY.filter(t=>t.group===g).map(t=>`<button class="sec ${t.id===curTheory?'on':''}" data-t="${t.id}">${t.name}</button>`).join('')}</div></div>`).join('');
 }
-$('#tGroups').onclick = e => { const b = e.target.closest('[data-t]'); if (!b) return; curTheory = b.dataset.t; renderTheoryGroups(); renderTheory(); };
+$('#tGroups').onclick = e => { const b = e.target.closest('[data-t]'); if (!b) return; curTheory = b.dataset.t; renderTheoryGroups(); renderTheory(); $('#tCard').scrollIntoView({behavior:'smooth', block:'start'}); };
 function renderTheory(){
   if (PW) stopPractice(PW);
   const T = THEORY.find(t=>t.id===curTheory), card = $('#tCard');
   card.innerHTML = `<div class="lnum">${T.group}</div><h2>${T.name}</h2>
+    ${figureHTML(T.id)}
     <dl class="facts">${T.facts.map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>
     <h3>セオリー（決まりごと）</h3><ul>${T.rules.map(r=>`<li>${r}</li>`).join('')}</ul>
     <h3>コツ</h3><ul>${T.tips.map(r=>`<li>${r}</li>`).join('')}</ul>
