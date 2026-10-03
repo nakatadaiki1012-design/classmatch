@@ -110,16 +110,25 @@
   }
   .yomi .face{
     width:100%; height:100%; border-radius:3px; position:relative; overflow:hidden;
-    background:linear-gradient(#e9c97a 0 9%, #c9a14e 9% 10%, transparent 10%), var(--washi);
-    writing-mode:vertical-rl; font-family:var(--card-font); color:var(--ink);
-    padding:13% 6% 5%; display:flex; flex-direction:column; gap:3%;
+    background:
+      radial-gradient(circle at 25% 12%, rgba(255,255,255,.6), transparent 45%),
+      linear-gradient(#e9c97a 0 7%, #c9a14e 7% 7.8%, transparent 7.8%), var(--washi);
+    box-shadow:inset 0 0 12px rgba(150,120,60,.2);
+    font-family:var(--card-font); color:var(--ink);
   }
-  .yomi .author{font-size:8.5cqw; font-weight:800; color:#5a2a12; padding-top:2%;}
-  .yomi .no{position:absolute; top:1.5%; left:0; right:0; text-align:center; writing-mode:horizontal-tb; font-size:6cqw; font-weight:800; color:#5a3a12;}
-  .yomi .poem{font-size:8.3cqw; font-weight:600; line-height:1.35; padding-top:4%;}
-  .yomi .poem span{display:block;}
-  .yomi .poem span:nth-child(2){padding-top:1.2em;} .yomi .poem span:nth-child(3){padding-top:2.4em;}
-  .yomi .poem span:nth-child(4){padding-top:.6em;} .yomi .poem span:nth-child(5){padding-top:1.8em;}
+  .yomi .no{position:absolute; top:.6%; left:0; right:0; text-align:center; font-size:5.2cqw; font-weight:800; color:#5a3a12;}
+  .yomi .txt{
+    position:absolute; top:9%; right:6%; left:6%; height:52%;
+    writing-mode:vertical-rl; display:flex; flex-direction:column; align-items:flex-start; gap:2.5%;
+  }
+  .yomi .author{font-size:7.4cqw; font-weight:800; color:#5a2a12; padding-top:1%;}
+  .yomi .poem{font-size:6.9cqw; font-weight:600; line-height:1.4;}
+  .yomi .poem span{display:block; white-space:nowrap;}
+  .yomi .poem span:nth-child(2){padding-top:.8em;} .yomi .poem span:nth-child(3){padding-top:1.6em;}
+  .yomi .poem span:nth-child(4){padding-top:.4em;} .yomi .poem span:nth-child(5){padding-top:1.2em;}
+  .yomi .poem span.hid{color:transparent; position:relative;}
+  .yomi .poem span.hid::before{content:""; position:absolute; inset:.1em .25em; border-radius:.3em; background:repeating-linear-gradient(0deg, rgba(120,95,50,.16) 0 .45em, transparent .45em .7em);}
+  .yomi .kasen{position:absolute; left:0; right:0; bottom:0; width:100%; height:44%;}
 
   mark.kim{background:none; color:var(--accent2); font-weight:900; border-bottom:2px solid var(--accent2);}
 
@@ -367,10 +376,13 @@
     <label class="ctl">練習する範囲 <select id="sRange"></select></label>
   </div>
   <div class="row">
-    <label class="chk"><input type="checkbox" id="sVoice">音声で読み上げる</label>
-  </div>
-  <div class="row">
-    <label class="ctl">声 <select id="sVoiceName"></select></label>
+    <label class="ctl">読み上げ
+      <select id="sVoiceMode">
+        <option value="reader">読手風の音声（おすすめ）</option>
+        <option value="device">この端末の音声</option>
+        <option value="off">音声なし</option>
+      </select></label>
+    <label class="ctl" id="sVoiceNameWrap">端末の声 <select id="sVoiceName"></select></label>
     <button class="sec" id="sTest">🔊 試し聞き</button>
   </div>
   <div class="row">
@@ -392,6 +404,8 @@
 </dialog>
 
 <script src="data.js"></script>
+<script src="portrait.js"></script>
+<script src="audio/timing.js"></script>
 <script>
 'use strict';
 const $ = s => document.querySelector(s);
@@ -405,7 +419,9 @@ const store = {
   get(k, d) { try { const v = localStorage.getItem('hyakunin_' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem('hyakunin_' + k, JSON.stringify(v)); } catch (e) {} },
 };
-const S = Object.assign({ range: 'all', voice: true, voiceName: '', real: '1', font: 'mincho' }, store.get('settings', {}));
+const S = Object.assign({ range: 'all', voiceMode: 'reader', voiceName: '', real: '1', font: 'mincho' }, store.get('settings', {}));
+if (S.voice === false && !store.get('settings', {}).voiceMode) S.voiceMode = 'off';
+delete S.voice;
 let memorized = new Set(store.get('mem', []));
 const saveS = () => store.set('settings', S);
 const saveMem = () => store.set('mem', [...memorized]);
@@ -442,14 +458,18 @@ function toriEl(p, opt = {}) {
   el.innerHTML = `<div class="face">${toriChars(p).map(c => `<span class="col">${c}</span>`).join('')}</div>`;
   return el;
 }
-function yomiEl(p) {
+// 読み札：上に歌と作者、下に歌仙絵。hideShimo なら下の句を伏せる
+function yomiEl(p, { hideShimo = false } = {}) {
   const el = document.createElement('div');
   el.className = 'yomi';
   const ku = [...p.kami.split(' '), ...p.shimo.split(' ')];
-  el.innerHTML = `<div class="face"><div class="no">${p.no}</div><div class="author">${esc(p.author)}</div>
-    <div class="poem">${ku.map(k => `<span>${esc(k)}</span>`).join('')}</div></div>`;
+  el.innerHTML = `<div class="face"><div class="no">${p.no}</div>
+    <div class="txt"><div class="author">${esc(p.author)}</div>
+    <div class="poem">${ku.map((k, i) => `<span class="${hideShimo && i >= 3 ? 'hid' : ''}">${esc(k)}</span>`).join('')}</div></div>
+    ${window.portraitSVG ? portraitSVG(p.no) : ''}</div>`;
   return el;
 }
+function showYomiShimo(el, on) { el.querySelectorAll('.poem span:nth-child(n+4)').forEach(s => s.classList.toggle('hid', !on)); }
 // 上の句のかなに決まり字の印をつける
 function kamiWithKim(p, kim = p.kimariji) {
   let left = kim.length, out = '';
@@ -477,10 +497,10 @@ function pickVoice() {
   for (const re of pref) { const v = jaVoices.find(v => re.test(v.name)); if (v) return v; }
   return jaVoices[0];
 }
-// 話し終わるか、止められるか、時間切れで終わる
+// 端末の音声：話し終わるか、止められるか、時間切れで終わる
 function speak(text, rate = 0.85) {
   return new Promise(resolve => {
-    if (!synth || !S.voice) return resolve();
+    if (!synth || S.voiceMode === 'off') return resolve();
     const u = new SpeechSynthesisUtterance(text);
     u.lang = 'ja-JP'; u.rate = rate; u.pitch = 1;
     const v = pickVoice(); if (v) u.voice = v;
@@ -491,13 +511,88 @@ function speak(text, rate = 0.85) {
     synth.speak(u);
   });
 }
-function hush() { if (synth) synth.cancel(); }
 
-/* 歌を読む：句ごとに音声を出しながら、文字を一文字ずつ表示する */
-const PACE = { slow: { rate: 0.65, ms: 270 }, normal: { rate: 0.8, ms: 210 }, fast: { rate: 1.0, ms: 160 } };
+/* 読手風の音声：audio/ フォルダの録音（tools/make_audio.py で作成）を再生する。
+   AUDIO_TIMING に一音ずつの時刻が入っているので、文字の表示と決まり字の瞬間が声とぴったり合う */
+const player = new Audio();
+player.preload = 'auto';
+let readerBroken = typeof AUDIO_TIMING === 'undefined';
+const useReader = () => S.voiceMode === 'reader' && !readerBroken;
+const pad3 = n => String(n).padStart(3, '0');
+const clipUrl = (part, no) => `audio/${part}_${pad3(no)}.mp3`;
+// iPhone などは、最初のタップの中で一度再生しておかないと、あとから音が出せない
+let unlocked = false;
+document.addEventListener('pointerdown', () => {
+  if (unlocked || readerBroken) return;
+  unlocked = true;
+  player.muted = true; player.src = 'audio/joka.mp3';
+  player.play().then(() => { player.pause(); player.muted = false; }).catch(() => { player.muted = false; });
+}, { capture: true });
+function preload(no) { if (useReader()) { const a = new Audio(); a.preload = 'auto'; a.src = clipUrl('kami', no); } }
+
+// 再生して、終わったら 'ok'、止められたら 'stop'、読み込めなければ 'fail'
+function playClip(src, rate, onTime) {
+  const my = readToken;
+  return new Promise(resolve => {
+    let done = false, raf = 0;
+    const fin = r => { if (done) return; done = true; cancelAnimationFrame(raf); player.onended = player.onerror = null; resolve(r); };
+    player.onended = () => fin('ok');
+    player.onerror = () => fin('fail');
+    player.muted = false;
+    player.src = src;
+    player.playbackRate = rate; player.preservesPitch = true; player.webkitPreservesPitch = true;
+    player.play().then(() => {
+      const tick = () => {
+        if (done) return;
+        if (my !== readToken) { player.pause(); return fin('stop'); }
+        onTime && onTime(player.currentTime);
+        raf = requestAnimationFrame(tick);
+      };
+      tick();
+    }).catch(err => {
+      // 別の音に切りかえた（AbortError）・自動再生が止められた（NotAllowedError）ときは失敗あつかいにしない
+      const benign = my !== readToken || (err && (err.name === 'AbortError' || err.name === 'NotAllowedError'));
+      fin(benign ? 'stop' : 'fail');
+    });
+  });
+}
+function hush() { if (synth) synth.cancel(); player.pause(); }
+
+/* 歌を読む：声を出しながら、文字を一文字ずつ表示する */
+const PACE = {
+  slow:   { audio: 0.85, rate: 0.65, ms: 270 },
+  normal: { audio: 1.0,  rate: 0.8,  ms: 210 },
+  fast:   { audio: 1.18, rate: 1.0,  ms: 160 },
+};
 let readToken = 0;
 function stopReading() { readToken++; hush(); }
-async function readPoem(p, { pace = 'normal', shimo = true, onChar, onKamiEnd } = {}) {
+async function readPoem(p, opts = {}) {
+  if (useReader()) {
+    const r = await readPoemAudio(p, opts);
+    if (r !== 'fail') return r === 'ok';
+    readerBroken = true;          // 音声ファイルが見つからないときは端末の声に切りかえる
+  }
+  return readPoemTTS(p, opts);
+}
+async function readPoemAudio(p, { pace = 'normal', shimo = true, onChar, onKamiEnd } = {}) {
+  const my = ++readToken;
+  const rate = PACE[pace].audio;
+  const tm = AUDIO_TIMING[p.no];
+  const marks = [];
+  p.kamiKana.split(' ').forEach((ku, k) => [...ku].forEach((ch, i) => marks.push({ ch, t: tm.kami.t[k][i] })));
+  let shown = 0;
+  const r = await playClip(clipUrl('kami', p.no), rate, cur => {
+    while (shown < marks.length && cur >= marks[shown].t) { shown++; onChar && onChar(shown, marks[shown - 1].ch); }
+  });
+  if (r !== 'ok') return r;
+  while (shown < marks.length) { shown++; onChar && onChar(shown, marks[shown - 1].ch); }
+  onKamiEnd && onKamiEnd();
+  if (!shimo) return 'ok';
+  await sleep(500 / rate);
+  if (my !== readToken) return 'stop';
+  return playClip(clipUrl('shimo', p.no), rate);
+}
+async function readPoemTTS(p, { pace = 'normal', shimo = true, onChar, onKamiEnd } = {}) {
   const my = ++readToken;
   const alive = () => my === readToken;
   const { rate, ms } = PACE[pace];
@@ -519,6 +614,21 @@ async function readPoem(p, { pace = 'normal', shimo = true, onChar, onKamiEnd } 
     for (const k of p.shimoYomi.split(' ')) { await speak(k, rate); if (!alive()) return false; await sleep(ms * 0.6); }
   }
   return alive();
+}
+// 下の句だけを読む（呼ぶ前に stopReading() しておく）
+async function sayShimo(p, pace = 'normal') {
+  const my = readToken;
+  if (useReader()) { const r = await playClip(clipUrl('shimo', p.no), PACE[pace].audio); if (r !== 'fail') return; readerBroken = true; }
+  for (const k of p.shimoYomi.split(' ')) { if (my !== readToken) return; await speak(k, PACE[pace].rate); }
+}
+// 序歌
+async function sayJoka(pace, isSkipped) {
+  if (useReader()) { const r = await playClip('audio/joka.mp3', PACE[pace].audio); if (r !== 'fail') return; readerBroken = true; }
+  for (const k of ['なにわづに', 'さくやこのはな', 'ふゆごもり', 'いまをはるべと', 'さくやこのはな']) {
+    if (isSkipped()) return;
+    await speak(k, PACE[pace].rate);
+    if (S.voiceMode === 'off') await sleep(500);
+  }
 }
 
 /* ---------- 画面切り替え ---------- */
@@ -552,10 +662,15 @@ $$('[data-go]').forEach(b => b.onclick = () => {
 $('#sRange').innerHTML = RANGES.map(([v, t]) => `<option value="${v}">${t}</option>`).join('');
 function applyFont() { document.body.classList.toggle('brush', S.font === 'brush'); }
 $('#setBtn').onclick = () => {
-  $('#sRange').value = S.range; $('#sVoice').checked = S.voice; $('#sReal').value = S.real; $('#sFont').value = S.font;
+  $('#sRange').value = S.range; $('#sVoiceMode').value = S.voiceMode; $('#sReal').value = S.real; $('#sFont').value = S.font;
+  $('#sVoiceNameWrap').hidden = S.voiceMode !== 'device';
   loadVoices(); $('#settings').showModal();
 };
-$('#sTest').onclick = () => { S.voice = true; $('#sVoice').checked = true; S.voiceName = $('#sVoiceName').value; hush(); speak('あきのたの かりおのいおの とまをあらみ', 0.8); };
+$('#sVoiceMode').onchange = () => { $('#sVoiceNameWrap').hidden = $('#sVoiceMode').value !== 'device'; };
+$('#sTest').onclick = () => {
+  S.voiceMode = $('#sVoiceMode').value; S.voiceName = $('#sVoiceName').value;
+  stopReading(); readPoem(POEMS[0], { pace: 'normal', shimo: true });
+};
 // 2回押すとリセット（確認ダイアログを使わない）
 $('#sReset').onclick = () => {
   const b = $('#sReset');
@@ -565,7 +680,7 @@ $('#sReset').onclick = () => {
 };
 $('#sClose').onclick = () => $('#settings').close();
 $('#settings').addEventListener('close', () => {
-  S.range = $('#sRange').value; S.voice = $('#sVoice').checked; S.voiceName = $('#sVoiceName').value;
+  S.range = $('#sRange').value; S.voiceMode = $('#sVoiceMode').value; S.voiceName = $('#sVoiceName').value;
   S.real = $('#sReal').value; S.font = $('#sFont').value;
   saveS(); applyFont(); refreshHome();
   if (!$('#learn').classList.contains('hidden')) openTab(curTab, true);
@@ -599,7 +714,7 @@ $('#onlyUnmem').onchange = () => cardInit(true);
 function cardShow(speakIt = true) {
   const p = deck[deckIdx]; flipped = false;
   $('#cardPos').textContent = `${deckIdx + 1} / ${deck.length}　（${p.no}番）${memorized.has(p.no) ? '✔ 覚えた' : ''}`;
-  $('#cardYomi').innerHTML = ''; $('#cardYomi').append(yomiEl(p));
+  $('#cardYomi').innerHTML = ''; $('#cardYomi').append(yomiEl(p, { hideShimo: true }));
   $('#cardTori').innerHTML = ''; $('#cardTori').append(toriEl(p, { back: true }));
   $('#cardTori').firstChild.onclick = cardFlip;
   $('#cardKim').textContent = `決まり字「${p.kimariji}」${p.kimariji.length}字`;
@@ -613,9 +728,10 @@ function cardFlip() {
   const p = deck[deckIdx];
   flipped = !flipped;
   $('#cardTori').firstChild.classList.toggle('back', !flipped);
+  showYomiShimo($('#cardYomi').firstChild, flipped);
   $('#cardShimo').textContent = flipped ? p.shimoKana.replace(' ', '　') : '下の句は？　→ 札をタップしてめくる';
   $('#cardFlip').textContent = flipped ? 'かくす' : 'めくる';
-  if (flipped && S.voice) { stopReading(); const my = readToken; (async () => { for (const k of p.shimoYomi.split(' ')) { if (my !== readToken) return; await speak(k, 0.7); } })(); }
+  if (flipped) { stopReading(); sayShimo(p, 'slow'); }
 }
 function cardMove(d) { deckIdx = (deckIdx + d + deck.length) % deck.length; cardShow(); }
 $('#cardFlip').onclick = cardFlip;
@@ -670,8 +786,7 @@ function quizAnswer(p, el) {
   $('#quizQ').innerHTML = kamiWithKim(q) + `<div class="sub" style="font-size:.95rem">${q.shimoKana.replace(' ', '　')}</div>`;
   if (quiz.i === quiz.qs.length - 1) $('#quizNext').textContent = '結果を見る';
   stopReading();
-  const my = readToken;
-  (async () => { for (const k of q.shimoYomi.split(' ')) { if (my !== readToken) return; await speak(k, 0.8); } })();
+  sayShimo(q, 'normal');
 }
 $('#quizNext').onclick = () => {
   if (quiz.finished) { quizInit(); return; }
@@ -743,7 +858,7 @@ $('#voiceMic').onclick = () => {
   $('#voiceMic').classList.add('rec'); $('#voiceMic').textContent = '⏹ 話し終わった';
 };
 $('#voiceSay').onclick = () => { stopReading(); readPoem(vq, { pace: 'slow', shimo: false }); };
-$('#voiceShow').onclick = () => { voiceReveal(); stopReading(); const my = readToken; (async () => { for (const k of vq.shimoYomi.split(' ')) { if (my !== readToken) return; await speak(k, 0.75); } })(); };
+$('#voiceShow').onclick = () => { voiceReveal(); stopReading(); sayShimo(vq, 'slow'); };
 $('#voiceOk').onclick = () => { memorized.add(vq.no); saveMem(); vIdx++; voiceShowQ(); };
 $('#voiceNg').onclick = () => { memorized.delete(vq.no); saveMem(); voiceReveal(); $('#voiceFb').textContent = '答えを確認して、もう一度言ってみよう'; $('#voiceFb').className = 'feedback'; };
 $('#voiceNext').onclick = () => { stopRec(); vIdx++; voiceShowQ(); };
@@ -881,11 +996,7 @@ async function runGame(g) {
     g.phase = 'joka';
     $('#pLine').textContent = g.cfg.text ? 'なにはづに さくやこのはな ふゆごもり いまをはるべと さくやこのはな' : '（序歌）';
     setMsg('序歌：まだ取りません。耳を慣らそう', 'info');
-    const { rate } = PACE[pace];
-    for (const k of ['なにわづに', 'さくやこのはな', 'ふゆごもり', 'いまをはるべと', 'さくやこのはな']) {
-      if (!alive() || g.jokaSkip) break; await speak(k, rate);
-      if (!S.voice) await sleep(500);
-    }
+    await sayJoka(pace, () => !alive() || g.jokaSkip);
     if (!alive()) return;
     await sleep(900);
   }
@@ -897,6 +1008,7 @@ async function runGame(g) {
     g.cur = { p, kara, kim, start: 0, kimAt: 0, taken: false };
     updateTop(); updateHints(); setMsg('', '');
     $('#pLine').innerHTML = '';
+    if (g.queue[g.i + 1]) preload(g.queue[g.i + 1].no);
     await sleep(600); if (!alive()) return;
     g.phase = 'reading';
     g.cur.start = performance.now();
@@ -904,7 +1016,8 @@ async function runGame(g) {
     await readPoem(p, {
       pace, shimo: !kara,
       onChar: (n, ch) => {
-        if (n === kim.length) g.cur.kimAt = performance.now();
+        // 決まり字の最後の音が聞こえた瞬間（子音から母音に移るくらい）を基準にする
+        if (n === kim.length) g.cur.kimAt = performance.now() + 120 / PACE[pace].audio;
         if (g.cfg.text) line.insertAdjacentText('beforeend', ch);
         else if (n === 1) line.innerHTML = '<span class="sub">🔊 読み上げ中…</span>';
       },
@@ -963,10 +1076,8 @@ function onTap(p, el) {
     $('#pLine').innerHTML = `${kamiWithKim(p, c.kim)}<span class="shimo">${p.shimoKana}</span>`;
     updateTop();
     c.afterTake = (async () => {
-      const my = readToken;
-      const sayShimo = (async () => { for (const k of p.shimoYomi.split(' ')) { if (my !== readToken) return; await speak(k, PACE[g.cfg.pace].rate); } })();
-      await Promise.race([Promise.all([sayShimo, sleep(900)]), waitOrSkip(g.cfg.wait + 2000)]);
-      hush();
+      await Promise.race([Promise.all([sayShimo(p, g.cfg.pace), sleep(900)]), waitOrSkip(g.cfg.wait + 4000)]);
+      stopReading();
       el.classList.add('gone'); g.onField.delete(p.no);
       await sleep(300);
     })();
