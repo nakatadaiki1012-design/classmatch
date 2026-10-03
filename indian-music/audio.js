@@ -455,10 +455,28 @@
       if (!this.tickBufs) return;
       this.e.play(this.tickBufs[accent ? 0 : 1], when, this.dBus, accent ? .7 : .5);
     }
+    // 本物の録音（サンプル）を登録すると、合成音の代わりにそちらを使う
+    setCustom(name, buffers) { this.custom = this.custom || {}; if (buffers && buffers.length) this.custom[name] = buffers; else delete this.custom[name]; }
+    hasCustom(name) { return !!(this.custom && this.custom[name] && this.custom[name].length); }
     stroke(name, when, vel) {
+      const bus = STROKES[name].drum === 'd' ? this.dBus : this.bBus;
+      const cu = this.custom || {};
+      // 録音がない打ち方は近いものから作る（ラ←テ、ゲー↑←ゲー）
+      const sample = cu[name] || (name === 'ra' && cu.te) || (name === 'ghe' && cu.ge);
+      if (sample && sample.length) {
+        const rate = this.sampleRate ? this.sampleRate[STROKES[name].drum] || 1 : 1;
+        const g = (vel == null ? 1 : vel) * (name === 'ra' && !cu.ra ? .7 : 1);
+        const src = this.e.play(sample[(Math.random() * sample.length) | 0], when, bus, g, rate);
+        if (name === 'ghe' && !cu.ghe) { // 手首で押して音程を上げる動きを再現
+          const t0 = Math.max(when, this.e.ctx.currentTime) + .07;
+          src.playbackRate.setValueAtTime(rate, t0);
+          src.playbackRate.linearRampToValueAtTime(rate * 1.38, t0 + .38);
+        }
+        if (name === 'ge' || name === 'ghe') this.lastGe = src;
+        return src;
+      }
       const vars = this.buffers[name]; if (!vars) return null;
       const buf = vars[(Math.random() * vars.length) | 0];
-      const bus = STROKES[name].drum === 'd' ? this.dBus : this.bBus;
       const src = this.e.play(buf, when, bus, vel == null ? 1 : vel);
       if (name === 'ge' || name === 'ghe') this.lastGe = src;
       return src;
@@ -476,7 +494,8 @@
     }
     bendGe(amount) { // 0..1 手首で押す量
       if (!this.lastGe) return;
-      try { this.lastGe.playbackRate.setTargetAtTime(1 + amount * .45, this.e.ctx.currentTime, .02); } catch (e) { }
+      const base = this.sampleRate && this.hasCustom('ge') ? this.sampleRate.b || 1 : 1;
+      try { this.lastGe.playbackRate.setTargetAtTime(base * (1 + amount * .45), this.e.ctx.currentTime, .02); } catch (e) { }
     }
     onBol(f) { this.listeners.push(f); }
   }
