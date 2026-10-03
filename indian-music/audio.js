@@ -63,23 +63,23 @@
   const STROKES = {
     // ナー／ター：人差し指で縁(キナール)を弾き、薬指でシャーヒーの縁を押さえる → 基音が消え、倍音がキラッと鳴る
     na: {
-      drum: 'd', dur: 1.3, gain: 0.85,
-      modes: [[1, .16, .22], [2, 1, .8], [3, .62, .6], [4, .4, .42], [5, .24, .3], [6, .13, .2], [7, .07, .14],
+      drum: 'd', dur: 2.2, gain: 0.85,
+      modes: [[1, .16, .1], [2, 1, .3], [3, .62, .24], [4, .4, .18], [5, .24, .14], [6, .13, .1], [7, .07, .07],
               [2.93, .14, .05], [4.27, .1, .04], [5.62, .07, .035]],
       noise: [['highpass', 3200, .7, .3, .005], ['bandpass', 1600, 1.4, .22, .014]],
       pitch: { type: 'settle', amt: .012, t: .05 }
     },
     // ティン：人差し指でシャーヒーと縁の間(スール)を打ち、すぐ離す → 基音と倍音が豊かに響く
     tin: {
-      drum: 'd', dur: 1.7, gain: 0.8,
-      modes: [[1, .85, 1.05], [2, .62, .85], [3, .36, .6], [4, .18, .42], [5, .1, .3], [2.93, .08, .05], [4.27, .05, .03]],
+      drum: 'd', dur: 3.0, gain: 0.8,
+      modes: [[1, .85, .42], [2, .62, .34], [3, .36, .25], [4, .18, .18], [5, .1, .13], [2.93, .08, .05], [4.27, .05, .03]],
       noise: [['bandpass', 2100, 1, .22, .008]],
       pitch: { type: 'settle', amt: .01, t: .05 }
     },
     // トゥン：人差し指でシャーヒーの中央を打って離す → 太く長い基音
     tun: {
-      drum: 'd', dur: 2.2, gain: 0.85,
-      modes: [[1, 1, 1.6], [2, .3, .85], [3, .1, .45], [4, .04, .3]],
+      drum: 'd', dur: 3.8, gain: 0.85,
+      modes: [[1, 1, .55], [2, .3, .32], [3, .1, .18], [4, .04, .12]],
       noise: [['bandpass', 700, 1, .25, .012]],
       pitch: { type: 'settle', amt: .015, t: .06 }
     },
@@ -97,15 +97,15 @@
     },
     // ゲー：左手の中指・人差し指でバーヤーンの膜を弾き、離す → 深い低音
     ge: {
-      drum: 'b', dur: 1.9, gain: 1,
-      modes: [[1, 1, .95], [2, .3, .5], [3, .12, .3], [2.6, .08, .12], [3.9, .05, .08]],
+      drum: 'b', dur: 2.8, gain: 1,
+      modes: [[1, 1, .4], [2, .3, .22], [3, .12, .14], [2.6, .08, .12], [3.9, .05, .08]],
       noise: [['lowpass', 350, .7, .45, .02]],
       pitch: { type: 'settle', amt: .05, t: .04 }
     },
     // ゲー（ミーンド）：叩いたあと手首を押し出して膜の張力を上げる → 音程が「ウォン↑」と上がる
     ghe: {
-      drum: 'b', dur: 2.0, gain: 1,
-      modes: [[1, 1, 1.05], [2, .3, .55], [3, .12, .3], [2.6, .08, .12]],
+      drum: 'b', dur: 3.2, gain: 1,
+      modes: [[1, 1, .48], [2, .3, .26], [3, .12, .15], [2.6, .08, .12]],
       noise: [['lowpass', 350, .7, .45, .02]],
       pitch: { type: 'meend', amt: .38, t: .38, delay: .07 }
     },
@@ -167,8 +167,9 @@
     // 立ち上がりの角を少しだけ丸める（デジタル的なクリック防止）
     const att = Math.floor(sr * 0.0008);
     for (let i = 0; i < att; i++) out[i] *= i / att;
+    filterInPlace(out, biquadCoeffs('highpass', 30, .7, sr)); // 耳に聞こえない超低域を除去
     normalize(out, def.gain);
-    fadeTail(out, sr, 0.03);
+    fadeTail(out, sr, Math.min(.4, def.dur * .15));
     return out;
   }
 
@@ -180,7 +181,7 @@
   function renderPluck(f0, sr, o) {
     o = Object.assign({
       dur: 3, decay: 2.6, tilt: .75, pluckPos: .13, jawari: 3, jw: 3.5,
-      jc0: 30, jc1: 5, jtau: .9, maxH: 48, soft: 0, click: .25, seed: 1, inharm: .00004
+      jc0: 30, jc1: 5, jtau: .9, maxH: 48, soft: 0, click: .25, seed: 1, inharm: .00004, hdamp: .075
     }, o || {});
     const r = rng(o.seed);
     const n = Math.floor(o.dur * sr);
@@ -194,7 +195,7 @@
       const fh = f0 * h * Math.sqrt(1 + o.inharm * h * h);
       if (fh > sr * .45) break;
       const a0 = (Math.abs(Math.sin(Math.PI * h * o.pluckPos)) + .05) / Math.pow(h, o.tilt);
-      const tau = o.decay / (1 + 0.035 * Math.pow(h, 1.25));
+      const tau = o.decay / (1 + o.hdamp * Math.pow(h, 1.25)); // 高い倍音ほど早く減衰（実際の弦と同じ）
       const w = 2 * Math.PI * fh / sr;
       const c = Math.cos(w), s = Math.sin(w);
       const phi = r() * 2 * Math.PI;
@@ -236,7 +237,7 @@
       for (let i = 0; i < att; i++) out[i] *= i / att;
     }
     normalize(out, .9);
-    fadeTail(out, sr, .25);
+    fadeTail(out, sr, Math.min(1.2, o.dur * .2));
     return out;
   }
 
@@ -460,7 +461,7 @@
     _buf(hz, k) {
       const key = hz.toFixed(2) + '_' + k;
       if (!this.cache[key]) this.cache[key] = this.e.toBuffer(renderPluck(hz, this.e.sr, {
-        dur: 6, decay: 5, jawari: 4.5, jw: 4, jc0: 40, jc1: 8, jtau: 2.2, maxH: 60, tilt: .6, click: .05, soft: .01, seed: k + 3
+        dur: 8, decay: 2.6, jawari: 3.5, jw: 4, jc0: 26, jc1: 7, jtau: 2.2, maxH: 60, tilt: .6, click: .05, soft: .01, seed: k + 3
       }));
       return this.cache[key];
     }
@@ -530,17 +531,17 @@
       const key = kind + hz.toFixed(2);
       if (this.cache[key]) return this.cache[key];
       let o;
-      if (kind === 'da') o = { dur: 3.2, decay: 2.4, tilt: .72, jawari: 3.2, jc0: 34, jc1: 6, jtau: .7, click: .3, seed: Math.round(hz) };
-      else if (kind === 'ra') o = { dur: 3, decay: 2.1, tilt: .9, jawari: 2.6, jc0: 26, jc1: 5, jtau: .6, click: .18, seed: Math.round(hz) + 5 };
-      else if (kind === 'chik') o = { dur: 1.4, decay: .7, tilt: .7, jawari: 3, jc0: 18, jc1: 4, jtau: .3, click: .35, maxH: 24, seed: Math.round(hz) + 9 };
-      else o = { dur: 3.5, decay: 2.6, tilt: .9, jawari: 2.5, jc0: 20, jc1: 4, jtau: .8, click: 0, soft: .07, maxH: 20, seed: Math.round(hz) + 2 };
+      if (kind === 'da') o = { dur: 5, decay: 1.3, tilt: .72, jawari: 3.2, jc0: 26, jc1: 6, jtau: .7, click: .3, seed: Math.round(hz) };
+      else if (kind === 'ra') o = { dur: 4.5, decay: 1.1, tilt: .9, jawari: 2.6, jc0: 22, jc1: 5, jtau: .6, click: .18, seed: Math.round(hz) + 5 };
+      else if (kind === 'chik') o = { dur: 2.2, decay: .45, tilt: .7, jawari: 3, jc0: 18, jc1: 4, jtau: .3, click: .35, maxH: 24, seed: Math.round(hz) + 9 };
+      else o = { dur: 4.5, decay: 1.3, tilt: .9, jawari: 2.5, jc0: 20, jc1: 4, jtau: .8, click: 0, soft: .07, maxH: 20, seed: Math.round(hz) + 2 };
       return (this.cache[key] = this.e.toBuffer(renderPluck(hz, this.e.sr, o)));
     }
     prerender(semis) { // 先に作っておくと弾いたときに遅れない
       const list = semis.slice();
       const step = () => {
         const s = list.shift(); if (s == null) return;
-        this._buf(this.hz(s), 'da'); this._buf(this.hz(s), 'ra');
+        this._buf(this.hz(s), 'da');
         setTimeout(step, 5);
       };
       step();
