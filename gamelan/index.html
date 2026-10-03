@@ -285,6 +285,12 @@
   #accCycle .gstrip{display:none;}
   .ctlgrid{display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:10px; max-width:520px;}
   .ctlgrid button{line-height:1.2;} .ctlgrid button small{display:block; font-size:.7rem; font-weight:600; opacity:.8;}
+  .bar.gender{background:linear-gradient(90deg,#6e4a17,#c9a04a 40%,#f0d58a 55%,#c9a04a 70%,#6e4a17); border-radius:3px; font-size:clamp(.85rem,3.6vw,1.2rem);}
+  .notepads{display:flex; flex-wrap:nowrap; gap:5px; justify-content:center; padding:10px 0;}
+  .npad{width:min(11vw,66px); min-width:32px; aspect-ratio:1; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:1.3rem; cursor:pointer;
+    background:radial-gradient(circle at 40% 35%, #e9d8b0, #9c7a3a 70%, #5b3a1a); color:var(--ink); box-shadow:0 3px 8px rgba(0,0,0,.5); transition:filter .08s;}
+  .exam .eprog{font-size:.75rem; color:var(--sub);}
+  .exam .eq{font-weight:700; margin:6px 0;}
   #unlock{position:fixed; inset:0; background:rgba(15,8,4,.86); z-index:100; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:12px; text-align:center; padding:20px;}
   #unlock .big{font-size:1.1rem; font-weight:800;}
 </style>
@@ -689,18 +695,49 @@ const SYNTH = {
       case 'k': return voice(310, t, v, [[1,.06,.02]], {pan, attack:.001, noise:[{type:'bandpass', f:850, q:1.1, a:.32, d:.022}]});
     }
   },
+  // グンデル：薄い鍵盤＋共鳴管。円盤形の柔らかいバチで、やわらかく長く響く
+  gender(f, t, v, pan=0){
+    return voice(f, t, v, [[1,.5,7,0,.006],[1,.18,6.5,.7,.05],[2.92,.08,1.6],[4.7,.03,.7]],
+      {pan, attack:.006, noise:[{type:'lowpass', f:900, q:.7, a:.035, d:.025}]});
+  },
+  // ルバブ（2弦の擦弦楽器）とスリン（竹笛）：音がのびる楽器。ビブラートと、音から音へのすべり（ルバブ）
+  sustain(kind, f, t, dur, v, pan=0, from=0){
+    const out = ctx.createGain(), rebab = kind==='rebab';
+    if (pan && ctx.createStereoPanner){ const p = ctx.createStereoPanner(); p.pan.value = pan; out.connect(p); p.connect(bus); } else out.connect(bus);
+    const atk = rebab ? .09 : .06, rel = rebab ? .18 : .28, end = t + Math.max(dur, atk+rel+.05);
+    out.gain.setValueAtTime(0.0001, t); out.gain.linearRampToValueAtTime(v, t+atk);
+    out.gain.setValueAtTime(v*(rebab?.9:.85), end-rel); out.gain.linearRampToValueAtTime(0.0001, end);
+    const lfo = ctx.createOscillator(), lg = ctx.createGain(); lfo.frequency.value = rebab ? 5.6 : 5.0;
+    lg.gain.setValueAtTime(0, t); lg.gain.linearRampToValueAtTime(rebab ? 9 : 12, t + Math.min(.4, dur*.5)); lfo.connect(lg);
+    const tone = ctx.createBiquadFilter(); tone.type = 'lowpass'; tone.frequency.value = rebab ? 2000 : 4200; tone.Q.value = .7;
+    const body = ctx.createBiquadFilter(); body.type = 'peaking'; body.frequency.value = rebab ? 900 : 1500; body.gain.value = rebab ? 5 : 2;
+    tone.connect(body); body.connect(out);
+    const oscs = rebab ? [['sawtooth',-4,.32],['sawtooth',4,.32]] : [['sine',0,.7],['triangle',0,.18]];
+    const srcs = [];
+    for (const [type, det, a] of oscs){
+      const o = ctx.createOscillator(), g = ctx.createGain(); o.type = type; o.detune.value = det; g.gain.value = a;
+      if (from){ o.frequency.setValueAtTime(from, t); o.frequency.exponentialRampToValueAtTime(f, t + .08); } else o.frequency.setValueAtTime(f, t);
+      lg.connect(o.detune); o.connect(g); g.connect(tone); o.start(t); o.stop(end + .05); srcs.push(o);
+    }
+    const n = ctx.createBufferSource(); n.buffer = noiseBuf; n.loop = true; // 弓や息のこすれる音
+    const nf = ctx.createBiquadFilter(); nf.type = 'bandpass'; nf.frequency.value = rebab ? 2600 : f*1.5; nf.Q.value = rebab ? 1 : 3;
+    const ng = ctx.createGain(); ng.gain.value = rebab ? .025 : .05; n.connect(nf); nf.connect(ng); ng.connect(out); n.start(t); n.stop(end); srcs.push(n);
+    lfo.start(t); lfo.stop(end + .05); srcs.push(lfo);
+    ACTIVE += 3; setTimeout(()=>{ ACTIVE -= 3; }, (end - ctx.currentTime)*1000 + 100);
+    return { damp(at){ const tt = Math.max(at, ctx.currentTime); out.gain.cancelScheduledValues(tt); out.gain.setTargetAtTime(0, tt, .05); for (const o of srcs){ try { o.stop(tt + .3); } catch(e){} } } };
+  },
   click(t, accent){ return voice(accent?1760:1320, t, .5, [[1,.3,.05],[2.7,.06,.02]], {attack:.001}); },
 };
 
 /* 楽器ごとの名前・音量・左右の位置（東屋に並ぶ席をイメージ） */
-const INSTNAME = {bal:'バルンガン', saron:'サロン', demung:'デムン', slenthem:'スレンテム', peking:'ペキン', bonang:'ボナン', panerus:'パネルス',
+const INSTNAME = {gender:'グンデル', rebab:'ルバブ', suling:'スリン', bal:'バルンガン', saron:'サロン', demung:'デムン', slenthem:'スレンテム', peking:'ペキン', bonang:'ボナン', panerus:'パネルス',
   gong:'ゴング', kenong:'クノン', kempul:'クンプル', kethuk:'クトゥッ', kempyang:'クンピャン', kajar:'カジャール', kendhang:'クンダン',
   polos:'ポロス', sangsih:'サンシ', calung:'チャルン', jegogan:'ジェゴガン', ceng:'チェンチェン', gangsa:'ガンサ'};
-const MIX = {saron:.72, demung:.68, slenthem:.85, peking:.4, bonang:.5, panerus:.3, gong:1, kenong:.78, kempul:.85, kethuk:.75, kempyang:.7,
+const MIX = {gender:.42, rebab:.5, suling:.42, saron:.72, demung:.68, slenthem:.85, peking:.4, bonang:.5, panerus:.3, gong:1, kenong:.78, kempul:.85, kethuk:.75, kempyang:.7,
   kajar:.5, kendhang:.75, polos:.5, sangsih:.5, gangsa:.6, calung:.55, jegogan:.8, ceng:.55};
-const PAN = {saron:-.05, demung:-.3, slenthem:-.4, peking:.28, bonang:-.22, panerus:.22, gong:.38, kenong:.15, kempul:.32, kethuk:.08, kempyang:.1,
+const PAN = {gender:-.12, rebab:.05, suling:.18, saron:-.05, demung:-.3, slenthem:-.4, peking:.28, bonang:-.22, panerus:.22, gong:.38, kenong:.15, kempul:.32, kethuk:.08, kempyang:.1,
   kajar:.05, kendhang:0, polos:-.3, sangsih:.3, calung:-.15, jegogan:.15, ceng:.2, gangsa:0};
-const DAMP = new Set(['saron','demung','peking','slenthem','polos','sangsih','gangsa','calung','jegogan']);
+const DAMP = new Set(['rebab','suling','saron','demung','peking','slenthem','polos','sangsih','gangsa','calung','jegogan']);
 let ombakHz = 6;
 
 // 1つの音を鳴らす（自由演奏・自動演奏・練習で共通）
@@ -726,6 +763,9 @@ function playInst(inst, ev, t, laras, vel=1, pan=PAN[inst]||0){
       return pair(SYNTH.bar(F(1), t, v*.72, 4, pan-.1), SYNTH.bar(F(1)+ombakHz, t, v*.72, 4, pan+.1));
     case 'calung':   return pair(SYNTH.bar(F(0), t, v*.72, 6, pan, .8), SYNTH.bar(F(0)+ombakHz*.6, t, v*.72, 6, pan, .8));
     case 'jegogan':  return pair(SYNTH.slenthem(F(-1), t, v*.75, pan), SYNTH.slenthem(F(-1)+ombakHz*.35, t, v*.75, pan));
+    case 'gender':   return SYNTH.gender(F(0), t, v, pan);
+    case 'rebab':    return SYNTH.sustain('rebab', F(1), t, ev.durSec || 1, v*.5, pan, ev.fromD ? freqOf(laras, ev.fromD, ev.fromO + 1) : 0);
+    case 'suling':   return SYNTH.sustain('suling', F(1), t, ev.durSec || 1.2, v*.45, pan);
   }
 }
 
@@ -790,6 +830,30 @@ function derive(bal, laras, form, irama=1){
       if (g===G){ const ep = P.end.padStart(per,'.');
         for (let s=0;s<per;s++){ const c = ep[s]; if (c!=='.'){ const e = {inst:'kendhang', T:(g-1)*4*TPB+(s+1)*slot, k:c, v:c==='D'?1:.9}; e.key = c; endK.push(e); } } }
     }
+    // 柔らかい楽器（簡略化）：ルバブは旋律を少し早めに先取りしてのばす、グンデルは近くの音をめぐりながら着地、スリンはゴングやクノンの前で自由に歌う
+    const NS = LARAS[laras].notes, L = NS.length;
+    const stp = n => NS.indexOf(n.d) + n.o*L, at = s => ({d:NS[((s%L)+L)%L], o:Math.floor(s/L)});
+    let prev = null;
+    for (let b=1;b<=N;b++){
+      const n = res(b);
+      if (prev && prev.d===n.d && prev.o===n.o && b%4!==1){ prev.durT += TPB; continue; }
+      const sel = b%4===0, up = at(stp(n)+1);
+      prev = add('rebab', b*TPB - TPB/2, {d:n.d, o:Math.max(-1,Math.min(0,n.o)), durT:TPB+2, v: sel?1:.8, fromD: sel?up.d:0, fromO: sel?Math.max(-1,Math.min(0,up.o)):0});
+    }
+    const gS = irama===1 ? 4 : 8;
+    for (let q=2; q<=N; q+=2){
+      const x = res(q-1), y = res(q), sx = stp(x), sy = stp(y);
+      for (let i=0;i<gS;i++){
+        const c = Math.round(sx + (sy-sx)*i/(gS-1)), sN = i===gS-1 ? sy : c + (i%2 ? 1 : 0), n = at(sN);
+        add('gender', (q-2)*TPB + (i+1)*(2*TPB/gS), {d:n.d, o:Math.max(0,Math.min(1,n.o)), v: i===gS-1 ? .95 : .75});
+      }
+      add('gender', q*TPB, {d:y.d, o:-1, v:.85, left:true});
+    }
+    const phrase = eb => { const a = res(eb-2), c = res(eb-1), g = res(eb), oc = n => Math.max(0, Math.min(1, n.o));
+      add('suling', (eb-2)*TPB - 4, {d:a.d, o:oc(a), durT:TPB*1.5, v:.8});
+      add('suling', (eb-1)*TPB - 4 + 4, {d:c.d, o:oc(c), durT:TPB*.9, v:.75});
+      add('suling', eb*TPB - 4, {d:g.d, o:oc(g), durT:TPB*3, v:1}); };
+    phrase(N); if (N >= 16) phrase(N/2);
   } else {
     const gk = gangsaKeys(), ck = calungKeys();
     for (let b=1;b<=N;b++){
@@ -899,6 +963,8 @@ function buildKeyboard(el, inst, laras, onHit, small=false){
   else if (inst==='calung' || inst==='jegogan') h = barsHTML(calungKeys(), inst==='jegogan'?'slenthem':'', small);
   else if (inst==='bonang' || inst==='panerus') h = kettlesHTML(laras);
   else if (inst==='kendhang') h = drumHTML();
+  else if (inst==='gender') h = barsHTML([...LARAS[laras].notes.map(d=>[d,0]), ...LARAS[laras].notes.map(d=>[d,1])], 'gender', true);
+  else if (inst==='rebab' || inst==='suling') h = `<div class="notepads">${[...LARAS[laras].notes.map(d=>[d,0]), [LARAS[laras].notes[0],1]].map(([d,o])=>`<div class="npad" data-key="${d}:${o}">${noteHTML(d,o)}</div>`).join('')}</div>`;
   else h = `<div class="gongs">${(PADS[inst]||[]).map(p=>`<div class="ggroup"><div class="gong ${p.cls}" data-key="${p.k}"><span class="in">${p.k}</span></div><div class="gname">${p.label}</div></div>`).join('')}</div>`;
   el.innerHTML = h;
   el.onpointerdown = e => {
@@ -928,6 +994,9 @@ const FREE_INST = {
   gongs:   {name:'ゴング類', info:'大ゴング（ゴン・アグン）、クンプル、クノン、クトゥッ、クンピャン。曲の時間を区切る。'},
   kendhang:{name:'クンダン', info:'両面太鼓。合奏の指揮者。大きい面＝低い「ドゥン」、小さい面を平手で「タッ」。'},
   gangsa:  {name:'ガンサ（バリ）', info:'バリの鍵盤楽器。2台1組でわずかに調律をずらし「オンバ（うなり）」を生む。'},
+  gender:  {name:'グンデル', info:'薄い鍵盤を共鳴管の上に吊った柔らかい音の楽器。本物は両手で別々の旋律を弾く。'},
+  rebab:   {name:'ルバブ', info:'2本の弦を弓でこする楽器。押すと音がのび、次の音へすべるようにつながる（簡略化した合成音）。'},
+  suling:  {name:'スリン', info:'竹の笛。ゴングの前などで自由に歌うように吹く（簡略化した合成音）。'},
 };
 let freeInst = 'saron', freeLaras = 'slendro';
 const freeHandle = {};
@@ -935,7 +1004,7 @@ const stageEl = $('#stage');
 function renderStage(){
   const def = FREE_INST[freeInst];
   $('#instInfo').textContent = def.info;
-  $('#freeFig').innerHTML = figureHTML({gongs:'gong', gangsa:'polos'}[freeInst] || freeInst, true);
+  $('#freeFig').innerHTML = figureHTML({gongs:'gong', gangsa:'polos', gender:'soft', rebab:'soft', suling:'soft'}[freeInst] || freeInst, true);
   $('#ombakCtl').hidden = freeInst!=='gangsa';
   if (freeInst==='gongs'){
     const ns = LARAS[freeLaras].notes;
@@ -955,7 +1024,10 @@ function renderStage(){
   }
   buildKeyboard(stageEl, freeInst, freeLaras, (key)=>{
     const t = ctx.currentTime + .005;
-    const h = playInst(freeInst, evFromKey(key), t, freeLaras, 1.15, 0);
+    const ev = evFromKey(key); if (freeInst==='rebab' || freeInst==='suling') ev.durSec = 1.3;
+    if (freeInst==='rebab' && freeHandle._rebabF){ ev.fromD = freeHandle._rebabF.d; ev.fromO = freeHandle._rebabF.o; }
+    const h = playInst(freeInst, ev, t, freeLaras, 1.15, 0);
+    if (freeInst==='rebab') freeHandle._rebabF = {d:ev.d, o:ev.o};
     if ($('#dampChk').checked && DAMP.has(freeInst)){ if (freeHandle[freeInst]) freeHandle[freeInst].damp(t); freeHandle[freeInst] = h; }
   });
 }
@@ -989,6 +1061,9 @@ const LANES_JAVA = [
   {id:'peking',   name:'ペキン', role:'2回ずつ先取り', color:'var(--c-elab)', insts:['peking']},
   {id:'bonang',   name:'ボナン', role:'2音を行き来して飾る', color:'var(--c-elab)', insts:['bonang']},
   {id:'panerus',  name:'パネルス', role:'ボナンの倍の速さ', color:'var(--c-elab)', insts:['panerus']},
+  {id:'gender',   name:'グンデル', role:'柔らかい楽器：音をめぐって飾る', color:'var(--c-kethuk)', insts:['gender']},
+  {id:'rebab',    name:'ルバブ', role:'柔らかい楽器：旋律を歌うように導く', color:'var(--c-kethuk)', insts:['rebab']},
+  {id:'suling',   name:'スリン', role:'柔らかい楽器：ゴング前に自由に歌う', color:'var(--c-kethuk)', insts:['suling']},
 ];
 const LANES_BALI = [
   {id:'kendhang', name:'クンダン', role:'太鼓・リーダー', color:'var(--c-drum)', insts:['kendhang']},
@@ -1014,6 +1089,8 @@ function loadPiece(p){
   S.bal = parseBal(p.bal); S.N = S.bal.length;
   S.colo = colotomy(p.form, S.N);
   S.der = {1: derive(S.bal, S.laras, S.form, 1), 2: derive(S.bal, S.laras, S.form, 2)};
+  // 速く大きな音のランチャランでは、柔らかい楽器はふつう演奏しない（ゆっくりな曲で活躍する）
+  ['gender','rebab','suling'].forEach(id => S.muted[id] = p.form==='lancaran');
   S.tempo = S.target = p.tempo;
   $('#tempo').value = p.tempo; $('#tempoV').textContent = p.tempo;
   setIrama(1, true);
@@ -1042,17 +1119,22 @@ function scheduler(){
   while (S.nextTime < ctx.currentTime + 0.12){
     const T = S.tick, t = S.nextTime, D = S.der[S.irama] || S.der[1];
     let list = S.phase==='buka' ? D.buka[T] : D.byTick[T];
+    if (S.pendingIrama && S.phase==='main' && S.form!=='bali'){ // クンダンの合図：細かく打ち込んで「イラマを変えるよ」と知らせる
+      list = list.filter(e=>e.inst!=='kendhang');
+      if (T % 2 === 0 && !S.muted.kendhang){ const k = {2:'t',4:'P',6:'t',0:'D'}[T % TPB]; playInst('kendhang', {k}, t, S.laras, k==='D'?.95:.7); hit('kendhang', t, '合図'); }
+    }
     if (S.phase==='main' && S.ending && T > (S.N-4)*TPB && S.form!=='bali') list = list.filter(e=>e.inst!=='kendhang').concat(D.endK[T]||[]);
     for (const e of list){
       const lane = laneOf(e.inst); if (S.muted[lane] && S.phase!=='buka') continue; // 前奏（ブカ）はいつも鳴らす
       const tt = t + (e.inst==='gong' ? 0 : (Math.random()-.5)*0.008); // 人間らしいわずかなズレ
+      if (e.durT) e.durSec = e.durT*60/S.tempo/TPB;
       const h = playInst(e.inst, e, tt, S.laras, e.v*(0.92+Math.random()*0.14));
       if (DAMP.has(e.inst)) damped(S.handles, e.inst, h, tt);
       hit(lane, t, evLabel(e));
     }
     logTick(T, t, S.phase);
     if (T % TPB === 0){ const beat = T/TPB, buka = S.phase==='buka'; vis(t, ()=>showBeat(beat, buka)); }
-    S.tempo += (S.target - S.tempo) * (S.ending ? 0.02 : 0.012); // 生演奏のように少しずつテンポが変わる
+    S.tempo += (S.target - S.tempo) * (S.ending ? 0.02 : S.pendingIrama ? 0.035 : 0.012); // 生演奏のように少しずつテンポが変わる
     S.nextTime += 60 / S.tempo / TPB;
     S.tick++;
     if (S.tick > S.N * TPB){
@@ -1062,7 +1144,14 @@ function scheduler(){
       const c = S.cycle; vis(S.nextTime, ()=>{ $('#statCycle').textContent = c; if (S.onCycle) S.onCycle(c); });
       if (S.endAfter && c >= S.endAfter) S.ending = true;
     }
-    if (S.pendingIrama && (S.tick-1) % (4*TPB) === 0 && S.phase==='main'){ S.irama = S.pendingIrama; S.pendingIrama = null; }
+    if (S.pendingIrama && S.phase==='main' && S.switchBeat){ // 次のクノン（区切り）の拍でイラマが切り替わる
+      const sw = (S.switchBeat*TPB) % (S.N*TPB);
+      if ((S.tick-1) === sw || (sw===0 && S.tick===1)){
+        S.irama = S.pendingIrama; S.pendingIrama = null; const b = S.switchBeat, ir = S.irama; S.switchBeat = 0;
+        vis(S.nextTime, ()=>{ for (const g of GUIDES) g.push([['kenong', `イラマ ${ir===2?'II（ダドス）':'I（タングン）'}に切り替わり（${b}拍目）`,
+          ir===2 ? '区切りの拍で全員そろって切り替えました。バルンガンはゆっくりのまま、ペキン・ボナンは1拍に4音、パネルスは8音に増えます。' : '区切りの拍で切り替えました。飾りの楽器の音数が半分に戻り、テンポが上がります。']]); });
+      }
+    }
     if (S.ending && S.tick === (S.N-4)*TPB + 1 && S.phase==='main') S.target = S.tempo * 0.5; // スウック：最後のガトラで減速
   }
 }
@@ -1240,7 +1329,7 @@ function explainBeat(b){ // 時計の点をタップしたときの説明
 /* ---- 全楽器タイムライン（どの楽器が、どの細かさで鳴るか） ---- */
 const TIMELINES = new Set();
 const TL_ROWS = {
-  java:[['panerus','パネルス','#c59bff'],['bonang','ボナン','#c59bff'],['peking','ペキン','#c59bff'],['saron','サロン','#7fd3a0'],['demung','デムン','#7fd3a0'],['slenthem','スレンテム','#7fd3a0'],
+  java:[['suling','スリン','#9fb6c8'],['rebab','ルバブ','#9fb6c8'],['gender','グンデル','#9fb6c8'],['panerus','パネルス','#c59bff'],['bonang','ボナン','#c59bff'],['peking','ペキン','#c59bff'],['saron','サロン','#7fd3a0'],['demung','デムン','#7fd3a0'],['slenthem','スレンテム','#7fd3a0'],
         ['kendhang','クンダン','#ff7b9c'],['kempyang','クンピャン','#9fb6c8'],['kethuk','クトゥッ','#9fb6c8'],['kempul','クンプル','#d98c4a'],['kenong','クノン','#e9b44c'],['gong','ゴング','#e0683c']],
   bali:[['polos','ポロス','#c59bff'],['sangsih','サンシ','#ff9f4f'],['calung','チャルン','#7fd3a0'],['jegogan','ジェゴガン','#7fd3a0'],['ceng','チェンチェン','#9fb6c8'],
         ['kendhang','クンダン','#ff7b9c'],['kajar','カジャール','#9fb6c8'],['kempul','クンプール','#d98c4a'],['kenong','クモン','#e9b44c'],['gong','ゴング','#e0683c']],
@@ -1373,8 +1462,14 @@ function setIrama(n, immediate){
   $('#irama1').classList.toggle('on', n===1); $('#irama2').classList.toggle('on', n===2);
   if (immediate || !S.playing){ S.irama = n; S.pendingIrama = null; return; }
   if (n === S.irama && !S.pendingIrama) return;
-  // イラマを変える：テンポが半分（倍）になり、装飾の細かさが倍（半分）になる
+  // イラマを変える：クンダンが合図 → 全員がだんだんテンポを変える → 次のクノンの拍で飾りの細かさが切り替わる
+  if (S.phase==='buka'){ S.irama = n; S.pendingIrama = null; return; }
   S.pendingIrama = n;
+  const cur = Math.ceil(S.tick/TPB); S.switchBeat = 0;
+  for (let k=2; k<=S.N+2; k++){ const b = ((cur-1+k) % S.N) + 1, m = S.colo[b]||[]; if (m.includes('N') || m.includes('G')){ S.switchBeat = b; break; } }
+  const names = COLO_NAME(), mk = (S.colo[S.switchBeat]||[]).includes('G') ? 'ゴング' : names.N;
+  for (const g of GUIDES) g.push([['warn', `クンダンの合図（イラマ ${n===2?'II':'I'} へ）`,
+    `クンダンが細かく打ち込んで合図し、全員がだんだん${n===2?'ゆっくり':'速く'}になります。次の${mk}（${S.switchBeat}拍目）で、飾りの楽器の細かさが${n===2?'2倍':'半分'}に切り替わります。`]]);
   const nt = n===2 ? Math.max(24, Math.round(S.target/2)) : Math.min(160, Math.round(S.target*2));
   S.target = nt; $('#tempo').value = nt; $('#tempoV').textContent = nt;
 }
@@ -1545,7 +1640,8 @@ function practiceSched(w){
           if (w.guide) damped(w.handles, e.inst+'g', playInst(e.inst, e, t, w.laras, e.v*0.28), t);
           if (filt(e)){ w.targets.push({time:t, e, loop:w.loop, j:null}); (w.loops[w.loop] ||= {n:0, hit:0, done:0, shown:false}).n++; }
         }
-      } else if (back==='all' || back.includes(e.inst)){
+      } else if ((back==='all' && !(w.piece.form==='lancaran' && ['gender','rebab','suling'].includes(e.inst))) || (back!=='all' && back.includes(e.inst))){
+        if (e.durT) e.durSec = e.durT*60/w.bpm/TPB;
         const h = playInst(e.inst, e, tt, w.laras, e.v*0.85*(0.93+Math.random()*0.12));
         if (DAMP.has(e.inst)) damped(w.handles, e.inst, h, tt);
       }
@@ -1764,6 +1860,50 @@ function mountTimeline(el, spec, onPass){
   el.innerHTML = `<div class="tlbox"></div><p class="note">${spec.note || '横が時間（1周）、縦が楽器。上の「聴く」ボタンで再生すると、白い線が動いて鳴った音が光ります。'}</p>`;
   new TimelineView(el.querySelector('.tlbox')); onPass();
 }
+const EXAM = [
+  {q:'🔊 いま鳴った楽器は？', play:()=>playInst('gong', {k:'G', bali:false}, nowT(), 'slendro', 1.1, 0), o:['ゴン・アグン','サロン','クンダン'], a:0, x:'低く長くうなる音はゴン・アグン。1周の終わり＝始まりに鳴ります。'},
+  {q:'🔊 いま鳴った楽器は？', play:()=>{ const t = nowT(); [[6,0],[6,0],[1,1],[1,1]].forEach(([d,o],i)=>playInst('peking',{d,o},t+i*.22,'slendro',1,0)); }, o:['スレンテム','ペキン','クノン'], a:1, x:'高く明るい音で、同じ音を2回ずつ叩くのはペキンです。'},
+  {q:'🔊 いま鳴った太鼓の音は？', play:()=>playInst('kendhang', {k:'D'}, nowT(), 'slendro', 1.1, 0), o:['タッ（小さい面）','ドゥン（大きい面）','ケッ'], a:1, x:'低く、音が下がっていくのが大きい面の「ドゥン」です。'},
+  {q:'🔊 いま鳴った音階は？（音の数を数えてみよう）', play:()=>DEMOS.scale('pelog'), o:['スレンドロ（5音）','ペロッグ（7音）'], a:1, x:'1オクターブに7つの音があるのがペロッグです。'},
+  {q:'「ガトラ」とは何のこと？', o:['4拍のまとまり','曲の1周','太鼓の型'], a:0, x:'バルンガンは4拍ずつのまとまり（ガトラ）で書かれます。'},
+  {q:'ガトラの中で、旋律の着地点（いちばん大事な音）は？', o:['1拍目','4拍目（最後の音）','2拍目'], a:1, x:'最後の音「セレ」に向かって進むのがガムランの特徴です。'},
+  {q:'ランチャラン形式（16拍）で大ゴングが鳴るのは？', o:['1拍目','8拍目','16拍目（最後）'], a:2, x:'ゴングは周期の最後の拍で鳴り、それが次の周の始まりにもなります。'},
+  {q:'ゴングの直後、クンプルを鳴らさない空白を何という？', o:['ウェラ','セレ','ブカ'], a:0, x:'ウェラ＝空白。ゴングの響きのすぐ後の区切りではクンプルを休みます。'},
+  {q:'ペキンの基本の叩き方は？', o:['1拍に1音','各音を2回ずつ、先取りで','好きな音を自由に'], a:1, x:'「x x y y」と2回ずつ、2回目がバルンガンと重なるように叩きます。'},
+  {q:'ボナンのミピル奏法は？', o:['2つの音を「x y x y」と行き来','同じ音を何度も連打','オクターブで同時に打つ'], a:0, x:'2拍を1組にして2音を行き来し、組の最後でバルンガンと重なります。'},
+  {q:'ガムランで指揮者の役割をするのは？', o:['ゴン・アグン','クンダン（太鼓）','ルバブ'], a:1, x:'テンポ・イラマの変更・曲の終わりは、クンダンの合図で決まります。'},
+  {q:'イラマ I から II に変わると？', o:['全部の楽器が2倍速くなる','バルンガンがゆっくりになり、飾りが2倍の細かさになる','ゴングの数が増える'], a:1, x:'骨組みはゆっくり、飾りは細かく。流れの速さは保たれます。'},
+  {q:'イラマを切り替える瞬間は？', o:['好きなときにいきなり','クンダンの合図のあと、区切り（クノン）の拍でそろって','曲の最初だけ'], a:1, x:'合図→だんだんテンポを変える→区切りの拍で切り替え、の順です。'},
+  {q:'バリの「コテカン」とは？', o:['2人で音をかみ合わせて1本の速い旋律を作る','太鼓の合図','音階の名前'], a:0, x:'ポロスとサンシの2人で、1人では弾けない速さの旋律を作ります。'},
+  {q:'ペロッグのパテット・バランで、ふつう使わない音は？', o:['7','1','2'], a:1, x:'バランは「7」を使い「1」を使いません（ブム系はその逆）。'},
+  {q:'柔らかい楽器（グンデル・ルバブ・スリン）がよく活躍するのは？', o:['ゆっくりした曲','速く大きな音のランチャラン','バリのコテカン'], a:0, x:'ゆっくりな曲で、旋律を自由に歌うように飾ります。'},
+];
+function mountExam(el, spec, onPass){
+  const shuffle = a => { a = a.slice(); for (let i=a.length-1;i>0;i--){ const j = Math.floor(Math.random()*(i+1)); [a[i],a[j]] = [a[j],a[i]]; } return a; };
+  let qs, idx, score;
+  const start = () => { qs = shuffle(EXAM).slice(0, 10).map(q => { const order = shuffle(q.o.map((_,i)=>i)); return {...q, order}; }); idx = 0; score = 0; show(); };
+  const show = () => {
+    if (idx >= qs.length){
+      const ok = score >= 8;
+      el.innerHTML = `<div class="exam"><div class="pmsg ${ok?'pass':''}">${ok?'🎉 合格！':'もう少し！'} 10問中 <b>${score}</b> 問正解。${ok?'ガムランのしくみがしっかり身につきました。':'8問正解で合格です。まちがえたところはレッスンを見直そう。'}</div><button class="sec eagain" style="margin-top:8px">もう一度（問題が入れかわります）</button></div>`;
+      el.querySelector('.eagain').onclick = start; if (ok) onPass(); return;
+    }
+    const q = qs[idx];
+    el.innerHTML = `<div class="exam quiz"><div class="eprog">第${idx+1}問 / 10　正解 ${score}</div>${q.play ? '<button class="sec eplay">🔊 音を聴く</button>' : ''}<div class="eq">${q.q}</div>
+      <div class="opts">${q.order.map(i=>`<button class="sec" data-i="${i}">${q.o[i]}</button>`).join('')}</div><div class="qexp"></div></div>`;
+    if (q.play){ el.querySelector('.eplay').onclick = () => { initAudio(); q.play(); }; }
+    el.querySelector('.opts').onclick = e => {
+      const b = e.target.closest('[data-i]'); if (!b || el.querySelector('.opts').dataset.done) return;
+      el.querySelector('.opts').dataset.done = 1;
+      const right = +b.dataset.i === q.a; if (right) score++;
+      b.classList.add(right ? 'right' : 'wrong');
+      if (!right) el.querySelector(`.opts [data-i="${q.a}"]`).classList.add('right');
+      el.querySelector('.qexp').innerHTML = (right ? '⭕ 正解！ ' : '❌ ざんねん。') + q.x + `<br><button class="enext" style="margin-top:8px">${idx===qs.length-1 ? '結果を見る' : '次の問題へ →'}</button>`;
+      el.querySelector('.enext').onclick = () => { idx++; show(); };
+    };
+  };
+  start();
+}
 function mountGrid(el, spec, onPass){
   const p = PIECES[spec.piece ?? 0], der = derive(parseBal(p.bal), p.laras, p.form, spec.irama||1);
   el.innerHTML = `<div class="gwrap"></div>${spec.note ? `<p class="note">${spec.note}</p>` : ''}`;
@@ -1859,6 +1999,7 @@ const LESSONS = [
     ] },
   { title:'イラマ：遅くなると細かくなる',
     body:`<p>ガムランでは、テンポが半分になると、飾りの楽器は<b>1拍に入れる音数を2倍</b>にします。全体の流れの速さは保ったまま、骨組みだけがゆったりになるのです。この関係を<b>イラマ</b>といいます。</p>
+    <p>切り替えはいきなりではありません。<b>クンダンが細かく打ち込んで合図</b>を出し、全員がだんだんテンポを変えていき、<b>次のクノン（区切り）の拍</b>でそろって飾りの細かさを切り替えます。</p>
     <p>実際のジャワのガムランには、速い順に<b>ランチャル → タングン（I） → ダドス（II） → ウィレッ（III） → ランケップ（IV）</b>という段階があり、1段ゆっくりになるごとに飾りの音数が倍になります。このアプリではタングンとダドスの2段階を体験できます。</p>`,
     point:'<b>ポイント</b> イラマ I（タングン）→ II（ダドス）：バルンガンは半分の速さ、ペキンやボナンは1拍に2音 → 4音。',
     widgets:[
@@ -1892,6 +2033,11 @@ const LESSONS = [
     widgets:[
       {type:'practice', title:'全員の合奏でサロンを弾こう', cfg:{piece:0, user:'saron', beats:[1,16], bpm:60, backing:'all', passRatio:.8, passMsg:'卒業おめでとう！'}},
     ] },
+  { title:'おさらいテスト',
+    body:`<p>ここまでのレッスンのまとめです。音を聴いて答える問題もあります。全部で16問の中から毎回10問が出題され、<b>8問正解で合格</b>です。</p>
+    <p>まちがえた問題には解説が出ます。何度でも挑戦できます。</p>`,
+    point:'<b>ポイント</b> 🔊のついた問題は「音を聴く」を押してから答えよう。',
+    widgets:[{type:'exam', title:'10問テスト（8問正解で合格）'}] },
 ];
 const LS_KEY = 'gamelan-lessons-v2';
 let LP = {cur:0, w:{}};
@@ -1941,6 +2087,7 @@ function openLesson(i){
     else if (w.type==='grid') mountGrid(body, w, onPass);
     else if (w.type==='cycle') mountCycle(body, w, onPass);
     else if (w.type==='timeline') mountTimeline(body, w, onPass);
+    else if (w.type==='exam') mountExam(body, w, onPass);
     else if (w.type==='practice') mountPractice(body, Object.assign({}, w.cfg, {onPass}));
   });
   card.querySelector('.lprev').onclick = () => { openLesson(LP.cur-1); card.scrollIntoView({behavior:'smooth'}); };
@@ -2198,10 +2345,10 @@ const THEORY = [
    facts:[['役割','バリのガムランの骨組み（ポコッ）'],['楽器','中低音・低音の鍵盤'],['1拍の音数','チャルン＝1音、ジェゴガン＝2拍に1音'],['道具','木づち']],
    rules:['チャルンはジャワのサロンと同じく、骨組みの旋律を1拍に1音。','ジェゴガンはさらにゆっくり、2拍に1音で低音を支える。'],
    tips:['コテカンが速くても、骨組みは落ち着いて。']},
-  {group:'その他（このアプリでは音なし）', id:'soft', name:'柔らかい楽器と歌',
+  {group:'柔らかい楽器（簡略化した合成音）', id:'soft', name:'柔らかい楽器と歌',
    facts:[['楽器','グンデル（共鳴管つきの薄い鍵盤）、ルバブ（2弦の擦弦楽器）、スリン（竹笛）、ガンバン（木琴）、チュレンプン（ツィター）、シンデン（女性の歌）など']],
    rules:['ゆっくりした曲では、これらの「柔らかい楽器」が主役になる。','バルンガンをもとに、「チェンコッ」と呼ばれる決まった旋律の型を組み合わせて、即興的に演奏する。','どんなに自由に動いても、ガトラの最後の音（セレ）でみんながそろう。'],
-   tips:['このアプリの合成音では扱っていません。本物の演奏を聴くと、骨組みとの関係がよくわかります。']},
+   tips:['このアプリではグンデル・ルバブ・スリンを簡略化して合成しています（歌は未対応）。本物はもっと自由で複雑です。','速く大きな音のランチャランでは、柔らかい楽器はふつう演奏しません。クタワンやラドランの自動演奏で聴けます。']},
 ];
 let rmLaras = 'slendro';
 function renderRangeMap(){
@@ -2242,7 +2389,18 @@ function renderTheory(){
     <dl class="facts">${T.facts.map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>
     <h3>セオリー（決まりごと）</h3><ul>${T.rules.map(r=>`<li>${r}</li>`).join('')}</ul>
     <h3>コツ</h3><ul>${T.tips.map(r=>`<li>${r}</li>`).join('')}</ul>
+    ${T.id==='soft' ? `<h3>音を聴いてみよう</h3><div class="row"><button class="sec" data-sd="gender">グンデル</button><button class="sec" data-sd="rebab">ルバブ</button><button class="sec" data-sd="suling">スリン</button><button class="sec" data-sd="piece">▶ 柔らかい楽器入りの合奏（ラドラン）</button><button class="sec" data-sd="stop">■ 止める</button></div><div class="nowp softnow"></div>` : ''}
     ${T.p ? `<h3>楽譜の例と練習</h3><p class="note">曲：${PIECES[T.p.piece].name}。マスの右端が拍の瞬間です。練習中、ほかの楽器は全部自動で演奏されます。</p><div class="widget tprac"></div>` : ''}`;
+  card.querySelectorAll('[data-sd]').forEach(b => b.onclick = () => {
+    initAudio(); const k = b.dataset.sd, t0 = ctx.currentTime + .05, say = x => { const n = card.querySelector('.softnow'); if (n) n.textContent = x; };
+    if (k==='stop'){ stopAll(); say(''); return; }
+    if (k==='piece'){ DEMOS.pieceOnce(2, say); return; }
+    const der = derive(parseBal(PIECES[2].bal), 'slendro', 'ladrang', 1), beat = .7, h = {};
+    for (const e of der.parts[k]) if (e.T <= 8*TPB){ const ev = Object.assign({}, e, {durSec: (e.durT||0)*beat/TPB}); const tt = t0 + e.T/TPB*beat;
+      const hh = playInst(k, ev, tt, 'slendro', 1.1, 0); if (k!=='gender'){ if (h.x) h.x.damp(tt); h.x = hh; } }
+    for (const e of der.parts.slenthem) if (e.T <= 8*TPB) playInst('slenthem', e, t0 + e.T/TPB*beat, 'slendro', .6, 0);
+    say(`${INSTNAME[k]}：ラドランの最初の8拍（下にスレンテムの骨組み）`);
+  });
   if (T.p) mountPractice(card.querySelector('.tprac'), {piece:T.p.piece, user:T.id, beats:T.p.beats, bpm:T.p.bpm, backing:'all', iramaToggle:T.p.iramaToggle, show:T.p.show, passRatio:.75});
 }
 
