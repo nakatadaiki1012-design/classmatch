@@ -2,132 +2,137 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#1b120c">
 <title>ガムラン・シミュレーター</title>
 <style>
+  /* 構成：上部タブ → 各ページはパネルを縦に積む。色は青銅と木の楽器台から取る */
   :root{
     --bg:#1b120c; --panel:#2a1c13; --panel2:#3a281b; --line:#5a3f2a;
     --text:#f6ead8; --sub:#c9b294; --accent:#e9b44c; --accent2:#e0683c;
     --bronze1:#f3d27a; --bronze2:#b8862f; --bronze3:#6e4a17;
-    --wood1:#8b3a1e; --wood2:#5b2210;
+    --wood1:#8b3a1e; --wood2:#5b2210; --ink:#3b2306; --onaccent:#2a1606;
     --c-gong:#e0683c; --c-kenong:#e9b44c; --c-kempul:#d98c4a; --c-kethuk:#9fb6c8;
-    --c-bal:#7fd3a0; --c-elab:#c59bff; --c-drum:#ff7b9c;
+    --c-bal:#7fd3a0; --c-elab:#c59bff; --c-drum:#ff7b9c; --c-sang:#ff9f4f;
+    --good:#7fd3a0; --ok:#f0d060; --miss:#ff8f7a; --nowcol:rgba(233,180,76,.2);
     color-scheme:dark;
   }
+  [hidden]{display:none!important;}
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   html,body{margin:0; padding:0;}
   body{
     font-family:-apple-system,"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,system-ui,sans-serif;
-    background:var(--bg); color:var(--text); line-height:1.5;
-    padding:10px 16px 40px; max-width:1100px; margin:0 auto;
+    background:var(--bg); color:var(--text); line-height:1.6;
+    padding:10px 16px 48px; max-width:1100px; margin:0 auto;
     background-image:radial-gradient(circle at 20% 0%, #3a2414 0, transparent 50%), radial-gradient(circle at 100% 30%, #2b1a10 0, transparent 40%);
     background-attachment:fixed;
   }
-  h1{font-size:1.25rem; margin:.2rem 0 0;}
-  h2{font-size:1.05rem; margin:.2rem 0 .5rem;}
-  h3{font-size:.95rem; margin:1rem 0 .3rem; color:var(--accent);}
-  .lead{color:var(--sub); font-size:.82rem; margin:0 0 10px;}
-  .panel{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:12px; margin-bottom:12px;}
+  h1{font-size:1.2rem; margin:.2rem 0 0;}
+  h2{font-size:1.08rem; margin:.1rem 0 .5rem; text-wrap:balance;}
+  h3{font-size:.95rem; margin:1rem 0 .35rem; color:var(--accent);}
+  .lead{color:var(--sub); font-size:.8rem; margin:0 0 6px;}
+  .panel{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:14px; margin-bottom:12px; min-width:0;}
   .row{display:flex; flex-wrap:wrap; gap:8px 12px; align-items:center;}
   .muted{color:var(--sub); font-size:.8rem;}
+  .note{font-size:.75rem; color:var(--sub);}
+  p{margin:.4rem 0;}
   button{
     font-family:inherit; cursor:pointer; border:none; border-radius:10px;
-    padding:10px 14px; font-size:.92rem; font-weight:700; color:#2a1606; background:var(--accent);
+    padding:10px 14px; font-size:.92rem; font-weight:700; color:var(--onaccent); background:var(--accent);
     transition:filter .12s, transform .05s; touch-action:manipulation;
   }
   button:active{transform:translateY(1px);}
+  button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
   button.sec{background:var(--panel2); color:var(--text); border:1px solid var(--line); font-weight:600;}
-  button.warn{background:var(--accent2); color:#fff;}
-  button.on{background:var(--accent); color:#2a1606; border-color:var(--accent);}
+  button.on{background:var(--accent); color:var(--onaccent); border-color:var(--accent);}
   button:disabled{opacity:.4; cursor:not-allowed;}
   select,input[type=text],textarea{
     background:var(--panel2); color:var(--text); border:1px solid var(--line);
-    border-radius:8px; padding:8px 9px; font-size:.95rem; font-family:inherit;
+    border-radius:8px; padding:8px 9px; font-size:.95rem; font-family:inherit; max-width:100%;
   }
-  select{max-width:100%;}
-  #pieceSel{max-width:calc(100vw - 60px);}
   textarea{width:100%; min-height:70px; font-family:ui-monospace,Menlo,Consolas,monospace; letter-spacing:.06em;}
-  input[type=range]{accent-color:var(--accent); width:150px;}
+  input[type=range]{accent-color:var(--accent); width:130px;}
   label.ctl{display:flex; flex-direction:column; font-size:.72rem; color:var(--sub); gap:3px;}
+  label.ctl b{color:var(--text); font-weight:600; display:flex; align-items:center; gap:6px;}
   .chk{display:flex; align-items:center; gap:6px; font-size:.82rem; cursor:pointer;}
   .chk input{width:18px; height:18px; accent-color:var(--accent);}
 
-  /* tabs */
-  .tabs{display:flex; gap:6px; margin:8px 0 12px; position:sticky; top:env(safe-area-inset-top, 0px); z-index:20; background:var(--bg); padding:6px 0;}
-  .tabs button{flex:1; background:var(--panel); color:var(--sub); border:1px solid var(--line); padding:10px 6px;}
-  .tabs button.active{background:var(--accent); color:#2a1606; border-color:var(--accent);}
+  /* タブ */
+  .tabs{display:grid; grid-template-columns:repeat(4,1fr); gap:5px; margin:8px 0 12px; position:sticky; top:env(safe-area-inset-top, 0px); z-index:20; background:var(--bg); padding:6px 0;}
+  .tabs button{background:var(--panel); color:var(--sub); border:1px solid var(--line); padding:9px 2px; font-size:.8rem; line-height:1.25;}
+  .tabs button.active{background:var(--accent); color:var(--onaccent); border-color:var(--accent);}
   .page{display:none;} .page.active{display:block;}
 
   .chips{display:flex; gap:6px; overflow-x:auto; padding-bottom:4px; scrollbar-width:thin;}
   .chips button{flex:0 0 auto; padding:8px 12px; font-size:.85rem;}
   .instinfo{font-size:.8rem; color:var(--sub); margin:8px 0 0; min-height:2.4em;}
 
-  /* kepatihan notation */
+  /* 数字譜（クパティハン） */
   .n{position:relative; display:inline-block; font-weight:800; font-variant-numeric:tabular-nums; line-height:1;}
   .n.lo::after,.n.hi::before{content:''; position:absolute; left:50%; width:.22em; height:.22em; margin-left:-.11em; border-radius:50%; background:currentColor;}
   .n.lo::after{bottom:-.32em;} .n.hi::before{top:-.32em;}
   .n.rest{opacity:.55;}
 
-  /* instruments stage */
+  /* 楽器の舞台 */
   .stage{
     background:linear-gradient(#24170f,#1c120b); border:1px solid var(--line); border-radius:14px;
-    padding:18px 8px 14px; margin-top:10px; touch-action:none; user-select:none; -webkit-user-select:none;
-    min-height:220px; display:flex; flex-direction:column; justify-content:center;
+    padding:16px 8px 14px; margin-top:10px; touch-action:none; user-select:none; -webkit-user-select:none;
+    min-height:150px; display:flex; flex-direction:column; justify-content:center;
   }
-  /* bars (saron family) */
-  .rancak{position:relative; display:flex; gap:clamp(3px,1.2vw,10px); justify-content:center; align-items:center; padding:14px 10px;
+  .rancak{position:relative; display:flex; gap:clamp(3px,1.2vw,10px); justify-content:center; align-items:center; padding:12px 8px;
     background:linear-gradient(var(--wood1),var(--wood2)); border-radius:12px; box-shadow:inset 0 -6px 0 rgba(0,0,0,.35), 0 6px 14px rgba(0,0,0,.4);}
   .bar{
     position:relative; flex:1 1 0; max-width:110px; border-radius:7px; cursor:pointer;
     background:linear-gradient(90deg,var(--bronze3),var(--bronze2) 18%,var(--bronze1) 50%,var(--bronze2) 82%,var(--bronze3));
     box-shadow:0 3px 0 rgba(0,0,0,.45); display:flex; align-items:center; justify-content:center;
-    color:#3b2306; font-size:clamp(1rem,4.5vw,1.6rem); transition:filter .08s;
+    color:var(--ink); font-size:clamp(1rem,4.5vw,1.6rem); transition:filter .08s;
   }
-  .bar::before,.bar::after{content:''; position:absolute; left:50%; width:7px; height:7px; margin-left:-3.5px; border-radius:50%; background:#3b2306; opacity:.7;}
+  .bar::before,.bar::after{content:''; position:absolute; left:50%; width:7px; height:7px; margin-left:-3.5px; border-radius:50%; background:var(--ink); opacity:.7;}
   .bar::before{top:9%;} .bar::after{bottom:9%;}
   .bar.slenthem{background:linear-gradient(90deg,#4b3a28,#8a7556 30%,#c2ab84 50%,#8a7556 70%,#4b3a28); border-radius:4px;}
   .hit{filter:brightness(1.55) saturate(1.2) drop-shadow(0 0 10px rgba(255,220,120,.9));}
-  .target{outline:3px solid #7fd3a0; outline-offset:3px; animation:pulse .6s infinite alternate;}
+  .target{outline:3px solid var(--good); outline-offset:3px; animation:pulse .6s infinite alternate;}
+  .wrongk{animation:shake .25s;}
   @keyframes pulse{from{outline-color:rgba(127,211,160,.35)} to{outline-color:rgba(127,211,160,1)}}
+  @keyframes shake{0%,100%{transform:translateX(0)} 25%{transform:translateX(-4px)} 75%{transform:translateX(4px)}}
+  @media (prefers-reduced-motion:reduce){ .target{animation:none;} .wrongk{animation:none;} }
 
-  /* kettles (bonang etc) */
-  .bonangframe{display:flex; flex-direction:column; gap:14px; padding:14px 8px; background:linear-gradient(var(--wood1),var(--wood2)); border-radius:12px;}
+  .bonangframe{display:flex; flex-direction:column; gap:22px; padding:12px 8px 26px; background:linear-gradient(var(--wood1),var(--wood2)); border-radius:12px;}
   .krow{display:flex; justify-content:center; gap:clamp(4px,1.5vw,12px);}
   .kettle{
-    position:relative; width:clamp(40px,11vw,78px); aspect-ratio:1; border-radius:50%; cursor:pointer;
+    position:relative; width:clamp(36px,10.5vw,74px); max-width:100%; aspect-ratio:1; border-radius:50%; cursor:pointer;
     background:radial-gradient(circle at 50% 45%, var(--bronze1) 0 18%, var(--bronze3) 21%, var(--bronze2) 30%, var(--bronze1) 55%, var(--bronze2) 75%, var(--bronze3) 100%);
-    box-shadow:0 4px 0 rgba(0,0,0,.45); display:flex; align-items:flex-end; justify-content:center; color:#fff; font-size:.9rem;
-    transition:filter .08s;
+    box-shadow:0 4px 0 rgba(0,0,0,.45); transition:filter .08s;
   }
-  .kettle .lbl{position:absolute; bottom:-1.45em; color:var(--text); font-size:.95rem;}
+  .kettle .lbl{position:absolute; bottom:-1.45em; left:0; right:0; text-align:center; color:var(--text); font-size:.95rem;}
+  .rowlbl{text-align:center; font-size:.7rem; color:var(--sub); margin-bottom:-14px;}
   .gongs{display:flex; flex-wrap:wrap; justify-content:center; align-items:flex-end; gap:18px 14px; padding:6px 4px 20px;}
   .ggroup{display:flex; flex-direction:column; align-items:center; gap:6px;}
-  .ggroup .gname{font-size:.75rem; color:var(--sub);}
+  .ggroup .gname{font-size:.75rem; color:var(--sub); margin-top:14px; text-align:center;}
   .ggroup .gset{display:flex; gap:8px; flex-wrap:wrap; justify-content:center;}
   .gong{
-    border-radius:50%; cursor:pointer; position:relative; transition:filter .08s;
+    border-radius:50%; cursor:pointer; position:relative; transition:filter .08s; max-width:100%;
     background:radial-gradient(circle at 50% 50%, var(--bronze1) 0 12%, var(--bronze3) 14%, #8c6420 22%, #c39a45 45%, #8c6420 70%, #3d2709 100%);
     box-shadow:0 4px 10px rgba(0,0,0,.55);
   }
-  .gong.ageng{width:clamp(130px,34vw,200px); aspect-ratio:1;}
-  .gong.kempul{width:clamp(56px,14vw,80px); aspect-ratio:1;}
-  .gong.small{width:clamp(48px,12vw,66px); aspect-ratio:1;}
+  .gong.ageng{width:clamp(120px,32vw,190px); aspect-ratio:1;}
+  .gong.kempul{width:clamp(54px,13vw,80px); aspect-ratio:1;}
+  .gong.small{width:clamp(46px,12vw,66px); aspect-ratio:1;}
   .gong .lbl{position:absolute; bottom:-1.5em; left:0; right:0; text-align:center; font-size:.9rem;}
+  .gong .in{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:var(--ink); font-weight:800; font-size:.85rem;}
 
-  /* kendhang */
   .kendhang{display:flex; align-items:center; justify-content:center; gap:10px; flex-wrap:wrap;}
   .drumbody{display:flex; align-items:center;}
-  .head{border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; text-align:center; font-weight:800; color:#3b2306; transition:filter .08s;
+  .head{border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; text-align:center; font-weight:800; color:var(--ink); transition:filter .08s; max-width:100%;
     background:radial-gradient(circle,#f1e2c4 0 55%,#d6bf95 70%,#8d6a3d 72%,#5b3a1a 100%); box-shadow:0 4px 10px rgba(0,0,0,.5); font-size:.9rem; line-height:1.2;}
-  .head.big{width:clamp(130px,32vw,180px); aspect-ratio:1;}
-  .head.small{width:clamp(96px,24vw,130px); aspect-ratio:1;}
-  .shell{width:clamp(40px,12vw,90px); height:clamp(90px,22vw,130px); background:linear-gradient(90deg,#5b2210,#9b4a26,#5b2210); clip-path:polygon(0 0,100% 12%,100% 88%,0 100%);}
-  .drumpads{display:flex; gap:8px; justify-content:center; margin-top:14px; flex-wrap:wrap;}
-  .drumpads button{min-width:76px;}
+  .head.big{width:clamp(110px,30vw,170px); aspect-ratio:1;}
+  .head.small{width:clamp(84px,22vw,124px); aspect-ratio:1;}
+  .shell{width:clamp(34px,10vw,80px); height:clamp(80px,20vw,120px); background:linear-gradient(90deg,#5b2210,#9b4a26,#5b2210); clip-path:polygon(0 0,100% 12%,100% 88%,0 100%);}
+  .drumpads{display:flex; gap:8px; justify-content:center; margin-top:12px; flex-wrap:wrap;}
+  .drumpads .pad{min-width:72px; padding:10px 12px; border-radius:10px; background:var(--panel2); border:1px solid var(--line); text-align:center; cursor:pointer; font-weight:700; font-size:.9rem;}
 
-  /* auto-play */
+  /* 自動演奏 */
   .autogrid{display:grid; grid-template-columns:minmax(0,1fr); gap:12px;}
   @media (min-width:820px){ .autogrid{grid-template-columns:340px minmax(0,1fr);} }
   .cyclebox{display:flex; flex-direction:column; align-items:center;}
@@ -137,54 +142,135 @@
   .balungan{display:grid; grid-template-columns:repeat(auto-fill,minmax(118px,1fr)); gap:6px;}
   .gatra{display:flex; justify-content:space-around; background:var(--panel2); border:1px solid var(--line); border-radius:8px; padding:8px 4px 10px; font-size:1.25rem;}
   .gatra .cell{position:relative; width:1.4em; text-align:center; border-radius:6px; padding:2px 0 4px;}
-  .gatra .cell.now{background:var(--accent); color:#2a1606;}
-  .gatra .cell .mk{position:absolute; top:-.9em; left:0; right:0; font-size:.5rem; font-weight:700; color:var(--sub); letter-spacing:-.02em;}
+  .gatra .cell.now{background:var(--accent); color:var(--onaccent);}
+  .gatra .cell .mk{position:absolute; top:-.9em; left:0; right:0; font-size:.5rem; font-weight:700; color:var(--sub);}
   .lanes{display:flex; flex-direction:column; gap:4px; margin-top:8px;}
-  .lane{display:grid; grid-template-columns:22px 92px 1fr 46px; align-items:center; gap:6px; background:var(--panel2); border-radius:8px; padding:5px 8px; font-size:.8rem;}
-  .lane .dot{width:14px; height:14px; border-radius:50%; background:#000; opacity:.35; transition:opacity .1s, transform .1s;}
+  .lane{display:grid; grid-template-columns:22px 96px minmax(0,1fr) 54px; align-items:center; gap:6px; background:var(--panel2); border-radius:8px; padding:5px 8px; font-size:.8rem;}
+  .lane .dot{width:14px; height:14px; border-radius:50%; opacity:.35; transition:opacity .1s, transform .1s;}
   .lane .dot.flash{opacity:1; transform:scale(1.3);}
   .lane .role{color:var(--sub); font-size:.7rem; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;}
-  .lane .cur{font-size:1.05rem; text-align:center;}
+  .lane .cur{font-size:.95rem; text-align:center;}
   .lane.off{opacity:.4;}
   .lane input{width:18px; height:18px; accent-color:var(--accent); margin:0;}
   .status{font-size:.85rem; padding:6px 10px; border-radius:8px; background:var(--panel2); display:inline-block;}
   .bigstat{font-size:.78rem; color:var(--sub);}
-  .bigstat b{color:var(--text); font-size:1rem;}
-  .err{color:#ff8f7a; font-size:.8rem;}
+  .bigstat b{color:var(--text); font-size:1rem; font-variant-numeric:tabular-nums;}
+  .err{color:var(--miss); font-size:.8rem;}
 
-  /* learn */
-  .learn p{margin:.35rem 0; font-size:.9rem;}
-  .learn ul{margin:.3rem 0; padding-left:1.2em; font-size:.88rem;}
-  .learn table{border-collapse:collapse; font-size:.82rem; margin:.4rem 0; width:100%;}
-  .learn td,.learn th{border:1px solid var(--line); padding:4px 6px; text-align:left;}
-  .learn th{background:var(--panel2);}
-  .demo{display:flex; flex-wrap:wrap; gap:6px; margin:.4rem 0 .6rem;}
-  .demo button{font-size:.82rem; padding:8px 10px;}
-  .note{font-size:.75rem; color:var(--sub);}
-  .density{font-family:ui-monospace,Menlo,monospace; font-size:.78rem; line-height:1.35; background:var(--panel2); padding:8px; border-radius:8px; overflow-x:auto; white-space:pre;}
-  #unlock{position:fixed; inset:0; background:rgba(15,8,4,.82); z-index:100; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:12px; text-align:center; padding:20px;}
-  #unlock .big{font-size:1.1rem;}
+  /* 楽譜グリッド（楽器ごとのパート） */
+  .scorewrap{overflow-x:auto; margin:6px 0;}
+  table.score{border-collapse:collapse; font-size:.95rem; width:100%;}
+  .score th{text-align:left; font-size:.68rem; color:var(--sub); font-weight:600; padding:2px 6px 2px 0; white-space:nowrap; width:1%;}
+  .score td{border-left:1px solid var(--line); padding:5px 1px 7px; text-align:center;}
+  .score td.g4{border-left:2px solid var(--sub);}
+  .score td.hd{font-size:.62rem; color:var(--sub); padding:0 0 2px; font-variant-numeric:tabular-nums;}
+  .score td.hd .mk{display:block; color:var(--accent); font-weight:800;}
+  .score .slots{display:grid; grid-template-columns:repeat(var(--s),minmax(0,1fr)); align-items:end; min-height:1.3em;}
+  .score .slots span{min-width:0;}
+  .score i{opacity:.25; font-style:normal;}
+  .score td.nowcol{background:var(--nowcol);}
+  .score .ev{border-radius:4px; padding:1px 0 3px; display:inline-block; min-width:1.1em;}
+  .score .ev.small{font-size:.66rem; font-weight:700;}
+  .score .j-good{background:var(--good); color:var(--onaccent);}
+  .score .j-ok{background:var(--ok); color:var(--onaccent);}
+  .score .j-miss,.score .j-wrong{background:var(--miss); color:var(--onaccent);}
+  .score .j-demo{background:var(--accent); color:var(--onaccent);}
+
+  /* 練習ウィジェット */
+  .prac{display:flex; flex-direction:column; gap:8px;}
+  .pmsg{font-size:.88rem; padding:8px 10px; border-radius:8px; background:var(--panel); border:1px solid var(--line); min-height:2.4em;}
+  .pmsg.pass{border-color:var(--good); color:var(--good); font-weight:700;}
+  .pstats{display:flex; gap:12px; flex-wrap:wrap;}
+
+  /* レッスン */
+  .lhead{display:flex; flex-direction:column; gap:8px;}
+  .progress{height:8px; background:var(--panel2); border-radius:99px; overflow:hidden;}
+  .progress i{display:block; height:100%; background:var(--good); width:0; transition:width .3s;}
+  .lchips button{font-size:.78rem; padding:7px 10px;}
+  .lchips button.done::after{content:' ✓'; color:var(--good);}
+  .lchips button.on.done::after{color:var(--onaccent);}
+  .lnum{font-size:.72rem; color:var(--accent); font-weight:800; letter-spacing:.08em;}
+  .lbody{font-size:.93rem; max-width:68ch;}
+  .lbody ul{margin:.3rem 0; padding-left:1.2em;}
+  .lbody table{border-collapse:collapse; font-size:.82rem; margin:.4rem 0;}
+  .lbody td,.lbody th{border:1px solid var(--line); padding:4px 7px; text-align:left;}
+  .lbody th{background:var(--panel2);}
+  .point{border-left:4px solid var(--accent); background:var(--panel2); padding:8px 12px; border-radius:0 8px 8px 0; font-size:.88rem; margin:10px 0;}
+  .point b:first-child{color:var(--accent);}
+  .widget{background:var(--panel2); border:1px solid var(--line); border-radius:12px; padding:12px; margin-top:12px;}
+  .whead{display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:6px;}
+  .whead .wt{font-weight:800; font-size:.9rem;}
+  .pill{font-size:.7rem; padding:2px 9px; border-radius:99px; border:1px solid var(--line); color:var(--sub); white-space:nowrap;}
+  .pill.ok{background:var(--good); color:var(--onaccent); border-color:var(--good); font-weight:800;}
+  .widget .stage{background:var(--panel); }
+  .quiz .opts{display:flex; flex-direction:column; gap:6px; margin-top:6px;}
+  .quiz .opts button{text-align:left;}
+  .quiz .opts button.right{background:var(--good); color:var(--onaccent); border-color:var(--good);}
+  .quiz .opts button.wrong{background:var(--miss); color:var(--onaccent); border-color:var(--miss);}
+  .qexp{font-size:.85rem; margin-top:6px;}
+  .seqrow{display:flex; gap:10px; flex-wrap:wrap; font-size:1.4rem; padding:8px 4px 10px;}
+  .seqrow span{padding:2px 6px; border-radius:6px;}
+  .seqrow span.done{background:var(--good); color:var(--onaccent);}
+  .seqrow span.next{outline:2px solid var(--good);}
+  .lnav{display:flex; justify-content:space-between; gap:8px; margin-top:14px;}
+  .nowp{font-size:.8rem; color:var(--accent); min-height:1.4em; margin-top:6px;}
+
+  /* 楽器のセオリー */
+  .tgroups{display:flex; flex-direction:column; gap:8px;}
+  .tgroup .gl{font-size:.7rem; color:var(--sub); letter-spacing:.06em; margin-bottom:3px;}
+  .tgroup .chips{flex-wrap:wrap; overflow:visible;}
+  .facts{display:grid; grid-template-columns:auto minmax(0,1fr); gap:4px 12px; font-size:.86rem; margin:6px 0 4px;}
+  .facts dt{color:var(--sub); font-size:.78rem; white-space:nowrap;}
+  .facts dd{margin:0;}
+  .theory ul{margin:.3rem 0; padding-left:1.2em; font-size:.9rem;}
+  .theory li{margin:.2rem 0;}
+
+  #unlock{position:fixed; inset:0; background:rgba(15,8,4,.86); z-index:100; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:12px; text-align:center; padding:20px;}
+  #unlock .big{font-size:1.1rem; font-weight:800;}
 </style>
 </head>
 <body>
 
 <div id="unlock">
   <div class="big">🎶 ガムラン・シミュレーター</div>
-  <div class="muted">タップして音を有効にしてください<br>（iPhone はマナーモードを解除すると音が出やすくなります）</div>
+  <div class="muted">タップして音を有効にしてください<br>（iPhone はマナーモードを解除すると音が出やすくなります。<br>大ゴングの低音はイヤホンだとよく聞こえます）</div>
   <button id="unlockBtn">はじめる</button>
 </div>
 
 <h1>🎶 ガムラン・シミュレーター</h1>
-<p class="lead">インドネシアの青銅打楽器アンサンブル「ガムラン」を、スマホ・タブレットで叩いたり、自動演奏させたりして仕組みを体験できます。</p>
+<p class="lead">インドネシアの青銅の合奏音楽「ガムラン」を、順番に学んで、叩いて、合奏できます。</p>
 
-<div class="tabs">
-  <button data-tab="play" class="active">🥢 自由演奏</button>
-  <button data-tab="auto">▶ 自動演奏</button>
-  <button data-tab="learn">📖 しくみ</button>
-</div>
+<nav class="tabs">
+  <button data-tab="lesson" class="active">🎓<br>レッスン</button>
+  <button data-tab="theory">🎼<br>セオリー</button>
+  <button data-tab="play">🥢<br>自由演奏</button>
+  <button data-tab="auto">▶<br>自動演奏</button>
+</nav>
+
+<!-- ============ レッスン ============ -->
+<section id="page-lesson" class="page active">
+  <div class="panel lhead">
+    <div class="row" style="justify-content:space-between;">
+      <span class="muted">はじめての人は1から順番にどうぞ。各レッスンの「やってみよう」をクリアすると ✓ がつきます。</span>
+      <span class="bigstat">クリア <b id="lDone">0</b> / <b id="lTotal">0</b></span>
+    </div>
+    <div class="progress"><i id="lBar"></i></div>
+    <div class="chips lchips" id="lChips"></div>
+  </div>
+  <div class="panel" id="lCard"></div>
+</section>
+
+<!-- ============ 楽器のセオリー ============ -->
+<section id="page-theory" class="page">
+  <div class="panel">
+    <p class="muted" style="margin-top:0">楽器を選ぶと、その楽器の役割・決まりごと（セオリー）・楽譜の例が出ます。「お手本」で聴いて、「一緒に弾く」で合奏の中に入って練習できます。</p>
+    <div class="tgroups" id="tGroups"></div>
+  </div>
+  <div class="panel theory" id="tCard"></div>
+</section>
 
 <!-- ============ 自由演奏 ============ -->
-<section id="page-play" class="page active">
+<section id="page-play" class="page">
   <div class="panel">
     <div class="chips" id="instChips"></div>
     <div class="row" style="margin-top:10px;">
@@ -193,11 +279,11 @@
         <button class="sec" data-laras="pelog">ペロッグ（7音）</button>
       </div>
       <label class="chk"><input type="checkbox" id="dampChk" checked>前の音を止める（ダンプ奏法）</label>
-      <label class="ctl" id="ombakCtl" style="display:none;">オンバ（うなり）<b><input type="range" id="ombakFree" min="0" max="12" step="0.5" value="6"> <span id="ombakFreeV">6</span> Hz</b></label>
+      <label class="ctl" id="ombakCtl" hidden>オンバ（うなり）<b><input type="range" id="ombakFree" min="0" max="12" step="0.5" value="6"> <span id="ombakFreeV">6</span> Hz</b></label>
     </div>
     <p class="instinfo" id="instInfo"></p>
     <div class="stage" id="stage"></div>
-    <p class="note">ヒント：複数の指で同時に叩けます。サロン類は本物と同じく、次の音を叩くと前の音を手で押さえて止めます（ダンプ）。</p>
+    <p class="note">複数の指で同時に叩けます。サロン類は本物と同じく、次の音を叩くと前の音を手で押さえて止めます（ダンプ）。</p>
   </div>
 </section>
 
@@ -217,16 +303,13 @@
     <div class="row" style="margin-top:10px;">
       <button id="startBtn">▶ 開始（ブカ）</button>
       <button class="sec" id="suwukBtn" disabled>⏹ 終わる（スウック）</button>
-      <button class="sec" id="stopBtn" disabled>即停止</button>
-      <label class="ctl">自分で弾く
-        <select id="userPart"><option value="">なし（全部自動）</option><option value="saron">サロン（骨格旋律）</option></select>
-      </label>
+      <button class="sec" id="stopBtn" disabled>すぐ止める</button>
     </div>
     <div class="row" style="margin-top:8px;">
       <span class="status" id="autoStatus">停止中</span>
       <span class="bigstat">周回 <b id="statCycle">0</b></span>
       <span class="bigstat">拍 <b id="statBeat">-</b></span>
-      <span class="bigstat">現在テンポ <b id="statTempo">-</b></span>
+      <span class="bigstat">いまのテンポ <b id="statTempo">-</b></span>
     </div>
   </div>
 
@@ -240,26 +323,19 @@
         <span><i style="background:var(--c-kempul)"></i>P クンプル</span>
         <span><i style="background:var(--c-kethuk)"></i>t クトゥッ</span>
       </div>
-      <p class="note">時計のように一周したら最後にゴングが鳴り、また最初へ。ガムランの音楽はこの「円環する時間」で組み立てられています。</p>
+      <p class="note">時計のように一周すると最後にゴングが鳴り、また最初へ戻ります。ガムランの曲はこの「ぐるぐる回る時間」で組み立てられています。</p>
     </div>
-    <div class="panel">
-      <h2>バルンガン（骨格旋律）</h2>
+    <div class="panel" style="min-width:0">
+      <h2>バルンガン（骨組みの旋律）</h2>
       <div class="balungan" id="balView"></div>
       <h3>楽器ごとの役割（チェックを外すとその楽器が消えます）</h3>
       <div class="lanes" id="lanes"></div>
     </div>
   </div>
 
-  <div class="panel" id="userStagePanel" style="display:none;">
-    <h2>あなたの担当：サロン</h2>
-    <p class="muted">緑に光る鍵盤を拍に合わせて叩きましょう。ゴンガンの針が数字の位置に来たときが叩くタイミングです。</p>
-    <div class="stage" id="userStage" style="min-height:160px;"></div>
-    <div class="row" style="margin-top:8px;"><span class="bigstat">ぴったり <b id="uGood">0</b></span><span class="bigstat">ずれ <b id="uOk">0</b></span><span class="bigstat">ミス <b id="uMiss">0</b></span></div>
-  </div>
-
   <div class="panel">
     <h2>✏️ 自分で曲を書く</h2>
-    <p class="muted">数字＝音、<b>.</b>＝休み（前の音が響き続ける）。低い音は数字の後に <b>,</b>（例 <b>6,</b>）、高い音は <b>'</b>（例 <b>1'</b>）。4音で1グループ（ガトラ）。最後の音がゴングの音になります。</p>
+    <p class="muted">数字＝音、<b>.</b>＝休み。低い音は数字の後に <b>,</b>（例 <b>6,</b>）、高い音は <b>'</b>（例 <b>1'</b>）。4音で1まとまり（ガトラ）。最後の音がゴングの音になります。</p>
     <textarea id="customBal">2 1 2 6,  2 1 2 6,  3 5 6 5  3 2 1 6,</textarea>
     <div class="row" style="margin-top:8px;">
       <label class="ctl">形式
@@ -268,7 +344,7 @@
           <option value="ketawang">クタワン（16拍）</option>
           <option value="ladrang">ラドラン（32拍）</option>
           <option value="bali">バリ風（16/32拍・コテカン）</option>
-          <option value="free">自由（長さ自由・8拍以上）</option>
+          <option value="free">自由（8拍以上・4の倍数）</option>
         </select>
       </label>
       <label class="ctl">音階
@@ -278,350 +354,30 @@
       <button id="applyCustom">この曲を使う</button>
     </div>
     <div class="err" id="customErr"></div>
-    <div class="row" style="margin-top:8px;" id="ombakAutoRow">
+    <div class="row" style="margin-top:8px;">
       <label class="ctl">バリ風のオンバ（うなり）<b><input type="range" id="ombakAuto" min="0" max="12" step="0.5" value="6"> <span id="ombakAutoV">6</span> Hz</b></label>
     </div>
   </div>
-</section>
-
-<!-- ============ しくみ ============ -->
-<section id="page-learn" class="page">
-  <div class="panel learn">
-    <h2>📖 ガムラン演奏のしくみ</h2>
-    <p>ガムランはインドネシア（ジャワ島・バリ島）の合奏音楽で、青銅の鍵盤打楽器・ゴング・太鼓などで演奏します。このアプリはジャワのガムランの基本構造をもとに、バリ風の奏法（コテカン）も体験できるようにしています。ボタンを押すと実際の音で確認できます。</p>
-
-    <h3>① 2つの音階（ララス）</h3>
-    <p><b>スレンドロ</b>は1オクターブをほぼ均等に5つに分けた音階、<b>ペロッグ</b>は広い音程と狭い音程が混ざった7音の音階です。西洋のドレミとは音の高さが少しずつ違い、しかも楽団ごとに調律が異なります（このアプリでは代表的な値を使っています）。</p>
-    <div class="demo">
-      <button class="sec" data-demo="scaleS">スレンドロを聴く</button>
-      <button class="sec" data-demo="scaleP">ペロッグを聴く</button>
-      <button class="sec" data-demo="scaleW">比較：ドレミ（平均律）</button>
-    </div>
-    <table>
-      <tr><th>数字</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th></tr>
-      <tr><td>読み方</td><td>ji</td><td>ro</td><td>lu</td><td>pat</td><td>mo</td><td>nem</td><td>pi</td></tr>
-      <tr><td>スレンドロ</td><td>○</td><td>○</td><td>○</td><td>－</td><td>○</td><td>○</td><td>－</td></tr>
-      <tr><td>ペロッグ</td><td>○</td><td>○</td><td>○</td><td>○</td><td>○</td><td>○</td><td>○</td></tr>
-    </table>
-    <p class="note">楽譜は数字で書く「クパティハン譜」。数字の下の点＝低い音、上の点＝高い音、「.」＝休み。</p>
-
-    <h3>② バルンガン（骨格旋律）</h3>
-    <p>曲の「背骨」になる旋律で、サロン・デムン・スレンテムが一定の拍で叩きます。4音ずつのまとまりを<b>ガトラ</b>と呼び、ガトラの<b>最後の音が一番重要</b>（強拍は後ろ）というのが西洋音楽と逆の大きな特徴です。</p>
-
-    <h3>③ コロトミー構造（ゴングが時間を区切る）</h3>
-    <p>大小のゴングが決まった拍で鳴り、音楽の周期（<b>ゴンガン</b>）を区切ります。一番大きな<b>ゴン・アグン</b>が周期の終わり＝始まりを告げ、その間を<b>クノン</b>・<b>クンプル</b>・<b>クトゥッ</b>・<b>クンピャン</b>がさらに細かく区切ります。</p>
-    <table>
-      <tr><th>形式</th><th>1周の拍数</th><th>クノン</th><th>クンプル</th><th>ゴング</th></tr>
-      <tr><td>ランチャラン</td><td>16</td><td>4拍ごと</td><td>6・10・14拍目</td><td>16拍目</td></tr>
-      <tr><td>クタワン</td><td>16</td><td>8・16拍目</td><td>12拍目</td><td>16拍目</td></tr>
-      <tr><td>ラドラン</td><td>32</td><td>8拍ごと</td><td>12・20・28拍目</td><td>32拍目</td></tr>
-    </table>
-    <div class="demo">
-      <button class="sec" data-demo="colo">ゴング類だけで1周を聴く（ランチャラン）</button>
-      <button class="sec" data-demo="gong">ゴン・アグンの「うなり」を聴く</button>
-    </div>
-
-    <h3>④ 密度の層（上の楽器ほど細かく速い）</h3>
-    <p>同じ骨格旋律を、楽器ごとに違う細かさで同時に演奏します。低く大きい楽器はゆっくり、高く小さい楽器ほど速く装飾します。全員が同じ旋律の「別の姿」を演奏しているのです。</p>
-    <div class="density" id="densityChart"></div>
-    <div class="demo">
-      <button class="sec" data-demo="layers">層を1つずつ重ねて聴く</button>
-    </div>
-
-    <h3>⑤ イラマ（テンポと密度の関係）</h3>
-    <p>テンポが遅くなると、装飾楽器は1拍に入れる音数を<b>2倍</b>に増やします。これを<b>イラマ</b>の変化と呼びます。自動演奏で「イラマ II」を押すと、バルンガンがゆっくりになり、ペキンやボナンが細かくなる様子が聴けます。</p>
-
-    <h3>⑥ クンダン（太鼓）が指揮者</h3>
-    <p>ガムランには指揮者がいません。太鼓<b>クンダン</b>の奏者がテンポの加速・減速や曲の終わり（<b>スウック</b>）を合図します。曲の始まりは1人の奏者が弾く短い前奏<b>ブカ</b>から始まり、ゴングで全員が入ります。</p>
-
-    <h3>⑦ ダンプ奏法</h3>
-    <p>サロンは右手のバチで叩きながら、<b>左手で直前に叩いた鍵盤をつまんで響きを止めます</b>。これで音が濁らず旋律がはっきり聞こえます。自由演奏の「前の音を止める」をオン／オフして違いを聴いてみてください。</p>
-
-    <h3>⑧ バリのコテカンとオンバ</h3>
-    <p>バリのガムランでは、2人の奏者（<b>ポロス</b>と<b>サンシ</b>）が音を交互にかみ合わせて、1人では弾けない高速の旋律を作ります（<b>コテカン</b>）。また楽器は2台1組で、片方をわずかに高く調律してあり、同時に鳴ると「ワンワン」とうなる<b>オンバ</b>（波）が生まれます。</p>
-    <div class="demo">
-      <button class="sec" data-demo="kotekan">コテカンを分解して聴く</button>
-      <button class="sec" data-demo="ombak0">オンバなし</button>
-      <button class="sec" data-demo="ombak6">オンバあり（6Hz）</button>
-    </div>
-    <p class="note">※ このアプリの音は Web Audio による合成音、収録曲は仕組みを学ぶための練習用オリジナル旋律、装飾パターンは実際の奏法を簡略化したものです。本物の演奏はもっと多彩です。</p>
-  </div>
+  <p class="note">※ 音は Web Audio による合成音です。収録曲は仕組みを学ぶための練習用オリジナル旋律で、装飾パターンは実際の奏法を簡単にしたものです。</p>
 </section>
 
 <script>
 'use strict';
+const $ = s => document.querySelector(s);
+
 /* =========================================================
- *  基本データ：音階（ララス）
+ *  1. 基本データ：音階・楽譜・形式
  * ========================================================= */
 const LARAS = {
   slendro: { name:'スレンドロ', notes:[1,2,3,5,6], cents:{1:0,2:231,3:474,5:717,6:955} },
   pelog:   { name:'ペロッグ',   notes:[1,2,3,4,5,6,7], cents:{1:0,2:120,3:270,4:540,5:670,6:785,7:950} },
 };
-const BASE = 268; // 「1」(デムンの音域) の周波数
+const BASE = 268; // 「1」(デムンの音域) の周波数 Hz
 function freqOf(laras, d, o){ return BASE * Math.pow(2, o + LARAS[laras].cents[d]/1200); }
-// 音階上の通し番号 <-> 音
-function stepOf(laras, d, o){ const ns = LARAS[laras].notes; return o*ns.length + ns.indexOf(d); }
-function noteOfStep(laras, s){ const ns = LARAS[laras].notes, L = ns.length; const o = Math.floor(s/L); return {d:ns[((s%L)+L)%L], o}; }
-
 function noteHTML(d, o, extra=''){
-  if (d === 0) return `<span class="n rest ${extra}">·</span>`;
+  if (!d) return `<span class="n rest ${extra}">·</span>`;
   return `<span class="n ${o<0?'lo':''} ${o>0?'hi':''} ${extra}">${d}</span>`;
 }
-
-/* =========================================================
- *  オーディオエンジン（Web Audio 合成）
- * ========================================================= */
-let ctx = null, bus = null, noiseBuf = null;
-function initAudio(){
-  if (ctx) { if (ctx.state !== 'running') ctx.resume(); return; }
-  try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch(e){}
-  ctx = new (window.AudioContext || window.webkitAudioContext)();
-  const comp = ctx.createDynamicsCompressor();
-  comp.threshold.value = -16; comp.ratio.value = 4; comp.attack.value = 0.004; comp.release.value = 0.25;
-  const master = ctx.createGain(); master.gain.value = 0.9;
-  bus = ctx.createGain(); bus.gain.value = 0.55;
-  // 残響（伝統的な東屋「プンドポ」をイメージ）
-  const conv = ctx.createConvolver();
-  const len = Math.floor(ctx.sampleRate * 2.4), ir = ctx.createBuffer(2, len, ctx.sampleRate);
-  for (let c=0;c<2;c++){ const d = ir.getChannelData(c); for (let i=0;i<len;i++) d[i] = (Math.random()*2-1) * Math.pow(1 - i/len, 3.2); }
-  conv.buffer = ir;
-  const wet = ctx.createGain(); wet.gain.value = 0.22;
-  bus.connect(comp); bus.connect(conv); conv.connect(wet); wet.connect(comp);
-  comp.connect(master); master.connect(ctx.destination);
-  noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
-  const nd = noiseBuf.getChannelData(0); for (let i=0;i<nd.length;i++) nd[i] = Math.random()*2-1;
-  // iOS のロック解除用に無音を鳴らす
-  const s = ctx.createBufferSource(); s.buffer = ctx.createBuffer(1,1,22050); s.connect(ctx.destination); s.start(0);
-}
-
-// 部分音を重ねて1音を作る。partials: [倍率, 音量, 減衰秒, (加算Hz)]
-function voice(freq, t, vel, partials, opt={}){
-  const out = ctx.createGain(); out.gain.value = 1; // ダンプ用
-  out.connect(bus);
-  let maxEnd = t;
-  const atk = opt.attack ?? 0.003;
-  for (const [r, a, dec, addHz] of partials){
-    const f = freq*r + (addHz||0);
-    if (f > 16000 || f < 20) continue;
-    const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(f, t);
-    if (opt.bend) o.frequency.exponentialRampToValueAtTime(f*opt.bend, t + (opt.bendTime||0.15));
-    const g = ctx.createGain();
-    g.gain.setValueAtTime(0.0001, t);
-    g.gain.linearRampToValueAtTime(Math.max(0.0002, a*vel), t + atk);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + atk + dec);
-    o.connect(g); g.connect(out);
-    o.start(t); o.stop(t + atk + dec + 0.05);
-    maxEnd = Math.max(maxEnd, t + atk + dec);
-  }
-  if (opt.click){ // バチが当たる瞬間の雑音
-    const n = ctx.createBufferSource(); n.buffer = noiseBuf;
-    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = opt.click.f; bp.Q.value = opt.click.q || 1.2;
-    const g = ctx.createGain();
-    g.gain.setValueAtTime(opt.click.a*vel, t); g.gain.exponentialRampToValueAtTime(0.0001, t + opt.click.d);
-    n.connect(bp); bp.connect(g); g.connect(out);
-    n.start(t, Math.random()*0.5); n.stop(t + opt.click.d + 0.02);
-  }
-  return { damp(at){ const tt = Math.max(at, ctx.currentTime); out.gain.setTargetAtTime(0, tt, 0.025); } };
-}
-
-const SYNTH = {
-  bar(f, t, v, dec){ // サロン・デムン・ペキン
-    return voice(f, t, v, [[1,0.55,dec],[1,0.18,dec*0.9,1.2],[2.76,0.16,dec*0.3],[5.4,0.06,dec*0.12]],
-      {click:{f:Math.min(f*4,7000), a:0.12, d:0.03}});
-  },
-  slenthem(f, t, v){ // 筒の共鳴で柔らかく長い
-    return voice(f, t, v, [[1,0.7,4.5],[1,0.2,4,0.8],[2,0.18,2],[3,0.07,1],[4,0.05,0.6]], {attack:0.012, click:{f:800,a:0.04,d:0.03}});
-  },
-  kettle(f, t, v, dec=1.4){ // ボナン（こぶ付きの小さな壺型ゴング）
-    return voice(f, t, v, [[1,0.5,dec],[1,0.15,dec,1.5],[2.02,0.18,dec*0.5],[2.96,0.14,dec*0.35],[4.17,0.07,dec*0.2]],
-      {attack:0.004, click:{f:2000, a:0.06, d:0.02}});
-  },
-  kempul(f, t, v){ // 吊るしゴング（中）
-    return voice(f, t, v, [[1,0.55,4.5],[1,0.4,4.5,1.6],[2,0.35,3],[2,0.2,3,2.2],[3.01,0.2,2],[4.1,0.12,1.3],[5.2,0.07,0.9]], {attack:0.008});
-  },
-  kenong(f, t, v){ // 大きな壺型ゴング
-    return voice(f, t, v, [[1,0.55,3.6],[1,0.3,3.6,1.3],[2.01,0.25,2],[3.02,0.12,1.2],[4.05,0.05,0.7]], {attack:0.006, click:{f:1500,a:0.03,d:0.02}});
-  },
-  gong(t, v, ombak=1.8){ // ゴン・アグン：低音は小さいスピーカーで聞こえにくいので倍音も強めに
-    const f = 46;
-    return voice(f, t, v, [[1,0.9,9],[1,0.6,9,ombak],[2,0.5,7],[2,0.35,7,ombak*1.3],[2.93,0.3,5],[4.1,0.22,4],[4.1,0.15,4,ombak],[5.3,0.14,3],[6.6,0.08,2.4],[8.9,0.04,1.6]],
-      {attack:0.05, click:{f:300,a:0.08,d:0.12,q:0.8}});
-  },
-  kethuk(f, t, v){ // すぐ手で止める鈍い音
-    return voice(f, t, v, [[1,0.6,0.22],[2.1,0.18,0.08],[3.3,0.06,0.05]], {attack:0.002, click:{f:900,a:0.12,d:0.05}});
-  },
-  kempyang(f, t, v){
-    return voice(f, t, v, [[1,0.4,0.28],[2.6,0.12,0.1]], {attack:0.002, click:{f:3000,a:0.06,d:0.03}});
-  },
-  kajar(t, v){ return voice(620, t, v, [[1,0.5,0.12],[2.3,0.15,0.06]], {attack:0.001, click:{f:2500,a:0.1,d:0.03}}); },
-  ceng(t, v){
-    const out = ctx.createGain(); out.connect(bus);
-    const n = ctx.createBufferSource(); n.buffer = noiseBuf;
-    const hp = ctx.createBiquadFilter(); hp.type='highpass'; hp.frequency.value = 5200;
-    out.gain.setValueAtTime(0.25*v, t); out.gain.exponentialRampToValueAtTime(0.0001, t+0.09);
-    n.connect(hp); hp.connect(out); n.start(t, Math.random()*0.5); n.stop(t+0.12);
-  },
-  // クンダン（太鼓）
-  drum(kind, t, v){
-    switch(kind){
-      case 'D': // dhung 低い大きな音
-        voice(150, t, v, [[1,0.9,0.55],[1.5,0.2,0.2]], {attack:0.002, bend:0.6, bendTime:0.18, click:{f:300,a:0.25,d:0.05,q:0.7}}); break;
-      case 'P': // thung 中くらいの響く音
-        voice(290, t, v, [[1,0.6,0.32],[1.6,0.15,0.12]], {attack:0.002, bend:0.92, click:{f:700,a:0.12,d:0.03}}); break;
-      case 't': // tak 平手で叩く乾いた音
-        voice(420, t, v, [[1,0.18,0.05]], {attack:0.001, click:{f:1900,a:0.9,d:0.06,q:0.9}}); break;
-      case 'L': // dlang 両面
-        voice(150, t, v*0.7, [[1,0.8,0.45]], {attack:0.002, bend:0.65, click:{f:1700,a:0.6,d:0.05}}); break;
-      case 'k': // ket 小さく止める音
-        voice(500, t, v, [[1,0.08,0.03]], {attack:0.001, click:{f:1100,a:0.35,d:0.03}}); break;
-    }
-  },
-};
-
-/* =========================================================
- *  楽器の定義
- * ========================================================= */
-// 鍵盤のならび（記譜上のオクターブ）
-function barKeys(laras){
-  return laras==='slendro'
-    ? [[6,-1],[1,0],[2,0],[3,0],[5,0],[6,0],[1,1]]
-    : [[1,0],[2,0],[3,0],[4,0],[5,0],[6,0],[7,0]];
-}
-const INST = {
-  saron:   {name:'サロン',   kind:'bar', oct:1, dec:2.0, info:'中音の鍵盤。バルンガン（骨格旋律）を1拍に1音ずつ叩く中心的な楽器。'},
-  demung:  {name:'デムン',   kind:'bar', oct:0, dec:3.0, info:'サロンより1オクターブ低い大型の鍵盤。同じくバルンガンを演奏。'},
-  peking:  {name:'ペキン',   kind:'bar', oct:2, dec:1.4, info:'一番高い小型の鍵盤。バルンガンを2倍・4倍の細かさで先取りして叩く。'},
-  slenthem:{name:'スレンテム', kind:'slenthem', oct:-1, info:'竹筒の共鳴管の上に薄い鍵盤が吊られた低音楽器。柔らかく長く響く。'},
-  bonang:  {name:'ボナン',   kind:'kettle', info:'小さな壺型ゴングを2列に並べた楽器。旋律を先取りして装飾し、合奏をリードする。'},
-  gongs:   {name:'ゴング類', kind:'gongs', info:'大ゴング（ゴン・アグン）、クンプル、クノン、クトゥッ、クンピャン。曲の周期を区切る。'},
-  kendhang:{name:'クンダン', kind:'drum', info:'両面太鼓。指揮者の役割で、テンポや終わりの合図を出す。大きい面＝低いドゥン、小さい面＝タッ。'},
-  gangsa:  {name:'ガンサ（バリ）', kind:'gangsa', oct:1, info:'バリの鍵盤楽器。2台1組でわずかに調律をずらし「オンバ（うなり）」を生む。10鍵・5音階。'},
-};
-
-let ombakHz = 6;
-function playBar(inst, laras, d, o, t, v=1){
-  const def = INST[inst];
-  const f = freqOf(laras, d, o + (def.oct||0));
-  if (inst === 'slenthem') return SYNTH.slenthem(f, t, v);
-  if (inst === 'gangsa'){
-    const a = SYNTH.bar(f, t, v*0.75, 1.6), b = SYNTH.bar(f + ombakHz, t, v*0.75, 1.6); // ペンゴンバン＋ペンギセップ
-    return { damp(x){ a.damp(x); b.damp(x); } };
-  }
-  return SYNTH.bar(f, t, v, def.dec);
-}
-
-/* =========================================================
- *  自由演奏
- * ========================================================= */
-let freeInst = 'saron', freeLaras = 'slendro';
-const lastHandle = {}; // ダンプ用：楽器ごとの直前の音
-const stageEl = document.getElementById('stage');
-
-function flashEl(el, ms=140){ el.classList.add('hit'); clearTimeout(el._t); el._t = setTimeout(()=>el.classList.remove('hit'), ms); }
-
-function buildBarRow(container, inst, laras, keys, attrs=''){
-  const L = keys.length;
-  container.innerHTML = `<div class="rancak">${keys.map(([d,o],i)=>{
-    const h = 150 - i*(50/Math.max(1,L-1));
-    return `<div class="bar ${inst==='slenthem'?'slenthem':''}" data-d="${d}" data-o="${o}" style="height:${h}px">${noteHTML(d,o)}</div>`;
-  }).join('')}</div>`;
-}
-
-function gangsaKeys(laras){
-  const ns = laras==='slendro' ? [1,2,3,5,6] : [1,2,3,5,6]; // バリのペロッグ（スリシル）風に5音を使う
-  const ks = []; ks.push([ns[3],-1],[ns[4],-1]); for (const d of ns) ks.push([d,0]); ks.push([ns[0],1],[ns[1],1],[ns[2],1]);
-  return ks;
-}
-
-function renderStage(){
-  const def = INST[freeInst];
-  document.getElementById('instInfo').textContent = def.info;
-  document.getElementById('ombakCtl').style.display = freeInst==='gangsa' ? '' : 'none';
-  const ns = LARAS[freeLaras].notes;
-  if (def.kind==='bar' || def.kind==='slenthem'){
-    buildBarRow(stageEl, freeInst, freeLaras, barKeys(freeLaras));
-  } else if (def.kind==='gangsa'){
-    buildBarRow(stageEl, 'gangsa', freeLaras, gangsaKeys(freeLaras));
-  } else if (def.kind==='kettle'){
-    const row = o => `<div class="krow">${ns.map(d=>`<div class="kettle" data-d="${d}" data-o="${o}"><span class="lbl">${noteHTML(d,o)}</span></div>`).join('')}</div>`;
-    stageEl.innerHTML = `<div class="bonangframe"><div class="muted" style="text-align:center">高い列</div>${row(1)}<div style="height:10px"></div>${row(0)}<div class="muted" style="text-align:center;margin-top:12px">低い列</div></div>`;
-  } else if (def.kind==='gongs'){
-    const kset = (cls, name) => `<div class="ggroup"><div class="gset">${ns.map(d=>`<div class="gong ${cls==='kempul'?'kempul':'small'}" data-g="${cls}" data-d="${d}"><span class="lbl">${noteHTML(d,0)}</span></div>`).join('')}</div><div class="gname" style="margin-top:14px">${name}</div></div>`;
-    stageEl.innerHTML = `<div class="gongs">
-      <div class="ggroup"><div class="gong ageng" data-g="gong"></div><div class="gname">ゴン・アグン（大ゴング）</div></div>
-      ${kset('kempul','クンプル（吊りゴング）')}
-      ${kset('kenong','クノン（大きな壺型）')}
-      <div class="ggroup"><div class="gset"><div class="gong small" data-g="kethuk"><span class="lbl">t</span></div><div class="gong small" data-g="kempyang" style="width:40px"><span class="lbl">p</span></div></div><div class="gname" style="margin-top:14px">クトゥッ／クンピャン</div></div>
-    </div>`;
-  } else if (def.kind==='drum'){
-    stageEl.innerHTML = `<div class="kendhang">
-      <div class="drumbody"><div class="head big" data-k="D">ドゥン<br><small>dhung</small></div><div class="shell"></div><div class="head small" data-k="t">タッ<br><small>tak</small></div></div>
-    </div>
-    <div class="drumpads"><button class="sec" data-k="P">トゥン thung</button><button class="sec" data-k="L">ドラン dlang</button><button class="sec" data-k="k">ケッ ket</button></div>`;
-  }
-}
-
-function triggerFree(el){
-  initAudio();
-  const t = ctx.currentTime + 0.005;
-  const def = INST[freeInst];
-  const damp = document.getElementById('dampChk').checked;
-  if (el.dataset.k){ SYNTH.drum(el.dataset.k, t, 1); flashEl(el); return; }
-  if (el.dataset.g){
-    const g = el.dataset.g, d = +el.dataset.d;
-    if (g==='gong') SYNTH.gong(t, 1);
-    else if (g==='kempul') SYNTH.kempul(freqOf(freeLaras, d, -1), t, 1);
-    else if (g==='kenong') SYNTH.kenong(freqOf(freeLaras, d, 0), t, 1);
-    else if (g==='kethuk') SYNTH.kethuk(freqOf(freeLaras, 2, -1), t, 1);
-    else if (g==='kempyang') SYNTH.kempyang(freqOf(freeLaras, 6, 1)*1.5, t, 1);
-    flashEl(el, 220); return;
-  }
-  const d = +el.dataset.d, o = +el.dataset.o;
-  let h;
-  if (def.kind==='kettle') h = SYNTH.kettle(freqOf(freeLaras, d, o), t, 1);
-  else h = playBar(freeInst, freeLaras, d, o, t, 1);
-  if (damp && def.kind!=='kettle' && lastHandle[freeInst]) lastHandle[freeInst].damp(t);
-  lastHandle[freeInst] = h;
-  flashEl(el);
-}
-
-stageEl.addEventListener('pointerdown', e=>{
-  const el = e.target.closest('[data-d],[data-k],[data-g]');
-  if (!el) return;
-  e.preventDefault();
-  triggerFree(el);
-});
-
-function buildChips(){
-  const c = document.getElementById('instChips');
-  c.innerHTML = Object.entries(INST).map(([k,v])=>`<button class="sec ${k===freeInst?'on':''}" data-inst="${k}">${v.name}</button>`).join('');
-  c.onclick = e => { const b = e.target.closest('[data-inst]'); if(!b) return; freeInst = b.dataset.inst; buildChips(); renderStage(); };
-}
-document.getElementById('larasSel').addEventListener('click', e=>{
-  const b = e.target.closest('[data-laras]'); if(!b) return;
-  freeLaras = b.dataset.laras;
-  document.querySelectorAll('#larasSel button').forEach(x=>x.classList.toggle('on', x===b));
-  renderStage();
-});
-const ombakFree = document.getElementById('ombakFree');
-ombakFree.oninput = () => { ombakHz = +ombakFree.value; document.getElementById('ombakFreeV').textContent = ombakFree.value; syncOmbak(); };
-
-/* =========================================================
- *  曲データ（練習用オリジナル）
- * ========================================================= */
-const PIECES = [
-  {name:'ランチャラン「はじめの一歩」（スレンドロ）', laras:'slendro', form:'lancaran', tempo:72,
-   bal:'6, 1 2 3  6, 1 2 3  5 6 5 3  2 1 2 6,'},
-  {name:'クタワン「月のしずく」（ペロッグ）', laras:'pelog', form:'ketawang', tempo:56,
-   bal:'3 5 6 7  6 5 3 2  5 3 2 1  2 3 2 1'},
-  {name:'ラドラン「ゆるやかな川」（スレンドロ）', laras:'slendro', form:'ladrang', tempo:52,
-   bal:'2 1 2 6,  2 1 2 6,  3 5 6 5  3 2 1 2  . . 2 3  5 6 5 3  6 5 3 2  5 3 2 1'},
-  {name:'バリ風「火の鳥」コテカン（ペロッグ）', laras:'pelog', form:'bali', tempo:84,
-   bal:'1 2 3 1  2 3 5 3  6 5 3 2  3 5 3 1'},
-  {name:'バリ風「波」コテカン（スレンドロ）', laras:'slendro', form:'bali', tempo:90,
-   bal:'3 5 6 5  3 2 1 2  3 5 3 2  1 2 1 6,'},
-];
-
 function parseBal(str){
   const out = []; const s = str.replace(/[，、]/g,',').replace(/[’‘`]/g,"'");
   for (let i=0;i<s.length;i++){
@@ -635,11 +391,27 @@ function parseBal(str){
   }
   return out;
 }
-
+// 楽器の鍵盤（記譜上のオクターブ）
+function barKeys(laras){
+  return laras==='slendro' ? [[6,-1],[1,0],[2,0],[3,0],[5,0],[6,0],[1,1]] : [[1,0],[2,0],[3,0],[4,0],[5,0],[6,0],[7,0]];
+}
+const BALI5 = [1,2,3,5,6]; // バリ風は5音（ペロッグはスリシル風に 1 2 3 5 6）
+function gangsaKeys(){ const ns = BALI5; return [[ns[3],-1],[ns[4],-1], ...ns.map(d=>[d,0]), [ns[0],1],[ns[1],1],[ns[2],1]]; }
+function calungKeys(){ return [...BALI5.map(d=>[d,-1]), ...BALI5.map(d=>[d,0])]; }
+function clampToKeys(n, keys){
+  let best = null, bd = 99;
+  for (const [d,o] of keys) if (d===n.d){ const dd = Math.abs(o-n.o); if (dd<bd){bd=dd; best={d,o};} }
+  return best || n;
+}
+function balinote(laras, n){ if (laras!=='pelog') return n; if (n.d===4) return {d:3,o:n.o}; if (n.d===7) return {d:6,o:n.o}; return n; }
+function resolvedIn(bal, b){ // 休み(.)の拍は直前に鳴った音が「響いている音」
+  const N = bal.length;
+  for (let k=0;k<N;k++){ const i = ((b-1-k)%N+N)%N; if (bal[i].d) return bal[i]; }
+  return {d:1,o:0};
+}
 /* コロトミー（ゴングの配置）。拍は1始まり、最後の拍がゴング */
 function colotomy(form, N){
-  const m = {};
-  const add = (b, k) => { (m[b] ||= []).push(k); };
+  const m = {}; const add = (b, k) => { (m[b] ||= []).push(k); };
   if (form==='lancaran' && N===16){
     for (let b=1;b<=15;b+=2) add(b,'t');
     [4,8,12,16].forEach(b=>add(b,'N')); [6,10,14].forEach(b=>add(b,'P'));
@@ -650,9 +422,9 @@ function colotomy(form, N){
     for (let b=1;b<=31;b+=2) add(b,'p');
     for (let b=2;b<=30;b+=4) add(b,'t'); [8,16,24,32].forEach(b=>add(b,'N')); [12,20,28].forEach(b=>add(b,'P'));
   } else if (form==='bali'){
-    for (let b=1;b<=N;b++) add(b,'j'); // カジャール（拍打ち）
+    for (let b=1;b<=N;b++) add(b,'j');
     add(N/2,'P'); add(N/4,'N'); add(3*N/4,'N');
-  } else { // 自由：4分割
+  } else {
     const q = Math.max(1, Math.round(N/4));
     for (let b=1;b<=N;b+=2) add(b,'t');
     for (let k=1;k<=4;k++) add(Math.min(N, k*q),'N');
@@ -661,316 +433,569 @@ function colotomy(form, N){
   add(N,'G');
   return m;
 }
+const FORM_NAME = {lancaran:'ランチャラン', ketawang:'クタワン', ladrang:'ラドラン', bali:'バリ風', free:'自由形式'};
+
+const PIECES = [
+  {name:'ランチャラン「はじめの一歩」（スレンドロ）', laras:'slendro', form:'lancaran', tempo:72,
+   bal:'6, 1 2 3  6, 1 2 3  5 6 5 3  2 1 2 6,'},
+  {name:'クタワン「月のしずく」（ペロッグ）', laras:'pelog', form:'ketawang', tempo:56,
+   bal:'3 5 6 7  6 5 3 2  5 3 2 1  2 3 2 1'},
+  {name:'ラドラン「ゆるやかな川」（スレンドロ）', laras:'slendro', form:'ladrang', tempo:52,
+   bal:'2 1 2 6,  2 1 2 6,  3 5 6 5  3 2 1 2  . . 2 3  5 6 5 3  6 5 3 2  5 3 2 1'},
+  {name:'バリ風「火の鳥」コテカン（ペロッグ）', laras:'pelog', form:'bali', tempo:84,
+   bal:'1 2 3 1  2 3 5 3  6 5 3 2  3 5 3 1'},
+  {name:'バリ風「波」コテカン（スレンドロ）', laras:'slendro', form:'bali', tempo:90,
+   bal:'3 5 6 5  3 2 1 2  3 5 3 2  1 2 1 6,'},
+];
 
 /* =========================================================
- *  自動演奏エンジン
+ *  2. オーディオエンジン（Web Audio による合成）
  * ========================================================= */
-const TPB = 8; // 1拍を8分割したティックで管理
+let ctx = null, bus = null, noiseBuf = null;
+function initAudio(){
+  if (ctx) { if (ctx.state !== 'running') ctx.resume(); return; }
+  try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch(e){}
+  ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const comp = ctx.createDynamicsCompressor();
+  comp.threshold.value = -18; comp.knee.value = 12; comp.ratio.value = 3.5; comp.attack.value = 0.005; comp.release.value = 0.3;
+  const shelf = ctx.createBiquadFilter(); shelf.type = 'highshelf'; shelf.frequency.value = 6500; shelf.gain.value = -4; // 耳に痛い高音を少し抑える
+  const master = ctx.createGain(); master.gain.value = 0.95;
+  bus = ctx.createGain(); bus.gain.value = 0.5;
+  // 残響：屋根だけの東屋「プンドポ」をイメージ（初期反射＋柔らかい残響）
+  const pre = ctx.createDelay(0.1); pre.delayTime.value = 0.018;
+  const conv = ctx.createConvolver(); conv.buffer = makeIR(2.6);
+  const wet = ctx.createGain(); wet.gain.value = 0.24;
+  bus.connect(comp); bus.connect(pre); pre.connect(conv); conv.connect(wet); wet.connect(comp);
+  comp.connect(shelf); shelf.connect(master); master.connect(ctx.destination);
+  noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
+  const nd = noiseBuf.getChannelData(0); for (let i=0;i<nd.length;i++) nd[i] = Math.random()*2-1;
+  const s = ctx.createBufferSource(); s.buffer = ctx.createBuffer(1,1,22050); s.connect(ctx.destination); s.start(0);
+}
+function makeIR(sec){
+  const sr = ctx.sampleRate, len = Math.floor(sr*sec), ir = ctx.createBuffer(2, len, sr);
+  const taps = [0.011,0.019,0.027,0.036,0.048,0.061];
+  for (let c=0;c<2;c++){
+    const d = ir.getChannelData(c); let lp = 0;
+    for (let i=0;i<len;i++){
+      const x = i/len;
+      const k = 0.15 + 0.8*x; // 後ろほど高音が減る（空気による吸収）
+      lp = lp + (1-k)*((Math.random()*2-1) - lp);
+      d[i] = lp * Math.pow(1-x, 3.0) * 0.9;
+    }
+    taps.forEach((tp,j)=>{ const i = Math.floor((tp + (c?0.003:0))*sr); if (i<len) d[i] += (j%2?-1:1)*0.5*Math.pow(0.8,j); });
+  }
+  return ir;
+}
+
+/* 部分音を重ねて1音を作る
+ * partials: [倍率, 音量, 減衰秒, 加算Hz, 立ち上がり秒]
+ * opt.noise: バチが当たる音などの雑音成分 [{type,f,q,a,d}]
+ * opt.glide: 叩いた瞬間だけ少し高く→落ち着く（ゴングの特徴） */
+function voice(freq, t, vel, partials, opt={}){
+  const out = ctx.createGain(); out.gain.value = 1;
+  if (opt.pan && ctx.createStereoPanner){ const p = ctx.createStereoPanner(); p.pan.value = opt.pan; out.connect(p); p.connect(bus); }
+  else out.connect(bus);
+  const atk0 = opt.attack ?? 0.003;
+  for (const [r, a, dec, addHz=0, atk=atk0] of partials){
+    const f = freq*r + addHz;
+    if (f > 15000 || f < 20 || a*vel < 0.002) continue;
+    const o = ctx.createOscillator(); o.type = 'sine';
+    if (opt.glide){ o.frequency.setValueAtTime(f*opt.glide, t); o.frequency.exponentialRampToValueAtTime(f, t + (opt.glideTime||0.12)); }
+    else o.frequency.setValueAtTime(f, t);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(a*vel, t + atk);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + atk + dec);
+    o.connect(g); g.connect(out);
+    o.start(t); o.stop(t + atk + dec + 0.05);
+  }
+  for (const nz of (opt.noise||[])){
+    const n = ctx.createBufferSource(); n.buffer = noiseBuf;
+    const f = ctx.createBiquadFilter(); f.type = nz.type||'bandpass'; f.frequency.value = Math.min(nz.f, 12000); f.Q.value = nz.q || 1;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(nz.a*vel, t); g.gain.exponentialRampToValueAtTime(0.0001, t + nz.d);
+    n.connect(f); f.connect(g); g.connect(out);
+    n.start(t, Math.random()*0.5); n.stop(t + nz.d + 0.02);
+  }
+  return { damp(at){ const tt = Math.max(at, ctx.currentTime); out.gain.setTargetAtTime(0, tt, 0.022); } };
+}
+function pair(a, b){ return { damp(x){ a.damp(x); b.damp(x); } }; }
+
+const SYNTH = {
+  // サロン・デムン・ペキン：青銅の板。倍音は整数倍にならない（約2.7倍・5倍）
+  bar(f, t, v, dec, pan=0, hard=1){
+    const b = 0.55 + 0.45*v;
+    return voice(f, t, v, [
+      [1, .52, dec], [1, .14, dec*.85, .9], [2.72, .15*b, dec*.26], [2.72, .05*b, dec*.22, 2.1],
+      [4.95, .055*b*hard, dec*.1], [7.3, .025*b*hard, dec*.05],
+    ], {pan, noise:[{type:'bandpass', f:f*3.6, q:1.4, a:.11*b*hard, d:.022}, {type:'bandpass', f:420, q:.8, a:.05, d:.018}]});
+  },
+  // スレンテム：薄い板＋竹筒の共鳴。共鳴管が少し遅れてふくらむ
+  slenthem(f, t, v, pan=0){
+    return voice(f, t, v, [[1,.5,4.6,0,.004],[1,.26,4.2,.7,.07],[2,.11,1.7],[3,.045,.8],[4.1,.02,.4]],
+      {pan, noise:[{type:'lowpass', f:700, q:.7, a:.05, d:.03}]});
+  },
+  // ボナン：こぶ付きの小さな壺型ゴング。布を巻いたバチで柔らかく
+  kettle(f, t, v, dec=1.5, pan=0){
+    return voice(f, t, v, [[1,.5,dec],[1,.13,dec,1.3],[2.03,.15,dec*.5],[2.98,.11,dec*.32],[4.18,.045,dec*.18],[5.4,.02,dec*.1]],
+      {pan, attack:.005, glide:1.006, glideTime:.07, noise:[{type:'lowpass', f:520, q:.7, a:.09, d:.03},{type:'bandpass', f:f*2.5, q:2, a:.03, d:.015}]});
+  },
+  // クンプル：吊りゴング。叩いた瞬間少し高く、ゆっくり「うなり」ながら消える
+  kempul(f, t, v, pan=0){
+    return voice(f, t, v, [[1,.5,5],[1,.34,5,1.4],[2,.28,3.6,0,.02],[2,.17,3.6,2.1,.02],[3.01,.17,2.6,0,.03],[4.06,.1,1.7],[5.3,.06,1.1],[6.7,.03,.7]],
+      {pan, attack:.008, glide:1.012, glideTime:.25, noise:[{type:'lowpass', f:320, q:.6, a:.14, d:.07}]});
+  },
+  // クノン：台に置いた大きな壺型ゴング「ノン」
+  kenong(f, t, v, pan=0){
+    return voice(f, t, v, [[1,.55,4.2],[1,.24,4.2,1.1],[2.01,.2,2.3],[2.01,.08,2.3,1.7],[3.03,.11,1.3],[4.1,.05,.8]],
+      {pan, attack:.006, glide:1.004, glideTime:.12, noise:[{type:'lowpass', f:600, q:.7, a:.08, d:.04}]});
+  },
+  // ゴン・アグン：低い基音＋ゆっくりふくらむ倍音＋大きなうなり（オンバ）
+  gong(t, v, ombak=1.8, pan=0){
+    const f = 45;
+    return voice(f, t, v, [
+      [1,.85,10,0,.03],[1,.65,10,ombak,.03],[2,.48,8.5,0,.14],[2,.33,8.5,ombak*1.3,.14],
+      [2.93,.27,6.5,0,.24],[4.05,.21,5,0,.3],[4.05,.14,5,ombak,.3],[5.2,.13,3.8,0,.36],[6.4,.09,3,0,.36],[8.1,.05,2.2,0,.3],[10.3,.025,1.4,0,.25],
+    ], {pan, glide:1.03, glideTime:.45, noise:[{type:'lowpass', f:220, q:.6, a:.32, d:.16},{type:'bandpass', f:900, q:1, a:.03, d:.05}]});
+  },
+  // クトゥッ：すぐ手で止める鈍い「トゥッ」
+  kethuk(f, t, v, pan=0){
+    return voice(f, t, v, [[1,.6,.2],[2.15,.16,.07],[3.3,.05,.04]],
+      {pan, attack:.002, glide:1.03, glideTime:.05, noise:[{type:'lowpass', f:800, q:.8, a:.2, d:.04}]});
+  },
+  kempyang(f, t, v, pan=0){
+    return voice(f, t, v, [[1,.34,.26],[2.62,.1,.09],[4.1,.03,.04]], {pan, attack:.002, noise:[{type:'bandpass', f:3200, q:1.5, a:.06, d:.02}]});
+  },
+  kajar(t, v, pan=0){
+    return voice(610, t, v, [[1,.5,.12],[2.3,.14,.06]], {pan, attack:.001, glide:1.02, glideTime:.03, noise:[{type:'bandpass', f:2400, q:1.2, a:.1, d:.025}]});
+  },
+  ceng(t, v, pan=0){
+    return voice(3100, t, v, [[1,.04,.06],[1.41,.03,.05],[2.13,.03,.04]], {pan, noise:[{type:'highpass', f:6000, q:.7, a:.22, d:.09},{type:'bandpass', f:9000, q:2, a:.12, d:.06}]});
+  },
+  // クンダン（両面太鼓）：膜の振動（倍音 1, 1.59, 2.14）＋手の打撃音
+  drum(kind, t, v, pan=0){
+    switch(kind){
+      case 'D': return voice(108, t, v, [[1,.95,.5],[1.59,.28,.24],[2.14,.12,.14]],
+        {pan, attack:.002, glide:1.38, glideTime:.09, noise:[{type:'lowpass', f:260, q:.7, a:.38, d:.05}]});
+      case 'P': return voice(232, t, v, [[1,.62,.3],[1.59,.18,.14],[2.14,.06,.08]],
+        {pan, attack:.002, glide:1.07, glideTime:.05, noise:[{type:'bandpass', f:1500, q:1, a:.09, d:.02}]});
+      case 't': return voice(380, t, v, [[1,.12,.05],[1.59,.05,.03]],
+        {pan, attack:.001, noise:[{type:'bandpass', f:1250, q:.75, a:.85, d:.055},{type:'highpass', f:3200, q:.7, a:.28, d:.022}]});
+      case 'L': SYNTH.drum('t', t, v*.6, pan); return SYNTH.drum('D', t, v*.75, pan);
+      case 'k': return voice(310, t, v, [[1,.06,.02]], {pan, attack:.001, noise:[{type:'bandpass', f:850, q:1.1, a:.32, d:.022}]});
+    }
+  },
+  click(t, accent){ return voice(accent?1760:1320, t, .5, [[1,.3,.05],[2.7,.06,.02]], {attack:.001}); },
+};
+
+/* 楽器ごとの名前・音量・左右の位置（東屋に並ぶ席をイメージ） */
+const INSTNAME = {bal:'バルンガン', saron:'サロン', demung:'デムン', slenthem:'スレンテム', peking:'ペキン', bonang:'ボナン', panerus:'パネルス',
+  gong:'ゴング', kenong:'クノン', kempul:'クンプル', kethuk:'クトゥッ', kempyang:'クンピャン', kajar:'カジャール', kendhang:'クンダン',
+  polos:'ポロス', sangsih:'サンシ', calung:'チャルン', jegogan:'ジェゴガン', ceng:'チェンチェン', gangsa:'ガンサ'};
+const MIX = {saron:.72, demung:.68, slenthem:.85, peking:.4, bonang:.5, panerus:.3, gong:1, kenong:.78, kempul:.85, kethuk:.75, kempyang:.42,
+  kajar:.5, kendhang:.75, polos:.5, sangsih:.5, gangsa:.6, calung:.55, jegogan:.8, ceng:.55};
+const PAN = {saron:-.05, demung:-.3, slenthem:-.4, peking:.28, bonang:-.22, panerus:.22, gong:.38, kenong:.15, kempul:.32, kethuk:.08, kempyang:.1,
+  kajar:.05, kendhang:0, polos:-.3, sangsih:.3, calung:-.15, jegogan:.15, ceng:.2, gangsa:0};
+const DAMP = new Set(['saron','demung','peking','slenthem','polos','sangsih','gangsa','calung','jegogan']);
+let ombakHz = 6;
+
+// 1つの音を鳴らす（自由演奏・自動演奏・練習で共通）
+function playInst(inst, ev, t, laras, vel=1, pan=PAN[inst]||0){
+  const v = Math.min(1.2, vel * (MIX[inst]||.7));
+  const F = (o) => freqOf(laras, ev.d, ev.o + o);
+  switch(inst){
+    case 'saron':    return SYNTH.bar(F(1), t, v, 2.3, pan);
+    case 'demung':   return SYNTH.bar(F(0), t, v, 3.3, pan, .8);
+    case 'peking':   return SYNTH.bar(F(2), t, v, 1.5, pan, 1.3);
+    case 'slenthem': return SYNTH.slenthem(F(-1), t, v, pan);
+    case 'bonang':   return SYNTH.kettle(F(0), t, v, 1.5, pan);
+    case 'panerus':  return SYNTH.kettle(F(1), t, v, 1.0, pan);
+    case 'kenong':   return SYNTH.kenong(freqOf(laras, ev.d, 0), t, v, pan);
+    case 'kempul':   return SYNTH.kempul(freqOf(laras, ev.d, -1), t, v, pan);
+    case 'gong':     return SYNTH.gong(t, v, ev.bali ? 2.6 : 1.8, pan);
+    case 'kethuk':   return SYNTH.kethuk(freqOf(laras, 2, -1), t, v, pan);
+    case 'kempyang': return SYNTH.kempyang(freqOf(laras, 6, 1)*1.5, t, v, pan);
+    case 'kajar':    return SYNTH.kajar(t, v, pan);
+    case 'ceng':     return SYNTH.ceng(t, v, pan);
+    case 'kendhang': return SYNTH.drum(ev.k, t, v, pan);
+    case 'polos': case 'sangsih': case 'gangsa': // 2台1組（低めのペンゴンバン＋高めのペンギセップ）でうなりを作る
+      return pair(SYNTH.bar(F(1), t, v*.72, 1.7, pan-.1), SYNTH.bar(F(1)+ombakHz, t, v*.72, 1.7, pan+.1));
+    case 'calung':   return pair(SYNTH.bar(F(0), t, v*.72, 2.6, pan, .8), SYNTH.bar(F(0)+ombakHz*.6, t, v*.72, 2.6, pan, .8));
+    case 'jegogan':  return pair(SYNTH.slenthem(F(-1), t, v*.75, pan), SYNTH.slenthem(F(-1)+ombakHz*.35, t, v*.75, pan));
+  }
+}
+
+/* =========================================================
+ *  3. パートの生成：バルンガンから全楽器の演奏を「セオリー」どおりに作る
+ *     1拍＝8ティック。拍 b の瞬間は T = b*8（各拍の「終わり」に拍がある）
+ * ========================================================= */
+const TPB = 8;
+const KPAT = { // クンダンの型（1文字＝1打。D=ドゥン t=タッ P=トゥン k=ケッ L=ドラン .=休み）
+  1:{a:'.t.P.t.D', b:'.P.t.P.D', pre:'.t.tP.PD', end:'tt.PtP.D'},
+  2:{a:'..t...P...t....D', b:'.k.t.k.P.k.t.P.D', pre:'..t.P.t.t.tP..PD', end:'tt..P.t.tP.P...D'},
+  bali:'t.Pt.tP.tt.PDt.D',
+};
+function kotekanStream(a, b){ // a→b に向かう4音（最後がb）。奇数番目＝ポロス、偶数番目＝サンシ
+  if (b===a) return [b+1, b, b+1, b];
+  if (b>a)   return [b-1, b-2, b-1, b];
+  return [b+1, b+2, b+1, b];
+}
+function bStep(n){ let i = BALI5.indexOf(n.d); if (i<0) i = 0; return n.o*5 + i; }
+function bNote(s){ return {d:BALI5[((s%5)+5)%5], o:Math.floor(s/5)}; }
+function keyOf(e){ return e.k ? e.k : `${e.d}:${e.o}`; }
+
+function derive(bal, laras, form, irama=1){
+  const N = bal.length, bali = form==='bali', colo = colotomy(form, N), keys = barKeys(laras);
+  const parts = {}, endK = [];
+  const add = (inst, T, o) => { const e = Object.assign({inst, T, v:1}, o); e.key = keyOf(e); (parts[inst] ||= []).push(e); return e; };
+  const res = b => { const n = resolvedIn(bal, b); return bali ? balinote(laras, n) : n; };
+  for (let b=1;b<=N;b++) add('bal', b*TPB, {d:bal[b-1].d, o:bal[b-1].o});
+  // ゴング類（コロトミー）
+  for (let b=1;b<=N;b++){
+    const n = res(b), T = b*TPB;
+    for (const k of (colo[b]||[])){
+      if (k==='G') add('gong',T,{k, bali});
+      else if (k==='N') add('kenong',T,{k, d:n.d, o:0, v:.9});
+      else if (k==='P') add('kempul',T,{k, d:n.d, o:-1, v:.9});
+      else if (k==='t') add('kethuk',T,{k, v:.85});
+      else if (k==='p') add('kempyang',T,{k, v:.8});
+      else if (k==='j') add('kajar',T,{k, v: b%4===0 ? 1 : .75});
+    }
+  }
+  if (!bali){
+    // バルンガン：1拍に1音。ガトラの最後（セレ）を少し強く
+    for (let b=1;b<=N;b++){
+      const raw = bal[b-1]; if (!raw.d) continue;
+      const n = clampToKeys(raw, keys), v = b%4===0 ? 1 : .84;
+      for (const i of ['saron','demung','slenthem']) add(i, b*TPB, {d:n.d, o:n.o, v});
+    }
+    // 装飾：2拍を1組 (x y) にして、組の最後がバルンガンと重なるよう先取りで弾く
+    const W = 2*TPB, pStep = irama===1?4:2, bS = irama===1?4:2, nS = irama===1?2:1;
+    for (let T=1;T<=N*TPB;T++){
+      const q = 2*Math.ceil(T/W), pos = T-(q-2)*TPB, x = res(q-1), y = res(q);
+      const acc = pos===W ? 1 : (pos===TPB ? .9 : .8);
+      if (pos%pStep===0){ const i = pos/pStep-1; const n = clampToKeys(Math.floor(i/2)%2===0 ? x : y, keys); add('peking', T, {d:n.d, o:n.o, v:acc}); }
+      if (pos%bS===0){ const i = pos/bS-1; const n = i%2===0 ? x : y; add('bonang', T, {d:n.d, o:Math.max(0,Math.min(1,n.o)), v:acc}); }
+      if (pos%nS===0){ const i = pos/nS-1; const n = i%2===0 ? x : y; add('panerus', T, {d:n.d, o:Math.max(0,Math.min(1,n.o)), v:acc}); }
+    }
+    // クンダン：ガトラ単位の型。ゴング前のガトラは形を変えて知らせる
+    const P = KPAT[irama], slot = irama===1?4:2, per = 4*TPB/slot, G = Math.ceil(N/4);
+    for (let g=1; g<=G; g++){
+      const pat = (g===G ? P.pre : (g%2 ? P.a : P.b)).padStart(per,'.');
+      for (let s=0;s<per;s++){ const c = pat[s]; if (c!=='.') add('kendhang', (g-1)*4*TPB + (s+1)*slot, {k:c, v: c==='D'?1:.85}); }
+      if (g===G){ const ep = P.end.padStart(per,'.');
+        for (let s=0;s<per;s++){ const c = ep[s]; if (c!=='.'){ const e = {inst:'kendhang', T:(g-1)*4*TPB+(s+1)*slot, k:c, v:c==='D'?1:.9}; e.key = c; endK.push(e); } } }
+    }
+  } else {
+    const gk = gangsaKeys(), ck = calungKeys();
+    for (let b=1;b<=N;b++){
+      const raw = bal[b-1]; if (!raw.d) continue;
+      const n = clampToKeys(balinote(laras, raw), ck);
+      add('calung', b*TPB, {d:n.d, o:n.o, v: b%4===0?1:.85});
+      if (b%2===0) add('jegogan', b*TPB, {d:n.d, o:n.o, v:1});
+    }
+    for (let T=2;T<=N*TPB;T+=2){
+      const b = Math.ceil(T/TPB), idx = (T-(b-1)*TPB)/2-1;
+      const st = kotekanStream(bStep(res(b-1)), bStep(res(b)));
+      const n = clampToKeys(bNote(st[idx]), gk);
+      add(idx%2===1 ? 'polos' : 'sangsih', T, {d:n.d, o:n.o, v: idx===3 ? 1 : .86});
+      if ([1,0,1,1,0,1,1,0][((b-1)%2)*4+idx]) add('ceng', T, {k:'c', v: idx===3 ? 1 : .7});
+      const c = KPAT.bali[((b-1)%4)*4+idx]; if (c!=='.') add('kendhang', T, {k:c, v:.8});
+    }
+  }
+  const byTick = Array.from({length:N*TPB+1}, ()=>[]);
+  for (const k in parts) if (k!=='bal') for (const e of parts[k]) byTick[e.T].push(e);
+  // ブカ（前奏）：最後のガトラをボナン（バリ風はクンダン）がひとりで弾き、ゴングで全員が入る
+  const buka = Array.from({length:N*TPB+1}, ()=>[]);
+  const lead = bali ? 'kendhang' : 'bonang';
+  for (const e of parts[lead]||[]) if (e.T > (N-4)*TPB) buka[e.T].push(e);
+  for (const e of parts.gong) buka[e.T].push(e);
+  const endByT = {}; for (const e of endK) (endByT[e.T] ||= []).push(e);
+  return {N, colo, parts, byTick, buka, endK:endByT, laras, form};
+}
+
+/* =========================================================
+ *  4. 画面更新キュー（音と同じ時刻に表示を更新）
+ * ========================================================= */
+const visQ = [];
+function vis(time, fn){ visQ.push({time, fn}); }
+function flashEl(el, ms=140){ if (!el) return; el.classList.add('hit'); clearTimeout(el._t); el._t = setTimeout(()=>el.classList.remove('hit'), ms); }
+function evHTML(e, attrs=''){
+  const DR = {D:'ドゥ',t:'タ',P:'トゥ',k:'ケ',L:'ドラ'};
+  let inner;
+  if (e.inst==='bal') inner = noteHTML(e.d, e.o);
+  else if (e.inst==='kendhang') return `<span class="ev small"${attrs}>${DR[e.k]||e.k}</span>`;
+  else if (e.inst==='gong') return `<span class="ev"${attrs}><b>G</b></span>`;
+  else if (e.inst==='kethuk'||e.inst==='kempyang'||e.inst==='kajar'||e.inst==='ceng') return `<span class="ev small"${attrs}>${{kethuk:'t',kempyang:'p',kajar:'j',ceng:'x'}[e.inst]}</span>`;
+  else if (e.inst==='kempul' || e.inst==='kenong') inner = noteHTML(e.d, 0);
+  else inner = noteHTML(e.d, e.o);
+  return `<span class="ev"${attrs}>${inner}</span>`;
+}
+
+/* 楽譜グリッド：拍ごとのマスに、楽器ごとの音を並べる（マスの右端＝拍の瞬間） */
+function slotsFor(der, insts, a, b){
+  let minGap = TPB;
+  for (const i of insts){
+    const ts = (der.parts[i]||[]).filter(e=>e.T>(a-1)*TPB && e.T<=b*TPB).map(e=>e.T).sort((x,y)=>x-y);
+    for (let k=1;k<ts.length;k++) if (ts[k]-ts[k-1] > 0) minGap = Math.min(minGap, ts[k]-ts[k-1]);
+  }
+  return Math.min(8, Math.max(1, TPB/minGap));
+}
+function renderScore(el, der, insts, a, b, prefix=''){
+  const slots = slotsFor(der, insts, a, b), per = slots>=4 ? 4 : 8;
+  let h = '';
+  for (let s=a; s<=b; s+=per){
+    const e = Math.min(b, s+per-1);
+    h += '<div class="scorewrap"><table class="score"><tr><th></th>';
+    for (let k=s;k<=e;k++){ const mk = (der.colo[k]||[]).filter(x=>'GNP'.includes(x)).join(''); h += `<td class="hd ${(k-1)%4===0?'g4':''}" data-beat="${k}">${k}拍${mk?`<span class="mk">${mk}</span>`:''}</td>`; }
+    h += '</tr>';
+    for (const inst of insts){
+      h += `<tr><th>${INSTNAME[inst]}</th>`;
+      for (let k=s;k<=e;k++){
+        const cells = Array(slots).fill('');
+        for (const ev of der.parts[inst]||[]) if (ev.T > (k-1)*TPB && ev.T <= k*TPB){
+          const idx = Math.ceil((ev.T-(k-1)*TPB)/(TPB/slots)) - 1;
+          cells[idx] = evHTML(ev, ` data-i="${prefix}${inst}" data-t="${ev.T}"`);
+        }
+        h += `<td class="${(k-1)%4===0?'g4':''}" data-beat="${k}"><div class="slots" style="--s:${slots}">${cells.map(c=>`<span>${c||'<i>·</i>'}</span>`).join('')}</div></td>`;
+      }
+      h += '</tr>';
+    }
+    h += '</table></div>';
+  }
+  el.innerHTML = h;
+}
+
+/* =========================================================
+ *  5. 鍵盤（叩ける楽器の画面）
+ * ========================================================= */
+const PADS = {
+  gong:[{k:'G', label:'ゴング', cls:'ageng'}], kenong:[{k:'N', label:'クノン', cls:'kempul'}], kempul:[{k:'P', label:'クンプル', cls:'kempul'}],
+  kethuk:[{k:'t', label:'クトゥッ', cls:'small'}], kempyang:[{k:'p', label:'クンピャン', cls:'small'}], kajar:[{k:'j', label:'カジャール', cls:'small'}],
+};
+function barsHTML(keys, cls='', small=false){
+  const L = keys.length, top = small ? 118 : 150, low = small ? 82 : 100;
+  return `<div class="rancak">${keys.map(([d,o],i)=>`<div class="bar ${cls}" data-key="${d}:${o}" style="height:${Math.round(top-i*((top-low)/Math.max(1,L-1)))}px">${noteHTML(d,o)}</div>`).join('')}</div>`;
+}
+function kettlesHTML(laras){
+  const ns = LARAS[laras].notes;
+  const row = o => `<div class="krow">${ns.map(d=>`<div class="kettle" data-key="${d}:${o}"><span class="lbl">${noteHTML(d,o)}</span></div>`).join('')}</div>`;
+  return `<div class="bonangframe"><div class="rowlbl">高い列</div>${row(1)}<div class="rowlbl">低い列</div>${row(0)}</div>`;
+}
+function drumHTML(){
+  return `<div class="kendhang"><div class="drumbody"><div class="head big" data-key="D">ドゥン<br><small>dhung</small></div><div class="shell"></div><div class="head small" data-key="t">タッ<br><small>tak</small></div></div></div>
+  <div class="drumpads"><div class="pad" data-key="P">トゥン<br><small>thung</small></div><div class="pad" data-key="L">ドラン<br><small>dlang</small></div><div class="pad" data-key="k">ケッ<br><small>ket</small></div></div>`;
+}
+function buildKeyboard(el, inst, laras, onHit, small=false){
+  let h;
+  if (['saron','demung','peking'].includes(inst)) h = barsHTML(barKeys(laras), '', small);
+  else if (inst==='slenthem') h = barsHTML(barKeys(laras), 'slenthem', small);
+  else if (['polos','sangsih','gangsa'].includes(inst)) h = barsHTML(gangsaKeys(), '', small);
+  else if (inst==='calung' || inst==='jegogan') h = barsHTML(calungKeys(), inst==='jegogan'?'slenthem':'', small);
+  else if (inst==='bonang' || inst==='panerus') h = kettlesHTML(laras);
+  else if (inst==='kendhang') h = drumHTML();
+  else h = `<div class="gongs">${(PADS[inst]||[]).map(p=>`<div class="ggroup"><div class="gong ${p.cls}" data-key="${p.k}"><span class="in">${p.k}</span></div><div class="gname">${p.label}</div></div>`).join('')}</div>`;
+  el.innerHTML = h;
+  el.onpointerdown = e => {
+    const k = e.target.closest('[data-key]'); if (!k) return;
+    e.preventDefault(); initAudio(); flashEl(k, inst==='gong'?260:140); onHit(k.dataset.key, k);
+  };
+  return {
+    el,
+    setTarget(key){ el.querySelectorAll('.target').forEach(x=>x.classList.remove('target')); if (key){ const k = el.querySelector(`[data-key="${key}"]`); if (k) k.classList.add('target'); } },
+    flash(key){ flashEl(el.querySelector(`[data-key="${key}"]`)); },
+    wrong(k){ k.classList.remove('wrongk'); void k.offsetWidth; k.classList.add('wrongk'); },
+  };
+}
+function evFromKey(key){ if (key.includes(':')){ const [d,o] = key.split(':').map(Number); return {d,o}; } return {k:key, d:1, o:0}; }
+
+/* =========================================================
+ *  6. 自由演奏
+ * ========================================================= */
+const FREE_INST = {
+  saron:   {name:'サロン', info:'中音の鍵盤。バルンガン（骨組みの旋律）を1拍に1音ずつ叩く中心の楽器。'},
+  demung:  {name:'デムン', info:'サロンより1オクターブ低い大きな鍵盤。同じくバルンガンを叩く。'},
+  peking:  {name:'ペキン', info:'一番高い小さな鍵盤。バルンガンの音を2回ずつ先取りして叩く。'},
+  slenthem:{name:'スレンテム', info:'竹の共鳴管の上に薄い鍵盤を吊った低音楽器。柔らかく長く響く。'},
+  bonang:  {name:'ボナン', info:'小さな壺型ゴングを2列に並べた楽器。2つの音を行き来して旋律を飾る。'},
+  gongs:   {name:'ゴング類', info:'大ゴング（ゴン・アグン）、クンプル、クノン、クトゥッ、クンピャン。曲の時間を区切る。'},
+  kendhang:{name:'クンダン', info:'両面太鼓。合奏の指揮者。大きい面＝低い「ドゥン」、小さい面を平手で「タッ」。'},
+  gangsa:  {name:'ガンサ（バリ）', info:'バリの鍵盤楽器。2台1組でわずかに調律をずらし「オンバ（うなり）」を生む。'},
+};
+let freeInst = 'saron', freeLaras = 'slendro';
+const freeHandle = {};
+const stageEl = $('#stage');
+function renderStage(){
+  const def = FREE_INST[freeInst];
+  $('#instInfo').textContent = def.info;
+  $('#ombakCtl').hidden = freeInst!=='gangsa';
+  if (freeInst==='gongs'){
+    const ns = LARAS[freeLaras].notes;
+    const kset = (k, cls, name) => `<div class="ggroup"><div class="gset">${ns.map(d=>`<div class="gong ${cls}" data-key="${k}" data-d="${d}"><span class="lbl">${noteHTML(d,0)}</span></div>`).join('')}</div><div class="gname">${name}</div></div>`;
+    stageEl.innerHTML = `<div class="gongs">
+      <div class="ggroup"><div class="gong ageng" data-key="G"></div><div class="gname">ゴン・アグン（大ゴング）</div></div>
+      ${kset('P','kempul','クンプル（吊りゴング）')}${kset('N','small','クノン（大きな壺型）')}
+      <div class="ggroup"><div class="gset"><div class="gong small" data-key="t"><span class="lbl">t</span></div><div class="gong small" data-key="p" style="width:40px"><span class="lbl">p</span></div></div><div class="gname">クトゥッ／クンピャン</div></div>
+    </div>`;
+    stageEl.onpointerdown = e => {
+      const k = e.target.closest('[data-key]'); if (!k) return; e.preventDefault(); initAudio();
+      const inst = {G:'gong',P:'kempul',N:'kenong',t:'kethuk',p:'kempyang'}[k.dataset.key];
+      playInst(inst, {k:k.dataset.key, d:+(k.dataset.d||1), o:0}, ctx.currentTime+.005, freeLaras, 1.1, 0);
+      flashEl(k, 240);
+    };
+    return;
+  }
+  buildKeyboard(stageEl, freeInst, freeLaras, (key)=>{
+    const t = ctx.currentTime + .005;
+    const h = playInst(freeInst, evFromKey(key), t, freeLaras, 1.15, 0);
+    if ($('#dampChk').checked && DAMP.has(freeInst)){ if (freeHandle[freeInst]) freeHandle[freeInst].damp(t); freeHandle[freeInst] = h; }
+  });
+}
+function buildChips(){
+  const c = $('#instChips');
+  c.innerHTML = Object.entries(FREE_INST).map(([k,v])=>`<button class="sec ${k===freeInst?'on':''}" data-inst="${k}">${v.name}</button>`).join('');
+  c.onclick = e => { const b = e.target.closest('[data-inst]'); if(!b) return; freeInst = b.dataset.inst; buildChips(); renderStage(); };
+}
+$('#larasSel').addEventListener('click', e=>{
+  const b = e.target.closest('[data-laras]'); if(!b) return;
+  freeLaras = b.dataset.laras;
+  document.querySelectorAll('#larasSel button').forEach(x=>x.classList.toggle('on', x===b));
+  renderStage();
+});
+function syncOmbak(){
+  $('#ombakFree').value = $('#ombakAuto').value = ombakHz;
+  $('#ombakFreeV').textContent = $('#ombakAutoV').textContent = ombakHz;
+}
+$('#ombakFree').oninput = e => { ombakHz = +e.target.value; syncOmbak(); };
+$('#ombakAuto').oninput = e => { ombakHz = +e.target.value; syncOmbak(); };
+
+/* =========================================================
+ *  7. 自動演奏エンジン
+ * ========================================================= */
 const LANES_JAVA = [
-  {id:'kendhang', name:'クンダン', role:'太鼓・テンポの指揮', color:'var(--c-drum)'},
-  {id:'gong',     name:'ゴング類', role:'周期を区切る（コロトミー）', color:'var(--c-gong)'},
-  {id:'slenthem', name:'スレンテム', role:'骨格旋律・低音', color:'var(--c-bal)'},
-  {id:'demung',   name:'デムン', role:'骨格旋律', color:'var(--c-bal)'},
-  {id:'saron',    name:'サロン', role:'骨格旋律', color:'var(--c-bal)'},
-  {id:'peking',   name:'ペキン', role:'2〜4倍で先取り装飾', color:'var(--c-elab)'},
-  {id:'bonang',   name:'ボナン', role:'2〜4倍で旋律を装飾', color:'var(--c-elab)'},
-  {id:'panerus',  name:'ボナン・パネルス', role:'4〜8倍・高音で装飾', color:'var(--c-elab)'},
+  {id:'kendhang', name:'クンダン', role:'太鼓・テンポの指揮', color:'var(--c-drum)', insts:['kendhang']},
+  {id:'gong',     name:'ゴング類', role:'時間を区切る', color:'var(--c-gong)', insts:['gong','kenong','kempul','kethuk','kempyang']},
+  {id:'slenthem', name:'スレンテム', role:'骨組み・低音', color:'var(--c-bal)', insts:['slenthem']},
+  {id:'demung',   name:'デムン', role:'骨組みの旋律', color:'var(--c-bal)', insts:['demung']},
+  {id:'saron',    name:'サロン', role:'骨組みの旋律', color:'var(--c-bal)', insts:['saron']},
+  {id:'peking',   name:'ペキン', role:'2回ずつ先取り', color:'var(--c-elab)', insts:['peking']},
+  {id:'bonang',   name:'ボナン', role:'2音を行き来して飾る', color:'var(--c-elab)', insts:['bonang']},
+  {id:'panerus',  name:'パネルス', role:'ボナンの倍の速さ', color:'var(--c-elab)', insts:['panerus']},
 ];
 const LANES_BALI = [
-  {id:'kendhang', name:'クンダン', role:'太鼓・リーダー', color:'var(--c-drum)'},
-  {id:'gong',     name:'ゴング類', role:'ゴング・クンプール・クモン・カジャール', color:'var(--c-gong)'},
-  {id:'ceng',     name:'チェンチェン', role:'小型シンバル', color:'var(--c-kethuk)'},
-  {id:'jegogan',  name:'ジェゴガン', role:'骨格旋律（2拍に1音・低音）', color:'var(--c-bal)'},
-  {id:'calung',   name:'チャルン', role:'骨格旋律（ポコッ）', color:'var(--c-bal)'},
-  {id:'polos',    name:'ガンサ・ポロス', role:'コテカン（表）', color:'var(--c-elab)'},
-  {id:'sangsih',  name:'ガンサ・サンシ', role:'コテカン（裏）', color:'#ff9f4f'},
+  {id:'kendhang', name:'クンダン', role:'太鼓・リーダー', color:'var(--c-drum)', insts:['kendhang']},
+  {id:'gong',     name:'ゴング類', role:'ゴング・クンプール・カジャール', color:'var(--c-gong)', insts:['gong','kenong','kempul','kajar']},
+  {id:'ceng',     name:'チェンチェン', role:'小さなシンバル', color:'var(--c-kethuk)', insts:['ceng']},
+  {id:'jegogan',  name:'ジェゴガン', role:'骨組み（2拍に1音・低音）', color:'var(--c-bal)', insts:['jegogan']},
+  {id:'calung',   name:'チャルン', role:'骨組みの旋律', color:'var(--c-bal)', insts:['calung']},
+  {id:'polos',    name:'ポロス', role:'コテカン（表）', color:'var(--c-elab)', insts:['polos']},
+  {id:'sangsih',  name:'サンシ', role:'コテカン（裏）', color:'var(--c-sang)', insts:['sangsih']},
 ];
-
-const S = { // 再生状態
-  playing:false, piece:null, laras:'slendro', form:'lancaran', bal:[], N:16, colo:{},
+const S = {
+  playing:false, laras:'slendro', form:'lancaran', bal:[], N:16, colo:{}, der:{},
   tick:0, nextTime:0, tempo:60, target:60, irama:1, pendingIrama:null, phase:'idle', cycle:0,
-  muted:{}, ending:false, timer:null, handles:{}, userPart:'',
+  muted:{}, ending:false, timer:null, handles:{}, onCycle:null, onBeat:null, onEnd:null, endAfter:0,
 };
-let currentPiece = PIECES[0];
-const visQ = []; // 画面更新キュー
-function vis(time, fn){ visQ.push({time, fn}); }
-
-function resolved(beat){ // 休み(.)の拍は直前に鳴った音を「響いている音」とみなす
-  const N = S.N;
-  for (let k=0;k<N;k++){
-    const b = ((beat-1-k)%N+N)%N; const n = S.bal[b];
-    if (n.d) return n;
-  }
-  return {d:LARAS[S.laras].notes[0], o:0};
-}
-function clampToKeys(n, keys){ // 楽器にない音域は同じ数字の近いオクターブへ
-  let best = null, bd = 99;
-  for (const [d,o] of keys) if (d===n.d){ const dd = Math.abs(o-n.o); if (dd<bd){bd=dd; best={d,o};} }
-  return best || n;
-}
-function balinote(n){ // バリ風：ペロッグの4・7は使わず近い音に
-  if (S.laras!=='pelog') return n;
-  if (n.d===4) return {d:3,o:n.o}; if (n.d===7) return {d:6,o:n.o}; return n;
-}
+const lanesNow = () => S.form==='bali' ? LANES_BALI : LANES_JAVA;
+function laneOf(inst){ const l = lanesNow().find(l=>l.insts.includes(inst)); return l ? l.id : inst; }
+function damped(store, id, h, t){ if (!h) return; if (store[id]) store[id].damp(t); store[id] = h; }
 
 function loadPiece(p){
   stopAuto(true);
-  currentPiece = p;
-  S.piece = p; S.laras = p.laras; S.form = p.form;
+  S.laras = p.laras; S.form = p.form;
   S.bal = parseBal(p.bal); S.N = S.bal.length;
   S.colo = colotomy(p.form, S.N);
+  S.der = {1: derive(S.bal, S.laras, S.form, 1), 2: derive(S.bal, S.laras, S.form, 2)};
   S.tempo = S.target = p.tempo;
-  tempoEl.value = p.tempo; document.getElementById('tempoV').textContent = p.tempo;
+  $('#tempo').value = p.tempo; $('#tempoV').textContent = p.tempo;
   setIrama(1, true);
-  renderBalungan(); renderCycle(); renderLanes(); renderUserStage();
+  renderBalungan(); renderCycle(); renderLanes();
 }
-
-function lanesNow(){ return S.form==='bali' ? LANES_BALI : LANES_JAVA; }
-
-function hit(laneId, time, label){ // 画面上のレーン点滅
+function evLabel(e){
+  if (e.inst==='kendhang') return {D:'ドゥン',P:'トゥン',t:'タッ',k:'ケッ',L:'ドラン'}[e.k];
+  if (e.inst==='kenong') return 'N'+e.d;
+  if (e.inst==='kempul') return 'P'+e.d;
+  if (e.k) return {G:'G',t:'t',p:'p',j:'j',c:''}[e.k] ?? '';
+  return noteHTML(e.d, e.o);
+}
+function hit(laneId, time, label){
   vis(time, ()=>{
     const l = document.querySelector(`.lane[data-id="${laneId}"]`); if (!l) return;
     const dot = l.querySelector('.dot'); dot.classList.add('flash'); clearTimeout(dot._t); dot._t = setTimeout(()=>dot.classList.remove('flash'), 90);
     if (label !== undefined) l.querySelector('.cur').innerHTML = label;
   });
 }
-function on(id){ return !S.muted[id]; }
-
-function damped(id, h, t){ if (S.handles[id]) S.handles[id].damp(t); S.handles[id] = h; }
-
-/* ---- 1ティック分の発音を予約 ---- */
-function scheduleTick(T, t, phase){
-  const N = S.N, laras = S.laras;
-  const beatPos = T % TPB === 0; const beat = T / TPB; // 1..N
-  const bnum = Math.ceil(T / TPB);
-  const bali = S.form === 'bali';
-
-  if (phase === 'buka'){
-    // ブカ：最後のガトラを1人で弾き、ゴングで全員が入る
-    if (bali){ if (T % 2 === 0) { const pat = 't.Pt.tP.tt.PDt.D'; const c = pat[(T/2-1)%16]; if (c && c!=='.' && on('kendhang')) { SYNTH.drum(c, t, 0.9); hit('kendhang', t);} } }
-    else if (T % 4 === 0 && on('bonang')){
-      const b = bnum; const r = resolved(b), n = {d:r.d, o:Math.max(0, Math.min(1, r.o))};
-      SYNTH.kettle(freqOf(laras, n.d, n.o), t, 0.9); hit('bonang', t, noteHTML(n.d,n.o));
-    }
-    if (beatPos && beat === N){ if (on('gong')) SYNTH.gong(t, 1); hit('gong', t, 'G'); }
-    if (beatPos) vis(t, ()=>showBeat(beat, true));
-    return;
-  }
-
-  // ---- コロトミー ----
-  if (beatPos){
-    const marks = S.colo[beat] || [];
-    const n = resolved(beat);
-    for (const k of marks){
-      if (!on('gong')) break;
-      if (k==='G') SYNTH.gong(t, 1, bali ? 2.5 : 1.8);
-      else if (k==='N') SYNTH.kenong(freqOf(laras, n.d, 0), t, 0.8);
-      else if (k==='P') SYNTH.kempul(freqOf(laras, n.d, -1), t, 0.85);
-      else if (k==='t') SYNTH.kethuk(freqOf(laras, 2, -1), t, 0.8);
-      else if (k==='j') SYNTH.kajar(t, 0.55);
-      else if (k==='p') SYNTH.kempyang(freqOf(laras, 6, 1)*1.5, t, 0.45);
-    }
-    const top = marks.filter(k=>k!=='p' && k!=='j');
-    if (marks.length) hit('gong', t, top.length ? top.join('') : (marks.includes('j')?'j':'p'));
-    vis(t, ()=>showBeat(beat, false));
-  }
-  if (bali) return scheduleBali(T, t, beat, beatPos);
-
-  // ---- バルンガン（骨格旋律） ----
-  if (beatPos){
-    const raw = S.bal[beat-1];
-    if (raw.d){
-      const keys = barKeys(laras);
-      const n = clampToKeys(raw, keys);
-      if (on('saron') && S.userPart!=='saron') damped('saron', playBar('saron', laras, n.d, n.o, t, 0.75), t);
-      if (on('demung')) damped('demung', playBar('demung', laras, n.d, n.o, t, 0.7), t);
-      if (on('slenthem')) damped('slenthem', playBar('slenthem', laras, n.d, n.o, t, 0.8), t);
-      ['saron','demung','slenthem'].forEach(id=>hit(id, t, noteHTML(n.d,n.o)));
-    } else ['saron','demung','slenthem'].forEach(id=>hit(id, t, noteHTML(0,0)));
-  }
-
-  // ---- 装飾：2拍1組（ペア）の中で先取りして弾く ----
-  const W = 2*TPB; // ペアのティック数
-  const q = 2*Math.ceil(T / W); // ペアの終わり（偶数拍）
-  const pos = T - (q-2)*TPB;    // 1..16
-  const x = resolved(q-1), y = resolved(q);
-  const ir = S.irama;
-  // ペキン：イラマI = 1拍に2音 (x x y y)、イラマII = 1拍に4音
-  const pStep = ir===1 ? 4 : 2;
-  if (pos % pStep === 0){
-    const idx = pos/pStep - 1, cnt = W/pStep; // 0..cnt-1
-    const n = clampToKeys((Math.floor(idx/2)%2===0) ? x : y, barKeys(laras));
-    if (on('peking')) { damped('peking', playBar('peking', laras, n.d, n.o, t, 0.45), t); }
-    hit('peking', t, noteHTML(n.d,n.o)); void cnt;
-  }
-  // ボナン：x y x y ...（ミピル奏法を簡略化）
-  const bStep = ir===1 ? 4 : 2;
-  if (pos % bStep === 0){
-    const idx = pos/bStep - 1;
-    const n = (idx%2===0) ? x : y; const o = n.o<0 ? 0 : Math.min(1, n.o);
-    if (on('bonang')) SYNTH.kettle(freqOf(laras, n.d, o), t, 0.5);
-    hit('bonang', t, noteHTML(n.d,o));
-  }
-  // ボナン・パネルス：さらに倍の密度、1オクターブ上
-  const pnStep = ir===1 ? 2 : 1;
-  if (pos % pnStep === 0){
-    const idx = pos/pnStep - 1;
-    const n = (idx%2===0) ? x : y; const o = n.o<0 ? 1 : Math.min(2, n.o+1);
-    if (on('panerus')) SYNTH.kettle(freqOf(laras, n.d, o), t, 0.3, 0.9);
-    hit('panerus', t, noteHTML(n.d,Math.min(1,o-1)));
-  }
-  // ---- クンダン ----
-  scheduleKendhang(T, t);
-}
-
-function scheduleKendhang(T, t){
-  const ir = S.irama, N = S.N;
-  const slot = ir===1 ? 4 : 2; // ティック/スロット
-  if (T % slot) return;
-  const gT = 4*TPB; // ガトラのティック数
-  const g = Math.ceil(T / gT); // 何番目のガトラ
-  const s = (T - (g-1)*gT) / slot - 1; // 0..
-  const lastG = Math.ceil(N/4);
-  let pat;
-  if (ir===1) pat = (g===lastG) ? '.t.tP.PD' : (g%2 ? '.t.P.t.D' : '.P.t.P.D');
-  else pat = (g===lastG) ? '..t.P.t.t.tP..PD' : (g%2 ? '..t...P...t...D' : '.k.t.k.P.k.t.P.D');
-  if (S.ending && g===lastG) pat = ir===1 ? 'tt.PtP.D' : 'tt..P.t.tP.P..D';
-  const c = pat[s];
-  if (c && c!=='.'){
-    if (on('kendhang')) SYNTH.drum(c, t, c==='D' ? 0.9 : 0.7);
-    hit('kendhang', t, {D:'ドゥン',P:'トゥン',t:'タッ',k:'ケッ',L:'ドラン'}[c]);
-  }
-}
-
-/* ---- バリ風：コテカン（ポロスとサンシのかみ合わせ） ---- */
-function kotekanStream(a, b){
-  // a→b に向かう4音（最後がb）。ポロス=奇数番、サンシ=偶数番が交互に担当
-  if (b===a) return [b+1, b, b+1, b];
-  if (b>a)   return [b-1, b-2, b-1, b];
-  return [b+1, b+2, b+1, b];
-}
-function scheduleBali(T, t, beat, beatPos){
-  const laras = S.laras;
-  if (beatPos){
-    const raw = S.bal[beat-1];
-    if (raw.d){
-      const n = balinote(raw);
-      if (on('calung')) damped('calung', playBar('demung', laras, n.d, Math.min(0,n.o), t, 0.6), t);
-      hit('calung', t, noteHTML(n.d, Math.min(0,n.o)));
-      if (beat % 2 === 0){
-        if (on('jegogan')) damped('jegogan', playBar('slenthem', laras, n.d, Math.min(0,n.o), t, 0.85), t);
-        hit('jegogan', t, noteHTML(n.d, Math.min(0,n.o)));
-      }
-    }
-  }
-  if (T % 2 === 0){
-    // 4分割の位置
-    const b = Math.ceil(T / TPB); const idx = (T - (b-1)*TPB)/2 - 1; // 0..3
-    const ns5 = laras==='slendro' ? 'slendro' : 'pelog';
-    const prev = balinote(resolved(b-1)), cur = balinote(resolved(b));
-    const sa = bStep(ns5, prev), sb = bStep(ns5, cur);
-    const stream = kotekanStream(sa, sb);
-    const n = bNote(ns5, stream[idx]);
-    const who = idx % 2 === 1 ? 'polos' : 'sangsih';
-    const o = Math.max(-1, Math.min(1, n.o));
-    if (on(who)) damped(who, playBar('gangsa', laras, n.d, o, t, 0.6), t);
-    hit(who, t, noteHTML(n.d, o));
-    // チェンチェン
-    const cpat = [1,0,1,1, 0,1,1,0][((b-1)%2)*4 + idx];
-    if (cpat && on('ceng')) { SYNTH.ceng(t, idx===3?0.9:0.6); hit('ceng', t, ''); }
-    // クンダン（バリ風）
-    const kp = 't.Pt.tP.tt.PDt.D'; const c = kp[((b-1)%4)*4 + idx];
-    if (c && c!=='.' ){ if (on('kendhang')) SYNTH.drum(c, t, 0.6); hit('kendhang', t, {D:'ドゥン',P:'トゥン',t:'タッ'}[c]); }
-  }
-}
-// バリ風の5音階での通し番号
-const BALI5 = {slendro:[1,2,3,5,6], pelog:[1,2,3,5,6]};
-function bStep(l, n){ const ns = BALI5[l]; let i = ns.indexOf(n.d); if (i<0) i = 0; return n.o*5 + i; }
-function bNote(l, s){ const ns = BALI5[l]; return {d:ns[((s%5)+5)%5], o:Math.floor(s/5)}; }
-
-/* ---- スケジューラ ---- */
 function scheduler(){
-  const ahead = 0.12;
-  while (S.nextTime < ctx.currentTime + ahead){
-    const T = S.tick;
-    scheduleTick(T, S.nextTime, S.phase);
-    // 次のティックへ
-    // テンポはなめらかに目標値へ（生演奏のように少しずつ変化）
-    S.tempo += (S.target - S.tempo) * (S.ending ? 0.02 : 0.012);
+  while (S.nextTime < ctx.currentTime + 0.12){
+    const T = S.tick, t = S.nextTime, D = S.der[S.irama] || S.der[1];
+    let list = S.phase==='buka' ? D.buka[T] : D.byTick[T];
+    if (S.phase==='main' && S.ending && T > (S.N-4)*TPB && S.form!=='bali') list = list.filter(e=>e.inst!=='kendhang').concat(D.endK[T]||[]);
+    for (const e of list){
+      const lane = laneOf(e.inst); if (S.muted[lane]) continue;
+      const tt = t + (e.inst==='gong' ? 0 : (Math.random()-.5)*0.008); // 人間らしいわずかなズレ
+      const h = playInst(e.inst, e, tt, S.laras, e.v*(0.92+Math.random()*0.14));
+      if (DAMP.has(e.inst)) damped(S.handles, e.inst, h, tt);
+      hit(lane, t, evLabel(e));
+    }
+    if (T % TPB === 0){ const beat = T/TPB, buka = S.phase==='buka'; vis(t, ()=>showBeat(beat, buka)); }
+    S.tempo += (S.target - S.tempo) * (S.ending ? 0.02 : 0.012); // 生演奏のように少しずつテンポが変わる
     S.nextTime += 60 / S.tempo / TPB;
     S.tick++;
     if (S.tick > S.N * TPB){
-      // 1周（ゴンガン）終わり
-      if (S.phase === 'buka'){ S.phase = 'main'; }
+      if (S.phase === 'buka') S.phase = 'main';
       else if (S.ending){ finishAuto(S.nextTime); return; }
       S.tick = 1; S.cycle++;
-      const c = S.cycle; vis(S.nextTime, ()=>{ document.getElementById('statCycle').textContent = c; });
+      const c = S.cycle; vis(S.nextTime, ()=>{ $('#statCycle').textContent = c; if (S.onCycle) S.onCycle(c); });
+      if (S.endAfter && c >= S.endAfter) S.ending = true;
     }
-    // ガトラの頭でイラマ切替
-    if (S.pendingIrama && (S.tick-1) % (4*TPB) === 0 && S.phase==='main'){
-      const ni = S.pendingIrama; S.pendingIrama = null;
-      S.irama = ni;
-    }
-    // 終わり（スウック）：最後のガトラで減速
-    if (S.ending && S.tick === (S.N-4)*TPB + 1 && S.phase==='main'){
-      S.target = S.tempo * 0.5;
-    }
+    if (S.pendingIrama && (S.tick-1) % (4*TPB) === 0 && S.phase==='main'){ S.irama = S.pendingIrama; S.pendingIrama = null; }
+    if (S.ending && S.tick === (S.N-4)*TPB + 1 && S.phase==='main') S.target = S.tempo * 0.5; // スウック：最後のガトラで減速
   }
 }
-
 function startAuto(){
   initAudio();
+  if (PW) stopPractice(PW);
   if (S.playing) return;
   S.playing = true; S.ending = false; S.cycle = 0; S.handles = {};
-  S.phase = 'buka';
-  S.tick = (S.N - 4) * TPB + 1; // 最後のガトラからブカ
-  S.tempo = S.target = +tempoEl.value;
+  S.phase = 'buka'; S.tick = (S.N - 4) * TPB + 1;
+  S.tempo = S.target = +$('#tempo').value;
   S.irama = S.pendingIrama || S.irama; S.pendingIrama = null;
   S.nextTime = ctx.currentTime + 0.15;
-  resetUserScore();
   S.timer = setInterval(scheduler, 25);
   scheduler();
   setAutoUI('ブカ（前奏）…');
-  document.getElementById('statCycle').textContent = '0';
+  $('#statCycle').textContent = '0';
 }
-function suwuk(){
-  if (!S.playing || S.ending) return;
-  S.ending = true;
-  setAutoUI('スウック（終わりに向かう）…');
-}
+function suwuk(){ if (!S.playing || S.ending) return; S.ending = true; setAutoUI('スウック（終わりに向かう）…'); }
 function finishAuto(at){
   clearInterval(S.timer); S.timer = null; S.playing = false;
-  const delay = Math.max(0, (at - ctx.currentTime)) * 1000;
-  setTimeout(()=>{ setAutoUI('停止中'); clearBeat(); }, delay);
+  const cb = S.onEnd; S.onCycle = S.onBeat = S.onEnd = null; S.endAfter = 0;
+  setTimeout(()=>{ setAutoUI('停止中'); clearBeat(); if (cb) cb(); }, Math.max(0, (at - ctx.currentTime))*1000 + 400);
 }
 function stopAuto(silent){
   if (S.timer) clearInterval(S.timer);
-  S.timer = null; S.playing = false; S.ending = false;
+  const was = S.playing;
+  S.timer = null; S.playing = false; S.ending = false; S.onCycle = S.onBeat = null; S.endAfter = 0;
+  const cb = S.onEnd; S.onEnd = null;
   visQ.length = 0;
   if (ctx) for (const k in S.handles) S.handles[k].damp(ctx.currentTime);
   S.handles = {};
-  if (!silent) setAutoUI('停止中');
+  if (!silent || was) setAutoUI('停止中');
   clearBeat();
+  if (cb && was) cb();
 }
 function setAutoUI(text){
-  document.getElementById('autoStatus').textContent = text;
-  document.getElementById('startBtn').disabled = S.playing;
-  document.getElementById('suwukBtn').disabled = !S.playing;
-  document.getElementById('stopBtn').disabled = !S.playing;
+  $('#autoStatus').textContent = text;
+  $('#startBtn').disabled = S.playing; $('#suwukBtn').disabled = !S.playing; $('#stopBtn').disabled = !S.playing;
 }
 
-/* =========================================================
- *  画面表示（ゴンガンの円・バルンガン・レーン）
- * ========================================================= */
-const svgNS = 'http://www.w3.org/2000/svg';
+/* ---- 表示 ---- */
 function renderCycle(){
-  const svg = document.getElementById('cycleSvg'); const N = S.N;
-  const cx = 150, cy = 150, R = 118;
+  const svg = $('#cycleSvg'), N = S.N, cx = 150, cy = 150, R = 118;
   S._rot = 0; S._lastBeat = null;
   let h = `<circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="#5a3f2a" stroke-width="2"/>`;
   for (let b=1;b<=N;b++){
-    const a = (b/N)*Math.PI*2 - Math.PI/2;
-    const x = cx + R*Math.cos(a), y = cy + R*Math.sin(a);
+    const a = (b/N)*Math.PI*2 - Math.PI/2, x = cx + R*Math.cos(a), y = cy + R*Math.sin(a);
     const marks = S.colo[b] || [];
     let col = '#4a3526', r = 5;
     if (marks.includes('G')) { col='var(--c-gong)'; r=13; }
@@ -981,198 +1006,106 @@ function renderCycle(){
     const lab = marks.filter(k=>'GNPt'.includes(k)).join('');
     if (lab){ const lx = cx + (R+20)*Math.cos(a), ly = cy + (R+20)*Math.sin(a);
       h += `<text x="${lx.toFixed(1)}" y="${(ly+4).toFixed(1)}" text-anchor="middle" font-size="10" fill="#c9b294" font-weight="700">${lab}</text>`; }
-    const n = S.bal[b-1]; const ix = cx + (R-24)*Math.cos(a), iy = cy + (R-24)*Math.sin(a);
-    h += `<text class="cn" data-b="${b}" x="${ix.toFixed(1)}" y="${(iy+5).toFixed(1)}" text-anchor="middle" font-size="${N>16?11:14}" fill="#f6ead8" font-weight="800">${n.d||'·'}</text>`;
-    if (n.d && n.o){ h += `<circle cx="${ix.toFixed(1)}" cy="${(n.o>0? iy-9 : iy+9).toFixed(1)}" r="1.6" fill="#f6ead8"/>`; }
+    const n = S.bal[b-1], ix = cx + (R-24)*Math.cos(a), iy = cy + (R-24)*Math.sin(a);
+    h += `<text x="${ix.toFixed(1)}" y="${(iy+5).toFixed(1)}" text-anchor="middle" font-size="${N>16?11:14}" fill="#f6ead8" font-weight="800">${n.d||'·'}</text>`;
+    if (n.d && n.o) h += `<circle cx="${ix.toFixed(1)}" cy="${(n.o>0? iy-9 : iy+9).toFixed(1)}" r="1.6" fill="#f6ead8"/>`;
   }
   h += `<line id="hand" x1="${cx}" y1="${cy}" x2="${cx}" y2="${cy-R+18}" stroke="#e9b44c" stroke-width="3" stroke-linecap="round" style="transform-origin:${cx}px ${cy}px; transition:transform .15s linear"/>`;
   h += `<circle cx="${cx}" cy="${cy}" r="30" fill="#2a1c13" stroke="#5a3f2a"/>`;
   h += `<text id="cycText" x="${cx}" y="${cy+5}" text-anchor="middle" font-size="13" fill="#f6ead8" font-weight="700">${N}拍</text>`;
   svg.innerHTML = h;
 }
-const FORM_NAME = {lancaran:'ランチャラン', ketawang:'クタワン', ladrang:'ラドラン', bali:'バリ風', free:'自由形式'};
 function renderBalungan(){
-  const el = document.getElementById('balView'); let h = '';
+  let h = '';
   for (let g=0; g<S.N/4; g++){
     h += '<div class="gatra">';
     for (let i=0;i<4;i++){
       const b = g*4+i+1, n = S.bal[b-1];
-      if (!n) { h += '<span class="cell"></span>'; continue; }
       const mk = (S.colo[b]||[]).filter(k=>'GNP'.includes(k)).join('');
       h += `<span class="cell" data-b="${b}">${mk?`<span class="mk">${mk}</span>`:''}${noteHTML(n.d,n.o)}</span>`;
     }
     h += '</div>';
   }
-  el.innerHTML = h;
+  $('#balView').innerHTML = h;
 }
 function renderLanes(){
-  const el = document.getElementById('lanes');
-  el.innerHTML = lanesNow().map(l=>`<label class="lane ${S.muted[l.id]?'off':''}" data-id="${l.id}">
+  $('#lanes').innerHTML = lanesNow().map(l=>`<label class="lane ${S.muted[l.id]?'off':''}" data-id="${l.id}">
     <input type="checkbox" ${S.muted[l.id]?'':'checked'} data-mute="${l.id}">
     <span><b>${l.name}</b></span><span class="role">${l.role}</span>
     <span style="display:flex;align-items:center;gap:6px;justify-content:flex-end"><span class="cur"></span><span class="dot" style="background:${l.color}"></span></span>
   </label>`).join('');
 }
-document.getElementById('lanes').addEventListener('change', e=>{
+$('#lanes').addEventListener('change', e=>{
   const id = e.target.dataset.mute; if (!id) return;
   S.muted[id] = !e.target.checked;
   e.target.closest('.lane').classList.toggle('off', S.muted[id]);
 });
-
 let lastBeatEl = null;
 function showBeat(beat, buka){
-  const N = S.N;
-  const hand = document.getElementById('hand');
+  const N = S.N, hand = $('#hand');
   if (hand){
-    // 針は連続回転（周回ごとに360度ずつ足す）
     if (S._lastBeat && beat < S._lastBeat) S._rot = (S._rot||0) + 360;
     S._lastBeat = beat;
     hand.style.transform = `rotate(${(beat/N)*360 + (S._rot||0)}deg)`;
   }
-  document.querySelectorAll('#cycleSvg .cb.now').forEach(c=>c.classList.remove('now'));
   const c = document.querySelector(`#cycleSvg .cb[data-b="${beat}"]`);
   if (c){ c.setAttribute('stroke','#fff'); setTimeout(()=>c.setAttribute('stroke','#1b120c'), 180); }
   if (lastBeatEl) lastBeatEl.classList.remove('now');
   lastBeatEl = document.querySelector(`#balView .cell[data-b="${beat}"]`);
   if (lastBeatEl) lastBeatEl.classList.add('now');
-  document.getElementById('statBeat').textContent = `${beat}/${N}`;
-  document.getElementById('statTempo').textContent = Math.round(S.tempo);
+  $('#statBeat').textContent = `${beat}/${N}`;
+  $('#statTempo').textContent = Math.round(S.tempo);
   if (S.playing && !S.ending) setAutoUI(buka ? 'ブカ（前奏）…' : `演奏中：${FORM_NAME[S.form]}・イラマ${S.irama===1?'I':'II'}`);
-  if (beat === N && !buka){ const t = document.getElementById('cycText'); if (t){ t.textContent='GONG!'; setTimeout(()=>{t.textContent=`${N}拍`;}, 600);} }
-  userTargetUpdate(beat, buka);
+  if (beat === N && !buka){ const t = $('#cycText'); if (t){ t.textContent='GONG!'; setTimeout(()=>{t.textContent=`${N}拍`;}, 600);} }
+  if (S.onBeat) S.onBeat(beat, buka);
 }
-function clearBeat(){
-  if (lastBeatEl) lastBeatEl.classList.remove('now'); lastBeatEl = null;
-  document.getElementById('statBeat').textContent = '-';
-  document.querySelectorAll('#userStage .target').forEach(e=>e.classList.remove('target'));
-}
+function clearBeat(){ if (lastBeatEl) lastBeatEl.classList.remove('now'); lastBeatEl = null; $('#statBeat').textContent = '-'; }
 
-function visLoop(){
-  if (ctx){
-    const now = ctx.currentTime;
-    visQ.sort((a,b)=>a.time-b.time);
-    while (visQ.length && visQ[0].time <= now + 0.01){ const v = visQ.shift(); try{ v.fn(); }catch(e){} }
-    if (visQ.length > 4000) visQ.splice(0, visQ.length - 2000);
-  }
-  requestAnimationFrame(visLoop);
-}
-requestAnimationFrame(visLoop);
-
-/* ---- 自分で弾く（サロン担当） ---- */
-const userStage = document.getElementById('userStage');
-const U = {good:0, ok:0, miss:0, expect:[], early:null};
-function resetUserScore(){ U.good=U.ok=U.miss=0; U.expect=[]; U.early=null; updUser(); }
-function updUser(){ document.getElementById('uGood').textContent=U.good; document.getElementById('uOk').textContent=U.ok; document.getElementById('uMiss').textContent=U.miss; }
-function renderUserStage(){
-  const p = document.getElementById('userStagePanel');
-  const show = S.userPart==='saron' && S.form!=='bali';
-  p.style.display = show ? '' : 'none';
-  if (show) buildBarRow(userStage, 'saron', S.laras, barKeys(S.laras));
-}
-function userTargetUpdate(beat, buka){
-  if (S.userPart!=='saron' || S.form==='bali') return;
-  userStage.querySelectorAll('.target').forEach(e=>e.classList.remove('target'));
-  if (!S.playing) return;
-  // 次に叩く音を光らせる
-  for (let k=1;k<=S.N;k++){
-    const nb = ((beat-1+k)%S.N)+1; const raw = S.bal[nb-1];
-    if (raw.d){ const n = clampToKeys(raw, barKeys(S.laras));
-      const el = userStage.querySelector(`.bar[data-d="${n.d}"][data-o="${n.o}"]`); if (el) el.classList.add('target'); break; }
-  }
-  // 拍のタイミングを判定用に記録
-  if (!buka){ const raw = S.bal[beat-1]; if (raw.d){
-    const n = clampToKeys(raw, barKeys(S.laras));
-    const beatLen = 60/S.tempo, e = {time: ctx.currentTime, d:n.d, o:n.o, done:false};
-    // 少し早めに叩いていた場合
-    if (U.early && U.early.d===n.d && U.early.o===n.o && e.time - U.early.t < beatLen*0.4){
-      e.done = true; if (e.time - U.early.t < beatLen*0.18) U.good++; else U.ok++; updUser();
-    }
-    U.early = null;
-    U.expect.push(e);
-    setTimeout(()=>{ const x = U.expect.shift(); if (x && !x.done){ U.miss++; updUser(); } }, beatLen*1000*0.6);
-  } }
-}
-userStage.addEventListener('pointerdown', e=>{
-  const el = e.target.closest('.bar'); if (!el) return; e.preventDefault();
-  initAudio();
-  const d = +el.dataset.d, o = +el.dataset.o, t = ctx.currentTime;
-  damped('saron', playBar('saron', S.laras, d, o, t, 0.85), t);
-  flashEl(el);
-  if (!S.playing) return;
-  const beatLen = 60/S.tempo;
-  // 直前の拍に対して遅れて叩いたか、次の拍に向けて早めに叩いたか
-  const e0 = U.expect.find(x=>!x.done);
-  if (e0 && e0.d===d && e0.o===o){
-    e0.done = true; if (t - e0.time < beatLen*0.18) U.good++; else U.ok++;
-    updUser();
-  } else U.early = {t,d,o}; // 次の拍で判定
-});
-
-/* =========================================================
- *  自動演奏パネルの操作
- * ========================================================= */
-const tempoEl = document.getElementById('tempo');
-tempoEl.oninput = () => { document.getElementById('tempoV').textContent = tempoEl.value; S.target = +tempoEl.value; if (!S.playing) S.tempo = S.target; };
+/* ---- 操作 ---- */
+$('#tempo').oninput = e => { $('#tempoV').textContent = e.target.value; S.target = +e.target.value; if (!S.playing) S.tempo = S.target; };
 function setIrama(n, immediate){
-  document.getElementById('irama1').classList.toggle('on', n===1);
-  document.getElementById('irama2').classList.toggle('on', n===2);
-  if (S.form==='bali' && n===2){ // バリ風はイラマ切替なし
-    document.getElementById('irama1').classList.add('on'); document.getElementById('irama2').classList.remove('on'); return;
-  }
+  if (S.form==='bali') n = 1; // バリ風はイラマ切替なし
+  $('#irama1').classList.toggle('on', n===1); $('#irama2').classList.toggle('on', n===2);
   if (immediate || !S.playing){ S.irama = n; S.pendingIrama = null; return; }
-  if (n === S.irama) return;
-  // イラマを変えるとテンポが半分（または倍）になり、装飾の密度が倍（または半分）になる
+  if (n === S.irama && !S.pendingIrama) return;
+  // イラマを変える：テンポが半分（倍）になり、装飾の細かさが倍（半分）になる
   S.pendingIrama = n;
   const nt = n===2 ? Math.max(24, Math.round(S.target/2)) : Math.min(160, Math.round(S.target*2));
-  S.target = nt; tempoEl.value = nt; document.getElementById('tempoV').textContent = nt;
+  S.target = nt; $('#tempo').value = nt; $('#tempoV').textContent = nt;
 }
-document.getElementById('irama1').onclick = () => setIrama(1);
-document.getElementById('irama2').onclick = () => setIrama(2);
-document.getElementById('startBtn').onclick = startAuto;
-document.getElementById('suwukBtn').onclick = suwuk;
-document.getElementById('stopBtn').onclick = () => stopAuto(false);
-document.getElementById('userPart').onchange = e => { S.userPart = e.target.value; renderUserStage(); };
-
-const pieceSel = document.getElementById('pieceSel');
-function fillPieces(){
-  pieceSel.innerHTML = PIECES.map((p,i)=>`<option value="${i}">${p.name}</option>`).join('');
-}
+$('#irama1').onclick = () => setIrama(1);
+$('#irama2').onclick = () => setIrama(2);
+$('#startBtn').onclick = startAuto;
+$('#suwukBtn').onclick = suwuk;
+$('#stopBtn').onclick = () => stopAuto(false);
+const pieceSel = $('#pieceSel');
+function fillPieces(){ pieceSel.innerHTML = PIECES.map((p,i)=>`<option value="${i}">${p.name}</option>`).join(''); }
 pieceSel.onchange = () => loadPiece(PIECES[+pieceSel.value]);
-
-const ombakAuto = document.getElementById('ombakAuto');
-function syncOmbak(){
-  ombakFree.value = ombakAuto.value = ombakHz;
-  document.getElementById('ombakFreeV').textContent = document.getElementById('ombakAutoV').textContent = ombakHz;
-}
-ombakAuto.oninput = () => { ombakHz = +ombakAuto.value; syncOmbak(); };
+function usePiece(i){ pieceSel.value = i; loadPiece(PIECES[i]); }
 
 const FORM_LEN = {lancaran:[16], ketawang:[16], ladrang:[32], bali:[16,32]};
-document.getElementById('applyCustom').onclick = () => {
-  const err = document.getElementById('customErr'); err.textContent = '';
-  const form = document.getElementById('customForm').value, laras = document.getElementById('customLaras').value;
-  const bal = parseBal(document.getElementById('customBal').value);
-  const okLen = FORM_LEN[form];
+$('#applyCustom').onclick = () => {
+  const err = $('#customErr'); err.textContent = '';
+  const form = $('#customForm').value, laras = $('#customLaras').value, txt = $('#customBal').value;
+  const bal = parseBal(txt), okLen = FORM_LEN[form];
   if (okLen && !okLen.includes(bal.length)){ err.textContent = `${FORM_NAME[form]}は ${okLen.join(' か ')} 拍必要です（いまは ${bal.length} 拍）。`; return; }
   if (!okLen && (bal.length < 8 || bal.length % 4)){ err.textContent = `自由形式は8拍以上・4の倍数にしてください（いまは ${bal.length} 拍）。`; return; }
-  if (!bal.some(n=>n.d)){ err.textContent = '音が1つもありません。'; return; }
+  if (!bal.some(n=>n.d)){ err.textContent = '音が1つもありません。数字で音を書いてください。'; return; }
   const bad = bal.find(n=>n.d && !LARAS[laras].notes.includes(n.d));
   if (bad){ err.textContent = `${LARAS[laras].name}には ${bad.d} の音がありません（使える音：${LARAS[laras].notes.join(' ')}）。`; return; }
   if (!bal[bal.length-1].d){ err.textContent = '最後の拍（ゴングの拍）には音を書いてください。'; return; }
-  const p = {name:'✏️ 自作の曲', laras, form, tempo: form==='bali'?84:(form==='ladrang'?52:64), bal: document.getElementById('customBal').value};
-  const i = PIECES.findIndex(x=>x.name==='✏️ 自作の曲');
+  const p = {name:'✏️ 自作の曲', laras, form, tempo: form==='bali'?84:(form==='ladrang'?52:64), bal:txt};
+  const i = PIECES.findIndex(x=>x.name===p.name);
   if (i>=0) PIECES[i] = p; else PIECES.push(p);
-  fillPieces(); pieceSel.value = PIECES.indexOf(p); loadPiece(p);
+  fillPieces(); usePiece(PIECES.indexOf(p));
   window.scrollTo({top:0, behavior:'smooth'});
 };
-// おまかせ作曲：ガトラの最後の音を大事にしながら、順次進行中心で旋律を作る
-document.getElementById('randBtn').onclick = () => {
-  const form = document.getElementById('customForm').value, laras = document.getElementById('customLaras').value;
-  const N = form==='ladrang' ? 32 : 16;
+$('#randBtn').onclick = () => { // ガトラの最後を大事にしながら、順次進行中心で旋律を作る
+  const form = $('#customForm').value, laras = $('#customLaras').value, N = form==='ladrang' ? 32 : 16;
   let ns = LARAS[laras].notes.slice();
-  if (form==='bali' && laras==='pelog') ns = [1,2,3,5,6];
-  if (laras==='pelog' && form!=='bali') ns = Math.random()<0.5 ? [1,2,3,5,6] : [2,3,5,6,7]; // パテットに近い5音を選ぶ
-  const L = ns.length; let s = L + Math.floor(Math.random()*L); // 中央オクターブから
-  const goal = L + (Math.random()<0.5 ? 0 : 4 % L); // ゴングの音
+  if (laras==='pelog') ns = form==='bali' ? [1,2,3,5,6] : (Math.random()<0.5 ? [1,2,3,5,6] : [2,3,5,6,7]);
+  const L = ns.length; let s = L + Math.floor(Math.random()*L);
+  const goal = L + (Math.random()<0.5 ? 0 : 4 % L);
   const out = [];
   for (let b=1;b<=N;b++){
     if (b===N) s = goal;
@@ -1182,104 +1115,535 @@ document.getElementById('randBtn').onclick = () => {
     out.push(rest ? '.' : d + (o<0?',':o>0?"'":''));
   }
   let txt = ''; out.forEach((x,i)=>{ txt += x + ((i+1)%4===0 ? '  ' : ' '); });
-  document.getElementById('customBal').value = txt.trim();
+  $('#customBal').value = txt.trim();
 };
 
 /* =========================================================
- *  しくみページのデモ
+ *  8. 練習エンジン：合奏の中で1つの楽器を担当し、タイミングを判定
  * ========================================================= */
-function now(){ initAudio(); return ctx.currentTime + 0.05; }
-function demoScale(l){
-  const t0 = now(); const ns = LARAS[l].notes; let h=null;
-  [...ns.map(d=>[d,0]), [ns[0],1]].forEach(([d,o],i)=>{ const t = t0 + i*0.42; const nh = playBar('saron', l, d, o, t, 0.8); if (h) h.damp(t); h = nh; });
+let PW = null; // いま動いている練習ウィジェット
+function mountPractice(el, cfg){
+  const piece = typeof cfg.piece==='number' ? PIECES[cfg.piece] : cfg.piece;
+  const w = {el, cfg, piece, bal:parseBal(piece.bal), laras:piece.laras, bpm:cfg.bpm||60, irama:cfg.irama||1,
+    guide: cfg.guide!==false, passed:false, running:false, handles:{}};
+  const show = cfg.show || ['bal', cfg.user];
+  el.innerHTML = `<div class="prac">
+    <div class="row">
+      <button class="pgo">🥢 一緒に弾く</button>
+      <button class="sec pdemo">🎧 お手本を聴く</button>
+      <button class="sec pstop" disabled>■ 止める</button>
+    </div>
+    <div class="row">
+      <label class="ctl">テンポ（拍/分）<b><input type="range" class="ptempo" min="30" max="120" value="${w.bpm}"> <span class="ptv">${w.bpm}</span></b></label>
+      <label class="chk"><input type="checkbox" class="pguide" ${w.guide?'checked':''}>お手本の音も小さく鳴らす</label>
+      ${cfg.iramaToggle ? `<div class="row" style="gap:4px"><button class="sec on pi1">イラマ I</button><button class="sec pi2">イラマ II</button></div>` : ''}
+    </div>
+    <div class="pmsg">${cfg.intro || '「お手本を聴く」で流れをつかんでから、「一緒に弾く」で挑戦しよう。光る鍵盤が次に叩く音です。'}</div>
+    <div class="pstats"><span class="bigstat">ぴったり <b class="sg">0</b></span><span class="bigstat">おしい <b class="so">0</b></span><span class="bigstat">ミス <b class="sm">0</b></span></div>
+    <div class="pscore"></div>
+    <div class="stage pkb"></div>
+  </div>`;
+  w.q = s => el.querySelector(s);
+  w.scoreEl = w.q('.pscore');
+  w.rebuild = () => {
+    w.der = derive(w.bal, w.laras, piece.form, w.irama);
+    const [a,b] = cfg.beats || [1, w.der.N]; w.a = a; w.b = b;
+    renderScore(w.scoreEl, w.der, show, a, b, 'p-');
+  };
+  w.rebuild();
+  w.kb = buildKeyboard(w.q('.pkb'), cfg.user, w.laras, (key, kel)=>practiceTap(w, key, kel), true);
+  w.q('.pgo').onclick = () => practiceStart(w, false);
+  w.q('.pdemo').onclick = () => practiceStart(w, true);
+  w.q('.pstop').onclick = () => stopPractice(w);
+  w.q('.ptempo').oninput = e => { w.bpm = +e.target.value; w.q('.ptv').textContent = w.bpm; };
+  w.q('.pguide').onchange = e => { w.guide = e.target.checked; };
+  if (cfg.iramaToggle){
+    const setI = n => { if (n===w.irama) return; if (w.running) stopPractice(w); w.irama = n; w.q('.pi1').classList.toggle('on', n===1); w.q('.pi2').classList.toggle('on', n===2);
+      w.bpm = n===2 ? Math.max(30, Math.round(w.bpm/2)) : Math.min(120, w.bpm*2); w.q('.ptempo').value = w.bpm; w.q('.ptv').textContent = w.bpm; w.rebuild(); };
+    w.q('.pi1').onclick = () => setI(1); w.q('.pi2').onclick = () => setI(2);
+  }
+  return w;
 }
-function demoWestern(){
-  const t0 = now(); [0,2,4,5,7,9,11,12].forEach((s,i)=>{ voice(523.25*Math.pow(2,s/12), t0+i*0.4, 0.8, [[1,0.5,1],[2,0.15,0.5]], {attack:0.005}); });
+function pmsg(w, html, pass){ const m = w.q('.pmsg'); m.innerHTML = html; m.classList.toggle('pass', !!pass); }
+function stopAll(){ stopAuto(true); if (PW) stopPractice(PW); }
+function practiceStart(w, demo){
+  stopAll(); initAudio();
+  PW = w; w.demo = demo; w.running = true;
+  w.rebuild();
+  w.Ta = (w.a-1)*TPB+1; w.Tb = w.b*TPB; w.T = w.Ta; w.loop = 0; w.ci = demo ? 3*TPB : 0; w._tk = undefined; // お手本はカウント1つだけ
+  w.targets = []; w.loops = {}; w.stat = {good:0, ok:0, miss:0}; w.handles = {};
+  const filt = w.cfg.filter || (()=>true);
+  const ts = (w.der.parts[w.cfg.user]||[]).filter(e=>e.T>=w.Ta && e.T<=w.Tb && filt(e)).map(e=>e.T);
+  let gap = w.Tb - w.Ta + 1; for (let i=1;i<ts.length;i++) gap = Math.min(gap, ts[i]-ts[i-1]);
+  w.gapTicks = Math.max(1, gap);
+  w.next = ctx.currentTime + 0.2;
+  w.timer = setInterval(()=>practiceSched(w), 25);
+  ['sg','so','sm'].forEach(c=>w.q('.'+c).textContent = '0');
+  w.q('.pgo').disabled = w.q('.pdemo').disabled = true; w.q('.pstop').disabled = false;
+  pmsg(w, demo ? 'お手本を演奏します。光る鍵盤と楽譜の色を見てね。' : 'カウントのあとに始まります…');
+  practiceSched(w);
 }
-function demoColo(){
-  const t0 = now(), beat = 0.55, laras = 'slendro', m = colotomy('lancaran', 16);
-  for (let b=1;b<=16;b++){
-    const t = t0 + b*beat;
-    for (const k of (m[b]||[])){
-      if (k==='G') SYNTH.gong(t,1); else if (k==='N') SYNTH.kenong(freqOf(laras,6,0),t,0.8);
-      else if (k==='P') SYNTH.kempul(freqOf(laras,5,-1),t,0.8); else if (k==='t') SYNTH.kethuk(freqOf(laras,2,-1),t,0.8);
+function stopPractice(w){
+  if (w.timer) clearInterval(w.timer);
+  const wasActive = PW === w;
+  w.timer = null; w.running = false;
+  if (wasActive){ PW = null; visQ.length = 0; }
+  if (ctx) for (const k in w.handles) w.handles[k].damp(ctx.currentTime);
+  w.kb.setTarget(null); w._tk = undefined;
+  w.scoreEl.querySelectorAll('.nowcol').forEach(x=>x.classList.remove('nowcol'));
+  w.q('.pgo').disabled = w.q('.pdemo').disabled = false; w.q('.pstop').disabled = true;
+  if (!wasActive) return;
+  if (w.demo) pmsg(w, 'お手本はここまで。次は「一緒に弾く」で挑戦しよう。');
+  else if (!w.passed) pmsg(w, 'ストップしました。もう一度「一緒に弾く」で挑戦できます。');
+}
+function practiceSched(w){
+  const cfg = w.cfg, filt = cfg.filter || (()=>true), back = cfg.backing || 'all';
+  while (w.running && w.next < ctx.currentTime + 0.12){
+    const t = w.next, dt = 60/w.bpm/TPB;
+    if (w.ci < 4*TPB){ // カウント 4・3・2・1
+      if (w.ci % TPB === 0){ const n = 4 - w.ci/TPB; SYNTH.click(t, n===1); if (!w.demo) vis(t, ()=>pmsg(w, `カウント <b>${n}</b> …`)); }
+      w.ci++; w.next += dt; continue;
     }
+    const T = w.T;
+    if (T === w.Ta){ const L = w.loop; vis(t, ()=>{ w.scoreEl.querySelectorAll('.j-good,.j-ok,.j-miss,.j-wrong,.j-demo').forEach(x=>x.classList.remove('j-good','j-ok','j-miss','j-wrong','j-demo'));
+      if (!w.demo && !w.passed && L===0) pmsg(w, 'スタート！光る鍵盤を、拍に合わせて叩こう。'); }); }
+    for (const e of w.der.byTick[T]){
+      const tt = t + (e.inst==='gong' ? 0 : (Math.random()-.5)*0.006);
+      if (e.inst === cfg.user){
+        if (w.demo){
+          damped(w.handles, e.inst, playInst(e.inst, e, t, w.laras, e.v), t);
+          vis(t, ()=>{ w.kb.flash(e.key); markCell(w, e.T, 'j-demo'); });
+        } else {
+          if (w.guide) damped(w.handles, e.inst+'g', playInst(e.inst, e, t, w.laras, e.v*0.28), t);
+          if (filt(e)){ w.targets.push({time:t, e, loop:w.loop, j:null}); (w.loops[w.loop] ||= {n:0, hit:0, done:0, shown:false}).n++; }
+        }
+      } else if (back==='all' || back.includes(e.inst)){
+        const h = playInst(e.inst, e, tt, w.laras, e.v*0.85*(0.93+Math.random()*0.12));
+        if (DAMP.has(e.inst)) damped(w.handles, e.inst, h, tt);
+      }
+    }
+    if (T % TPB === 0){ const beat = T/TPB; vis(t, ()=>{ w.scoreEl.querySelectorAll('.nowcol').forEach(x=>x.classList.remove('nowcol')); w.scoreEl.querySelectorAll(`td[data-beat="${beat}"]`).forEach(x=>x.classList.add('nowcol')); }); }
+    w.T++;
+    if (w.T > w.Tb){
+      w.T = w.Ta; w.loop++;
+      if (w.demo && w.loop >= 2){ // お手本は2周で終わり
+        const end = w.next + dt; w.running = false; clearInterval(w.timer); w.timer = null;
+        setTimeout(()=>{ if (PW===w && w.demo) stopPractice(w); }, Math.max(0,(end-ctx.currentTime))*1000+600);
+      }
+    }
+    w.next += dt;
   }
 }
-function demoLayers(){
-  // 1周ずつ楽器を重ねていく：ゴング → バルンガン → ペキン → ボナン → パネルス＋クンダン
-  const p = PIECES[0]; pieceSel.value = 0; loadPiece(p);
-  const order = ['gong','saron','peking','bonang','panerus'];
-  const all = ['kendhang','gong','slenthem','demung','saron','peking','bonang','panerus'];
-  all.forEach(id=>S.muted[id] = true); S.muted.gong = false;
-  renderLanes();
-  document.querySelector('[data-tab="auto"]').click();
-  startAuto();
-  let step = 0, seen = S.cycle;
-  const iv = setInterval(()=>{
-    if (!S.playing){ clearInterval(iv); return; }
-    if (S.phase==='main' && S.cycle > seen){
-      seen = S.cycle; if (seen === 1) return; // 1周目はゴング類だけ
-      step++;
-      if (step < order.length){
-        S.muted[order[step]] = false;
-        if (order[step]==='saron'){ S.muted.demung = S.muted.slenthem = false; }
-        if (order[step]==='panerus') S.muted.kendhang = false;
-        renderLanes();
-      } else clearInterval(iv);
-    }
-  }, 20);
+function markCell(w, T, cls){ const c = w.scoreEl.querySelector(`[data-i="p-${w.cfg.user}"][data-t="${T}"]`); if (c){ c.classList.remove('j-good','j-ok','j-miss','j-wrong','j-demo'); c.classList.add(cls); } }
+function latency(){ return Math.min(0.2, (ctx.outputLatency||0) + (ctx.baseLatency||0)); }
+function windows(w){ const gap = w.gapTicks*60/w.bpm/TPB; const ok = Math.min(0.22, gap*0.48); return {ok, good:Math.min(0.09, ok*0.55)}; }
+function judge(w, tg, kind){
+  tg.j = kind;
+  const L = w.loops[tg.loop]; L.done++;
+  if (kind==='good'){ w.stat.good++; L.hit++; } else if (kind==='ok'){ w.stat.ok++; L.hit++; } else w.stat.miss++;
+  markCell(w, tg.e.T, 'j-'+kind);
+  w.q('.sg').textContent = w.stat.good; w.q('.so').textContent = w.stat.ok; w.q('.sm').textContent = w.stat.miss;
 }
-function demoKotekan(){
-  // ポロスだけ → サンシだけ → 両方
-  const t0 = now(), laras = 'pelog', beat = 0.6;
-  const melody = [{d:1,o:0},{d:2,o:0},{d:3,o:0},{d:1,o:0}];
-  const parts = [['polos'],['sangsih'],['polos','sangsih']];
-  let t = t0;
-  parts.forEach(ps=>{
-    for (let rep=0; rep<2; rep++) for (let b=0;b<4;b++){
-      const a = melody[(b+3)%4], c = melody[b];
-      const st = kotekanStream(bStep('pelog',a), bStep('pelog',c));
-      for (let i=0;i<4;i++){
-        const who = i%2===1 ? 'polos' : 'sangsih';
-        if (ps.includes(who)){ const n = bNote('pelog', st[i]); playBar('gangsa', laras, n.d, Math.max(-1,Math.min(1,n.o)), t + (i+1)*beat/4, 0.6); }
-      }
-      t += beat;
-    }
-    t += 0.6;
-  });
+function practiceTap(w, key, kel){
+  const now = ctx.currentTime, active = PW===w && !w.demo && w.targets;
+  let ev = evFromKey(key);
+  if (!key.includes(':')){ // パッド（ゴング類）は近くの目標の音の高さで鳴らす
+    let best = null, bd = 9;
+    if (active) for (const tg of w.targets){ const d = Math.abs(now - tg.time); if (d < bd){ bd = d; best = tg; } }
+    const src = best ? best.e : (w.der.parts[w.cfg.user]||[])[0];
+    if (src) ev = Object.assign({}, src, {k:key});
+  }
+  damped(w.handles, w.cfg.user, playInst(w.cfg.user, ev, now, w.laras, 1), now);
+  if (!active) return;
+  const lat = latency(), win = windows(w);
+  let pick = null, pd = 9;
+  for (const tg of w.targets){
+    if (tg.j) continue;
+    const d = Math.abs(now - (tg.time + lat));
+    if (d >= win.ok) continue;
+    const better = !pick || (tg.e.key===key && pick.e.key!==key) || ((tg.e.key===key) === (pick.e.key===key) && d < pd);
+    if (better){ pick = tg; pd = d; }
+  }
+  if (!pick) return;
+  if (pick.e.key === key) judge(w, pick, pd < win.good ? 'good' : 'ok');
+  else { judge(w, pick, 'wrong'); w.kb.wrong(kel); }
 }
-function demoOmbak(hz){
-  const t = now(); const keep = ombakHz; ombakHz = hz;
-  playBar('gangsa', 'pelog', 3, 0, t, 1); playBar('gangsa', 'pelog', 5, -1, t, 0.6);
-  ombakHz = keep;
+function practiceFrame(){
+  const w = PW; if (!w || w.demo || !w.targets || !ctx) return;
+  const now = ctx.currentTime, lat = latency(), win = windows(w);
+  let next = null;
+  for (const tg of w.targets){
+    if (tg.j) continue;
+    if (now > tg.time + lat + win.ok) judge(w, tg, 'miss');
+    else if (!next) next = tg;
+  }
+  const tk = next && next.time - now < 2.5 ? next.e.key : null;
+  if (tk !== w._tk){ w._tk = tk; w.kb.setTarget(tk); }
+  // 1周ごとに結果を判定
+  for (const L in w.loops){
+    const o = w.loops[L];
+    if (o.shown || +L >= w.loop || o.done < o.n) continue;
+    o.shown = true;
+    const r = o.n ? o.hit/o.n : 0, need = w.cfg.passRatio ?? 0.75;
+    if (r >= need && !w.passed){ w.passed = true; pmsg(w, `🎉 合格！ ${o.hit}/${o.n} 音できました。${w.cfg.passMsg||''}`, true); if (w.cfg.onPass) w.cfg.onPass(); }
+    else if (!w.passed) pmsg(w, `この周は ${o.hit}/${o.n} 音。${Math.ceil(need*o.n)} 音できたら合格。${r<0.4?'テンポを下げたり、お手本の音をよく聴いてみよう。':'もう少し！'}`);
+    else pmsg(w, `この周は ${o.hit}/${o.n} 音。いい調子！`, true);
+  }
+  if (w.targets.length > 400) w.targets = w.targets.filter(tg=>!tg.j || now - tg.time < 3);
 }
-document.querySelector('#page-learn').addEventListener('click', e=>{
-  const b = e.target.closest('[data-demo]'); if (!b) return;
-  ({scaleS:()=>demoScale('slendro'), scaleP:()=>demoScale('pelog'), scaleW:demoWestern, colo:demoColo,
-    gong:()=>SYNTH.gong(now(),1), layers:demoLayers, kotekan:demoKotekan, ombak0:()=>demoOmbak(0), ombak6:()=>demoOmbak(6)})[b.dataset.demo]();
-});
-document.getElementById('densityChart').textContent =
-`拍           |1       2       3       4      |
-ゴング類     |                N             |  ← 周期を区切る
-バルンガン   |2       1       2       6̣      |  ← 1拍に1音
-ペキン       |2   2   1   1   2   2   6̣   6̣  |  ← 1拍に2音（先取り）
-ボナン       |2   1   2   1   2   6̣   2   6̣  |  ← 1拍に2音
-パネルス     |2 1 2 1 2 1 2 1 2 6̣ 2 6̣ 2 6̣ 2 6̣|  ← 1拍に4音
-（イラマIIでは装飾楽器の音数がさらに2倍）`;
+
+function visLoop(){
+  if (ctx){
+    const now = ctx.currentTime;
+    if (visQ.length > 1) visQ.sort((a,b)=>a.time-b.time);
+    while (visQ.length && visQ[0].time <= now + 0.01){ const v = visQ.shift(); try{ v.fn(); }catch(e){ console.error(e); } }
+    practiceFrame();
+  }
+  requestAnimationFrame(visLoop);
+}
+requestAnimationFrame(visLoop);
 
 /* =========================================================
- *  タブ・起動
+ *  9. 小さな学習ウィジェット（聴く・順番に叩く・クイズ・楽譜）
+ * ========================================================= */
+function nowT(){ initAudio(); return ctx.currentTime + 0.06; }
+const DEMOS = {
+  scale(l){ const t0 = nowT(), ns = LARAS[l].notes; let h = null;
+    [...ns.map(d=>[d,0]), [ns[0],1]].forEach(([d,o],i)=>{ const t = t0+i*0.42; const nh = playInst('saron', {d,o}, t, l, 1); if (h) h.damp(t); h = nh; }); },
+  western(){ const t0 = nowT(); [0,2,4,5,7,9,11,12].forEach((s,i)=>{ voice(523.25*Math.pow(2,s/12), t0+i*0.4, 0.7, [[1,.5,1],[2,.12,.5]], {attack:.005}); }); },
+  damp(on){ const t0 = nowT(); let h = null;
+    [[3,0],[5,0],[6,0],[5,0],[3,0],[2,0],[1,0],[2,0]].forEach(([d,o],i)=>{ const t = t0+i*0.36; const nh = playInst('saron', {d,o}, t, 'slendro', 1); if (on && h) h.damp(t); h = nh; }); },
+  colo(){ const t0 = nowT(), der = derive(parseBal(PIECES[0].bal), 'slendro', 'lancaran', 1), beat = 0.55;
+    for (const i of ['gong','kenong','kempul','kethuk']) for (const e of der.parts[i]) playInst(i, e, t0 + (e.T/TPB)*beat, 'slendro', 1); },
+  gong(){ playInst('gong', {k:'G'}, nowT(), 'slendro', 1.1, 0); },
+  kotekan(say){ const t0 = nowT(), beat = 0.6, der = derive(parseBal('1 2 3 1  2 3 5 3'), 'pelog', 'bali', 1);
+    const parts = [['polos'],['sangsih'],['polos','sangsih']], names = ['ポロスだけ','サンシだけ','2人一緒（コテカン）'];
+    let t = t0;
+    parts.forEach((ps, k)=>{ const st = t; vis(st, ()=>say && say(`いま：${names[k]}`));
+      for (const i of ps) for (const e of der.parts[i]) playInst(i, e, st + (e.T/TPB)*beat, 'pelog', 1);
+      for (const e of der.parts.calung) playInst('calung', e, st + (e.T/TPB)*beat, 'pelog', .7);
+      t += 8*beat + 0.8; });
+    vis(t, ()=>say && say('おわり')); },
+  ombak(hz){ const t = nowT(), keep = ombakHz; ombakHz = hz; playInst('gangsa', {d:3,o:0}, t, 'pelog', 1.2, 0); playInst('gangsa', {d:5,o:-1}, t, 'pelog', .8, 0); ombakHz = keep; },
+  pieceOnce(i, say){ stopAll(); usePiece(i); S.endAfter = 1;
+    S.onBeat = (b, buka) => say && say(buka ? `ブカ（前奏）… ${b}拍` : `${b} / ${S.N} 拍${(S.colo[b]||[]).includes('G')?' 🔔 ゴング！':''}`);
+    S.onEnd = () => say && say('おわり（最後はゆっくりになってゴングで終わりました）'); startAuto(); },
+  layers(say){ stopAll(); usePiece(0);
+    const order = [['gong'],['saron','demung','slenthem'],['peking'],['bonang'],['panerus','kendhang']];
+    const names = ['ゴング類だけ','＋ バルンガン（サロン・デムン・スレンテム）','＋ ペキン（2回ずつ先取り）','＋ ボナン（2音を行き来）','＋ パネルスとクンダン（全員）'];
+    LANES_JAVA.forEach(l=>S.muted[l.id] = true); S.muted.gong = false; renderLanes();
+    let step = 0; say && say('いま：'+names[0]);
+    S.onCycle = c => { if (c<=1) return; step++; if (step < order.length){ order[step].forEach(id=>S.muted[id]=false); renderLanes(); say && say('いま：'+names[step]); } if (step === order.length-1) S.endAfter = c+1; };
+    S.onEnd = () => { LANES_JAVA.forEach(l=>S.muted[l.id] = false); renderLanes(); say && say('おわり'); };
+    startAuto(); },
+  irama(say){ stopAll(); usePiece(0); $('#tempo').value = 76;
+    S.onBeat = (b) => say && say(`イラマ${S.irama===1?'I':'II'}・${b}拍・テンポ ${Math.round(S.tempo)}`);
+    S.onCycle = c => { if (c===1) setIrama(2); if (c===2) S.endAfter = 3; };
+    S.onEnd = () => { say && say('おわり'); setIrama(1, true); };
+    startAuto(); },
+};
+
+function mountListen(el, spec, onPass){
+  const used = new Set();
+  el.innerHTML = `<div class="row">${spec.items.map((it,i)=>`<button class="sec" data-i="${i}">${it.label}</button>`).join('')}<button class="sec lstop">■ 止める</button></div><div class="nowp"></div>`;
+  const say = txt => { el.querySelector('.nowp').textContent = txt; };
+  el.querySelector('.row').onclick = e => {
+    if (e.target.closest('.lstop')){ stopAll(); say(''); return; }
+    const b = e.target.closest('[data-i]'); if (!b) return;
+    initAudio(); spec.items[+b.dataset.i].fn(say);
+    used.add(b.dataset.i); b.classList.add('on');
+    if (used.size >= spec.items.length) onPass();
+  };
+}
+function mountSeq(el, spec, onPass){
+  const laras = spec.laras || 'slendro', target = spec.target; let idx = 0; const hs = {};
+  el.innerHTML = `<div class="seqrow"></div><div class="nowp"></div><div class="stage"></div><button class="sec sreset" style="margin-top:8px">もう一度</button>`;
+  const row = el.querySelector('.seqrow'), say = t => { el.querySelector('.nowp').textContent = t; };
+  const kb = buildKeyboard(el.querySelector('.stage'), spec.inst, laras, (key, kel)=>{
+    const t = ctx.currentTime;
+    damped(hs, spec.inst, playInst(spec.inst, evFromKey(key), t, laras, 1.1, 0), t);
+    if (idx >= target.length) return;
+    if (key === target[idx]){ idx++; draw(); if (idx >= target.length){ say('🎉 できた！'); onPass(); } else say(''); }
+    else { kb.wrong(kel); say('ちがう音です。緑に光っている鍵盤を叩こう。'); }
+  }, true);
+  const draw = () => { row.innerHTML = target.map((k,i)=>{ const e = evFromKey(k); return `<span class="${i<idx?'done':''} ${i===idx?'next':''}">${noteHTML(e.d,e.o)}</span>`; }).join(''); kb.setTarget(target[idx]||null); };
+  el.querySelector('.sreset').onclick = () => { idx = 0; say(''); draw(); };
+  draw();
+}
+function mountQuiz(el, spec, onPass){
+  el.innerHTML = `<div class="quiz"><div>${spec.q}</div><div class="opts">${spec.options.map((o,i)=>`<button class="sec" data-i="${i}">${o}</button>`).join('')}</div><div class="qexp"></div></div>`;
+  el.querySelector('.opts').onclick = e => {
+    const b = e.target.closest('[data-i]'); if (!b) return;
+    const i = +b.dataset.i;
+    if (i === spec.answer){ b.classList.add('right'); el.querySelector('.qexp').innerHTML = '⭕ 正解！ ' + spec.explain; onPass(); }
+    else { b.classList.add('wrong'); el.querySelector('.qexp').innerHTML = '❌ ちがいます。' + (spec.hint || 'もう一度考えてみよう。'); }
+  };
+}
+function mountGrid(el, spec, onPass){
+  const p = PIECES[spec.piece ?? 0], der = derive(parseBal(p.bal), p.laras, p.form, spec.irama||1);
+  el.innerHTML = `<div class="gwrap"></div>${spec.note ? `<p class="note">${spec.note}</p>` : ''}`;
+  renderScore(el.querySelector('.gwrap'), der, spec.insts, spec.beats[0], spec.beats[1]);
+  onPass();
+}
+
+/* =========================================================
+ *  10. レッスン（順番に学ぶ）
+ * ========================================================= */
+const BEGIN_BACK = ['kethuk','kenong','kempul','gong'];
+const LESSONS = [
+  { title:'ガムランってなに？',
+    body:`<p>ガムランは、インドネシアのジャワ島やバリ島に伝わる合奏音楽です。青銅（ブロンズ）の鍵盤やゴング、太鼓などを、たくさんの人で一緒に演奏します。</p>
+    <p>楽器は、役割で大きく4つのグループに分かれます。</p>
+    <ul><li><b>骨組み</b>：曲の旋律の「背骨」を叩く（サロンなど）</li><li><b>区切り</b>：大小のゴングで時間を区切る</li><li><b>飾り</b>：旋律を細かく飾る（ペキン・ボナンなど）</li><li><b>指揮</b>：太鼓（クンダン）がテンポを決める</li></ul>`,
+    point:'<b>ポイント</b> 全員が「同じ曲の、ちがう姿」を同時に演奏しています。これがガムランのいちばん大事なしくみです。',
+    widgets:[{type:'listen', title:'まずは聴いてみよう', items:[{label:'▶ 合奏を1周聴く', fn:say=>DEMOS.pieceOnce(0, say)}]}] },
+  { title:'音の名前は「数字」',
+    body:`<p>ガムランの楽譜は、音を数字で書きます（<b>クパティハン譜</b>）。数字の下の点は低い音、上の点は高い音です。</p>
+    <table><tr><th>数字</th><td>1</td><td>2</td><td>3</td><td>4</td><td>5</td><td>6</td><td>7</td></tr><tr><th>読み</th><td>ji</td><td>ro</td><td>lu</td><td>pat</td><td>mo</td><td>nem</td><td>pi</td></tr></table>
+    <p>音階は2種類あります。<b>スレンドロ</b>は1オクターブをほぼ均等に5つに分けた音階（4と7がない）、<b>ペロッグ</b>は広い音程と狭い音程がまざった7音の音階です。ドレミとは音の高さが少しずつちがいます。</p>`,
+    point:'<b>ポイント</b> 「6」の下に点があれば低い6、「1」の上に点があれば高い1です。',
+    widgets:[
+      {type:'seq', title:'サロンで低い方から順に叩こう', inst:'saron', target:['6:-1','1:0','2:0','3:0','5:0','6:0','1:1']},
+      {type:'listen', title:'音階を聴きくらべよう', items:[{label:'スレンドロ', fn:()=>DEMOS.scale('slendro')},{label:'ペロッグ', fn:()=>DEMOS.scale('pelog')},{label:'くらべる：ドレミ', fn:()=>DEMOS.western()}]},
+    ] },
+  { title:'叩いたら止める（ダンプ）',
+    body:`<p>サロンは右手のバチで叩き、同時に<b>左手で直前に叩いた鍵盤をつまんで響きを止めます</b>。止めないと前の音が残って、旋律がにごってしまいます。</p>
+    <p>このアプリの鍵盤は、次の音を叩くと自動で前の音を止めます。下の2つを聴きくらべてみましょう。</p>`,
+    point:'<b>ポイント</b> 「右手で叩く」と「左手で止める」は同時。慣れると流れるように弾けます。',
+    widgets:[
+      {type:'listen', title:'止める・止めないを聴きくらべ', items:[{label:'止めずに弾く', fn:()=>DEMOS.damp(false)},{label:'止めて弾く', fn:()=>DEMOS.damp(true)}]},
+      {type:'seq', title:'「3 5 6 5」を叩こう', inst:'saron', target:['3:0','5:0','6:0','5:0']},
+    ] },
+  { title:'1拍に1音：バルンガン',
+    body:`<p>曲の骨組みになる旋律を<b>バルンガン</b>といいます。サロン・デムン・スレンテムが、1拍に1音ずつ叩きます。</p>
+    <p>4音のまとまりを<b>ガトラ</b>と呼びます。ガトラの<b>最後の音（セレ）がいちばん大事</b>です。西洋の音楽は1拍目が強いことが多いですが、ガムランは「後ろに向かって進み、最後に着地する」音楽です。</p>`,
+    point:'<b>ポイント</b> 楽譜のマスの右端が「拍の瞬間」です。拍の終わりに向かって音楽が進みます。',
+    widgets:[
+      {type:'practice', title:'サロンでバルンガンを弾こう', cfg:{piece:0, user:'saron', beats:[1,8], bpm:56, backing:BEGIN_BACK, passRatio:.75}},
+    ] },
+  { title:'ゴングが時間を区切る',
+    body:`<p>ガムランの曲は、同じ長さの周期をくり返します。この周期を<b>ゴンガン</b>といい、最後の拍で大きなゴング（<b>ゴン・アグン</b>）が鳴ります。</p>
+    <p>ゴングの拍は「終わり」でもあり、次の周の「始まり」でもあります。時計の針が12時に戻るイメージです（自動演奏タブの円を見てみてください）。</p>`,
+    point:'<b>ポイント</b> ゴングは1周に1回だけ。だからこそ、鳴った瞬間に「ひと回りした！」と全員がわかります。',
+    widgets:[
+      {type:'listen', title:'ゴングの音を聴こう', items:[{label:'ゴン・アグンのうなり', fn:()=>DEMOS.gong()},{label:'ゴング類だけで1周', fn:()=>DEMOS.colo()}]},
+      {type:'practice', title:'16拍目でゴングを鳴らそう', cfg:{piece:0, user:'gong', beats:[1,16], bpm:84, backing:['saron','demung','slenthem','kenong','kempul','kethuk'], passRatio:1,
+        intro:'バルンガンを数えながら、16拍目（最後）にゴングを叩こう。楽譜の G の位置です。'}},
+    ] },
+  { title:'クノン・クンプル・クトゥッ',
+    body:`<p>ゴングの周期の中を、小さなゴングがさらに区切ります。区切りが細かい楽器ほど、音が小さく高くなります。</p>
+    <table><tr><th>楽器</th><th>ランチャラン形式（16拍）</th></tr>
+    <tr><td>ゴン・アグン G</td><td>16拍目</td></tr><tr><td>クノン N</td><td>4・8・12・16拍目</td></tr>
+    <tr><td>クンプル P</td><td>6・10・14拍目</td></tr><tr><td>クトゥッ t</td><td>奇数拍</td></tr></table>
+    <p>クノンとクンプルは、その拍のバルンガンと<b>同じ音の高さ</b>で鳴らします。このしくみを<b>コロトミー構造</b>といいます。</p>`,
+    point:'<b>ポイント</b> 大きい楽器ほどゆっくり、小さい楽器ほど細かく。時間が入れ子になっています。',
+    widgets:[
+      {type:'quiz', title:'クイズ', q:'ランチャラン形式で、クノンが鳴るのは？', options:['2拍ごと','4拍ごと','8拍ごと'], answer:1, explain:'4・8・12・16拍目、4拍ごとに鳴ります。'},
+      {type:'practice', title:'クノンを担当しよう', cfg:{piece:0, user:'kenong', beats:[1,16], bpm:80, backing:['saron','demung','slenthem','gong','kempul','kethuk'], passRatio:.75,
+        intro:'4拍ごと（楽譜の N）にクノンを叩こう。音の高さは自動でその拍のバルンガンに合います。'}},
+      {type:'quiz', title:'クイズ', q:'クノンの音の高さはどう決まる？', options:['いつも同じ高さ','その拍のバルンガンと同じ音','ゴングと同じ音'], answer:1, explain:'区切りの拍の旋律の音を、クノンが強調します。'},
+    ] },
+  { title:'ペキン：2回ずつ、先取りで',
+    body:`<p>ペキンはいちばん高い小さな鍵盤です。バルンガンの音を<b>2回ずつ</b>叩きます。</p>
+    <p>ただし、バルンガンと同時に始めるのではなく、<b>少し前から先取り</b>して、2回目がバルンガンとぴったり重なるように叩きます。「次はこの音だよ」と予告するイメージです。</p>`,
+    point:'<b>ポイント</b> バルンガン「6̣ 1 2 3」なら、ペキンは「6̣ 6̣ 1 1 2 2 3 3」。2回目の音が拍の瞬間です。',
+    widgets:[
+      {type:'grid', title:'楽譜で見てみよう', piece:0, insts:['bal','peking'], beats:[1,4], note:'マスの右端が拍の瞬間。ペキンの2回目がバルンガンと重なっています。'},
+      {type:'practice', title:'ペキンを弾こう', cfg:{piece:0, user:'peking', beats:[1,8], bpm:46, backing:['saron','demung','kethuk','kenong','gong','kempul'], passRatio:.7}},
+    ] },
+  { title:'ボナン：2つの音を行ったり来たり',
+    body:`<p>ボナンは小さな壺型のゴングを2列に並べた楽器です。バルンガンの2拍を1組（x y）にして、<b>「x y x y」と2つの音を行き来</b>します。これを<b>ミピル</b>奏法といいます。</p>
+    <p>組の最後の音（y）は、バルンガンの2拍目とぴったり重なります。ペキンと同じく「先を読む」楽器です。</p>`,
+    point:'<b>ポイント</b> ボナン奏者は楽譜の「次の2音」をいつも見ています。',
+    widgets:[
+      {type:'quiz', title:'クイズ', q:'バルンガンが「3 5」のとき、ボナンは？', options:['3 3 5 5','3 5 3 5','5 3 5 3'], answer:1, explain:'2つの音を行き来して、最後に5（2拍目の音）に着地します。'},
+      {type:'grid', title:'楽譜で見てみよう', piece:0, insts:['bal','bonang','panerus'], beats:[1,4], note:'パネルスはボナンの仲間で、同じ動きを倍の速さで弾きます。'},
+      {type:'practice', title:'ボナンを弾こう', cfg:{piece:0, user:'bonang', beats:[1,8], bpm:46, backing:['saron','demung','kethuk','kenong','gong','kempul'], passRatio:.7}},
+    ] },
+  { title:'密度の層を重ねる',
+    body:`<p>ここまでの楽器を重ねると、ガムランの響きになります。低く大きい楽器はゆっくり、高く小さい楽器ほど細かく速く演奏します。</p>
+    <p>全員が同じバルンガンをもとにしているので、細かい音がたくさん重なってもバラバラになりません。</p>`,
+    point:'<b>ポイント</b> 「ゆっくり」と「細かい」が同時に流れる。これがガムランの音の厚みの正体です。',
+    widgets:[
+      {type:'grid', title:'楽譜で見くらべよう', piece:0, insts:['bal','peking','bonang','panerus','kendhang'], beats:[1,4]},
+      {type:'listen', title:'1周ごとに楽器を重ねて聴こう', items:[{label:'▶ 層を重ねて聴く', fn:say=>DEMOS.layers(say)}]},
+    ] },
+  { title:'イラマ：遅くなると細かくなる',
+    body:`<p>ガムランでは、テンポが半分になると、飾りの楽器は<b>1拍に入れる音数を2倍</b>にします。全体の流れの速さは保ったまま、骨組みだけがゆったりになるのです。この関係を<b>イラマ</b>といいます。</p>`,
+    point:'<b>ポイント</b> イラマ I → II：バルンガンは半分の速さ、ペキンやボナンは1拍に2音 → 4音。',
+    widgets:[
+      {type:'listen', title:'イラマが変わる瞬間を聴こう', items:[{label:'▶ イラマ I → II', fn:say=>DEMOS.irama(say)}]},
+      {type:'grid', title:'イラマ II のペキンとボナン', piece:0, irama:2, insts:['bal','peking','bonang'], beats:[1,4], note:'レッスン7・8の楽譜とくらべると、1拍の中の音が倍になっています。'},
+      {type:'quiz', title:'クイズ', q:'イラマ I から II になると、ペキンの1拍あたりの音数は？', options:['半分になる','同じ','2倍になる'], answer:2, explain:'バルンガンがゆっくりになった分、飾りが細かくなります。'},
+    ] },
+  { title:'クンダン：太鼓が指揮者',
+    body:`<p>ガムランには指揮者がいません。太鼓<b>クンダン</b>の奏者が、テンポを上げ下げしたり、曲を終わらせたりする合図を出します。</p>
+    <ul><li><b>ブカ</b>：曲の始まり。1人の奏者が短い前奏を弾き、ゴングで全員が入る。</li><li><b>スウック</b>：曲の終わり。クンダンの合図でだんだん遅くなり、ゴングで終わる。</li></ul>
+    <p>音は、大きい面の低い<b>ドゥン</b>、小さい面を平手で叩く<b>タッ</b>、指で叩く<b>トゥン</b>など。ガトラ（4拍）単位の型をくり返し、ゴングの前で型を変えて知らせます。</p>`,
+    point:'<b>ポイント</b> ガトラの最後（セレ）に「ドゥン」が来ると、旋律の着地が強調されます。',
+    widgets:[
+      {type:'practice', title:'クンダンの型を叩こう', cfg:{piece:0, user:'kendhang', beats:[1,8], bpm:54, backing:['saron','demung','kethuk','kenong','gong','kempul'], passRatio:.7}},
+      {type:'listen', title:'始まり（ブカ）から終わり（スウック）まで', items:[{label:'▶ 1曲聴く', fn:say=>DEMOS.pieceOnce(0, say)}]},
+      {type:'quiz', title:'クイズ', q:'曲の終わりの合図を出すのは？', options:['ゴング','クンダン（太鼓）','サロン'], answer:1, explain:'クンダンが合図して全員がテンポを落とし、最後のゴングで終わります。'},
+    ] },
+  { title:'バリ：2人でかみ合わせる（コテカン）',
+    body:`<p>バリ島のガムランでは、2人の奏者（<b>ポロス</b>と<b>サンシ</b>）が音を交互に入れ合って、1人では弾けない速い旋律を作ります。これを<b>コテカン</b>といいます。</p>
+    <p>また、楽器は2台1組で、片方をわずかに高く調律してあります。同時に鳴ると「ワンワン」とうなる<b>オンバ（波）</b>が生まれ、バリのガムランのきらきらした響きになります。</p>`,
+    point:'<b>ポイント</b> 1人のパートだけだと穴あきの旋律。2人そろって初めて1本の旋律になります。',
+    widgets:[
+      {type:'listen', title:'分解して聴こう', items:[{label:'コテカンを分解', fn:say=>DEMOS.kotekan(say)},{label:'オンバなし', fn:()=>DEMOS.ombak(0)},{label:'オンバあり', fn:()=>DEMOS.ombak(6)}]},
+      {type:'practice', title:'ポロスを担当しよう（サンシは自動）', cfg:{piece:3, user:'polos', beats:[1,4], bpm:42, backing:['sangsih','calung','jegogan','kajar','gong','kenong','kempul'], passRatio:.7}},
+    ] },
+  { title:'卒業：合奏に入ろう',
+    body:`<p>最後は、全員が演奏する合奏の中で、サロン（バルンガン）を担当します。ゴングの周期を感じながら、1周を通して弾いてみましょう。</p>
+    <p>合格したら、「楽器のセオリー」タブで他の楽器にも挑戦したり、「自動演奏」タブで自分で曲を作ったりしてみてください。</p>`,
+    point:'<b>ポイント</b> 飾りの楽器が先回りして弾くので、つられて急がないこと。ゴングを目印にしよう。',
+    widgets:[
+      {type:'practice', title:'全員の合奏でサロンを弾こう', cfg:{piece:0, user:'saron', beats:[1,16], bpm:60, backing:'all', passRatio:.8, passMsg:'卒業おめでとう！'}},
+    ] },
+];
+const LS_KEY = 'gamelan-lessons-v1';
+let LP = {cur:0, w:{}};
+try { const s = JSON.parse(localStorage.getItem(LS_KEY)||'null'); if (s && typeof s==='object') LP = Object.assign(LP, s); } catch(e){}
+function saveLP(){ try { localStorage.setItem(LS_KEY, JSON.stringify(LP)); } catch(e){} }
+function lessonDone(i){ return LESSONS[i].widgets.every((_,j)=>LP.w[`${i}-${j}`]); }
+function renderLessonHead(){
+  const done = LESSONS.filter((_,i)=>lessonDone(i)).length;
+  $('#lDone').textContent = done; $('#lTotal').textContent = LESSONS.length;
+  $('#lBar').style.width = (done/LESSONS.length*100)+'%';
+  $('#lChips').innerHTML = LESSONS.map((l,i)=>`<button class="sec ${i===LP.cur?'on':''} ${lessonDone(i)?'done':''}" data-l="${i}">${i+1}. ${l.title}</button>`).join('');
+  const act = $('#lChips .on'); if (act && act.parentElement) act.parentElement.scrollLeft = Math.max(0, act.offsetLeft - 40);
+}
+$('#lChips').onclick = e => { const b = e.target.closest('[data-l]'); if (b) openLesson(+b.dataset.l); };
+function openLesson(i){
+  stopAll();
+  LP.cur = Math.max(0, Math.min(LESSONS.length-1, i|0)); saveLP();
+  const L = LESSONS[LP.cur], card = $('#lCard');
+  card.innerHTML = `<div class="lnum">LESSON ${LP.cur+1} / ${LESSONS.length}</div><h2>${L.title}</h2><div class="lbody">${L.body}</div><div class="point">${L.point}</div>
+    ${L.widgets.map((w,j)=>`<div class="widget" data-w="${j}"><div class="whead"><span class="wt">やってみよう：${w.title}</span><span class="pill">${LP.w[`${LP.cur}-${j}`]?'✓ クリア':'まだ'}</span></div><div class="wbody"></div></div>`).join('')}
+    <div class="lnav"><button class="sec lprev" ${LP.cur===0?'disabled':''}>← 前へ</button><button class="lnext ${lessonDone(LP.cur)?'':'sec'}">${LP.cur===LESSONS.length-1?'さいしょへ':(lessonDone(LP.cur)?'次のレッスンへ →':'とばして次へ →')}</button></div>`;
+  L.widgets.forEach((w,j)=>{
+    const box = card.querySelector(`.widget[data-w="${j}"]`), body = box.querySelector('.wbody'), id = `${LP.cur}-${j}`, li = LP.cur;
+    const onPass = () => {
+      if (LP.w[id]) return;
+      LP.w[id] = true; saveLP();
+      const pill = box.querySelector('.pill'); pill.textContent = '✓ クリア'; pill.classList.add('ok');
+      if (lessonDone(li)){ const n = card.querySelector('.lnext'); n.classList.remove('sec'); n.textContent = li===LESSONS.length-1 ? 'さいしょへ' : '次のレッスンへ →'; }
+      renderLessonHead();
+    };
+    if (LP.w[id]) box.querySelector('.pill').classList.add('ok');
+    if (w.type==='listen') mountListen(body, w, onPass);
+    else if (w.type==='seq') mountSeq(body, w, onPass);
+    else if (w.type==='quiz') mountQuiz(body, w, onPass);
+    else if (w.type==='grid') mountGrid(body, w, onPass);
+    else if (w.type==='practice') mountPractice(body, Object.assign({}, w.cfg, {onPass}));
+  });
+  card.querySelector('.lprev').onclick = () => { openLesson(LP.cur-1); card.scrollIntoView({behavior:'smooth'}); };
+  card.querySelector('.lnext').onclick = () => { openLesson(LP.cur===LESSONS.length-1 ? 0 : LP.cur+1); card.scrollIntoView({behavior:'smooth'}); };
+  renderLessonHead();
+}
+
+/* =========================================================
+ *  11. 楽器のセオリー（楽器ごとの決まりごと）
+ * ========================================================= */
+const THEORY = [
+  {group:'骨組み（バルンガン）', id:'saron', name:'サロン（サロン・バルン）', p:{piece:0, beats:[1,8], bpm:60},
+   facts:[['役割','バルンガン（骨組みの旋律）を叩く。合奏の背骨'],['音域','中音。7枚の鍵盤で約1オクターブ'],['1拍の音数','1音（イラマが変わっても同じ）'],['道具','木や水牛の角でできた木づち（タブ）を右手に']],
+   rules:['楽譜の数字を、1拍に1音ずつそのまま叩く。','「.」の拍は叩かない。前の音の響きが続く。','次の音を叩くのと同時に、左手で前の鍵盤をつまんで響きを止める（ダンプ）。','4音のまとまり（ガトラ）の最後の音「セレ」が旋律の着地点。','テンポは自分で決めず、クンダン（太鼓）に合わせる。'],
+   tips:['鍵盤の真ん中あたりを叩くとよく響く。','叩く手と止める手を「同時に」動かすのがコツ。','飾りの楽器が先回りして弾くので、つられて急がない。']},
+  {group:'骨組み（バルンガン）', id:'demung', name:'デムン', p:{piece:0, beats:[1,8], bpm:60},
+   facts:[['役割','サロンと同じバルンガンを低い音で支える'],['音域','サロンより1オクターブ低い'],['1拍の音数','1音'],['道具','サロンより大きな木づち']],
+   rules:['サロンと同じ旋律を1オクターブ下で叩く。','ダンプのしかたはサロンと同じ。響きが長いので、ていねいに止める。','速い曲では2台のデムンが交互にかみ合わせる「インバル」という奏法もある（このアプリでは未対応）。'],
+   tips:['大きな鍵盤なので、強く叩きすぎると響きがにごる。']},
+  {group:'骨組み（バルンガン）', id:'slenthem', name:'スレンテム', p:{piece:0, beats:[1,8], bpm:60},
+   facts:[['役割','バルンガンを最も低い音で支える'],['音域','デムンより1オクターブ低い'],['1拍の音数','1音'],['道具','布を巻いた柔らかいバチ']],
+   rules:['薄い鍵盤の下に竹の共鳴管があり、低く長く「ふわっ」と響く。','デムンと同じバルンガンを1オクターブ下で叩く。','響きが長いので、次の音を叩くときに前の音をしっかり止める。'],
+   tips:['強く叩くより、柔らかく深く鳴らすイメージで。']},
+  {group:'飾り（旋律を細かくする）', id:'peking', name:'ペキン', p:{piece:0, beats:[1,8], bpm:46, iramaToggle:true},
+   facts:[['役割','バルンガンを先取りして予告する'],['音域','サロンより1オクターブ高い（いちばん高い）'],['1拍の音数','イラマI＝2音、イラマII＝4音'],['道具','水牛の角のバチ（硬く明るい音）']],
+   rules:['バルンガンの2音を1組（x y）として考える。','各音を2回ずつ「x x y y」と叩く。イラマIIでは「x x y y x x y y」。','先取り：2回目の音がバルンガンと同時になるよう、少し前から叩き始める。','休み（.）のときは、直前の音が続いているとみなして叩く。'],
+   tips:['「次の音はこれだよ」と予告するつもりで。','明るく硬い音なので、強く叩きすぎない。']},
+  {group:'飾り（旋律を細かくする）', id:'bonang', name:'ボナン（ボナン・バルン）', p:{piece:0, beats:[1,8], bpm:46, iramaToggle:true},
+   facts:[['役割','旋律を飾り、合奏をリードする'],['楽器','小さな壺型ゴングを2列に並べたもの（約2オクターブ）'],['1拍の音数','イラマI＝2音、イラマII＝4音'],['道具','紐を巻いた2本のバチ（両手）']],
+   rules:['2拍を1組（x y）として、「x y x y」と2つの音を行き来する（ミピル奏法）。','組の最後の音が、バルンガンの2拍目とぴったり重なる。','休み（.）のときは直前の音が続いているとみなす。','多くの曲で、前奏（ブカ）をひとりで弾いて合奏をリードする。','ほかに、オクターブを同時に打つ「グンビャン」など多くの奏法がある（このアプリではミピルを簡単にしたものだけ）。'],
+   tips:['楽譜の「次の2音」をいつも先に見ておく。','高い列と低い列を行き来するときは、手の動きを小さく。']},
+  {group:'飾り（旋律を細かくする）', id:'panerus', name:'ボナン・パネルス', p:{piece:0, beats:[1,4], bpm:40, iramaToggle:true, show:['bal','bonang','panerus']},
+   facts:[['役割','ボナン・バルンの動きを倍の速さで重ね、きらめきを加える'],['音域','ボナン・バルンより1オクターブ高い'],['1拍の音数','イラマI＝4音、イラマII＝8音'],['道具','紐を巻いた2本のバチ']],
+   rules:['ボナン・バルンと同じ「x y x y」の動きを、倍の細かさで弾く。','組の最後の音がバルンガンと重なるのは同じ。'],
+   tips:['速いので、まずはテンポを下げて「x y」の往復に慣れよう。']},
+  {group:'区切り（ゴング類）', id:'gong', name:'ゴン・アグン（大ゴング）', p:{piece:0, beats:[1,16], bpm:84},
+   facts:[['役割','周期（ゴンガン）の終わり＝始まりを告げる'],['楽器','直径1m近い吊りゴング'],['鳴らす拍','1周に1回、最後の拍'],['道具','布を巻いた大きなバチ']],
+   rules:['ゴンガン（1周）の最後の拍で1回だけ鳴らす。','最後の拍は「終わり」であり、次の周の「始まり」でもある。','ゴングの拍の旋律の音（ゴング音）は、曲の中で最も大事な着地点。','曲はゴングで始まり、ゴングで終わる。'],
+   tips:['ゆったり構え、響きを途中で止めない。','低い「うなり」はスマホのスピーカーでは聞こえにくいので、イヤホンがおすすめ。']},
+  {group:'区切り（ゴング類）', id:'kempul', name:'クンプル', p:{piece:0, beats:[1,16], bpm:84},
+   facts:[['役割','クノンとクノンの間を区切る'],['楽器','吊るした中くらいのゴング（音の高さ別に数個）'],['鳴らす拍','ランチャラン：6・10・14拍目／ラドラン：12・20・28拍目'],['道具','布を巻いたバチ']],
+   rules:['クノンとクノンの真ん中で鳴らす。','ゴングの直後の最初の区切りでは鳴らさない（この空白を「ウェラ」と呼ぶ）。','音の高さは、その拍のバルンガンの音に合わせる。'],
+   tips:['ゴングより軽く、でも響きは残す。']},
+  {group:'区切り（ゴング類）', id:'kenong', name:'クノン', p:{piece:0, beats:[1,16], bpm:84},
+   facts:[['役割','ゴンガンを2つまたは4つに区切る'],['楽器','台の上に置いた大きな壺型ゴング'],['鳴らす拍','ランチャラン：4拍ごと／クタワン：8・16拍目／ラドラン：8拍ごと'],['道具','紐を巻いたバチ']],
+   rules:['ゴンガンを2つ（クタワン）または4つ（ランチャラン・ラドラン）に分ける。','音の高さは、その拍のバルンガンの音に合わせる。','最後のクノンはゴングと同時に鳴る。'],
+   tips:['区切りの拍の旋律を「ノーン」と強調する気持ちで。']},
+  {group:'区切り（ゴング類）', id:'kethuk', name:'クトゥッ', p:{piece:0, beats:[1,8], bpm:70},
+   facts:[['役割','いちばん細かく時間を区切る'],['楽器','小さな壺型ゴング'],['鳴らす拍','ランチャラン：奇数拍／クタワン・ラドラン：クノンの間'],['道具','紐を巻いたバチ']],
+   rules:['叩いたらすぐに響きを止め、「トゥッ」と短く鳴らす。','ランチャランでは奇数拍に鳴らし、拍の流れを刻む。','クタワン・ラドランではクノンとクノンの間に鳴らし、さらに高い「クンピャン」と組み合わせる。'],
+   tips:['短い音なので、拍のど真ん中をねらう。']},
+  {group:'区切り（ゴング類）', id:'kempyang', name:'クンピャン', p:{piece:1, beats:[1,8], bpm:60},
+   facts:[['役割','クトゥッの間をさらに埋める'],['楽器','高い音の小さな壺型ゴング'],['鳴らす拍','クタワン・ラドランで（このアプリでは奇数拍）'],['道具','紐を巻いたバチ']],
+   rules:['クタワン・ラドランで、クトゥッと交互に細かく時間を刻む。','高く短い「ピャン」という音。'],
+   tips:['クトゥッと組み合わさって「ピャン・トゥッ・ピャン・…」と細かい時計の音のように聞こえる。']},
+  {group:'指揮（太鼓）', id:'kendhang', name:'クンダン', p:{piece:0, beats:[1,8], bpm:54, iramaToggle:true},
+   facts:[['役割','合奏の指揮者。テンポ・終わり・イラマ変更の合図'],['楽器','両面太鼓（大・中・小がある）'],['1拍の音数','型による（イラマIで最大2音）'],['道具','手（両手で両面を叩く）']],
+   rules:['テンポを上げる・下げる、曲を終わらせる（スウック）、イラマを変える合図を出す。','ガトラ（4拍）単位で型をくり返し、ゴングの前で型を変えて「もうすぐゴング」と知らせる。','大きい面＝ドゥン（低い音）、小さい面を平手で＝タッ（乾いた音）、指で＝トゥン、両面同時＝ドラン。','ガトラの最後（セレ）にドゥンを置いて、旋律の着地を強調する。'],
+   tips:['合奏のみんなが聴いている、と意識して堂々と。']},
+  {group:'バリのガムラン', id:'polos', name:'ガンサ・ポロス', p:{piece:3, beats:[1,4], bpm:42, show:['bal','polos','sangsih']},
+   facts:[['役割','コテカン（かみ合わせ）の「表」'],['楽器','10鍵の鍵盤楽器。2台1組でうなり（オンバ）を作る'],['1拍の音数','2音（サンシと合わせて4音）'],['道具','木づち（片手で叩き、もう片方の手で止める）']],
+   rules:['サンシと交互に音を入れ合い、2人で1本の速い旋律を作る（コテカン）。','このアプリでは、拍の瞬間を含む位置をポロスが担当する。','拍の最後でバルンガン（ポコッ）の音に到着する。','楽器は2台1組。片方を少し高く調律して、うなりを作る。'],
+   tips:['自分のパートだけだと穴あきに聞こえるのが正しい。相手の音を聴いて隙間にはめこむ。']},
+  {group:'バリのガムラン', id:'sangsih', name:'ガンサ・サンシ', p:{piece:3, beats:[1,4], bpm:42, show:['bal','polos','sangsih']},
+   facts:[['役割','コテカン（かみ合わせ）の「裏」'],['楽器','ポロスと同じガンサ'],['1拍の音数','2音（ポロスと合わせて4音）'],['道具','木づち']],
+   rules:['ポロスの音と音の間を埋める。','2人の音をつなげると、とぎれのない速い旋律になる。'],
+   tips:['裏拍なので、拍を体で感じながら叩くと安定する。']},
+  {group:'バリのガムラン', id:'calung', name:'チャルン／ジェゴガン', p:{piece:3, beats:[1,8], bpm:60, show:['bal','calung','jegogan']},
+   facts:[['役割','バリのガムランの骨組み（ポコッ）'],['楽器','中低音・低音の鍵盤'],['1拍の音数','チャルン＝1音、ジェゴガン＝2拍に1音'],['道具','木づち']],
+   rules:['チャルンはジャワのサロンと同じく、骨組みの旋律を1拍に1音。','ジェゴガンはさらにゆっくり、2拍に1音で低音を支える。'],
+   tips:['コテカンが速くても、骨組みは落ち着いて。']},
+  {group:'その他（このアプリでは音なし）', id:'soft', name:'柔らかい楽器と歌',
+   facts:[['楽器','グンデル（共鳴管つきの薄い鍵盤）、ルバブ（2弦の擦弦楽器）、スリン（竹笛）、ガンバン（木琴）、チュレンプン（ツィター）、シンデン（女性の歌）など']],
+   rules:['ゆっくりした曲では、これらの「柔らかい楽器」が主役になる。','バルンガンをもとに、「チェンコッ」と呼ばれる決まった旋律の型を組み合わせて、即興的に演奏する。','どんなに自由に動いても、ガトラの最後の音（セレ）でみんながそろう。'],
+   tips:['このアプリの合成音では扱っていません。本物の演奏を聴くと、骨組みとの関係がよくわかります。']},
+];
+let curTheory = 'saron';
+function renderTheoryGroups(){
+  const groups = [...new Set(THEORY.map(t=>t.group))];
+  $('#tGroups').innerHTML = groups.map(g=>`<div class="tgroup"><div class="gl">${g}</div><div class="chips">${THEORY.filter(t=>t.group===g).map(t=>`<button class="sec ${t.id===curTheory?'on':''}" data-t="${t.id}">${t.name}</button>`).join('')}</div></div>`).join('');
+}
+$('#tGroups').onclick = e => { const b = e.target.closest('[data-t]'); if (!b) return; curTheory = b.dataset.t; renderTheoryGroups(); renderTheory(); };
+function renderTheory(){
+  if (PW) stopPractice(PW);
+  const T = THEORY.find(t=>t.id===curTheory), card = $('#tCard');
+  card.innerHTML = `<div class="lnum">${T.group}</div><h2>${T.name}</h2>
+    <dl class="facts">${T.facts.map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>
+    <h3>セオリー（決まりごと）</h3><ul>${T.rules.map(r=>`<li>${r}</li>`).join('')}</ul>
+    <h3>コツ</h3><ul>${T.tips.map(r=>`<li>${r}</li>`).join('')}</ul>
+    ${T.p ? `<h3>楽譜の例と練習</h3><p class="note">曲：${PIECES[T.p.piece].name}。マスの右端が拍の瞬間です。練習中、ほかの楽器は全部自動で演奏されます。</p><div class="widget tprac"></div>` : ''}`;
+  if (T.p) mountPractice(card.querySelector('.tprac'), {piece:T.p.piece, user:T.id, beats:T.p.beats, bpm:T.p.bpm, backing:'all', iramaToggle:T.p.iramaToggle, show:T.p.show, passRatio:.75});
+}
+
+/* =========================================================
+ *  12. タブ・起動
  * ========================================================= */
 document.querySelector('.tabs').addEventListener('click', e=>{
   const b = e.target.closest('[data-tab]'); if (!b) return;
+  if (PW) stopPractice(PW);
   document.querySelectorAll('.tabs button').forEach(x=>x.classList.toggle('active', x===b));
   document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active', p.id==='page-'+b.dataset.tab));
 });
-document.getElementById('unlockBtn').onclick = () => { initAudio(); document.getElementById('unlock').remove(); };
+$('#unlockBtn').onclick = () => { initAudio(); $('#unlock').remove(); };
 document.addEventListener('visibilitychange', ()=>{ if (!document.hidden && ctx && ctx.state!=='running') ctx.resume(); });
 
 buildChips(); renderStage(); fillPieces(); loadPiece(PIECES[0]);
+openLesson(LP.cur || 0);
+renderTheoryGroups(); renderTheory();
 </script>
 </body>
 </html>
