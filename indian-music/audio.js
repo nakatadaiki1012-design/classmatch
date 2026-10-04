@@ -63,23 +63,23 @@
   const STROKES = {
     // ナー／ター：人差し指で縁(キナール)を弾き、薬指でシャーヒーの縁を押さえる → 基音が消え、倍音がキラッと鳴る
     na: {
-      drum: 'd', dur: 2.2, gain: 0.85,
-      modes: [[1, .16, .1], [2, 1, .3], [3, .62, .24], [4, .4, .18], [5, .24, .14], [6, .13, .1], [7, .07, .07],
+      drum: 'd', dur: .9, gain: 0.85,
+      modes: [[1, .1, .04], [2, .13, .07], [3, 1, .07], [4, .2, .05], [5, .12, .04], [6, .07, .03], [7, .05, .025],
               [2.93, .14, .05], [4.27, .1, .04], [5.62, .07, .035]],
       noise: [['highpass', 3200, .7, .3, .005], ['bandpass', 1600, 1.4, .22, .014]],
       pitch: { type: 'settle', amt: .012, t: .05 }
     },
     // ティン：人差し指でシャーヒーと縁の間(スール)を打ち、すぐ離す → 基音と倍音が豊かに響く
     tin: {
-      drum: 'd', dur: 3.0, gain: 0.8,
-      modes: [[1, .85, .42], [2, .62, .34], [3, .36, .25], [4, .18, .18], [5, .1, .13], [2.93, .08, .05], [4.27, .05, .03]],
+      drum: 'd', dur: 1.3, gain: 0.8,
+      modes: [[1, 1, .18], [2, .16, .12], [3, .35, .12], [4, .16, .09], [5, .08, .07], [2.93, .08, .05], [4.27, .05, .03]],
       noise: [['bandpass', 2100, 1, .22, .008]],
       pitch: { type: 'settle', amt: .01, t: .05 }
     },
     // トゥン：人差し指でシャーヒーの中央を打って離す → 太く長い基音
     tun: {
-      drum: 'd', dur: 3.8, gain: 0.85,
-      modes: [[1, 1, .55], [2, .3, .32], [3, .1, .18], [4, .04, .12]],
+      drum: 'd', dur: 2.0, gain: 0.85,
+      modes: [[1, 1, .32], [2, .12, .18], [3, .05, .1], [4, .02, .07]],
       noise: [['bandpass', 700, 1, .25, .012]],
       pitch: { type: 'settle', amt: .015, t: .06 }
     },
@@ -97,10 +97,10 @@
     },
     // ゲー：左手の中指・人差し指でバーヤーンの膜を弾き、離す → 深い低音
     ge: {
-      drum: 'b', dur: 2.8, gain: 1,
-      modes: [[1, 1, .4], [2, .3, .22], [3, .12, .14], [2.6, .08, .12], [3.9, .05, .08]],
+      drum: 'b', dur: 3.8, gain: 1,
+      modes: [[1, 1, .72], [2, .07, .3], [3, .2, .2], [2.6, .08, .12], [3.9, .05, .08]],
       noise: [['lowpass', 350, .7, .45, .02]],
-      pitch: { type: 'settle', amt: .05, t: .04 }
+      pitch: { type: 'settle', amt: .04, t: .1 }
     },
     // ゲー（ミーンド）：叩いたあと手首を押し出して膜の張力を上げる → 音程が「ウォン↑」と上がる
     ghe: {
@@ -463,10 +463,15 @@
       const cu = this.custom || {};
       // 録音がない打ち方は近いものから作る（ラ←テ、ゲー↑←ゲー）
       const sample = cu[name] || (name === 'ra' && cu.te) || (name === 'ghe' && cu.ge);
+      const drum = STROKES[name].drum;
       if (sample && sample.length) {
-        const rate = this.sampleRate ? this.sampleRate[STROKES[name].drum] || 1 : 1;
+        const buf = sample[(Math.random() * sample.length) | 0];
+        // 音程が分かっている録音（標準音源）は、選んだ調に合わせて自動で音程を変える
+        const base = buf._pitchHz && drum === 'd' ? this.dayanHz / buf._pitchHz : 1;
+        const rate = base * (this.sampleRate ? this.sampleRate[drum] || 1 : 1);
         const g = (vel == null ? 1 : vel) * (name === 'ra' && !cu.ra ? .7 : 1);
-        const src = this.e.play(sample[(Math.random() * sample.length) | 0], when, bus, g, rate);
+        const src = this.e.play(buf, when, bus, g, rate);
+        this._choke(drum, name, when, src);
         if (name === 'ghe' && !cu.ghe) { // 手首で押して音程を上げる動きを再現
           const t0 = Math.max(when, this.e.ctx.currentTime) + .07;
           src.playbackRate.setValueAtTime(rate, t0);
@@ -478,8 +483,19 @@
       const vars = this.buffers[name]; if (!vars) return null;
       const buf = vars[(Math.random() * vars.length) | 0];
       const src = this.e.play(buf, when, bus, vel == null ? 1 : vel);
+      this._choke(drum, name, when, src);
       if (name === 'ge' || name === 'ghe') this.lastGe = src;
       return src;
+    }
+    // 同じ太鼓を次に叩くと、前の響きは手で止められる（閉じた音ならすぐ、開放音なら少し残る）
+    _choke(drum, name, when, src) {
+      this.ringing = this.ringing || {};
+      const prev = this.ringing[drum];
+      if (prev && prev !== src) {
+        const closed = name === 'te' || name === 'ra' || name === 'ke';
+        try { prev._gain.gain.setTargetAtTime(0, Math.max(when, this.e.ctx.currentTime), closed ? .012 : .05); } catch (e) { }
+      }
+      this.ringing[drum] = src;
     }
     // bolKey: BOLS のキー
     bol(bolKey, when, vel) {

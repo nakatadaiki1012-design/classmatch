@@ -161,8 +161,8 @@
 </head>
 <body>
 <h1>🪘 タブラー＆バーヤーン 演奏シミュレーター</h1>
-<p class="lead">北インド古典音楽の太鼓「タブラー」を、叩いて・聴いて・理論を学べるシミュレーター。音はすべてブラウザ内で太鼓膜の振動を計算して合成しています。</p>
-<p style="font-size:.85rem;margin:0 0 10px;">🎸 おまけ：<a href="sitar.html">シタール演奏シミュレーターへ</a>　｜　🎙 音をもっとリアルにしたい → <a href="#" id="goSamples">本物の録音を読み込む</a></p>
+<p class="lead">北インド古典音楽の太鼓「タブラー」を、叩いて・聴いて・理論を学べるシミュレーター。音は本物のタブラーの録音（CC0）を使っています。</p>
+<p style="font-size:.85rem;margin:0 0 10px;">🎸 おまけ：<a href="sitar.html">シタール演奏シミュレーターへ</a>　｜　🎙 音は本物の録音です（自分の録音に差し替えも可 → <a href="#" id="goSamples">音源の設定</a>）</p>
 
 <!-- ステージ（太鼓＋サイクル） -->
 <div class="panel">
@@ -185,8 +185,8 @@
     <label class="chk"><input type="checkbox" id="tanChk">タンプーラ（持続音）</label>
     <label class="ctl">調（ダーヤーンの音程＝サ）
       <select id="keySel">
-        <option value="261.63">C（ド）</option><option value="277.18" selected>C♯</option>
-        <option value="293.66">D</option><option value="311.13">D♯</option><option value="329.63">E</option>
+        <option value="261.63">C（ド）</option><option value="277.18">C♯</option>
+        <option value="293.66">D</option><option value="311.13" selected>D♯（録音の元の音程に近い）</option><option value="329.63">E</option>
       </select>
     </label>
     <label class="ctl">バーヤーンの音程 <input type="range" id="bayanSl" min="70" max="130" value="98"></label>
@@ -318,7 +318,7 @@
       <dt>ガラーナー（流派）</dt><dd>デリー、アジュラーラー、ラクナウ、ファルッカーバード、ベナレス、パンジャーブの6流派が有名。デリー派は指先の細かい技（カーイダ）、ベナレス派は力強い全手の技が特徴。</dd>
     </dl>
     <h3>このシミュレーターの音づくり</h3>
-    <p class="small">録音ではなく、膜の固有振動（モード）を1本ずつ計算して合成しています。ダーヤーンは倍音が1:2:3:4…の整数比、ナーでは薬指で基音を消すので倍音が強調、テは指で押さえるので一瞬で減衰、ゲーは叩いた直後の音程の沈み込みや手首による音程上昇まで再現しています。</p>
+    <p class="small">標準の音は、Freesound で公開されている<b>本物のタブラーの録音</b>（mmiron「tabla bols」、CC0＝パブリックドメイン）を使っています。ダー（ナー＋ゲー）などの組み合わせは録音を重ねて作り、選んだ調に合わせて右の太鼓の音程を自動で変えています。同じ太鼓を続けて叩くと前の響きが止まる（手で押さえる）動きも再現。録音をオフにすると、膜の振動を計算した合成音（実際の録音の測定値に合わせて調整済み）で鳴ります。</p>
   </div>
 </div>
 
@@ -835,6 +835,7 @@ showTaalInfo();
 $('#goSamples').onclick = e => { e.preventDefault(); document.querySelector('#tabs [data-t="play"]').click(); $('#sampleRoot').scrollIntoView({behavior:'smooth'}); };
 </script>
 <script src="lessons.js"></script>
+<script src="samples-data.js"></script>
 <script src="samples.js"></script>
 </body>
 </html>

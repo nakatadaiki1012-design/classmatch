@@ -64,7 +64,7 @@
     const k = (LEVEL[stroke] || .8) / pk;
     for (let i = 0; i < len; i++) out[i] = mono[st + i] * k;
     const att = Math.floor(sr * .0015); for (let i = 0; i < Math.min(att, len); i++) out[i] *= i / att;
-    const fade = Math.min(len, Math.floor(sr * .25)); for (let i = 0; i < fade; i++) out[len - 1 - i] *= i / fade;
+    const fade = Math.min(Math.floor(len * .3), Math.floor(sr * .25)); // 短い音（ケなど）は短く for (let i = 0; i < fade; i++) out[len - 1 - i] *= i / fade;
     const b = E.ctx.createBuffer(1, len, sr); b.getChannelData(0).set(out);
     return b;
   }
@@ -77,14 +77,36 @@
       return !!b;
     } catch (e) { return false; }
   }
+  // 標準音源（アプリに同梱した本物の録音）。自分で登録した録音があればそちらを優先
+  const builtin = {};
+  async function loadBuiltin() {
+    const B = window.TABLA_BUILTIN; if (!B) return;
+    for (const f of B.files) {
+      try {
+        const bin = atob(f.b64), u8 = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+        const ab = await E.ctx.decodeAudioData(u8.buffer);
+        const b = prepare(ab, f.stroke);
+        if (!b) continue;
+        if (['na', 'tin', 'tun', 'te', 'ra'].includes(f.stroke)) b._pitchHz = B.dayanHz; // 調に合わせて自動で音程を変える
+        (builtin[f.stroke] = builtin[f.stroke] || []).push({ name: f.name, buf: b });
+      } catch (e) { }
+    }
+  }
+  const sourceOf = s => (loaded[s] || []).length ? 'user' : (builtin[s] || []).length ? 'builtin' : 'synth';
   function apply() {
-    SLOTS.forEach(([s]) => tabla.setCustom(s, enabled ? (loaded[s] || []).map(x => x.buf) : []));
+    SLOTS.forEach(([s]) => {
+      const src = sourceOf(s);
+      tabla.setCustom(s, !enabled || src === 'synth' ? [] : (src === 'user' ? loaded[s] : builtin[s]).map(x => x.buf));
+    });
     render();
   }
   let enabled = true, started = false;
   try { enabled = localStorage.getItem('tablaUseSamples') !== '0'; } catch (e) { }
   async function loadSaved() {
     if (started) return; started = true;
+    await loadBuiltin();
+    apply();
     const recs = await dbAll();
     for (const r of recs) await decodeRec(r);
     apply();
@@ -118,19 +140,20 @@
     if (!root) return; // シタールのページなど、画面なしで録音だけ使う場合
     const total = SLOTS.reduce((s, [k]) => s + (loaded[k] || []).length, 0);
     const need = ['na', 'tin', 'tun', 'te', 'ge', 'ke'], have = need.filter(k => (loaded[k] || []).length).length;
-    root.innerHTML = `<h2>🎙 本物の録音を使う（音をリアルにする）</h2>
-      <p style="font-size:.86rem">このアプリの標準の音は計算で作った<b>合成音</b>です。本物らしさには限界があるので、<b>本物のタブラーの録音ファイル</b>を読み込むと、レッスン・練習・自動演奏などすべてがその音で鳴ります。ダー（ナー＋ゲー）のような組み合わせは自動で合成されます。</p>
-      <div class="row"><label class="chk"><input type="checkbox" id="smpOn" ${enabled ? 'checked' : ''}>録音を使う（オフで合成音）</label>
-        <span class="small">登録済み：${total}ファイル／基本6種のうち ${have} 種</span></div>
+    const B = window.TABLA_BUILTIN;
+    root.innerHTML = `<h2>🎙 音源（本物の録音）</h2>
+      <p style="font-size:.86rem">標準では<b>本物のタブラーの録音</b>${B ? `（録音：<a href="${B.url}" target="_blank" rel="noopener">mmiron「tabla bols」</a>・CC0）` : ''}で鳴ります。ダー（ナー＋ゲー）のような組み合わせは自動で合成。選んだ調に合わせて右の太鼓の音程も自動で変わります。自分の録音を登録すると、その打ち方はそちらに置き換わります。</p>
+      <div class="row"><label class="chk"><input type="checkbox" id="smpOn" ${enabled ? 'checked' : ''}>録音を使う（オフにすると計算で作った合成音）</label>
+        <span class="small">自分で登録した録音：${total}ファイル</span></div>
       <div class="row" style="margin-top:8px">
         <label class="sec" style="display:inline-block;padding:9px 15px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);cursor:pointer;font-weight:700">📂 まとめて読み込む（ファイル名から自動で振り分け）<input type="file" id="smpBulk" accept="audio/*" multiple style="display:none"></label>
       </div>
       <div class="small" id="smpMsg" style="min-height:1.3em;margin:4px 0"></div>
       <table><thead><tr><th>打ち方</th><th>どんな音か</th><th>状態</th><th></th></tr></thead><tbody>
       ${SLOTS.map(([k, lbl, desc, names]) => `<tr><td><b>${lbl}</b><div class="small">ファイル名の例：${names}</div></td><td class="small">${desc}</td>
-        <td>${(loaded[k] || []).length ? `✅ 録音 ${(loaded[k] || []).length}個` : '<span class="small">合成音</span>'}</td>
+        <td>${{ user: `✅ あなたの録音 ${(loaded[k] || []).length}個`, builtin: `🎙 標準の録音 ${(builtin[k] || []).length}個`, synth: '<span class="small">合成音</span>' }[sourceOf(k)]}</td>
         <td style="white-space:nowrap"><label class="play-mini" style="display:inline-block;background:var(--accent);color:#1d1208;border-radius:10px;padding:3px 9px;font-size:.75rem;font-weight:700;cursor:pointer">＋追加<input type="file" data-k="${k}" accept="audio/*" multiple style="display:none"></label>
-        <button class="play-mini sec" data-play="${k}">▶</button>${(loaded[k] || []).length ? `<button class="play-mini sec" data-del="${k}">消す</button>` : ''}</td></tr>`).join('')}
+        <button class="play-mini sec" data-play="${k}">▶</button>${(loaded[k] || []).length ? `<button class="play-mini sec" data-del="${k}" title="あなたの録音を消して標準に戻す">消す</button>` : ''}</td></tr>`).join('')}
       </tbody></table>
       <div class="row" style="margin-top:10px">
         <label class="ctl">録音の音程調整：右の太鼓（半音） <span><input type="range" id="smpD" min="-6" max="6" step="1" value="${Math.round(12 * Math.log2(tabla.sampleRate ? tabla.sampleRate.d : 1))}"> <b id="smpDV"></b></span></label>
@@ -161,7 +184,7 @@
     };
     root.querySelectorAll('[data-play]').forEach(b => b.onclick = () => { boot(); tabla.stroke(b.dataset.play, E.ctx.currentTime + .02, 1); });
     root.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
-      if (!confirm('この打ち方の録音をすべて消して、合成音に戻しますか？')) return;
+      if (!confirm('この打ち方のあなたの録音を消して、標準の音に戻しますか？')) return;
       await dbDeleteStroke(b.dataset.del); delete loaded[b.dataset.del]; apply(); msg('消しました。');
     });
     const setRate = () => {
