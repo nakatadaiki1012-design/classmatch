@@ -410,7 +410,7 @@ function buildDrums(){
   txt(490, 179, 'トゥン', 'l', 10);
   txt(490, 30, 'ダーヤーン（右手・音程あり）', 'l', 13);
   ZONES.ge = [bHead]; ZONES.ghe = [bHead]; ZONES.ke = [bSy];
-  ZONES.na = [dKinar]; ZONES.tin = [dMaid]; ZONES.te = [dSy]; ZONES.ra = [dSy]; ZONES.tun = [dSyC];
+  ZONES.na = [dKinar]; ZONES.ta = [dKinar]; ZONES.tin = [dMaid]; ZONES.te = [dSy]; ZONES.ra = [dSy]; ZONES.tun = [dSyC];
 }
 function txt(x, y, s, cls, size){ const t = el('text', {x, y, 'text-anchor':'middle', class:'zlabel '+(cls||'')}, drums); if (size) t.setAttribute('font-size', size); t.textContent = s; return t; }
 function flashStroke(s){

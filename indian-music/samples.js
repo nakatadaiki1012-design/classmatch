@@ -8,6 +8,7 @@
   'use strict';
   const SLOTS = [
     ['na', 'ナー／ター', '右手・縁を弾く。キラッと金属的に響く音', 'na, ta'],
+    ['ta', 'ター（開放・なくてもOK）', '右手・縁を弾いて響かせる。無ければナーで代用', 'tas, taopen'],
     ['tin', 'ティン', '右手・中間。太鼓の音程がよく響く音', 'tin, tinn'],
     ['tun', 'トゥン', '右手・中央。低く「ウーン」と長く響く音', 'tun, tu, thun'],
     ['te', 'テ／ティ', '右手・中央を押さえる。響かない短い音', 'te, ti, tit, tete'],
@@ -16,7 +17,7 @@
     ['ghe', 'ゲー↑（なくてもOK）', '左手・音程が上がる音。無ければゲーから自動で作る', 'ghen, gemeend, gheup'],
     ['ke', 'ケ／カ', '左手・手のひらで押さえる。響かない「カッ」', 'ke, ka, kat, ki']
   ];
-  const ALIAS = { na: 'na', ta: 'na', tin: 'tin', tinn: 'tin', tun: 'tun', tu: 'tun', thun: 'tun', toon: 'tun',
+  const ALIAS = { na: 'na', ta: 'ta', tas: 'ta', taopen: 'ta', tin: 'tin', tinn: 'tin', tun: 'tun', tu: 'tun', thun: 'tun', toon: 'tun',
     te: 'te', ti: 'te', tit: 'te', tete: 'te', ra: 'ra', re: 'ra', ge: 'ge', ghe: 'ge', ga: 'ge', gi: 'ge', gha: 'ge',
     ghen: 'ghe', gemeend: 'ghe', gheup: 'ghe', ke: 'ke', ka: 'ke', kat: 'ke', ki: 'ke', kath: 'ke' };
 
@@ -49,7 +50,7 @@
   }
 
   // ---------- 音声の下ごしらえ ----------
-  const LEVEL = { na: .85, tin: .8, tun: .85, te: .7, ra: .6, ge: 1, ghe: 1, ke: .85 };
+  const LEVEL = { ta: .85, na: .85, tin: .8, tun: .85, te: .7, ra: .6, ge: 1, ghe: 1, ke: .85 };
   function prepare(ab, stroke) {
     const sr = ab.sampleRate, n = ab.length, mono = new Float32Array(n);
     for (let c = 0; c < ab.numberOfChannels; c++) { const d = ab.getChannelData(c); for (let i = 0; i < n; i++) mono[i] += d[i] / ab.numberOfChannels; }
@@ -88,7 +89,7 @@
         const ab = await E.ctx.decodeAudioData(u8.buffer);
         const b = prepare(ab, f.stroke);
         if (!b) continue;
-        if (['na', 'tin', 'tun', 'te', 'ra'].includes(f.stroke)) b._pitchHz = B.dayanHz; // 調に合わせて自動で音程を変える
+        if (['na', 'ta', 'tin', 'tun', 'te', 'ra'].includes(f.stroke)) b._pitchHz = B.dayanHz; // 調に合わせて自動で音程を変える
         (builtin[f.stroke] = builtin[f.stroke] || []).push({ name: f.name, buf: b });
       } catch (e) { }
     }

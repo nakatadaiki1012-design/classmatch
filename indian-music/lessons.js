@@ -13,7 +13,7 @@
 
   // ---------- 判定用：ボル → 打ち方の組み合わせ ----------
   // テとラはどちらも「右手の閉じた音」として同じ扱い、ゲー↑もゲーと同じ扱い
-  const NORM = { ra: 'te', ghe: 'ge' };
+  const NORM = { ra: 'te', ghe: 'ge', ta: 'na' }; // ター（開放）もナーのキーでOK
   const partsOf = key => (IM.BOLS[key] ? IM.BOLS[key].parts : []).map(p => p.replace('+', '')).map(p => NORM[p] || p);
   const STROKE_JA = { na: 'ナー（右手・縁）', tin: 'ティン（右手・中間）', tun: 'トゥン（右手・中央）', te: 'テ／ラ（右手・閉じた音）',
     ge: 'ゲー（左手）', ke: 'ケ（左手・閉じた音）', clap: '手拍子', wave: '手を振る', any: '打音' };

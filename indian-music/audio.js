@@ -69,6 +69,13 @@
       noise: [['highpass', 3200, .7, .3, .005], ['bandpass', 1600, 1.4, .22, .014]],
       pitch: { type: 'settle', amt: .012, t: .05 }
     },
+    // ター（開放）：縁を弾いてそのまま響かせる。ナーより長く響き、第2倍音が中心
+    ta: {
+      drum: 'd', dur: 1.2, gain: 0.85,
+      modes: [[1, .1, .06], [2, 1, .14], [3, .2, .1], [4, .08, .07], [2.93, .1, .04]],
+      noise: [['highpass', 3200, .7, .25, .005], ['bandpass', 1600, 1.4, .2, .012]],
+      pitch: { type: 'settle', amt: .01, t: .05 }
+    },
     // ティン：人差し指でシャーヒーと縁の間(スール)を打ち、すぐ離す → 基音と倍音が豊かに響く
     tin: {
       drum: 'd', dur: 1.3, gain: 0.8,
@@ -359,7 +366,7 @@
     Dha:  { parts: ['na', 'ge'], kana: 'ダー', hand: '両手', type: 'open', desc: '右のナー＋左のゲーを同時に。いちばん基本の「重い」音。サム（1拍目）によく置かれる。' },
     Dhin: { parts: ['tin', 'ge'], kana: 'ディン', hand: '両手', type: 'open', desc: '右のティン＋左のゲーを同時に。豊かに響く。ティーンタールのテーカの主役。' },
     Dhi:  { parts: ['tin', 'ge'], kana: 'ディ', hand: '両手', type: 'open', desc: 'ディンとほぼ同じ（ジャプタールなどでの表記）。' },
-    Ta:   { parts: ['na'], kana: 'ター', hand: '右手', type: 'open', desc: 'ナーと同じ打ち方。人差し指で縁（キナール）を弾く。左手は鳴らさない。' },
+    Ta:   { parts: ['ta'], kana: 'ター', hand: '右手', type: 'open', desc: 'ナーと同じ打ち方。人差し指で縁（キナール）を弾く。左手は鳴らさない。' },
     Na:   { parts: ['na'], kana: 'ナー', hand: '右手', type: 'open', desc: '人差し指で縁（キナール）を鋭く弾き、薬指はシャーヒーの縁に軽く置く。キラッとした金属的な響き。' },
     Tin:  { parts: ['tin'], kana: 'ティン', hand: '右手', type: 'open', desc: '人差し指でシャーヒーと縁の間（スール）を打ってすぐ離す。ダーヤーンの音程がよく聞こえる。' },
     Tun:  { parts: ['tun'], kana: 'トゥン', hand: '右手', type: 'open', desc: '人差し指でシャーヒーの中央を打ってすぐ離す。低く長く「ウーン」と響く。' },
@@ -462,14 +469,16 @@
       const bus = STROKES[name].drum === 'd' ? this.dBus : this.bBus;
       const cu = this.custom || {};
       // 録音がない打ち方は近いものから作る（ラ←テ、ゲー↑←ゲー）
-      const sample = cu[name] || (name === 'ra' && cu.te) || (name === 'ghe' && cu.ge);
+      const sample = cu[name] || (name === 'ra' && cu.te) || (name === 'ghe' && cu.ge) || (name === 'ta' && cu.na);
       const drum = STROKES[name].drum;
       if (sample && sample.length) {
         const buf = sample[(Math.random() * sample.length) | 0];
         // 音程が分かっている録音（標準音源）は、選んだ調に合わせて自動で音程を変える
         const base = buf._pitchHz && drum === 'd' ? this.dayanHz / buf._pitchHz : 1;
-        const rate = base * (this.sampleRate ? this.sampleRate[drum] || 1 : 1);
-        const g = (vel == null ? 1 : vel) * (name === 'ra' && !cu.ra ? .7 : 1);
+        // 人の演奏のように、毎回ほんの少しだけ音程（±0.3%）と強さ（±6%）が揺れる
+        const human = 1 + (Math.random() - .5) * .006;
+        const rate = base * human * (this.sampleRate ? this.sampleRate[drum] || 1 : 1);
+        const g = (vel == null ? 1 : vel) * (name === 'ra' && !cu.ra ? .7 : 1) * (1 + (Math.random() - .5) * .12);
         const src = this.e.play(buf, when, bus, g, rate);
         this._choke(drum, name, when, src);
         if (name === 'ghe' && !cu.ghe) { // 手首で押して音程を上げる動きを再現
