@@ -305,6 +305,19 @@
   .gongset figure{margin:0;}
   .gongset figcaption{text-align:center; font-size:.78rem; color:var(--sub); margin-top:2px;}
   @media (prefers-reduced-motion:reduce){ .inst .key.target .ring{animation:none;} }
+  .ens{display:block; width:100%; height:auto; max-width:540px; margin:0 auto;}
+  .ens .glow{opacity:0;}
+  .ens .tok{transform-box:fill-box; transform-origin:center;}
+  .ens .tok.pl .glow{animation:tokglow .5s ease-out;}
+  .ens .tok.pl{animation:tokpop .22s ease-out;}
+  .ens .tok.off{opacity:.25;}
+  @keyframes tokglow{0%{opacity:.9} 100%{opacity:0}}
+  @keyframes tokpop{0%{transform:scale(1.07)} 100%{transform:scale(1)}}
+  @media (prefers-reduced-motion:reduce){ .ens .tok.pl{animation:none;} }
+  table.cmp{border-collapse:collapse; width:100%; font-size:.84rem; margin:6px 0;}
+  table.cmp th, table.cmp td{border:1px solid var(--line); padding:6px 7px; vertical-align:top; text-align:left;}
+  table.cmp thead th{background:var(--panel2); text-align:center;}
+  table.cmp tbody th{color:var(--sub); font-weight:700; white-space:nowrap; font-size:.78rem;}
   #unlock{position:fixed; inset:0; background:rgba(15,8,4,.86); z-index:100; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:12px; text-align:center; padding:20px;}
   #unlock .big{font-size:1.1rem; font-weight:800;}
 </style>
@@ -419,6 +432,17 @@
       <span class="bigstat">いまのテンポ <b id="statTempo">-</b></span>
     </div>
   </div>
+
+  <div class="panel">
+    <h2>合奏ステージ（いま鳴っている楽器が光る）</h2>
+    <p class="note" style="margin-top:0">上から見た楽器の並びです。光った楽器が、いま鳴っています。ゴングは1周に1回だけ、ペキンやガンサはひっきりなしに光ります。チェックを外した楽器はうすくなります。</p>
+    <div id="autoEns"></div>
+  </div>
+
+  <details class="panel" id="cmpPanel">
+    <summary><b>ジャワとバリをくらべる</b>（同じ旋律を2つのスタイルで聴く）</summary>
+    <div id="autoCmp" style="margin-top:8px"></div>
+  </details>
 
   <div class="autogrid">
     <div class="panel cyclebox">
@@ -550,17 +574,30 @@ function colotomy(form, N){
 const FORM_NAME = {lancaran:'ランチャラン', ketawang:'クタワン', ladrang:'ラドラン', bali:'バリ風', free:'自由形式'};
 
 const PIECES = [
-  {name:'ランチャラン「はじめの一歩」（スレンドロ）', laras:'slendro', form:'lancaran', tempo:72,
+  {region:'java', name:'ランチャラン「はじめの一歩」（スレンドロ）', laras:'slendro', form:'lancaran', tempo:72,
    bal:'6, 1 2 3  6, 1 2 3  5 6 5 3  2 1 2 6,'},
-  {name:'クタワン「月のしずく」（ペロッグ・パテット・バラン）', laras:'pelog', form:'ketawang', tempo:56,
+  {region:'java', name:'クタワン「月のしずく」（ペロッグ・パテット・バラン）', laras:'pelog', form:'ketawang', tempo:56,
    bal:'6 7 6 5  3 2 7 6  2 3 5 6  7 5 3 2'},
-  {name:'ラドラン「ゆるやかな川」（スレンドロ）', laras:'slendro', form:'ladrang', tempo:52,
+  {region:'java', name:'ラドラン「ゆるやかな川」（スレンドロ）', laras:'slendro', form:'ladrang', tempo:52,
    bal:'2 1 2 6,  2 1 2 6,  3 5 6 5  3 2 1 2  . . 2 3  5 6 5 3  6 5 3 2  5 3 2 1'},
-  {name:'バリ風「火の鳥」コテカン（ペロッグ）', laras:'pelog', form:'bali', tempo:84,
+  {region:'bali', name:'バリ風「火の鳥」コテカン（ペロッグ）', laras:'pelog', form:'bali', tempo:84,
    bal:'1 2 3 1  2 3 5 3  6 5 3 2  3 5 3 1'},
-  {name:'バリ風「波」コテカン（スレンドロ）', laras:'slendro', form:'bali', tempo:90,
+  {region:'bali', name:'バリ風「波」コテカン（スレンドロ）', laras:'slendro', form:'bali', tempo:90,
    bal:'3 5 6 5  3 2 1 2  3 5 3 2  1 2 1 6,'},
+  {region:'java', name:'ランチャラン「市場へ」（ペロッグ・1拍おき＝ニバニ）', laras:'pelog', form:'lancaran', tempo:84,
+   bal:'. 2 . 1  . 2 . 3  . 5 . 3  . 2 . 1'},
+  {region:'java', name:'ラドラン「朝の宮殿」（ペロッグ・パテット・バラン）', laras:'pelog', form:'ladrang', tempo:54,
+   bal:'2 3 2 7  5 6 7 6  3 2 7 6  5 3 2 3  . . 3 2  7 6 5 6  3 5 6 7  6 5 3 2'},
+  {region:'java', name:'クタワン「夕べの祈り」（スレンドロ）', laras:'slendro', form:'ketawang', tempo:54,
+   bal:'3 3 . .  6 5 3 2  5 6 5 3  2 1 2 6,'},
+  {region:'bali', name:'バリ風「祭りの行列」32拍（ペロッグ）', laras:'pelog', form:'bali', tempo:96,
+   bal:'3 1 3 2  5 3 2 1  2 3 5 6  5 3 2 3  1 2 3 5  3 2 1 2  3 5 3 2  1 2 1 3'},
+  {region:'compare', name:'くらべる：同じ旋律をジャワ風に', laras:'pelog', form:'lancaran', tempo:66,
+   bal:'1 2 3 5  3 2 1 2  3 5 3 2  1 6, 1 2'},
+  {region:'compare', name:'くらべる：同じ旋律をバリ風に', laras:'pelog', form:'bali', tempo:100,
+   bal:'1 2 3 5  3 2 1 2  3 5 3 2  1 6, 1 2'},
 ];
+const REGION_NAME = {java:'ジャワ（中部ジャワ風）', bali:'バリ（ゴン・クビャール風）', compare:'くらべる：同じ旋律をジャワ風・バリ風で', custom:'自作'};
 
 /* =========================================================
  *  2. オーディオエンジン（Web Audio による合成）
@@ -884,8 +921,21 @@ function derive(bal, laras, form, irama=1){
       if ([1,0,1,1,0,1,1,0][((b-1)%2)*4+idx]) add('ceng', T, {k:'c', v: idx===3 ? 1 : .7});
       const c = KPAT.bali[((b-1)%4)*4+idx]; if (c!=='.') add('kendhang', T, {k:c, v:.8});
     }
+    // だんだん強く（周の後半ほど力強く）
+    for (const i of ['polos','sangsih']) for (const e of parts[i]) e.v *= .78 + .3*(e.T/(N*TPB));
+    // アンセル：クンダンの合図で全員がそろって強く打ち、次の拍だけピタッと止まる（バリらしいメリハリ）
+    if (N >= 16){
+      const a = N-4, ta = a*TPB, gone = e => !(e.T >= ta && e.T <= ta+TPB);
+      for (const i of ['polos','sangsih','ceng','kendhang']) parts[i] = (parts[i]||[]).filter(gone);
+      const pn = clampToKeys(res(a), gk);
+      add('polos', ta, {d:pn.d, o:pn.o, v:1.2}); add('sangsih', ta, {d:pn.d, o:pn.o, v:1.2});
+      add('ceng', ta, {k:'c', v:1.4}); add('kendhang', ta, {k:'L', v:1.15});
+      add('kendhang', ta - 2, {k:'t', v:1}); add('kendhang', ta - 4, {k:'t', v:.9});
+      parts._angsel = a;
+    }
   }
   const byTick = Array.from({length:N*TPB+1}, ()=>[]);
+  const angsel = parts._angsel || 0; delete parts._angsel;
   for (const k in parts) if (k!=='bal') for (const e of parts[k]) byTick[e.T].push(e);
   // ブカ（前奏）：最後のガトラをボナン（バリ風はクンダン）がひとりで弾き、ゴングで全員が入る
   const buka = Array.from({length:N*TPB+1}, ()=>[]);
@@ -893,7 +943,7 @@ function derive(bal, laras, form, irama=1){
   for (const e of parts[lead]||[]) if (e.T > (N-4)*TPB) buka[e.T].push(e);
   for (const e of parts.gong) buka[e.T].push(e);
   const endByT = {}; for (const e of endK) (endByT[e.T] ||= []).push(e);
-  return {N, colo, parts, byTick, buka, endK:endByT, laras, form};
+  return {N, colo, parts, byTick, buka, endK:endByT, laras, form, angsel};
 }
 
 /* =========================================================
@@ -984,6 +1034,9 @@ function prng(seed){ let s = seed >>> 0 || 1; return () => (s = (Math.imul(s, 16
     <radialGradient id="gBoss2" cx=".36" cy=".3" r=".75"><stop offset="0" stop-color="#fffbe0"/><stop offset=".3" stop-color="#f3d27a"/><stop offset=".75" stop-color="#a87b2c"/><stop offset="1" stop-color="#5a3a10"/></radialGradient>
     <radialGradient id="gFace2" cx=".42" cy=".4" r=".68"><stop offset="0" stop-color="#e9c46c"/><stop offset=".55" stop-color="#b48530"/><stop offset=".9" stop-color="#6e4a17"/><stop offset="1" stop-color="#4a300c"/></radialGradient>
     <linearGradient id="gRim" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#a87b2c"/><stop offset=".5" stop-color="#4a300c"/><stop offset="1" stop-color="#241604"/></linearGradient>
+    <linearGradient id="gBarLong" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#fff4cc" stop-opacity=".22"/><stop offset=".35" stop-color="#fff4cc" stop-opacity="0"/><stop offset=".7" stop-color="#2a1803" stop-opacity="0"/><stop offset="1" stop-color="#2a1803" stop-opacity=".25"/></linearGradient>
+    <radialGradient id="gSpec" cx=".32" cy=".28" r=".6"><stop offset="0" stop-color="#fffbe6" stop-opacity=".55"/><stop offset=".45" stop-color="#fffbe6" stop-opacity=".12"/><stop offset="1" stop-color="#fffbe6" stop-opacity="0"/></radialGradient>
+    <radialGradient id="gSheen" cx=".3" cy=".25" r=".75"><stop offset="0" stop-color="#fff6d6" stop-opacity=".45"/><stop offset=".4" stop-color="#fff6d6" stop-opacity=".08"/><stop offset=".75" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#1a0d02" stop-opacity=".35"/></radialGradient>
     <radialGradient id="gSkin2" cx=".4" cy=".38" r=".72"><stop offset="0" stop-color="#f7ecd2"/><stop offset=".75" stop-color="#d9bf8e"/><stop offset="1" stop-color="#a88655"/></radialGradient>
     <linearGradient id="gShell" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#4e2410"/><stop offset=".35" stop-color="#a65a2c"/><stop offset=".5" stop-color="#c47640"/><stop offset=".75" stop-color="#7a3a18"/><stop offset="1" stop-color="#3a1808"/></linearGradient>
     <linearGradient id="gTube2" x1="0" x2="1"><stop offset="0" stop-color="#2a1d10"/><stop offset=".45" stop-color="#9a8462"/><stop offset=".6" stop-color="#c8b28a"/><stop offset="1" stop-color="#2a1d10"/></linearGradient>`);
@@ -1028,9 +1081,10 @@ function svgBars(keys, kind){
     k += `<rect x="${r1(x-2)}" y="${r1(y-6)}" width="${r1(bw+4)}" height="${r1(L+12)}" fill="transparent"/>`;
     k += `<rect x="${r1(x+2)}" y="${r1(y+3)}" width="${r1(bw)}" height="${r1(L)}" rx="${rx}" fill="#000" opacity=".45"/>`; // 影
     k += `<rect x="${r1(x)}" y="${r1(y)}" width="${r1(bw)}" height="${r1(L)}" rx="${rx}" fill="${hang?'url(#gBarFlat)':'url(#gBarX)'}"/>`;
-    k += `<rect x="${r1(x)}" y="${r1(y)}" width="${r1(bw)}" height="${r1(L)}" rx="${rx}" fill="url(#pHammer)" opacity=".7"/>`;
+    k += `<rect x="${r1(x)}" y="${r1(y)}" width="${r1(bw)}" height="${r1(L)}" rx="${rx}" fill="url(#gBarLong)"/>`;
+    k += `<rect x="${r1(x+.8)}" y="${r1(y+.8)}" width="${r1(bw-1.6)}" height="${r1(L-1.6)}" rx="${rx}" fill="none" stroke="#fff3c0" stroke-opacity=".28" stroke-width="1"/>`; // ふちの面取りの光
     k += `<rect x="${r1(x)}" y="${r1(y)}" width="${r1(bw)}" height="${r1(L)}" rx="${rx}" fill="url(#gBarShade)"/>`;
-    k += `<rect x="${r1(x+bw*.42)}" y="${r1(y+L*.06)}" width="${r1(bw*.1)}" height="${r1(L*.88)}" rx="${r1(bw*.05)}" fill="#fffbe8" opacity=".22"/>`;
+    k += `<rect x="${r1(x+bw*.4)}" y="${r1(y+L*.08)}" width="${r1(bw*.14)}" height="${r1(L*.5)}" rx="${r1(bw*.07)}" fill="#fffbe8" opacity=".16"/>`; // 天井の光の映り込み
     if (!hang) for (const py of [y+8, y+L-8]) k += `<circle cx="${r1(x+bw/2)}" cy="${r1(py)}" r="${r1(Math.max(2.2, bw*.07))}" fill="url(#gPin)"/>`;
     else for (const py of [cy - Lmin*.33*1.12, cy + Lmin*.33*1.12]) k += `<rect x="${r1(x+bw/2-3)}" y="${r1(py-1.2)}" width="6" height="2.4" rx="1.2" fill="#3b2306" opacity=".55"/>`; // ひもを通す穴
     k += engraved(x+bw/2, hang ? cy + Math.min(17, bw*.55)*.36 : y + L*.66, d, o, Math.min(17, bw*.55));
@@ -1060,8 +1114,9 @@ function kettleSVG(cx, cy, r, depth=.8){
   return `<ellipse cx="${f(cx+2)}" cy="${f(b+3)}" rx="${f(r*.95)}" ry="${f(r*.3)}" fill="#000" opacity=".4"/>
   <path d="M${f(cx-r)} ${cy} C${f(cx-r)} ${f(b)} ${f(cx-r*.8)} ${f(b)} ${f(cx-r*.5)} ${f(b)} L${f(cx+r*.5)} ${f(b)} C${f(cx+r*.8)} ${f(b)} ${f(cx+r)} ${f(b)} ${f(cx+r)} ${cy} Z" fill="url(#gKside2)"/>
   <ellipse cx="${cx}" cy="${cy}" rx="${r}" ry="${f(r*.44)}" fill="url(#gKtop2)"/>
-  <ellipse cx="${cx}" cy="${cy}" rx="${r}" ry="${f(r*.44)}" fill="url(#pHammer)" opacity=".75"/>
+  <ellipse cx="${cx}" cy="${cy}" rx="${r}" ry="${f(r*.44)}" fill="url(#gSpec)"/>
   <ellipse cx="${cx}" cy="${cy}" rx="${r}" ry="${f(r*.44)}" fill="none" stroke="#3d2709" stroke-width="1"/>
+  <path d="M${f(cx-r*.92)} ${f(cy-r*.08)} A${r} ${f(r*.44)} 0 0 1 ${f(cx+r*.2)} ${f(cy-r*.43)}" fill="none" stroke="#fff0b8" stroke-opacity=".45" stroke-width="1.2"/>
   <ellipse cx="${cx}" cy="${f(cy-r*.02)}" rx="${f(r*.4)}" ry="${f(r*.19)}" fill="#4a300c" opacity=".55"/>
   <ellipse cx="${cx}" cy="${f(cy-r*.16)}" rx="${f(r*.3)}" ry="${f(r*.26)}" fill="url(#gBoss2)"/>
   <ellipse cx="${f(cx-r*.09)}" cy="${f(cy-r*.25)}" rx="${f(r*.09)}" ry="${f(r*.06)}" fill="#fff" opacity=".7"/>`;
@@ -1093,8 +1148,9 @@ function hangGongSVG(cx, cy, R, label=''){
   <circle cx="${f(cx+R*.05)}" cy="${f(cy+R*.07)}" r="${R}" fill="#120a02"/>
   <circle cx="${cx}" cy="${cy}" r="${R}" fill="url(#gRim)"/>
   <circle cx="${cx}" cy="${cy}" r="${f(R*.86)}" fill="url(#gFace2)"/>
-  <circle cx="${cx}" cy="${cy}" r="${f(R*.86)}" fill="url(#pHammer)" opacity=".8"/>
-  ${[.72,.58,.46].map(k=>`<circle cx="${cx}" cy="${cy}" r="${f(R*k)}" fill="none" stroke="#5a3a10" stroke-width="${f(Math.max(.6,R*.012))}" opacity=".45"/>`).join('')}
+  ${[.7,.5].map(k=>`<circle cx="${cx}" cy="${cy}" r="${f(R*k)}" fill="none" stroke="#5a3a10" stroke-width="${f(Math.max(.6,R*.01))}" opacity=".22"/>`).join('')}
+  <circle cx="${cx}" cy="${cy}" r="${f(R*.86)}" fill="url(#gSheen)"/>
+  <path d="M${f(cx-R*.95)} ${f(cy-R*.1)} A${R} ${R} 0 0 1 ${f(cx-R*.1)} ${f(cy-R*.95)}" fill="none" stroke="#ffe9a8" stroke-opacity=".35" stroke-width="${f(Math.max(1,R*.03))}"/>
   <circle cx="${cx}" cy="${cy}" r="${f(R*.32)}" fill="#6e4a17" opacity=".6"/>
   <circle cx="${cx}" cy="${cy}" r="${f(R*.24)}" fill="url(#gBoss2)"/>
   <ellipse cx="${f(cx-R*.07)}" cy="${f(cy-R*.09)}" rx="${f(R*.08)}" ry="${f(R*.055)}" fill="#fff" opacity=".65"/>
@@ -1161,7 +1217,7 @@ function svgKendhang(){
   s += `<path d="${lace}" fill="none" stroke="#2a1306" stroke-width="2.6" opacity=".55"/><path d="${lace}" fill="none" stroke="#e7cfa0" stroke-width="1.4"/>`;
   for (let k=0;k<12;k++) s += `<rect x="226" y="${r1(36 + k*11.4 + ((58+k*7.6)-(36+k*11.4))/2 - 1)}" width="12" height="5" rx="1.5" fill="#c79a5a" stroke="#5b3a1a" stroke-width=".6"/>`;
   const head = (key, cx, cy, rx, ry, name, sub) => `<g class="key" data-key="${key}"><ellipse cx="${cx}" cy="${cy}" rx="${rx+16}" ry="${ry+6}" fill="transparent"/>
-    <ellipse cx="${cx}" cy="${cy}" rx="${rx+3}" ry="${ry+3}" fill="#3b2410"/><ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="url(#gSkin2)"/><ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="url(#pSkin)"/>
+    <ellipse cx="${cx}" cy="${cy}" rx="${rx+3}" ry="${ry+3}" fill="#3b2410"/><ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="url(#gSkin2)"/><ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="url(#gSpec)" opacity=".6"/>
     <ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="none" stroke="#5b3a1a" stroke-width="2.5"/>
     <ellipse class="shine" cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="#fff6d0"/><ellipse class="ring" cx="${cx}" cy="${cy}" rx="${rx+7}" ry="${ry+7}" fill="none" stroke="#7fd3a0" stroke-width="3"/></g>
     <text x="${cx}" y="${cy+ry+22}" font-size="12" font-weight="800" text-anchor="middle" fill="#e9dcc6">${name}</text><text x="${cx}" y="${cy+ry+36}" font-size="9.5" text-anchor="middle" fill="#c9b294">${sub}</text>`;
@@ -1334,8 +1390,9 @@ function evLabel(e){
   if (e.k) return {G:'G',t:'t',p:'p',j:'j',c:''}[e.k] ?? '';
   return noteHTML(e.d, e.o);
 }
-function hit(laneId, time, label){
+function hit(laneId, time, label, inst){
   vis(time, ()=>{
+    for (const v of ENSEMBLES) v.pulse(inst || laneId);
     const l = document.querySelector(`.lane[data-id="${laneId}"]`); if (!l) return;
     const dot = l.querySelector('.dot'); dot.classList.add('flash'); clearTimeout(dot._t); dot._t = setTimeout(()=>dot.classList.remove('flash'), 90);
     if (label !== undefined) l.querySelector('.cur').innerHTML = label;
@@ -1356,7 +1413,7 @@ function scheduler(){
       if (e.durT) e.durSec = e.durT*60/S.tempo/TPB;
       const h = playInst(e.inst, e, tt, S.laras, e.v*(0.92+Math.random()*0.14));
       if (DAMP.has(e.inst)) damped(S.handles, e.inst, h, tt);
-      hit(lane, t, evLabel(e));
+      hit(lane, t, evLabel(e), e.inst);
     }
     logTick(T, t, S.phase);
     if (T % TPB === 0){ const beat = T/TPB, buka = S.phase==='buka'; vis(t, ()=>showBeat(beat, buka)); }
@@ -1528,6 +1585,7 @@ function guideFor(b, buka){
   if (!bali && kBeats.length && Object.values(S.colo).some(x=>x.includes('P'))){
     const wela = Math.round(kBeats[0]/2); if (b===wela && !m.includes('P')) out.push(['wela',`ウェラ（${b}拍目）`, `ここはクンプルの場所ですが、ゴングの直後なのでお休みします。`]);
   }
+  if (bali && S.der[1] && S.der[1].angsel === b) out.push(['warn',`アンセル（${b}拍目）`, 'クンダンの合図で全員がそろって強く打ち、次の拍だけピタッと止まります。急な強弱や止めは、バリのガムランらしいメリハリです。']);
   if (b===N-3) out.push(['warn','もうすぐゴング', S.ending ? 'スウック：クンダンの合図でゆっくりになり、次のゴングで曲が終わります。' : (bali ? '最後のガトラ。ゴングに向かいます。' : '最後のガトラ。クンダンの型が変わって「もうすぐゴング」と知らせます。')]);
   return out;
 }
@@ -1630,6 +1688,7 @@ function vizFrame(){
   for (const v of CYCLE_VIEWS){ if (!v.el.isConnected){ CYCLE_VIEWS.delete(v); continue; } }
   for (const v of TIMELINES){ if (!v.el.isConnected){ TIMELINES.delete(v); continue; } }
   for (const v of GUIDES){ if (!v.el.isConnected) GUIDES.delete(v); }
+  for (const v of ENSEMBLES){ if (!v.el.isConnected) ENSEMBLES.delete(v); }
   const p = (S.playing || S._tail) ? enginePos() : null;
   for (const v of CYCLE_VIEWS) if (v.el.offsetParent) v.frame(p);
   for (const v of TIMELINES){ if (!v.el.offsetParent) continue;
@@ -1637,7 +1696,71 @@ function vizFrame(){
     if (key !== v.key || Math.abs((v.wrap.clientWidth||0) - (v._w||0)) > 40){ v._w = v.wrap.clientWidth; v.build(); }
     v.draw(p); }
 }
-function vizRebuild(){ for (const v of CYCLE_VIEWS) v.build(); for (const v of TIMELINES) v.build(); for (const g of GUIDES) g.clear(); }
+function vizRebuild(){ for (const v of CYCLE_VIEWS) v.build(); for (const v of TIMELINES) v.build(); for (const g of GUIDES) g.clear(); for (const e of ENSEMBLES) e.build(); }
+/* ---- 合奏ステージ：上から見た楽器の並び。鳴った楽器が光る（だれが・いつ・どのくらい細かく鳴るかが一目でわかる） ---- */
+const ENSEMBLES = new Set();
+const STAGE_JAVA = [
+  {k:'gong',     n:'ゴング',     i:['gong'],               x:288, y:14,  w:60,  h:60, t:'gong'},
+  {k:'kempul',   n:'クンプル',   i:['kempul'],             x:222, y:18,  w:60,  h:50, t:'gongs'},
+  {k:'kenong',   n:'クノン',     i:['kenong'],             x:120, y:26,  w:96,  h:38, t:'kettles', c:4},
+  {k:'kethuk',   n:'クトゥッ',   i:['kethuk','kempyang'],  x:64,  y:30,  w:50,  h:30, t:'kettles', c:2},
+  {k:'slenthem', n:'スレンテム', i:['slenthem'],           x:10,  y:92,  w:80,  h:34, t:'bars', c:7},
+  {k:'demung',   n:'デムン',     i:['demung'],             x:96,  y:92,  w:80,  h:34, t:'bars', c:6},
+  {k:'saron',    n:'サロン',     i:['saron'],              x:182, y:92,  w:80,  h:34, t:'bars', c:7},
+  {k:'peking',   n:'ペキン',     i:['peking'],             x:268, y:96,  w:80,  h:28, t:'bars', c:7},
+  {k:'bonang',   n:'ボナン',     i:['bonang'],             x:10,  y:146, w:162, h:38, t:'krows', c:6},
+  {k:'panerus',  n:'パネルス',   i:['panerus'],            x:186, y:148, w:162, h:34, t:'krows', c:6},
+  {k:'gender',   n:'グンデル',   i:['gender'],             x:10,  y:204, w:100, h:30, t:'bars', c:10},
+  {k:'kendhang', n:'クンダン',   i:['kendhang'],           x:150, y:204, w:60,  h:32, t:'drum'},
+  {k:'rebab',    n:'ルバブ',     i:['rebab'],              x:230, y:200, w:36,  h:40, t:'rebab'},
+  {k:'suling',   n:'スリン',     i:['suling'],             x:276, y:214, w:72,  h:12, t:'suling'},
+];
+const STAGE_BALI = [
+  {k:'gong',     n:'ゴング',     i:['gong'],               x:288, y:14,  w:60,  h:60, t:'gong'},
+  {k:'kempul',   n:'クンプール', i:['kempul'],             x:226, y:22,  w:50,  h:50, t:'gongs1'},
+  {k:'kenong',   n:'クモン',     i:['kenong'],             x:170, y:30,  w:48,  h:36, t:'kettles', c:1},
+  {k:'kajar',    n:'カジャール', i:['kajar'],              x:114, y:30,  w:48,  h:36, t:'kettles', c:1},
+  {k:'ceng',     n:'チェンチェン', i:['ceng'],             x:12,  y:28,  w:90,  h:40, t:'ceng'},
+  {k:'jegogan',  n:'ジェゴガン', i:['jegogan'],            x:10,  y:94,  w:160, h:36, t:'bars', c:5},
+  {k:'calung',   n:'チャルン',   i:['calung'],             x:186, y:94,  w:162, h:36, t:'bars', c:5},
+  {k:'polos',    n:'ガンサ（ポロス）', i:['polos'],        x:10,  y:150, w:162, h:40, t:'bars', c:10},
+  {k:'sangsih',  n:'ガンサ（サンシ）', i:['sangsih'],      x:186, y:150, w:162, h:40, t:'bars', c:10},
+  {k:'kendhang', n:'クンダン',   i:['kendhang'],           x:150, y:208, w:60,  h:32, t:'drum'},
+];
+function stageToken(it){
+  const {x, y, w, h, t, c} = it; let g = '';
+  if (t==='bars'){ g += `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="4" fill="url(#gLacqTop)"/>`; const bw = (w-8)/c;
+    for (let i=0;i<c;i++) g += `<rect x="${r1(x+4+i*bw+1)}" y="${r1(y+4+i*(h*.12)/c)}" width="${r1(bw-2)}" height="${r1(h-8-i*(h*.24)/c)}" rx="1.5" fill="url(#gBarX)"/>`; }
+  else if (t==='krows'){ g += `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="4" fill="url(#gLacqTop)"/>`; const sx = w/c;
+    for (const row of [0,1]) for (let i=0;i<c;i++){ const cx = x + sx*(i+.5), cy = y + h*(row ? .7 : .3); g += `<ellipse cx="${r1(cx)}" cy="${r1(cy)}" rx="${r1(sx*.36)}" ry="${r1(h*.16)}" fill="url(#gKtop2)"/><circle cx="${r1(cx)}" cy="${r1(cy-1)}" r="${r1(sx*.1)}" fill="url(#gBoss2)"/>`; } }
+  else if (t==='kettles'){ const sx = w/c; for (let i=0;i<c;i++){ const cx = x + sx*(i+.5);
+      g += `<rect x="${r1(cx-sx*.45)}" y="${r1(y+h*.5)}" width="${r1(sx*.9)}" height="${r1(h*.5)}" rx="2" fill="url(#gLacq)"/><ellipse cx="${r1(cx)}" cy="${r1(y+h*.45)}" rx="${r1(sx*.4)}" ry="${r1(h*.26)}" fill="url(#gKtop2)"/><circle cx="${r1(cx)}" cy="${r1(y+h*.4)}" r="${r1(sx*.12)}" fill="url(#gBoss2)"/>`; } }
+  else if (t==='gong' || t==='gongs1'){ const r = Math.min(w,h)/2 - 2, cx = x+w/2, cy = y+h/2; g += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="url(#gRim)"/><circle cx="${cx}" cy="${cy}" r="${r1(r*.85)}" fill="url(#gFace2)"/><circle cx="${cx}" cy="${cy}" r="${r1(r*.85)}" fill="url(#gSheen)"/><circle cx="${cx}" cy="${cy}" r="${r1(r*.25)}" fill="url(#gBoss2)"/>`; }
+  else if (t==='gongs'){ for (let i=0;i<3;i++){ const r = h*.28 - i*1.5, cx = x + w*(.2+.3*i), cy = y + h*.5; g += `<circle cx="${r1(cx)}" cy="${r1(cy)}" r="${r1(r)}" fill="url(#gRim)"/><circle cx="${r1(cx)}" cy="${r1(cy)}" r="${r1(r*.8)}" fill="url(#gFace2)"/><circle cx="${r1(cx)}" cy="${r1(cy)}" r="${r1(r*.25)}" fill="url(#gBoss2)"/>`; } }
+  else if (t==='drum'){ g += `<path d="M${x+6} ${y+3} C${x+w*.5} ${y-2} ${x+w-6} ${y+4} ${x+w-4} ${y+8} L${x+w-4} ${y+h-8} C${x+w-6} ${y+h-4} ${x+w*.5} ${y+h+2} ${x+6} ${y+h-3} Z" fill="url(#gShell)"/><ellipse cx="${x+6}" cy="${y+h/2}" rx="5" ry="${h/2-2}" fill="url(#gSkin2)"/><ellipse cx="${x+w-4}" cy="${y+h/2}" rx="3.5" ry="${h/2-8}" fill="url(#gSkin2)"/>`; }
+  else if (t==='rebab'){ const cx = x+w/2; g += `<line x1="${cx}" y1="${y}" x2="${cx}" y2="${y+h}" stroke="#6b3f1d" stroke-width="3"/><path d="M${cx} ${y+h*.55} c-10 0 -10 14 0 18 c10 -4 10 -18 0 -18 Z" fill="url(#gShell)"/><path d="M${x-4} ${y+h*.6} Q${cx} ${y+h*.3} ${x+w+4} ${y+h*.45}" fill="none" stroke="#c79a5a" stroke-width="1.5"/>`; }
+  else if (t==='suling'){ g += `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${h/2}" fill="url(#gBamboo)"/>${[0,1,2,3,4,5].map(i=>`<circle cx="${r1(x+w*.45+i*6)}" cy="${r1(y+h/2)}" r="1.6" fill="#3b2306"/>`).join('')}`; }
+  else if (t==='ceng'){ g += `<path d="M${x+8} ${y+h} q${w/2-8} -${h*.8} ${w-16} 0 Z" fill="url(#gLacqTop)"/>`; for (let i=0;i<4;i++){ const cx = x + 14 + i*(w-28)/3; g += `<ellipse cx="${r1(cx)}" cy="${r1(y+h*.42)}" rx="9" ry="4" fill="url(#gKtop2)"/><circle cx="${r1(cx)}" cy="${r1(y+h*.38)}" r="2" fill="url(#gBoss2)"/>`; } }
+  return g;
+}
+class EnsembleView {
+  constructor(el){ this.el = el; ENSEMBLES.add(this); this.build(); }
+  build(){
+    const items = S.form==='bali' ? STAGE_BALI : STAGE_JAVA, has = i => i.i.some(n => (S.der[1] && (S.der[1].parts[n]||[]).length));
+    let h = `<rect x="2" y="2" width="356" height="272" rx="12" fill="#2a1c12"/><rect x="2" y="2" width="356" height="272" rx="12" fill="url(#pGrain)" opacity=".6"/>`;
+    for (const it of items){
+      if (!has(it)) continue;
+      const off = S.muted[laneOf(it.i[0])];
+      h += `<g class="tok ${off?'off':''}" data-i="${it.i.join(' ')}"><rect class="glow" x="${it.x-4}" y="${it.y-4}" width="${it.w+8}" height="${it.h+8}" rx="8" fill="#ffd36a"/>
+        ${stageToken(it)}<text x="${it.x + it.w/2}" y="${it.y + it.h + 12}" text-anchor="middle" font-size="9.5" font-weight="700" fill="#e9dcc6">${it.n}</text></g>`;
+    }
+    h += `<text x="180" y="268" text-anchor="middle" font-size="9" fill="#a8957a">▼ 客席側（${S.form==='bali'?'バリ':'ジャワ'}の並び方の一例）</text>`;
+    this.el.innerHTML = `<svg class="ens" viewBox="0 0 360 278" role="img" aria-label="合奏ステージ">${h}</svg>`;
+    this.map = {}; this.el.querySelectorAll('.tok').forEach(g => g.dataset.i.split(' ').forEach(n => this.map[n] = g));
+  }
+  pulse(inst){ const g = this.map[inst]; if (!g || !this.el.offsetParent) return; g.classList.remove('pl'); g.getBoundingClientRect(); g.classList.add('pl'); }
+}
+
 
 /* ---- 表示 ---- */
 function renderBalungan(){
@@ -1664,6 +1787,7 @@ $('#lanes').addEventListener('change', e=>{
   const id = e.target.dataset.mute; if (!id) return;
   S.muted[id] = !e.target.checked;
   e.target.closest('.lane').classList.toggle('off', S.muted[id]);
+  for (const v of ENSEMBLES) v.build();
 });
 let lastBeatEl = null;
 function showBeat(beat, buka){
@@ -1715,7 +1839,10 @@ function tempoNudge(up){ // クンダンの合図でテンポを上げ下げ（�
 $('#fastBtn').onclick = () => tempoNudge(true);
 $('#slowBtn').onclick = () => tempoNudge(false);
 const pieceSel = $('#pieceSel');
-function fillPieces(){ pieceSel.innerHTML = PIECES.map((p,i)=>`<option value="${i}">${p.name}</option>`).join(''); }
+function fillPieces(){ // 地域ごとにまとめて表示
+  pieceSel.innerHTML = ['java','bali','compare','custom'].map(r => { const it = PIECES.map((p,i)=>[p,i]).filter(([p])=>(p.region||'custom')===r);
+    return it.length ? `<optgroup label="${REGION_NAME[r]}">${it.map(([p,i])=>`<option value="${i}">${p.name}</option>`).join('')}</optgroup>` : ''; }).join('');
+}
 pieceSel.onchange = () => loadPiece(PIECES[+pieceSel.value]);
 function usePiece(i){ pieceSel.value = i; loadPiece(PIECES[i]); }
 
@@ -2102,6 +2229,7 @@ const EXAM = [
   {q:'イラマを切り替える瞬間は？', o:['好きなときにいきなり','クンダンの合図のあと、区切り（クノン）の拍でそろって','曲の最初だけ'], a:1, x:'合図→だんだんテンポを変える→区切りの拍で切り替え、の順です。'},
   {q:'バリの「コテカン」とは？', o:['2人で音をかみ合わせて1本の速い旋律を作る','太鼓の合図','音階の名前'], a:0, x:'ポロスとサンシの2人で、1人では弾けない速さの旋律を作ります。'},
   {q:'ペロッグのパテット・バランで、ふつう使わない音は？', o:['7','1','2'], a:1, x:'バランは「7」を使い「1」を使いません（ブム系はその逆）。'},
+  {q:'急に強くしたり、ピタッと止めたりする「アンセル」が特徴なのは？', o:['ジャワのガムラン','バリのガムラン'], a:1, x:'バリのガムランは速く、強弱や止めのメリハリが強いのが特徴です。'},
   {q:'柔らかい楽器（グンデル・ルバブ・スリン）がよく活躍するのは？', o:['ゆっくりした曲','速く大きな音のランチャラン','バリのコテカン'], a:0, x:'ゆっくりな曲で、旋律を自由に歌うように飾ります。'},
 ];
 function mountExam(el, spec, onPass){
@@ -2130,6 +2258,40 @@ function mountExam(el, spec, onPass){
   };
   start();
 }
+const COMPARE_TABLE = `<div class="scorewrap"><table class="cmp"><thead><tr><th></th><th>ジャワ（中部ジャワ）</th><th>バリ</th></tr></thead><tbody>
+  <tr><th>雰囲気</th><td>ゆったり、落ち着いている（宮廷や儀礼の音楽）</td><td>華やかで速く、メリハリが強い</td></tr>
+  <tr><th>速さ</th><td>テンポの幅が広く、だんだん変わる</td><td>速いことが多く、急に変わる</td></tr>
+  <tr><th>飾り方</th><td>1人ずつ先取りして飾る（ペキン・ボナン）</td><td>2人で音をかみ合わせる（コテカン）</td></tr>
+  <tr><th>調律</th><td>1台ずつ</td><td>2台1組で少しずらし、うなり（オンバ）を作る</td></tr>
+  <tr><th>強弱</th><td>なだらか</td><td>急に強く・急に止める（アンセル）</td></tr>
+  <tr><th>音階</th><td>スレンドロとペロッグ（7音）</td><td>ペロッグの5音（スリシル）が中心</td></tr>
+  <tr><th>楽器</th><td>ボナン・グンデル・ルバブ・歌など柔らかい楽器も</td><td>ガンサ・レヨン・チェンチェン（シンバル）など</td></tr>
+  </tbody></table></div>`;
+function mountCompare(el, spec, onPass){
+  const used = new Set();
+  el.innerHTML = `${COMPARE_TABLE}<div class="row" style="margin-top:6px"><button class="sec" data-p="9">▶ ジャワ風で聴く</button><button class="sec" data-p="10">▶ バリ風で聴く</button><button class="sec cstop">■ 止める</button></div>
+    <div class="nowp"></div><div class="cmpstage" style="margin-top:6px"></div><div class="guide"></div>
+    <p class="note">同じ旋律でも、ジャワ風はゆったり先取りして飾り、バリ風は速く、2人のかみ合わせ（ステージの左右のガンサが交互に光る）とアンセル（急な止め）が聴こえます。</p>`;
+  const say = t => { el.querySelector('.nowp').textContent = t; };
+  new EnsembleView(el.querySelector('.cmpstage')); new GuideView(el.querySelector('.guide'));
+  el.querySelector('.row').onclick = e => {
+    if (e.target.closest('.cstop')){ stopAll(); say(''); return; }
+    const b = e.target.closest('[data-p]'); if (!b) return;
+    initAudio(); DEMOS.pieceOnce(+b.dataset.p, say); used.add(b.dataset.p); b.classList.add('on');
+    if (used.size >= 2 && onPass) onPass();
+  };
+}
+function mountStage(el, spec, onPass){
+  el.innerHTML = `<div class="row"><button class="sec" data-go>▶ 合奏を1周聴く</button><button class="sec cstop">■ 止める</button></div><div class="nowp"></div><div class="stg" style="margin-top:6px"></div>
+    <p class="note">${spec.note || '光った楽器が、いま鳴っている楽器です。どの楽器がゆっくりで、どの楽器が細かいかを見てみよう。'}</p>`;
+  const say = t => { el.querySelector('.nowp').textContent = t; };
+  new EnsembleView(el.querySelector('.stg'));
+  el.querySelector('.row').onclick = e => {
+    if (e.target.closest('.cstop')){ stopAll(); say(''); return; }
+    if (!e.target.closest('[data-go]')) return;
+    initAudio(); DEMOS.pieceOnce(spec.piece ?? 0, say); onPass();
+  };
+}
 function mountGrid(el, spec, onPass){
   const p = PIECES[spec.piece ?? 0], der = derive(parseBal(p.bal), p.laras, p.form, spec.irama||1);
   el.innerHTML = `<div class="gwrap"></div>${spec.note ? `<p class="note">${spec.note}</p>` : ''}`;
@@ -2147,7 +2309,8 @@ const LESSONS = [
     <p>楽器は、役割で大きく4つのグループに分かれます。</p>
     <ul><li><b>骨組み</b>：曲の旋律の「背骨」を叩く（サロンなど）</li><li><b>区切り</b>：大小のゴングで時間を区切る</li><li><b>飾り</b>：旋律を細かく飾る（ペキン・ボナンなど）</li><li><b>指揮</b>：太鼓（クンダン）がテンポを決める</li></ul>`,
     point:'<b>ポイント</b> 全員が「同じ曲の、ちがう姿」を同時に演奏しています。これがガムランのいちばん大事なしくみです。',
-    widgets:[{type:'listen', title:'まずは聴いてみよう', items:[{label:'▶ 合奏を1周聴く', fn:say=>DEMOS.pieceOnce(0, say)}]}] },
+    widgets:[{type:'listen', title:'まずは聴いてみよう', items:[{label:'▶ 合奏を1周聴く', fn:say=>DEMOS.pieceOnce(0, say)}]},
+      {type:'stage', title:'どの楽器が、いつ鳴る？（合奏ステージ）', piece:0, note:'ゴング（右上）は1周に1回、サロンなどは1拍に1回、ペキンやボナンはもっと細かく光ります。速さのちがう層が重なっているのが見えます。'}] },
   { title:'音の名前は「数字」',
     body:`<p>ガムランの楽譜は、音を数字で書きます（<b>クパティハン譜</b>）。数字の下の点は低い音、上の点は高い音です。</p>
     <table><tr><th>数字</th><td>1</td><td>2</td><td>3</td><td>4</td><td>5</td><td>6</td><td>7</td></tr><tr><th>読み</th><td>ji</td><td>ro</td><td>lu</td><td>pat</td><td>mo</td><td>nem</td><td>pi</td></tr></table>
@@ -2244,13 +2407,16 @@ const LESSONS = [
       {type:'listen', title:'始まり（ブカ）から終わり（スウック）まで', items:[{label:'▶ 1曲聴く', fn:say=>DEMOS.pieceOnce(0, say)}]},
       {type:'quiz', title:'クイズ', q:'曲の終わりの合図を出すのは？', options:['ゴング','クンダン（太鼓）','サロン'], answer:1, explain:'クンダンが合図して全員がテンポを落とし、最後のゴングで終わります。'},
     ] },
-  { title:'バリ：2人でかみ合わせる（コテカン）',
+  { title:'バリのガムラン：ジャワとくらべる',
     body:`<p>バリ島のガムランでは、2人の奏者（<b>ポロス</b>と<b>サンシ</b>）が音を交互に入れ合って、1人では弾けない速い旋律を作ります。これを<b>コテカン</b>といいます。</p>
-    <p>また、楽器は2台1組で、低めの<b>プンゴンバン</b>と高めの<b>プンギセップ</b>のように、片方をわずかに高く調律してあります。同時に鳴ると「ワンワン」とうなる<b>オンバ（波）</b>が生まれ、バリのガムランのきらきらした響きになります。</p>`,
+    <p>また、楽器は2台1組で、低めの<b>プンゴンバン</b>と高めの<b>プンギセップ</b>のように、片方をわずかに高く調律してあります。同時に鳴ると「ワンワン」とうなる<b>オンバ（波）</b>が生まれ、バリのガムランのきらきらした響きになります。</p>
+    <p>さらにバリのガムランは、ジャワより速く、<b>急に強くしたり、ピタッと止めたり（アンセル）</b>するメリハリが特徴です。同じガムランでも、ジャワは落ち着いた響き、バリは華やかで勢いのある響きと、性格が大きくちがいます。</p>`,
     point:'<b>ポイント</b> 1人のパートだけだと穴あきの旋律。2人そろって初めて1本の旋律になります。',
     widgets:[
       {type:'listen', title:'分解して聴こう', items:[{label:'コテカンを分解', fn:say=>DEMOS.kotekan(say)},{label:'オンバなし', fn:()=>DEMOS.ombak(0)},{label:'オンバあり', fn:()=>DEMOS.ombak(6)}]},
       {type:'practice', title:'ポロスを担当しよう（サンシは自動）', cfg:{piece:3, user:'polos', beats:[1,4], bpm:42, backing:['sangsih','calung','jegogan','kajar','gong','kenong','kempul'], passRatio:.7}},
+      {type:'compare', title:'同じ旋律をジャワ風・バリ風で聴きくらべよう'},
+      {type:'quiz', title:'クイズ', q:'次のうち、バリのガムランの特徴ではないものは？', options:['2人で音をかみ合わせる（コテカン）','2台1組でずらした調律のうなり（オンバ）','1人ずつ先取りして飾る（ペキン・ボナン）'], answer:2, explain:'1人ずつ先取りして飾るのはジャワのやり方。バリは2人でかみ合わせます。'},
     ] },
   { title:'卒業：合奏に入ろう',
     body:`<p>最後は、全員が演奏する合奏の中で、サロン（バルンガン）を担当します。ゴングの周期を感じながら、1周を通して弾いてみましょう。</p>
@@ -2314,6 +2480,8 @@ function openLesson(i){
     else if (w.type==='cycle') mountCycle(body, w, onPass);
     else if (w.type==='timeline') mountTimeline(body, w, onPass);
     else if (w.type==='exam') mountExam(body, w, onPass);
+    else if (w.type==='stage') mountStage(body, w, onPass);
+    else if (w.type==='compare') mountCompare(body, w, onPass);
     else if (w.type==='practice') mountPractice(body, Object.assign({}, w.cfg, {onPass}));
   });
   card.querySelector('.lprev').onclick = () => { openLesson(LP.cur-1); card.scrollIntoView({behavior:'smooth'}); };
@@ -2346,7 +2514,7 @@ function bars(n, x0, x1, yb, longest, shortest, fill='url(#gBar)', pins=true, ga
   for (let i=0;i<n;i++){
     const x = x0 + i*(bw+gap), L = longest - (longest-shortest)*i/Math.max(1,n-1), yt = yb - L;
     const rr = `x="${x.toFixed(1)}" y="${yt.toFixed(1)}" width="${bw.toFixed(1)}" height="${L.toFixed(1)}" rx="4"`;
-    s += `<rect ${rr} fill="${fill==='url(#gBar)' ? 'url(#gBarX)' : fill==='url(#gBarThin)' ? 'url(#gBarFlat)' : fill}" stroke="#4a300c" stroke-width=".8"/><rect ${rr} fill="url(#pHammer)" opacity=".7"/><rect ${rr} fill="url(#gBarShade)"/>`;
+    s += `<rect ${rr} fill="${fill==='url(#gBar)' ? 'url(#gBarX)' : fill==='url(#gBarThin)' ? 'url(#gBarFlat)' : fill}" stroke="#4a300c" stroke-width=".8"/><rect ${rr} fill="url(#gBarLong)"/><rect ${rr} fill="url(#gBarShade)"/>`;
     s += `<rect x="${(x+bw*.42).toFixed(1)}" y="${(yt+L*.08).toFixed(1)}" width="${(bw*.1).toFixed(1)}" height="${(L*.84).toFixed(1)}" fill="#fffbe8" opacity=".2"/>`;
     if (pins) s += `<circle cx="${(x+bw/2).toFixed(1)}" cy="${(yt+5).toFixed(1)}" r="2" fill="#3b2306"/><circle cx="${(x+bw/2).toFixed(1)}" cy="${(yb-5).toFixed(1)}" r="2" fill="#3b2306"/>`;
   }
@@ -2673,6 +2841,8 @@ $('#accBtn').onclick = () => {
 const autoCycle = new CycleView($('#autoCycle')), autoGuide = new GuideView($('#autoGuide'));
 autoCycle.onPick = b => autoGuide.push([explainBeat(b)]);
 new TimelineView($('#autoTL'));
+new EnsembleView($('#autoEns'));
+mountCompare($('#autoCmp'), {}, null);
 openLesson(LP.cur || 0);
 renderTheoryGroups(); renderTheory(); renderRangeMap();
 </script>
