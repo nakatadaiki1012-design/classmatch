@@ -76,7 +76,7 @@
 
   /* 楽器の舞台 */
   .stage{
-    background:linear-gradient(#24170f,#1c120b); border:1px solid var(--line); border-radius:14px;
+    background:repeating-linear-gradient(90deg, rgba(0,0,0,.18) 0 1px, transparent 1px 64px), linear-gradient(#2c1c12,#1d130c); border:1px solid var(--line); border-radius:14px;
     padding:16px 8px 14px; margin-top:10px; touch-action:none; user-select:none; -webkit-user-select:none;
     min-height:150px; display:flex; flex-direction:column; justify-content:center;
   }
@@ -130,7 +130,8 @@
   .head.small{width:clamp(84px,22vw,124px); aspect-ratio:1;}
   .shell{width:clamp(34px,10vw,80px); height:clamp(80px,20vw,120px); background:linear-gradient(90deg,#5b2210,#9b4a26,#5b2210); clip-path:polygon(0 0,100% 12%,100% 88%,0 100%);}
   .drumpads{display:flex; gap:8px; justify-content:center; margin-top:12px; flex-wrap:wrap;}
-  .drumpads .pad{min-width:72px; padding:10px 12px; border-radius:10px; background:var(--panel2); border:1px solid var(--line); text-align:center; cursor:pointer; font-weight:700; font-size:.9rem;}
+  .drumpads .pad{min-width:84px; padding:10px 12px; border-radius:40px; background:radial-gradient(circle at 40% 35%,#f7ecd2,#d9bf8e 70%,#a88655); color:#3b2306; border:3px solid #5b3a1a; text-align:center; cursor:pointer; font-weight:800; font-size:.92rem; line-height:1.2; box-shadow:0 3px 8px rgba(0,0,0,.45);}
+  .drumpads .pad small{display:block; font-size:.62rem; font-weight:600; opacity:.75;}
 
   /* 自動演奏 */
   .autogrid{display:grid; grid-template-columns:minmax(0,1fr); gap:12px;}
@@ -291,6 +292,19 @@
     background:radial-gradient(circle at 40% 35%, #e9d8b0, #9c7a3a 70%, #5b3a1a); color:var(--ink); box-shadow:0 3px 8px rgba(0,0,0,.5); transition:filter .08s;}
   .exam .eprog{font-size:.75rem; color:var(--sub);}
   .exam .eq{font-weight:700; margin:6px 0;}
+  .inst{display:block; width:100%; height:auto; max-width:560px; margin:0 auto; touch-action:none; overflow:visible;}
+  .inst .key{cursor:pointer; transform-box:fill-box; transform-origin:center;}
+  .inst .shine{opacity:0; transition:opacity .35s ease-out; pointer-events:none;}
+  .inst .key.hit .shine{opacity:.42; transition:none;}
+  .inst .ring{opacity:0; pointer-events:none;}
+  .inst .key.target .ring,.inst .key.hintk .ring{opacity:1; animation:ringp .6s infinite alternate;}
+  .inst .key.target, .inst .key.hintk{outline:none;}
+  .inst .key.hit{filter:none;}
+  @keyframes ringp{from{stroke-opacity:.35} to{stroke-opacity:1}}
+  .gongset{display:flex; flex-direction:column; gap:14px;}
+  .gongset figure{margin:0;}
+  .gongset figcaption{text-align:center; font-size:.78rem; color:var(--sub); margin-top:2px;}
+  @media (prefers-reduced-motion:reduce){ .inst .key.target .ring{animation:none;} }
   #unlock{position:fixed; inset:0; background:rgba(15,8,4,.86); z-index:100; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:12px; text-align:center; padding:20px;}
   #unlock .big{font-size:1.1rem; font-weight:800;}
 </style>
@@ -298,7 +312,7 @@
 <body>
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
-  <defs>
+  <defs id="gdefs">
     <linearGradient id="gBar" x1="0" x2="1"><stop offset="0" stop-color="#6e4a17"/><stop offset=".2" stop-color="#b8862f"/><stop offset=".5" stop-color="#f3d27a"/><stop offset=".8" stop-color="#b8862f"/><stop offset="1" stop-color="#6e4a17"/></linearGradient>
     <linearGradient id="gBarThin" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#f0cf78"/><stop offset="1" stop-color="#9c7228"/></linearGradient>
     <linearGradient id="gWood" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#9b4423"/><stop offset="1" stop-color="#5b2210"/></linearGradient>
@@ -937,35 +951,247 @@ function renderScore(el, der, insts, a, b, prefix=''){
 /* =========================================================
  *  5. 鍵盤（叩ける楽器の画面）
  * ========================================================= */
-const PADS = {
-  gong:[{k:'G', label:'ゴング', cls:'ageng'}], kenong:[{k:'N', label:'クノン', cls:'kempul'}], kempul:[{k:'P', label:'クンプル', cls:'kempul'}],
-  kethuk:[{k:'t', label:'クトゥッ', cls:'small'}], kempyang:[{k:'p', label:'クンピャン', cls:'small'}], kajar:[{k:'j', label:'カジャール', cls:'small'}],
+/* =========================================================
+ *  5. 楽器の見た目（実物に近い SVG：打ち出しの青銅・朱塗りに金の彫刻・ひもで支える構造）
+ * ========================================================= */
+const SV = 'http://www.w3.org/2000/svg';
+function prng(seed){ let s = seed >>> 0 || 1; return () => (s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296; }
+(function initTextures(){
+  const defs = document.getElementById('gdefs'); if (!defs) return;
+  const r = prng(7); let ham = '';
+  for (let i=0;i<26;i++){ const x = r()*56, y = r()*56, rx = 1.6 + r()*3.6, ry = rx*(.55 + r()*.5), a = Math.round(r()*180);
+    ham += `<ellipse cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" rx="${rx.toFixed(1)}" ry="${ry.toFixed(1)}" transform="rotate(${a} ${x.toFixed(1)} ${y.toFixed(1)})" fill="url(#gDent)"/>`; }
+  const r2 = prng(11); let grain = '';
+  for (let i=0;i<10;i++){ const y = 2 + i*4 + r2()*2, j = () => (y + r2()*3 - 1.5).toFixed(1);
+    grain += `<path d="M0 ${y.toFixed(1)} C30 ${j()} 60 ${j()} 90 ${y.toFixed(1)} S150 ${j()} 180 ${y.toFixed(1)}" fill="none" stroke="#000" stroke-opacity="${(.07 + r2()*.12).toFixed(2)}" stroke-width="${(.5 + r2()).toFixed(1)}"/>`; }
+  const r3 = prng(5); let skin = '';
+  for (let i=0;i<40;i++) skin += `<circle cx="${(r3()*40).toFixed(1)}" cy="${(r3()*40).toFixed(1)}" r="${(.6 + r3()*2.2).toFixed(1)}" fill="#7a5a30" fill-opacity="${(.05 + r3()*.1).toFixed(2)}"/>`;
+  defs.insertAdjacentHTML('beforeend', `
+    <radialGradient id="gDent" cx=".38" cy=".32" r=".75"><stop offset="0" stop-color="#fff6d0" stop-opacity=".5"/><stop offset=".55" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#2a1803" stop-opacity=".4"/></radialGradient>
+    <pattern id="pHammer" width="56" height="56" patternUnits="userSpaceOnUse">${ham}</pattern>
+    <pattern id="pGrain" width="180" height="40" patternUnits="userSpaceOnUse">${grain}</pattern>
+    <pattern id="pSkin" width="40" height="40" patternUnits="userSpaceOnUse">${skin}</pattern>
+    <linearGradient id="gLacq" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#9a3018"/><stop offset=".55" stop-color="#6e1d0d"/><stop offset="1" stop-color="#3f0e05"/></linearGradient>
+    <linearGradient id="gLacqTop" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#b8502f"/><stop offset="1" stop-color="#7a2410"/></linearGradient>
+    <linearGradient id="gTeak" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#8a5a32"/><stop offset=".5" stop-color="#6a4122"/><stop offset="1" stop-color="#3e2412"/></linearGradient>
+    <linearGradient id="gGold" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#ffe7a0"/><stop offset=".5" stop-color="#e0b04f"/><stop offset="1" stop-color="#9c6d1c"/></linearGradient>
+    <linearGradient id="gBarX" x1="0" x2="1"><stop offset="0" stop-color="#4a300c"/><stop offset=".14" stop-color="#9c7228"/><stop offset=".4" stop-color="#e3bd62"/><stop offset=".5" stop-color="#fbe7a8"/><stop offset=".6" stop-color="#ddb25a"/><stop offset=".86" stop-color="#946a22"/><stop offset="1" stop-color="#43290a"/></linearGradient>
+    <linearGradient id="gBarFlat" x1="0" x2="1"><stop offset="0" stop-color="#7a5418"/><stop offset=".3" stop-color="#d7ad58"/><stop offset=".55" stop-color="#f1d590"/><stop offset=".8" stop-color="#c39540"/><stop offset="1" stop-color="#6a4512"/></linearGradient>
+    <linearGradient id="gBarShade" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#1a0d02" stop-opacity=".45"/><stop offset=".16" stop-color="#1a0d02" stop-opacity="0"/><stop offset=".84" stop-color="#1a0d02" stop-opacity="0"/><stop offset="1" stop-color="#1a0d02" stop-opacity=".5"/></linearGradient>
+    <radialGradient id="gPin" cx=".35" cy=".35" r=".7"><stop offset="0" stop-color="#fff2c0"/><stop offset=".5" stop-color="#b98a2e"/><stop offset="1" stop-color="#4a300c"/></radialGradient>
+    <linearGradient id="gKside2" x1="0" x2="1"><stop offset="0" stop-color="#3d2709"/><stop offset=".22" stop-color="#9c7228"/><stop offset=".42" stop-color="#f0cf7a"/><stop offset=".55" stop-color="#b98a35"/><stop offset="1" stop-color="#2e1d06"/></linearGradient>
+    <radialGradient id="gKtop2" cx=".42" cy=".38" r=".75"><stop offset="0" stop-color="#f8dd8c"/><stop offset=".55" stop-color="#c39540"/><stop offset=".85" stop-color="#7a5418"/><stop offset="1" stop-color="#4a300c"/></radialGradient>
+    <radialGradient id="gBoss2" cx=".36" cy=".3" r=".75"><stop offset="0" stop-color="#fffbe0"/><stop offset=".3" stop-color="#f3d27a"/><stop offset=".75" stop-color="#a87b2c"/><stop offset="1" stop-color="#5a3a10"/></radialGradient>
+    <radialGradient id="gFace2" cx=".42" cy=".4" r=".68"><stop offset="0" stop-color="#e9c46c"/><stop offset=".55" stop-color="#b48530"/><stop offset=".9" stop-color="#6e4a17"/><stop offset="1" stop-color="#4a300c"/></radialGradient>
+    <linearGradient id="gRim" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#a87b2c"/><stop offset=".5" stop-color="#4a300c"/><stop offset="1" stop-color="#241604"/></linearGradient>
+    <radialGradient id="gSkin2" cx=".4" cy=".38" r=".72"><stop offset="0" stop-color="#f7ecd2"/><stop offset=".75" stop-color="#d9bf8e"/><stop offset="1" stop-color="#a88655"/></radialGradient>
+    <linearGradient id="gShell" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#4e2410"/><stop offset=".35" stop-color="#a65a2c"/><stop offset=".5" stop-color="#c47640"/><stop offset=".75" stop-color="#7a3a18"/><stop offset="1" stop-color="#3a1808"/></linearGradient>
+    <linearGradient id="gTube2" x1="0" x2="1"><stop offset="0" stop-color="#2a1d10"/><stop offset=".45" stop-color="#9a8462"/><stop offset=".6" stop-color="#c8b28a"/><stop offset="1" stop-color="#2a1d10"/></linearGradient>`);
+})();
+const r1 = v => Math.round(v*10)/10;
+// 金の彫刻（つる草の連続模様）
+function ukiran(x0, x1, y, h, col='url(#gGold)'){
+  let s = ''; const step = Math.max(18, h*1.4);
+  for (let x = x0 + step/2; x < x1 - step/3; x += step){
+    s += `<path d="M${r1(x-step*.42)} ${r1(y+h*.5)} c${r1(step*.12)} ${r1(-h*.55)} ${r1(step*.38)} ${r1(-h*.5)} ${r1(step*.42)} 0 c${r1(step*.04)} ${r1(h*.36)} ${r1(-step*.2)} ${r1(h*.4)} ${r1(-step*.2)} ${r1(h*.12)}" fill="none" stroke="${col}" stroke-width="${r1(Math.max(1.2, h*.13))}" stroke-linecap="round"/>`;
+    s += `<path d="M${r1(x)} ${r1(y+h*.5)} q${r1(step*.25)} ${r1(-h*.42)} ${r1(step*.45)} ${r1(-h*.08)} q${r1(-step*.18)} ${r1(h*.05)} ${r1(-step*.2)} ${r1(h*.32)}" fill="${col}" opacity=".85"/>`;
+  }
+  return `<rect x="${x0}" y="${r1(y-h*.05)}" width="${x1-x0}" height="${r1(h*1.1)}" fill="#2a0904" opacity=".25"/>` + s;
+}
+// 刻まれた数字（下に点＝低い、上に点＝高い）
+function engraved(x, y, d, o, size, col='#2a1803'){
+  const dot = o<0 ? `<circle cx="${r1(x)}" cy="${r1(y+size*.42)}" r="${r1(size*.1)}" fill="${col}"/>` : o>0 ? `<circle cx="${r1(x)}" cy="${r1(y-size*.95)}" r="${r1(size*.1)}" fill="${col}"/>` : '';
+  return `<text x="${r1(x)}" y="${r1(y+1)}" font-size="${r1(size)}" font-weight="800" text-anchor="middle" fill="#fff3c8" fill-opacity=".45">${d}</text><text x="${r1(x)}" y="${r1(y)}" font-size="${r1(size)}" font-weight="800" text-anchor="middle" fill="${col}">${d}</text>${dot}`;
+}
+// 鍵盤楽器：サロン類（舟形の台に釘で留める）、スレンテム・グンデル（ひもで吊って共鳴管の上）、バリのガンサ
+function svgBars(keys, kind){
+  const n = keys.length, W = 360, hang = ['slenthem','gender','gangsa','calung','jegogan'].includes(kind), bali = ['gangsa','calung','jegogan'].includes(kind);
+  const Lmax = {saron:120, demung:130, peking:96, slenthem:92, gender:96, gangsa:112, calung:118, jegogan:120}[kind] || 112, Lmin = Lmax*(hang ? .7 : .76);
+  const gap = n>10 ? 3 : n>7 ? 4 : 6, x0 = 30, x1 = W-30, bw = (x1-x0-(n-1)*gap)/n;
+  const cy = 18 + Lmax/2, top = cy - Lmax/2 - 12, bot = cy + Lmax/2 + 10, H = bot + 62;
+  let s = '';
+  // 台
+  if (!hang){
+    s += `<rect x="12" y="${top}" width="${W-24}" height="${bot-top}" rx="10" fill="url(#gLacqTop)"/><rect x="12" y="${top}" width="${W-24}" height="${bot-top}" rx="10" fill="url(#pGrain)"/>`;
+    s += `<rect x="22" y="${top+8}" width="${W-44}" height="${bot-top-16}" rx="6" fill="#140602"/>`;
+    s += `<rect x="12" y="${top}" width="${W-24}" height="${bot-top}" rx="10" fill="none" stroke="url(#gGold)" stroke-width="2"/>`;
+    for (const yy of [cy - Lmin/2 + 7, cy + Lmin/2 - 7]) s += `<rect x="${x0-6}" y="${r1(yy-3)}" width="${x1-x0+12}" height="6" rx="3" fill="#2b1a10"/>`; // 鍵盤を受けるクッション
+  } else {
+    s += `<rect x="14" y="${top}" width="${W-28}" height="${bot-top}" rx="8" fill="${bali?'url(#gLacqTop)':'url(#gTeak)'}"/><rect x="14" y="${top}" width="${W-28}" height="${bot-top}" rx="8" fill="url(#pGrain)"/>`;
+    s += `<rect x="24" y="${top+7}" width="${W-48}" height="${bot-top-14}" rx="5" fill="#120804"/>`;
+  }
+  // 鍵盤
+  keys.forEach(([d,o], i) => {
+    const L = Lmax - (Lmax-Lmin)*i/Math.max(1,n-1), x = x0 + i*(bw+gap), y = cy - L/2, rx = hang ? 2.5 : Math.min(7, bw*.22);
+    let k = `<g class="key" data-key="${d}:${o}">`;
+    if (hang) k += `<ellipse cx="${r1(x+bw/2)}" cy="${r1(cy+2)}" rx="${r1(bw*.38)}" ry="${r1(bw*.2)}" fill="#000" opacity=".8"/>`; // 共鳴管の口
+    k += `<rect x="${r1(x-2)}" y="${r1(y-6)}" width="${r1(bw+4)}" height="${r1(L+12)}" fill="transparent"/>`;
+    k += `<rect x="${r1(x+2)}" y="${r1(y+3)}" width="${r1(bw)}" height="${r1(L)}" rx="${rx}" fill="#000" opacity=".45"/>`; // 影
+    k += `<rect x="${r1(x)}" y="${r1(y)}" width="${r1(bw)}" height="${r1(L)}" rx="${rx}" fill="${hang?'url(#gBarFlat)':'url(#gBarX)'}"/>`;
+    k += `<rect x="${r1(x)}" y="${r1(y)}" width="${r1(bw)}" height="${r1(L)}" rx="${rx}" fill="url(#pHammer)" opacity=".7"/>`;
+    k += `<rect x="${r1(x)}" y="${r1(y)}" width="${r1(bw)}" height="${r1(L)}" rx="${rx}" fill="url(#gBarShade)"/>`;
+    k += `<rect x="${r1(x+bw*.42)}" y="${r1(y+L*.06)}" width="${r1(bw*.1)}" height="${r1(L*.88)}" rx="${r1(bw*.05)}" fill="#fffbe8" opacity=".22"/>`;
+    if (!hang) for (const py of [y+8, y+L-8]) k += `<circle cx="${r1(x+bw/2)}" cy="${r1(py)}" r="${r1(Math.max(2.2, bw*.07))}" fill="url(#gPin)"/>`;
+    else for (const py of [cy - Lmin*.33*1.12, cy + Lmin*.33*1.12]) k += `<rect x="${r1(x+bw/2-3)}" y="${r1(py-1.2)}" width="6" height="2.4" rx="1.2" fill="#3b2306" opacity=".55"/>`; // ひもを通す穴
+    k += engraved(x+bw/2, hang ? cy + Math.min(17, bw*.55)*.36 : y + L*.66, d, o, Math.min(17, bw*.55));
+    k += `<rect class="shine" x="${r1(x)}" y="${r1(y)}" width="${r1(bw)}" height="${r1(L)}" rx="${rx}" fill="#fff6d0"/>`;
+    k += `<rect class="ring" x="${r1(x-3)}" y="${r1(y-3)}" width="${r1(bw+6)}" height="${r1(L+6)}" rx="${rx+3}" fill="none" stroke="#7fd3a0" stroke-width="3.5"/>`;
+    s += k + '</g>';
+  });
+  if (hang){ // 鍵盤を通すひもと支柱
+    for (const f of [-.33, .33]){ const yy = r1(cy + Lmin*f*1.12); s += `<line x1="18" y1="${yy}" x2="${W-18}" y2="${yy}" stroke="#e8d6ad" stroke-width="1.3" opacity=".9"/>`; }
+    for (const xx of [20, W-20]) s += `<rect x="${xx-3}" y="${r1(cy-Lmax*.42)}" width="6" height="${r1(Lmax*.84)}" rx="2" fill="url(#gGold)"/>`;
+  }
+  // 手前の面（彫刻つき）と脚
+  const fy = bot;
+  s += `<path d="M12 ${fy} L${W-12} ${fy} L${W-26} ${fy+40} L26 ${fy+40} Z" fill="url(#gLacq)"/><path d="M12 ${fy} L${W-12} ${fy} L${W-26} ${fy+40} L26 ${fy+40} Z" fill="url(#pGrain)"/>`;
+  s += ukiran(44, W-44, fy+10, 18);
+  s += `<path d="M12 ${fy} L${W-12} ${fy}" stroke="url(#gGold)" stroke-width="3"/>`;
+  if (!hang || bali){ // 両端の渦巻き彫刻
+    s += `<path d="M14 ${fy} C-2 ${fy-6} -2 ${fy-30} 16 ${fy-34} C10 ${fy-22} 18 ${fy-12} 30 ${fy-8} Z" fill="url(#gGold)" opacity=".9"/>`;
+    s += `<path d="M${W-14} ${fy} C${W+2} ${fy-6} ${W+2} ${fy-30} ${W-16} ${fy-34} C${W-10} ${fy-22} ${W-18} ${fy-12} ${W-30} ${fy-8} Z" fill="url(#gGold)" opacity=".9"/>`;
+  }
+  s += `<rect x="40" y="${fy+40}" width="18" height="12" rx="2" fill="#2b0c05"/><rect x="${W-58}" y="${fy+40}" width="18" height="12" rx="2" fill="#2b0c05"/>`;
+  return `<svg class="inst" viewBox="-4 0 ${W+8} ${H}" role="img" aria-label="鍵盤">${s}</svg>`;
+}
+// こぶ付きの壺型ゴング（上から少し見下ろした形）
+function kettleSVG(cx, cy, r, depth=.8){
+  const b = cy + r*depth, f = r1;
+  return `<ellipse cx="${f(cx+2)}" cy="${f(b+3)}" rx="${f(r*.95)}" ry="${f(r*.3)}" fill="#000" opacity=".4"/>
+  <path d="M${f(cx-r)} ${cy} C${f(cx-r)} ${f(b)} ${f(cx-r*.8)} ${f(b)} ${f(cx-r*.5)} ${f(b)} L${f(cx+r*.5)} ${f(b)} C${f(cx+r*.8)} ${f(b)} ${f(cx+r)} ${f(b)} ${f(cx+r)} ${cy} Z" fill="url(#gKside2)"/>
+  <ellipse cx="${cx}" cy="${cy}" rx="${r}" ry="${f(r*.44)}" fill="url(#gKtop2)"/>
+  <ellipse cx="${cx}" cy="${cy}" rx="${r}" ry="${f(r*.44)}" fill="url(#pHammer)" opacity=".75"/>
+  <ellipse cx="${cx}" cy="${cy}" rx="${r}" ry="${f(r*.44)}" fill="none" stroke="#3d2709" stroke-width="1"/>
+  <ellipse cx="${cx}" cy="${f(cy-r*.02)}" rx="${f(r*.4)}" ry="${f(r*.19)}" fill="#4a300c" opacity=".55"/>
+  <ellipse cx="${cx}" cy="${f(cy-r*.16)}" rx="${f(r*.3)}" ry="${f(r*.26)}" fill="url(#gBoss2)"/>
+  <ellipse cx="${f(cx-r*.09)}" cy="${f(cy-r*.25)}" rx="${f(r*.09)}" ry="${f(r*.06)}" fill="#fff" opacity=".7"/>`;
+}
+function svgBonang(laras){
+  const ns = LARAS[laras].notes, n = ns.length, W = 360, sx = (W-44)/n, r = Math.min(20, sx*.42);
+  const rows = [{o:1, cy:64, r:r*.92}, {o:0, cy:134, r}];
+  let s = '';
+  const rail = (y, h) => `<rect x="14" y="${y}" width="${W-28}" height="${h}" rx="3" fill="url(#gLacqTop)"/><rect x="14" y="${y}" width="${W-28}" height="${h}" rx="3" fill="url(#pGrain)"/><line x1="14" y1="${y}" x2="${W-14}" y2="${y}" stroke="url(#gGold)" stroke-width="1.6"/>`;
+  s += `<rect x="10" y="24" width="${W-20}" height="168" rx="8" fill="#140602"/>`;
+  s += rail(28, 12) + rail(96, 12);
+  rows.forEach(({o, cy, r:rr}) => {
+    const ya = o ? 40 : 108, yb = o ? 96 : 166;
+    ns.forEach((_, i) => { const x = 22 + sx*(i+.5); s += `<path d="M${r1(x-sx*.38)} ${ya} L${r1(x+sx*.38)} ${yb} M${r1(x+sx*.38)} ${ya} L${r1(x-sx*.38)} ${yb}" stroke="#e8d6ad" stroke-width="1.3" opacity=".85"/>`; });
+    ns.forEach((d, i) => { const x = r1(22 + sx*(i+.5));
+      s += `<g class="key" data-key="${d}:${o}"><rect x="${r1(x-sx/2)}" y="${r1(cy-rr)}" width="${r1(sx)}" height="${r1(rr*2.1)}" fill="transparent"/>${kettleSVG(x, cy, rr)}
+        <ellipse class="shine" cx="${x}" cy="${cy}" rx="${rr}" ry="${r1(rr*.44)}" fill="#fff6d0"/><ellipse class="ring" cx="${x}" cy="${r1(cy+rr*.2)}" rx="${r1(rr+4)}" ry="${r1(rr*.8)}" fill="none" stroke="#7fd3a0" stroke-width="3"/></g>`; });
+  });
+  s += `<path d="M10 166 L${W-10} 166 L${W-22} 206 L22 206 Z" fill="url(#gLacq)"/><path d="M10 166 L${W-10} 166 L${W-22} 206 L22 206 Z" fill="url(#pGrain)"/><line x1="10" y1="166" x2="${W-10}" y2="166" stroke="url(#gGold)" stroke-width="3"/>`;
+  ns.forEach((d, i) => { const x = 22 + sx*(i+.5); s += engraved(x, 104, d, 1, 12, '#ffe7a0'); s += engraved(x, 190, d, 0, 14, '#ffe7a0'); });
+  s += `<text x="${W-16}" y="20" font-size="10" fill="#c9b294" text-anchor="end">奥の列＝高い音　手前の列＝低い音</text>`;
+  s += `<rect x="20" y="206" width="16" height="10" fill="#2b0c05"/><rect x="${W-36}" y="206" width="16" height="10" fill="#2b0c05"/>`;
+  return `<svg class="inst" viewBox="0 0 ${W} 218" role="img" aria-label="ボナン">${s}</svg>`;
+}
+// 吊りゴング（正面）：厚い縁、打ち出しの面、中央のこぶ
+function hangGongSVG(cx, cy, R, label=''){
+  const f = r1;
+  return `<line x1="${f(cx-R*.32)}" y1="${f(cy-R*.84)}" x2="${f(cx-R*.12)}" y2="${f(cy-R-26)}" stroke="#e8d6ad" stroke-width="2"/><line x1="${f(cx+R*.32)}" y1="${f(cy-R*.84)}" x2="${f(cx+R*.12)}" y2="${f(cy-R-26)}" stroke="#e8d6ad" stroke-width="2"/>
+  <circle cx="${f(cx+R*.05)}" cy="${f(cy+R*.07)}" r="${R}" fill="#120a02"/>
+  <circle cx="${cx}" cy="${cy}" r="${R}" fill="url(#gRim)"/>
+  <circle cx="${cx}" cy="${cy}" r="${f(R*.86)}" fill="url(#gFace2)"/>
+  <circle cx="${cx}" cy="${cy}" r="${f(R*.86)}" fill="url(#pHammer)" opacity=".8"/>
+  ${[.72,.58,.46].map(k=>`<circle cx="${cx}" cy="${cy}" r="${f(R*k)}" fill="none" stroke="#5a3a10" stroke-width="${f(Math.max(.6,R*.012))}" opacity=".45"/>`).join('')}
+  <circle cx="${cx}" cy="${cy}" r="${f(R*.32)}" fill="#6e4a17" opacity=".6"/>
+  <circle cx="${cx}" cy="${cy}" r="${f(R*.24)}" fill="url(#gBoss2)"/>
+  <ellipse cx="${f(cx-R*.07)}" cy="${f(cy-R*.09)}" rx="${f(R*.08)}" ry="${f(R*.055)}" fill="#fff" opacity=".65"/>
+  ${label ? engraved(cx, cy + R*.62, label, 0, Math.max(10, R*.3), '#2a1803') : ''}`;
+}
+function gayorSVG(x0, x1, beamY, footY, naga=true){
+  let s = `<rect x="${x0}" y="${beamY}" width="14" height="${footY-beamY}" rx="3" fill="url(#gLacq)"/><rect x="${x1-14}" y="${beamY}" width="14" height="${footY-beamY}" rx="3" fill="url(#gLacq)"/>
+    <rect x="${x0+3}" y="${beamY+14}" width="2" height="${footY-beamY-20}" fill="url(#gGold)"/><rect x="${x1-5}" y="${beamY+14}" width="2" height="${footY-beamY-20}" fill="url(#gGold)"/>
+    <rect x="${x0-8}" y="${beamY-2}" width="${x1-x0+16}" height="14" rx="3" fill="url(#gLacqTop)"/><rect x="${x0-8}" y="${beamY-2}" width="${x1-x0+16}" height="14" rx="3" fill="url(#pGrain)"/>
+    <line x1="${x0-8}" y1="${beamY+11}" x2="${x1+8}" y2="${beamY+11}" stroke="url(#gGold)" stroke-width="1.6"/>
+    <rect x="${x0-16}" y="${footY-8}" width="30" height="10" rx="2" fill="#2b0c05"/><rect x="${x1-14}" y="${footY-8}" width="30" height="10" rx="2" fill="#2b0c05"/>`;
+  if (naga) for (const [x, sgn] of [[x0+7, 1], [x1-7, -1]]) // 柱の上の龍（ナーガ）を思わせる金の彫刻
+    s += `<path d="M${x} ${beamY} c${-12*sgn} -6 ${-14*sgn} -24 ${2*sgn} -30 c${10*sgn} -4 ${18*sgn} 4 ${14*sgn} 12 c${-3*sgn} 6 ${-10*sgn} 4 ${-9*sgn} -1 c${2*sgn} 6 ${10*sgn} 10 ${16*sgn} 6" fill="url(#gGold)" stroke="#7a5418" stroke-width=".8"/><circle cx="${x+6*sgn}" cy="${beamY-22}" r="1.6" fill="#3b0b03"/>`;
+  return s;
+}
+function svgGongAgeng(H=250){
+  const W = 360, R = Math.min(96, (H-60)/2);
+  return `<svg class="inst" viewBox="0 0 ${W} ${H}" role="img" aria-label="ゴン・アグン">${gayorSVG(42, W-42, 34, H-4)}
+    <g class="key" data-key="G"><circle cx="180" cy="${r1(34+R+36)}" r="${R+6}" fill="transparent"/>${hangGongSVG(180, r1(34+R+36), R)}
+    <circle class="shine" cx="180" cy="${r1(34+R+36)}" r="${R}" fill="#fff6d0"/><circle class="ring" cx="180" cy="${r1(34+R+36)}" r="${R+5}" fill="none" stroke="#7fd3a0" stroke-width="4"/></g></svg>`;
+}
+function svgKempulSet(ns, single){ // single: 練習用（1つだけ・音は自動）
+  const W = 360, items = single ? [null] : ns, n = items.length, R = single ? 54 : Math.min(30, (W-60)/n/2.3), H = R*2 + 74;
+  let s = gayorSVG(20, W-20, 22, H-4, false);
+  items.forEach((d, i) => { const cx = r1(W/2 + (i - (n-1)/2) * (W-60)/n), cy = r1(22 + R + 34);
+    s += `<g class="key" data-key="P"${d ? ` data-d="${d}"` : ''}><circle cx="${cx}" cy="${cy}" r="${R+4}" fill="transparent"/>${hangGongSVG(cx, cy, R, d ? String(d) : '')}
+      <circle class="shine" cx="${cx}" cy="${cy}" r="${R}" fill="#fff6d0"/><circle class="ring" cx="${cx}" cy="${cy}" r="${r1(R+4)}" fill="none" stroke="#7fd3a0" stroke-width="3"/></g>`; });
+  return `<svg class="inst" viewBox="0 0 ${W} ${r1(H)}" role="img" aria-label="クンプル">${s}</svg>`;
+}
+// 箱（ランチャカン）の上の交差したひもに置く壺型ゴング：クノン・クトゥッ・クンピャン・カジャール
+function boxKettle(cx, baseY, r, key, d, label, h=1.05){
+  const bw = r*2.5, cy = r1(baseY - r*.55);
+  return `<g class="key" data-key="${key}"${d ? ` data-d="${d}"` : ''}>
+    <rect x="${r1(cx-bw/2)}" y="${r1(cy-r)}" width="${r1(bw)}" height="${r1(r*2.6)}" fill="transparent"/>
+    <rect x="${r1(cx-bw/2)}" y="${r1(baseY-6)}" width="${r1(bw)}" height="8" rx="2" fill="#3a1206"/>
+    <path d="M${r1(cx-bw*.42)} ${r1(baseY-4)} L${r1(cx+bw*.42)} ${r1(baseY+6)} M${r1(cx+bw*.42)} ${r1(baseY-4)} L${r1(cx-bw*.42)} ${r1(baseY+6)}" stroke="#e8d6ad" stroke-width="1.4"/>
+    ${kettleSVG(cx, cy, r, h)}
+    <rect x="${r1(cx-bw/2)}" y="${r1(baseY+2)}" width="${r1(bw)}" height="${r1(r*.95)}" rx="3" fill="url(#gLacq)"/><rect x="${r1(cx-bw/2)}" y="${r1(baseY+2)}" width="${r1(bw)}" height="${r1(r*.95)}" rx="3" fill="url(#pGrain)"/>
+    <line x1="${r1(cx-bw/2)}" y1="${r1(baseY+2)}" x2="${r1(cx+bw/2)}" y2="${r1(baseY+2)}" stroke="url(#gGold)" stroke-width="2"/>
+    ${label ? engraved(cx, baseY + r*.72, label, 0, Math.max(11, r*.45), '#ffe7a0') : ''}
+    <ellipse class="shine" cx="${cx}" cy="${cy}" rx="${r}" ry="${r1(r*.44)}" fill="#fff6d0"/>
+    <ellipse class="ring" cx="${cx}" cy="${r1(cy+r*.3)}" rx="${r1(r+5)}" ry="${r1(r*.95)}" fill="none" stroke="#7fd3a0" stroke-width="3"/></g>`;
+}
+function svgKenongSet(ns){
+  const W = 360, per = ns.length > 5 ? 4 : ns.length, rows = Math.ceil(ns.length/per), r = Math.min(30, (W-30)/per/2.7), rowH = r*2.9;
+  let s = '';
+  ns.forEach((d, i) => { const row = Math.floor(i/per), inRow = Math.min(per, ns.length - row*per), col = i - row*per;
+    const cx = r1(W/2 + (col - (inRow-1)/2) * (W-30)/per), base = r1(row*rowH + r*1.9);
+    s += boxKettle(cx, base, r, 'N', d, String(d)); });
+  return `<svg class="inst" viewBox="0 0 ${W} ${r1(rows*rowH + 8)}" role="img" aria-label="クノン">${s}</svg>`;
+}
+function svgSmallKettles(list){ // list: [{key, label, r}]。1つだけのときは大きく表示
+  const n = list.length, rMax = Math.max(...list.map(x=>x.r)), W = n===1 ? rMax*3.4 : 360;
+  let s = '';
+  list.forEach((it, i) => { const cx = r1(W/2 + (i - (n-1)/2) * 150); s += boxKettle(cx, r1(rMax*1.9), it.r, it.key, 0, it.label, .9); });
+  return `<svg class="inst" viewBox="0 0 ${r1(W)} ${r1(rMax*3.2)}" role="img" aria-label="小さな壺型ゴング"${n===1 ? ` style="max-width:${Math.round(rMax*7)}px"` : ''}>${s}</svg>`;
+}
+// クンダン（両面太鼓）：くりぬいた胴、左右で大きさのちがう皮、Y字の革ひもと締め輪
+function svgKendhang(){
+  const W = 360, H = 200;
+  let s = `<path d="M120 192 L200 120 M240 192 L160 120" stroke="#4a1a0b" stroke-width="10" stroke-linecap="round"/><rect x="104" y="186" width="152" height="8" rx="3" fill="#2b0c05"/>`;
+  s += `<path d="M78 30 C160 8 238 22 292 52 L292 148 C238 176 160 186 78 168 Z" fill="url(#gShell)"/><path d="M78 30 C160 8 238 22 292 52 L292 148 C238 176 160 186 78 168 Z" fill="url(#pGrain)"/>`;
+  let lace = ''; for (let k=0;k<12;k++){ const yl = 36 + k*11.4, yr = 58 + k*7.6, ym = (yl+yr)/2 + 2; lace += `M86 ${r1(yl)} L232 ${r1(ym)} L286 ${r1(yr)} `; }
+  s += `<path d="${lace}" fill="none" stroke="#2a1306" stroke-width="2.6" opacity=".55"/><path d="${lace}" fill="none" stroke="#e7cfa0" stroke-width="1.4"/>`;
+  for (let k=0;k<12;k++) s += `<rect x="226" y="${r1(36 + k*11.4 + ((58+k*7.6)-(36+k*11.4))/2 - 1)}" width="12" height="5" rx="1.5" fill="#c79a5a" stroke="#5b3a1a" stroke-width=".6"/>`;
+  const head = (key, cx, cy, rx, ry, name, sub) => `<g class="key" data-key="${key}"><ellipse cx="${cx}" cy="${cy}" rx="${rx+16}" ry="${ry+6}" fill="transparent"/>
+    <ellipse cx="${cx}" cy="${cy}" rx="${rx+3}" ry="${ry+3}" fill="#3b2410"/><ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="url(#gSkin2)"/><ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="url(#pSkin)"/>
+    <ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="none" stroke="#5b3a1a" stroke-width="2.5"/>
+    <ellipse class="shine" cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="#fff6d0"/><ellipse class="ring" cx="${cx}" cy="${cy}" rx="${rx+7}" ry="${ry+7}" fill="none" stroke="#7fd3a0" stroke-width="3"/></g>
+    <text x="${cx}" y="${cy+ry+22}" font-size="12" font-weight="800" text-anchor="middle" fill="#e9dcc6">${name}</text><text x="${cx}" y="${cy+ry+36}" font-size="9.5" text-anchor="middle" fill="#c9b294">${sub}</text>`;
+  s += head('D', 78, 99, 20, 70, 'ドゥン', '大きい面');
+  s += head('t', 292, 100, 13, 48, 'タッ', '小さい面');
+  return `<svg class="inst" viewBox="-14 0 ${W+20} ${H+16}" role="img" aria-label="クンダン">${s}</svg>`;
+}
+
+const PADS = { // 練習で使う1つだけの楽器
+  gong: () => svgGongAgeng(232),
+  kempul: () => svgKempulSet(null, true),
+  kenong: () => svgSmallKettles([{key:'N', label:'', r:32}]),
+  kethuk: () => svgSmallKettles([{key:'t', label:'', r:24}]),
+  kempyang: () => svgSmallKettles([{key:'p', label:'', r:18}]),
+  kajar: () => svgSmallKettles([{key:'j', label:'', r:20}]),
 };
-function barsHTML(keys, cls='', small=false){
-  const L = keys.length, top = small ? 118 : 150, low = small ? 82 : 100;
-  return `<div class="rancak">${keys.map(([d,o],i)=>`<div class="bar ${cls}" data-key="${d}:${o}" style="height:${Math.round(top-i*((top-low)/Math.max(1,L-1)))}px">${noteHTML(d,o)}</div>`).join('')}</div>`;
-}
-function kettlesHTML(laras){
-  const ns = LARAS[laras].notes;
-  const row = o => `<div class="krow">${ns.map(d=>`<div class="kettle" data-key="${d}:${o}"><span class="lbl">${noteHTML(d,o)}</span></div>`).join('')}</div>`;
-  return `<div class="bonangframe"><div class="rowlbl">高い列</div>${row(1)}<div class="rowlbl">低い列</div>${row(0)}</div>`;
-}
 function drumHTML(){
-  return `<div class="kendhang"><div class="drumbody"><div class="head big" data-key="D">ドゥン<br><small>dhung</small></div><div class="shell"></div><div class="head small" data-key="t">タッ<br><small>tak</small></div></div></div>
-  <div class="drumpads"><div class="pad" data-key="P">トゥン<br><small>thung</small></div><div class="pad" data-key="L">ドラン<br><small>dlang</small></div><div class="pad" data-key="k">ケッ<br><small>ket</small></div></div>`;
+  return svgKendhang() + `<div class="drumpads"><div class="pad" data-key="P">トゥン<small>指で小さい面</small></div><div class="pad" data-key="L">ドラン<small>両面いっしょ</small></div><div class="pad" data-key="k">ケッ<small>押さえて小さく</small></div></div>`;
 }
 let LAST_KB = null; // PCのキーボード操作で叩く対象
 function buildKeyboard(el, inst, laras, onHit, small=false){
   let h;
-  if (['saron','demung','peking'].includes(inst)) h = barsHTML(barKeys(laras), '', small);
-  else if (inst==='slenthem') h = barsHTML(barKeys(laras), 'slenthem', small);
-  else if (['polos','sangsih','gangsa'].includes(inst)) h = barsHTML(gangsaKeys(), '', small);
-  else if (inst==='calung' || inst==='jegogan') h = barsHTML(calungKeys(), inst==='jegogan'?'slenthem':'', small);
-  else if (inst==='bonang' || inst==='panerus') h = kettlesHTML(laras);
+  if (['saron','demung','peking','slenthem'].includes(inst)) h = svgBars(barKeys(laras), inst);
+  else if (['polos','sangsih','gangsa'].includes(inst)) h = svgBars(gangsaKeys(), 'gangsa');
+  else if (inst==='calung' || inst==='jegogan') h = svgBars(calungKeys(), inst);
+  else if (inst==='bonang' || inst==='panerus') h = svgBonang(laras);
   else if (inst==='kendhang') h = drumHTML();
-  else if (inst==='gender') h = barsHTML([...LARAS[laras].notes.map(d=>[d,0]), ...LARAS[laras].notes.map(d=>[d,1])], 'gender', true);
+  else if (inst==='gender') h = svgBars([...LARAS[laras].notes.map(d=>[d,0]), ...LARAS[laras].notes.map(d=>[d,1])], 'gender');
   else if (inst==='rebab' || inst==='suling') h = `<div class="notepads">${[...LARAS[laras].notes.map(d=>[d,0]), [LARAS[laras].notes[0],1]].map(([d,o])=>`<div class="npad" data-key="${d}:${o}">${noteHTML(d,o)}</div>`).join('')}</div>`;
-  else h = `<div class="gongs">${(PADS[inst]||[]).map(p=>`<div class="ggroup"><div class="gong ${p.cls}" data-key="${p.k}"><span class="in">${p.k}</span></div><div class="gname">${p.label}</div></div>`).join('')}</div>`;
+  else h = PADS[inst] ? PADS[inst]() : '';
   el.innerHTML = h;
   el.onpointerdown = e => {
     const k = e.target.closest('[data-key]'); if (!k) return;
@@ -977,7 +1203,7 @@ function buildKeyboard(el, inst, laras, onHit, small=false){
     el,
     setTarget(key){ el.querySelectorAll('.target').forEach(x=>x.classList.remove('target')); if (key){ const k = el.querySelector(`[data-key="${key}"]`); if (k) k.classList.add('target'); } },
     flash(key){ flashEl(el.querySelector(`[data-key="${key}"]`)); },
-    wrong(k){ k.classList.remove('wrongk'); void k.offsetWidth; k.classList.add('wrongk'); },
+    wrong(k){ k.classList.remove('wrongk'); k.getBoundingClientRect(); k.classList.add('wrongk'); },
   };
 }
 function evFromKey(key){ if (key.includes(':')){ const [d,o] = key.split(':').map(Number); return {d,o}; } return {k:key, d:1, o:0}; }
@@ -1008,11 +1234,11 @@ function renderStage(){
   $('#ombakCtl').hidden = freeInst!=='gangsa';
   if (freeInst==='gongs'){
     const ns = LARAS[freeLaras].notes;
-    const kset = (k, cls, name) => `<div class="ggroup"><div class="gset">${ns.map(d=>`<div class="gong ${cls}" data-key="${k}" data-d="${d}"><span class="lbl">${noteHTML(d,0)}</span></div>`).join('')}</div><div class="gname">${name}</div></div>`;
-    stageEl.innerHTML = `<div class="gongs">
-      <div class="ggroup"><div class="gong ageng" data-key="G"></div><div class="gname">ゴン・アグン（大ゴング）</div></div>
-      ${kset('P','kempul','クンプル（吊りゴング）')}${kset('N','small','クノン（大きな壺型）')}
-      <div class="ggroup"><div class="gset"><div class="gong small" data-key="t"><span class="lbl">t</span></div><div class="gong small" data-key="p" style="width:40px"><span class="lbl">p</span></div></div><div class="gname">クトゥッ／クンピャン</div></div>
+    stageEl.innerHTML = `<div class="gongset">
+      <figure>${svgGongAgeng(250)}<figcaption>ゴン・アグン（大ゴング）</figcaption></figure>
+      <figure>${svgKempulSet(ns)}<figcaption>クンプル（音の高さ別に吊るす）</figcaption></figure>
+      <figure>${svgKenongSet(ns)}<figcaption>クノン（箱の上のひもに置く大きな壺型）</figcaption></figure>
+      <figure>${svgSmallKettles([{key:'t', label:'t', r:24}, {key:'p', label:'p', r:18}])}<figcaption>クトゥッ（左）とクンピャン（右）</figcaption></figure>
     </div>`;
     stageEl.onpointerdown = e => {
       const k = e.target.closest('[data-key]'); if (!k) return; e.preventDefault(); initAudio();
@@ -2119,35 +2345,22 @@ function bars(n, x0, x1, yb, longest, shortest, fill='url(#gBar)', pins=true, ga
   let s = ''; const bw = (x1-x0-(n-1)*gap)/n;
   for (let i=0;i<n;i++){
     const x = x0 + i*(bw+gap), L = longest - (longest-shortest)*i/Math.max(1,n-1), yt = yb - L;
-    s += `<rect x="${x.toFixed(1)}" y="${yt.toFixed(1)}" width="${bw.toFixed(1)}" height="${L.toFixed(1)}" rx="4" fill="${fill}" stroke="#4a300c" stroke-width=".8"/>`;
+    const rr = `x="${x.toFixed(1)}" y="${yt.toFixed(1)}" width="${bw.toFixed(1)}" height="${L.toFixed(1)}" rx="4"`;
+    s += `<rect ${rr} fill="${fill==='url(#gBar)' ? 'url(#gBarX)' : fill==='url(#gBarThin)' ? 'url(#gBarFlat)' : fill}" stroke="#4a300c" stroke-width=".8"/><rect ${rr} fill="url(#pHammer)" opacity=".7"/><rect ${rr} fill="url(#gBarShade)"/>`;
+    s += `<rect x="${(x+bw*.42).toFixed(1)}" y="${(yt+L*.08).toFixed(1)}" width="${(bw*.1).toFixed(1)}" height="${(L*.84).toFixed(1)}" fill="#fffbe8" opacity=".2"/>`;
     if (pins) s += `<circle cx="${(x+bw/2).toFixed(1)}" cy="${(yt+5).toFixed(1)}" r="2" fill="#3b2306"/><circle cx="${(x+bw/2).toFixed(1)}" cy="${(yb-5).toFixed(1)}" r="2" fill="#3b2306"/>`;
   }
   return s;
 }
 function trough(){ // サロン類の木の台（ランチャカン）：舟形で中が空洞
-  return `<path d="M28 96 L332 96 L314 154 L46 154 Z" fill="url(#gWood)"/>
+  return `<path d="M28 96 L332 96 L314 154 L46 154 Z" fill="url(#gLacq)"/><path d="M28 96 L332 96 L314 154 L46 154 Z" fill="url(#pGrain)"/>${ukiran(70, 290, 112, 16)}
   <path d="M28 96 L332 96 L324 88 L36 88 Z" fill="#a14b25"/>
   <path d="M28 96 C14 92 12 76 22 70 C26 80 32 86 40 88 Z" fill="#7a3216"/><path d="M332 96 C346 92 348 76 338 70 C334 80 328 86 320 88 Z" fill="#7a3216"/>
-  <path d="M74 126 H286" stroke="#d6a548" stroke-width="2.4" stroke-dasharray="1 7" stroke-linecap="round" opacity=".85"/>
+
   <rect x="58" y="154" width="16" height="9" fill="#4a1a0b"/><rect x="286" y="154" width="16" height="9" fill="#4a1a0b"/>`;
 }
-function kettle(cx, cy, r, h=.75){ // こぶ付きの壺型ゴング（ペンチョン）
-  const b = cy + r*h, f = v => v.toFixed(1);
-  return `<path d="M${f(cx-r)} ${cy} C${f(cx-r)} ${f(b)} ${f(cx-r*.8)} ${f(b)} ${f(cx-r*.55)} ${f(b)} L${f(cx+r*.55)} ${f(b)} C${f(cx+r*.8)} ${f(b)} ${f(cx+r)} ${f(b)} ${f(cx+r)} ${cy} Z" fill="url(#gKside)" stroke="#3d2709" stroke-width=".7"/>
-  <ellipse cx="${cx}" cy="${cy}" rx="${r}" ry="${f(r*.42)}" fill="url(#gKtop)" stroke="#3d2709" stroke-width=".7"/>
-  <ellipse cx="${cx}" cy="${f(cy-r*.06)}" rx="${f(r*.36)}" ry="${f(r*.17)}" fill="#5a3a10" opacity=".7"/>
-  <ellipse cx="${cx}" cy="${f(cy-r*.2)}" rx="${f(r*.27)}" ry="${f(r*.22)}" fill="url(#gBoss)"/>`;
-}
-function hgong(cx, cy, R){ // 吊りゴング（正面）：厚い縁＋中央のこぶ
-  const f = v => v.toFixed(1);
-  return `<line x1="${f(cx-R*.35)}" y1="${f(cy-R*.86)}" x2="${f(cx-R*.2)}" y2="${f(cy-R-24)}" stroke="#d9c39a" stroke-width="1.6"/>
-  <line x1="${f(cx+R*.35)}" y1="${f(cy-R*.86)}" x2="${f(cx+R*.2)}" y2="${f(cy-R-24)}" stroke="#d9c39a" stroke-width="1.6"/>
-  <circle cx="${cx}" cy="${cy}" r="${R}" fill="#3d2709"/>
-  <circle cx="${cx}" cy="${cy}" r="${f(R*.9)}" fill="url(#gFace)"/>
-  <circle cx="${cx}" cy="${cy}" r="${f(R*.42)}" fill="none" stroke="#7a5418" stroke-width="${f(R*.05)}" opacity=".7"/>
-  <circle cx="${cx}" cy="${cy}" r="${f(R*.25)}" fill="url(#gBoss)" stroke="#5a3a10" stroke-width="1"/>
-  <circle cx="${f(cx-R*.07)}" cy="${f(cy-R*.08)}" r="${f(R*.07)}" fill="#fff3c4" opacity=".55"/>`;
-}
+function kettle(cx, cy, r, h=.75){ return kettleSVG(cx, cy, r, h); } // こぶ付きの壺型ゴング（ペンチョン）
+function hgong(cx, cy, R){ return hangGongSVG(cx, cy, R); } // 吊りゴング（正面）
 function gayor(x0, x1, top, bottom, ornate){ // ゴングを吊るす木の台
   let s = `<rect x="${x0}" y="${top}" width="12" height="${bottom-top}" fill="url(#gWood)"/><rect x="${x1-12}" y="${top}" width="12" height="${bottom-top}" fill="url(#gWood)"/>
   <rect x="${x0-6}" y="${top}" width="${x1-x0+12}" height="11" rx="2" fill="#8b3a1e"/>
