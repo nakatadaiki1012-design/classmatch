@@ -73,10 +73,12 @@ select,input[type=number],input[type=text],textarea{font-family:inherit;font-siz
 #ann.rpg #annSub{font-family:var(--ff-pixel);color:#ffd23f}
 @keyframes blink{50%{opacity:0}}
 #ann.race{background:linear-gradient(90deg,#063,#0a4);border-color:#fff}
+#ann.puzzle{background:linear-gradient(90deg,#0b4f5c,#0b7285,#0b4f5c);border-color:var(--cyan)}
 #ann.card{background:linear-gradient(90deg,#3a0f66,#6a1fb0,#3a0f66);border-color:#f5c542}
 
 /* ===== Stage / Classroom ===== */
-#stage{flex:1;min-height:0;position:relative;margin:8px 14px;border-radius:20px;overflow:hidden;transition:background .4s}
+#mid{flex:1;min-height:0;display:flex}
+#stage{flex:1;min-width:0;position:relative;margin:8px 14px;border-radius:20px;overflow:hidden;transition:background .4s}
 #classroom{position:absolute;inset:0;display:flex;flex-direction:column;padding:10px 12px 14px}
 #front{flex:none;display:flex;flex-direction:column;align-items:center;gap:5px;margin-bottom:10px}
 #board{width:46%;min-width:220px;height:clamp(22px,3.2vh,34px);border-radius:6px;background:#1f5b3a;border:4px solid #8a5a2b;color:#fff;
@@ -96,6 +98,9 @@ select,input[type=number],input[type=text],textarea{font-family:inherit;font-siz
   --seat-bg:#000;--seat-fg:#fff;--seat-bd:#fff;font-family:var(--ff-pixel)}
 .theme-race{background:repeating-linear-gradient(90deg,#2b8a3e 0 70px,#2f9e44 70px 140px);--seat-bg:#fff;--seat-fg:#0b2a12;--seat-bd:#145a26}
 .theme-card{background:radial-gradient(circle at 50% 30%,#55208a,#1a0630 75%);--seat-bg:#fffbea;--seat-fg:#2b0b45;--seat-bd:#f5c542}
+.theme-puzzle{background-color:#06303a;background-image:radial-gradient(#ffffff14 1.5px,transparent 1.5px);background-size:26px 26px;--seat-bg:#f1fbff;--seat-fg:#08343f;--seat-bd:#3ee6ff}
+.theme-puzzle #board{background:#0b4f5c;border-color:#3ee6ff}
+.theme-puzzle .seat-label{color:#0b7285}
 .theme-rpg #board{background:#3b2a1a;border-color:#ffd23f;font-family:var(--ff-pixel)}
 .theme-rpg #desk{background:#7a1f1f;font-family:var(--ff-pixel)}
 .theme-race #board{background:#fff;color:#145a26;border-color:#145a26}
@@ -119,6 +124,7 @@ select,input[type=number],input[type=text],textarea{font-family:inherit;font-siz
 .seat-num{font-family:var(--ff-display);font-size:calc(var(--name)*1.2);opacity:.28}
 .ghost{opacity:.55}
 .seat.empty .face.front{opacity:.3;border-style:dashed}
+.seat.disabled{visibility:hidden;pointer-events:none}
 .seat-empty{font-size:var(--sub-size);opacity:.7}
 .theme-rpg .face{border-radius:0}
 .theme-rpg .face.front{border:4px solid #fff;box-shadow:0 0 0 3px #000,0 0 0 7px var(--role,#fff)}
@@ -160,6 +166,31 @@ select,input[type=number],input[type=text],textarea{font-family:inherit;font-siz
 .seat.trade-glow .face.front{box-shadow:0 0 0 4px #ffd23f,0 0 30px #ffd23f !important}
 .seat.trade-glow::after{content:"🎫";position:absolute;left:-8px;top:-12px;font-size:calc(var(--name)*1.1);z-index:5;animation:bob .8s infinite alternate}
 @keyframes bob{to{transform:translateY(-5px)}}
+
+.seat.pz .face.back{background:repeating-linear-gradient(45deg,#0b7285 0 10px,#0c8599 10px 20px);border-color:#3ee6ff;color:#fff}
+.seat.pz.wrong .face.back{background:#444;border-color:#888;color:#ff6b6b}
+.seat.pz.wrong .face.back::before{content:"✕";position:absolute;font-size:calc(var(--name)*2.2);color:#ff6b6b;opacity:.8}
+#grid.guessing .seat.pz:not(.wrong){cursor:pointer}
+#grid.guessing .seat.pz:not(.wrong):hover .face.back{filter:brightness(1.3)}
+
+/* puzzle panel */
+#puzzlePanel{flex:none;width:clamp(260px,27vw,420px);margin:8px 14px 8px 0;border-radius:20px;background:#071f26;border:3px solid var(--cyan);
+  padding:12px 14px;display:flex;flex-direction:column;gap:6px;overflow:auto}
+.pz-q{font-weight:800;color:var(--cyan);font-size:clamp(14px,1.3vw,19px)}
+.pz-who{font-weight:800;font-size:clamp(14px,1.3vw,19px)}
+.pz-target{font-family:var(--ff-display);font-size:clamp(26px,3vw,48px);color:var(--yellow);line-height:1.15}
+#pzHints{margin:4px 0;padding-left:1.4em;display:flex;flex-direction:column;gap:6px}
+#pzHints li{font-weight:800;font-size:clamp(15px,1.45vw,22px);line-height:1.4;background:#ffffff12;border-radius:10px;padding:5px 9px;animation:pop .45s cubic-bezier(.3,1.6,.5,1)}
+#pzHints li::marker{color:var(--cyan)}
+.pz-msg{font-weight:800;font-size:clamp(16px,1.6vw,24px);min-height:1.4em}
+.pz-msg.ok{color:var(--green)} .pz-msg.ng{color:#ff6b6b}
+.pz-score{font-size:14px;color:var(--sub);font-weight:800}
+
+/* seat map editor */
+#seatMap{display:grid;gap:5px;margin:6px 0;max-width:560px}
+#seatMap button{background:#fff;color:#111;border-radius:7px;padding:7px 0;font-weight:800;font-size:13px;border:2px solid #fff}
+#seatMap button.off{background:#ff2e4d44;color:#ff8fa0;border:2px dashed #ff8fa0}
+.sm-front{max-width:560px;text-align:center;background:#1f5b3a;border-radius:6px;font-weight:800;font-size:13px;padding:2px}
 
 /* race tokens */
 .token{position:absolute;left:0;top:0;display:flex;align-items:center;gap:4px;padding:3px 10px 3px 4px;border-radius:999px;background:var(--c);color:#fff;
@@ -246,6 +277,8 @@ body.timer-on #ann{padding-right:calc(clamp(200px,19vw,290px) + 20px)}
 #printArea{display:none}
 
 @media (max-width:700px){
+  #mid{flex-direction:column}
+  #puzzlePanel{width:auto;margin:0 8px 8px;max-height:40vh}
   #ann{margin:6px 8px 0}
   #stage{margin:6px 8px}
   .side-label{display:none}
@@ -278,6 +311,7 @@ body.timer-on #ann{padding-right:calc(clamp(200px,19vw,290px) + 20px)}
     <button class="mode-btn" data-mode="rpg" style="--mc:#ffd23f"><span class="ic">⚔️</span>RPGパーティ</button>
     <button class="mode-btn" data-mode="race" style="--mc:#42f58d"><span class="ic">🏇</span>競馬レース</button>
     <button class="mode-btn" data-mode="card" style="--mc:#a77bff"><span class="ic">🃏</span>一括オープン</button>
+    <button class="mode-btn" data-mode="puzzle" style="--mc:#ff922b"><span class="ic">🧩</span>推理パズル</button>
   </div>
   <div class="ctrl-right">
     <label>スピード
@@ -295,6 +329,13 @@ body.timer-on #ann{padding-right:calc(clamp(200px,19vw,290px) + 20px)}
         <option value="one">1枚ずつ</option>
       </select>
     </label>
+    <label id="pzCountWrap">隠す人数
+      <select id="pzCountSel">
+        <option value="4">かんたん（4人）</option>
+        <option value="6">ふつう（6人）</option>
+        <option value="9">むずかしい（9人）</option>
+      </select>
+    </label>
     <button id="btnStart">▶ スタート！</button>
     <button id="btnSkip" class="hidden">⏭ スキップ</button>
   </div>
@@ -302,6 +343,7 @@ body.timer-on #ann{padding-right:calc(clamp(200px,19vw,290px) + 20px)}
 
 <section id="ann"><div id="annMain"></div><div id="annSub"></div></section>
 
+<div id="mid">
 <main id="stage" class="theme-death">
   <div id="classroom">
     <div id="front"><div id="board">黒板</div><div id="desk">教卓</div></div>
@@ -313,6 +355,20 @@ body.timer-on #ann{padding-right:calc(clamp(200px,19vw,290px) + 20px)}
   </div>
   <div id="tokenLayer"></div>
 </main>
+<aside id="puzzlePanel" class="hidden">
+  <div class="pz-q" id="pzQ"></div>
+  <div class="pz-who">🔍 この人はどこ？</div>
+  <div class="pz-target" id="pzTarget"></div>
+  <ol id="pzHints"></ol>
+  <div class="pz-msg" id="pzMsg"></div>
+  <div class="btns" style="justify-content:flex-start;margin-top:4px">
+    <button class="btn primary" id="pzHint">💡 次のヒント</button>
+    <button class="btn" id="pzAnswer">🏳 答えを見る</button>
+    <button class="btn primary hidden" id="pzNext">▶ 次の問題</button>
+  </div>
+  <div class="pz-score" id="pzScore"></div>
+</aside>
+</div>
 
 <section id="afterbar" class="hidden">
   <span class="hint">👆 席をタップ → シークレット・ミッション！</span>
@@ -354,6 +410,10 @@ body.timer-on #ann{padding-right:calc(clamp(200px,19vw,290px) + 20px)}
         <option value="right">右</option>
       </select></label>
     </div>
+    <h3>🚫 使わない席</h3>
+    <p class="note">タップした席が「使わない席（×）」になります。机を置かない場所・通路・欠番などに。もう一度タップで元に戻ります。</p>
+    <div class="sm-front">▲ 黒板・教卓</div>
+    <div id="seatMap"></div>
     <div id="seatCount" style="font-weight:800"></div>
     <div id="seatWarn" class="warnbox hidden"></div>
     <p class="note">人数が席数より少ない場合、後ろの廊下側から空席になります。</p>
@@ -428,6 +488,7 @@ body.timer-on #ann{padding-right:calc(clamp(200px,19vw,290px) + 20px)}
     <canvas id="exCanvas"></canvas>
     <div class="btns">
       <button class="btn" data-close>閉じる</button>
+      <button class="btn primary" id="exXlsx">📊 Excelで保存（.xlsx）</button>
       <button class="btn primary" id="exSave">💾 画像を保存（PNG）</button>
       <button class="btn primary" id="exPrint">🖨 印刷する</button>
     </div>
@@ -464,6 +525,7 @@ const DEFAULT_NAMES = [
   '橋本 新', '林 杏', '藤田 朝陽', '松本 凛', '三浦 翔', '森 楓', '山口 奏太', '山本 結衣', '吉田 晴', '渡辺 澪'
 ];
 const SPEED = { slow: 1.5, normal: 1, fast: 0.55, turbo: 0.25 };
+const MODE_KEYS = ['death', 'rpg', 'race', 'card', 'puzzle'];
 const STORE_KEY = 'sekigae-fes-v1';
 
 const store = {
@@ -477,7 +539,8 @@ const store = {
 const S = {
   cfg: {
     names: DEFAULT_NAMES.slice(), cols: 6, rows: 5, layout: 'normal', windowSide: 'left', className: '2年3組',
-    frontFixed: [], frontRows: 2, pairs: [], avoidLast: true, muted: false, speed: 'normal', cardOpen: 'row', mode: 'death', last: null
+    frontFixed: [], frontRows: 2, pairs: [], avoidLast: true, muted: false, speed: 'normal', cardOpen: 'row', mode: 'death', last: null,
+    disabled: [], pzCount: 6
   },
   seats: [], occ: [], specials: {}, roles: {}, assign: [], stats: {}, buffs: {},
   phase: 'idle', runMode: null, skip: false, timers: [], seatEls: [], geom: null,
@@ -487,6 +550,8 @@ const S = {
   const saved = store.load();
   if (saved && typeof saved === 'object') Object.assign(S.cfg, saved);
   if (!Array.isArray(S.cfg.names) || !S.cfg.names.length) S.cfg.names = DEFAULT_NAMES.slice();
+  if (!Array.isArray(S.cfg.disabled)) S.cfg.disabled = [];
+  if (!MODE_KEYS.includes(S.cfg.mode)) S.cfg.mode = 'death';
 })();
 const saveCfg = () => store.save(S.cfg);
 
@@ -559,6 +624,8 @@ const SFX = (() => {
     sparkle: () => { for (let k = 0; k < 6; k++) tone(1500 + k * 280, k * 0.05, 0.14, 'triangle', 0.07); },
     win: () => { seq([784, 988, 1175, 1568], 'square', 0.09, 0.08); [784, 988, 1175, 1568].forEach(f => tone(f, 0.38, 0.9, 'triangle', 0.1)); },
     beep: () => tone(1000, 0, 0.1, 'square', 0.1),
+    buzz: () => { tone(150, 0, 0.45, 'sawtooth', 0.18); tone(110, 0, 0.45, 'square', 0.1); },
+    hint: () => { tone(880, 0, 0.12, 'triangle', 0.12); tone(1320, 0.1, 0.25, 'triangle', 0.12); },
     alarm: () => { for (let k = 0; k < 8; k++) tone(k % 2 ? 880 : 660, k * 0.2, 0.18, 'square', 0.13); }
   };
 })();
@@ -631,14 +698,18 @@ function buildSeats() {
   const { cols, rows } = S.cfg;
   S.seats = [];
   for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) S.seats.push({ i: r * cols + c, r, c });
+  // 使わない席
+  const total = cols * rows, off = new Set(S.cfg.disabled);
+  S.dis = S.seats.map(s => off.has(s.r + '-' + s.c));
+  S.capacity = S.dis.filter(d => !d).length;
+  S.occ = S.dis.map(d => !d);
   // 空席は後ろの廊下側から
-  const total = cols * rows, empty = Math.max(0, total - S.cfg.names.length);
-  S.occ = new Array(total).fill(true);
+  const empty = Math.max(0, S.capacity - S.cfg.names.length);
   let k = 0;
   for (let r = rows - 1; r >= 0 && k < empty; r--) {
     for (let j = 0; j < cols && k < empty; j++) {
       const c = S.cfg.windowSide === 'left' ? cols - 1 - j : j;
-      S.occ[r * cols + c] = false; k++;
+      if (S.occ[r * cols + c]) { S.occ[r * cols + c] = false; k++; }
     }
   }
   // 注目席
@@ -684,7 +755,7 @@ function solve() {
   const { cols, rows, names, frontRows, layout } = S.cfg;
   const total = cols * rows;
   if (!names.length) return { ok: false, error: '生徒名が入力されていません（⚙ 設定 から入力）' };
-  if (names.length > total) return { ok: false, error: `席が足りません！ 生徒${names.length}名に対して席は${total}席です（⚙ 設定 で列数・行数を増やしてください）` };
+  if (names.length > S.capacity) return { ok: false, error: `席が足りません！ 生徒${names.length}名に対して使える席は${S.capacity}席です（⚙ 設定 で列数・行数・使わない席を見直してください）` };
   const occSeats = S.seats.filter(s => S.occ[s.i]);
   const front = S.cfg.frontFixed.filter(n => names.includes(n));
   const frontSeats = occSeats.filter(s => s.r < frontRows);
@@ -748,7 +819,8 @@ function renderGrid(state) {
     const el = document.createElement('div');
     el.className = 'seat'; el.dataset.i = s.i;
     el.style.setProperty('--role', ROLES[S.roles[s.i]].color);
-    if (!S.occ[s.i]) el.classList.add('empty');
+    if (S.dis[s.i]) el.classList.add('disabled');
+    else if (!S.occ[s.i]) el.classList.add('empty');
     if (S.specials[s.i]) el.classList.add('special');
     const filled = state === 'result' || state === 'cards';
     el.innerHTML = `<div class="seat-inner"><div class="face front">${filled ? filledHTML(s) : blankHTML(s)}</div>` +
@@ -859,6 +931,7 @@ function doSkip() {
   if (S.phase !== 'running') return;
   S.skip = true;
   S.timers.forEach(x => { clearTimeout(x.t); x.res(); }); S.timers = [];
+  if (PZ.resolve) PZ.resolve();
 }
 
 /* =========================================================
@@ -868,11 +941,12 @@ const MODE_INFO = {
   death: ['💀 サバイバル席替え', '1人ずつスロットで確定！ 注目の席は誰の手に…？'],
   rpg: ['⚔️ RPGパーティ編成', '教室はダンジョン！ 座る場所でロール（職業）が決まる！'],
   race: ['🏇 席替え競馬', '全員一斉にスタート！ ゴールした順に席へ滑り込め！'],
-  card: ['🃏 ドラマチック一括オープン', '運命のカードを一斉にめくれ！']
+  card: ['🃏 ドラマチック一括オープン', '運命のカードを一斉にめくれ！'],
+  puzzle: ['🧩 推理パズル席替え', '何人かの席はヒミツ！ ヒントから誰がどこか推理しよう！']
 };
 const THEME_TEXT = {
   death: ['黒板', '教卓'], rpg: ['ボスのへや（黒板）', '👑 王座（教卓）'],
-  race: ['🏁 ゴール（黒板）', '教卓'], card: ['黒板', '🎩 ディーラー（教卓）']
+  race: ['🏁 ゴール（黒板）', '教卓'], card: ['黒板', '🎩 ディーラー（教卓）'], puzzle: ['黒板', '🕵️ 探偵事務所（教卓）']
 };
 const REACTIONS = {
   front: ['最前線へようこそ！ 先生と目が合う確率200%！', 'VIP席（先生的に）確定！', '先生のすぐそば…集中力MAX席！'],
@@ -1059,7 +1133,164 @@ async function runCard() {
     SFX.crash();
   }
 }
-const RUNNERS = { death: runDeath, rpg: runRpg, race: runRace, card: runCard };
+
+/* ---- 🧩 推理パズル ---- */
+const PZ = { hidden: new Set(), target: null, cands: [], hints: [], shown: 0, wrong: 0, answered: false, resolve: null, stats: { ok: 0, hints: 0, wrong: 0 } };
+function weightedPick(list) {
+  const sum = list.reduce((a, h) => a + h.w, 0); let x = Math.random() * sum;
+  for (const h of list) { x -= h.w; if (x <= 0) return h; }
+  return list[list.length - 1];
+}
+// 「AさんはBさんの2つ後ろ」などのヒントを、答えが1つに決まるまで作る
+function genHints(ti, cands) {
+  const t = S.seats[ti], who = S.assign[ti], pool = [];
+  const add = (text, pred, w) => pool.push({ text: `${who}さんは、${text}`, pred, w });
+  const anchors = S.seats.filter(s => S.assign[s.i] && !PZ.hidden.has(s.i));
+  for (const a of anchors) {
+    const dr = t.r - a.r, dc = t.c - a.c, A = S.assign[a.i] + 'さん';
+    const ar = Math.abs(dr), ac = Math.abs(dc);
+    if (ar > 3 || ac > 3) continue;
+    // 間に「使わない席」があると数えにくいので、そのヒントは使わない
+    let blocked = false;
+    for (let k = 1; k < Math.max(ar, ac); k++) {
+      const m = seatAt(a.r + (dc === 0 || dr === 0 ? Math.sign(dr) * k : 0), a.c + (dc === 0 || dr === 0 ? Math.sign(dc) * k : 0));
+      if ((dc === 0 || dr === 0) && m && S.dis[m.i]) blocked = true;
+    }
+    if (blocked) continue;
+    const fb = dr > 0 ? '後ろ' : '前', lr = dc > 0 ? '右' : '左';
+    if (dc === 0) {
+      add(`${A}の${ar === 1 ? 'すぐ' : ar + 'つ'}${fb}`, s => s.c === a.c && s.r - a.r === dr, 3);
+      add(`${A}と同じ縦の列`, s => s.c === a.c && s.i !== a.i, 1);
+    }
+    if (dr === 0) {
+      add(ac === 1 ? `${A}の${lr}隣` : `${A}の${ac}つ${lr}`, s => s.r === a.r && s.c - a.c === dc, 2);
+      add(`${A}の${ac}つ隣`, s => s.r === a.r && Math.abs(s.c - a.c) === ac, 3);
+      add(`${A}と同じ横の並び`, s => s.r === a.r && s.i !== a.i, 1);
+    }
+    if (ar === 1 && ac === 1) {
+      add(`${A}の${lr}斜め${fb}`, s => s.r - a.r === dr && s.c - a.c === dc, 2);
+      add(`${A}の斜め隣`, s => Math.abs(s.r - a.r) === 1 && Math.abs(s.c - a.c) === 1, 3);
+    }
+    if (dr !== 0 && dc !== 0 && ar <= 2 && ac <= 2 && ar + ac > 2) {
+      add(`${A}から見て ${ar}つ${fb}・${ac}つ${lr}`, s => s.r - a.r === dr && s.c - a.c === dc, 1);
+    }
+    if (Math.max(ar, ac) > 1) add(`${A}の隣（前後・左右・斜め）ではない`, s => Math.max(Math.abs(s.r - a.r), Math.abs(s.c - a.c)) > 1, 1);
+  }
+  const wc = Math.abs(t.c - windowCol()) + 1;
+  add(`窓側から${wc}列目`, s => Math.abs(s.c - windowCol()) + 1 === wc, 1.5);
+  add(`前から${t.r + 1}番目`, s => s.r === t.r, 1.5);
+  if (t.c === windowCol()) add('窓際の席', s => s.c === windowCol(), 1); else add('窓際の席ではない', s => s.c !== windowCol(), 1);
+  if (t.c === hallCol()) add('廊下側の端の席', s => s.c === hallCol(), 1); else add('廊下側の端ではない', s => s.c !== hallCol(), 1);
+  if (t.r === 0) add('一番前の列', s => s.r === 0, 1); else add('一番前の列ではない', s => s.r !== 0, 1);
+
+  let c = cands.map(i => S.seats[i]);
+  const out = [], used = new Set();
+  while (c.length > 1 && out.length < 6) {
+    let opts = pool.filter(h => !used.has(h) && c.filter(h.pred).length < c.length);
+    if (!opts.length) break;
+    if (!out.length) { const soft = opts.filter(h => c.filter(h.pred).length >= 2); if (soft.length) opts = soft; }
+    const h = weightedPick(opts); used.add(h); out.push(h); c = c.filter(h.pred);
+  }
+  if (c.length > 1) out.push({ text: `${who}さんは、窓側から${wc}列目・前から${t.r + 1}番目`, pred: s => s.i === ti });
+  return out;
+}
+function pzReveal(i) {
+  const el = S.seatEls[i];
+  el.classList.remove('flipped', 'wrong'); setTimeout(() => el.classList.remove('pz'), 700);
+  PZ.hidden.delete(i);
+}
+function pzShowHint() {
+  if (PZ.shown >= PZ.hints.length || PZ.answered) return;
+  const h = PZ.hints[PZ.shown++];
+  $('#pzHints').insertAdjacentHTML('beforeend', `<li>${esc(h.text)}</li>`);
+  setAnn(h.text, `💡 ヒント ${PZ.shown}　｜　「？」の席から選んでタップ！`);
+  SFX.hint();
+  $('#pzHint').disabled = PZ.shown >= PZ.hints.length;
+}
+function pzScore() {
+  $('#pzScore').textContent = `⭕ 正解 ${PZ.stats.ok}問　💡 ヒント合計 ${PZ.stats.hints}個　❌ ハズレ ${PZ.stats.wrong}回`;
+}
+function pzFinishQuestion(ok) {
+  PZ.answered = true;
+  PZ.stats.hints += PZ.shown;
+  if (ok) PZ.stats.ok++;
+  pzScore();
+  $('#pzHint').classList.add('hidden'); $('#pzAnswer').classList.add('hidden'); $('#pzNext').classList.remove('hidden');
+  grid.classList.remove('guessing');
+}
+function pzGuess(i) {
+  if (PZ.answered || PZ.target === null) return;
+  if (!PZ.cands.includes(i) || !PZ.hidden.has(i)) { toast('「？」の席から選んでね'); return; }
+  const el = S.seatEls[i];
+  if (el.classList.contains('wrong')) return;
+  if (i === PZ.target) {
+    pzReveal(i); SFX.fanfareShort(); fx.at(el, 90);
+    const msg = PZ.wrong ? `⭕ 正解！（ヒント${PZ.shown}個・ハズレ${PZ.wrong}回）` : `⭕ 正解！ ヒント${PZ.shown}個で見破った！`;
+    $('#pzMsg').className = 'pz-msg ok'; $('#pzMsg').textContent = msg;
+    setAnn(`⭕ 正解！ ${S.assign[i]}`, seatDesc(S.seats[i]));
+    pzFinishQuestion(true);
+  } else {
+    PZ.wrong++; PZ.stats.wrong++; pzScore();
+    el.classList.add('wrong', 'shake'); setTimeout(() => el.classList.remove('shake'), 500);
+    SFX.buzz();
+    $('#pzMsg').className = 'pz-msg ng'; $('#pzMsg').textContent = `❌ ちがう！ その席じゃない…（ハズレ${PZ.wrong}回）`;
+  }
+}
+async function runPuzzle() {
+  renderGrid('cards');
+  S.seatEls.forEach((el, k) => { el.classList.add('deal'); el.style.setProperty('--dd', (k * 0.04) + 's'); setTimeout(SFX.deal, k * 40); });
+  setAnn('🧩 推理パズル席替え', 'カードを配ります…');
+  await waitAbs(S.seatEls.length * 40 + 800);
+  S.seatEls.forEach(el => el.classList.remove('deal'));
+  if (S.skip) return;
+  const occ = S.seats.filter(s => S.assign[s.i]);
+  const k = Math.max(2, Math.min(S.cfg.pzCount, occ.length - 1));
+  if (occ.length < 3) return;
+  PZ.hidden = new Set(shuffle(occ.slice()).slice(0, k).map(s => s.i));
+  PZ.stats = { ok: 0, hints: 0, wrong: 0 };
+  setAnn('🥁 ほとんどの席を公開！', `でも ${k}人の席はヒミツ…！`);
+  SFX.drumroll(1.4); await waitAbs(1400); if (S.skip) return;
+  const open = shuffle(S.seats.filter(s => !PZ.hidden.has(s.i)));
+  open.forEach((s, j) => setTimeout(() => { if (S.phase === 'running' && !S.skip) S.seatEls[s.i].classList.remove('flipped'); }, j * 30));
+  PZ.hidden.forEach(i => S.seatEls[i].classList.add('pz'));
+  await waitAbs(open.length * 30 + 700); if (S.skip) return;
+  bigText(`？×${k}`, true, '#3ee6ff'); SFX.encounter();
+  setAnn(`❓ ${k}人の席がまだヒミツ！`, 'ヒントを手がかりに、誰がどの「？」に座っているか推理しよう！');
+  await wait(1600); if (S.skip) return;
+
+  $('#puzzlePanel').classList.remove('hidden');
+  const order = shuffle(Array.from(PZ.hidden));
+  for (let q = 0; q < order.length; q++) {
+    if (S.skip) return;
+    const ti = order[q];
+    PZ.target = null; PZ.cands = Array.from(PZ.hidden); PZ.shown = 0; PZ.wrong = 0; PZ.answered = false;
+    S.seatEls.forEach(el => el.classList.remove('wrong'));
+    $('#pzQ').textContent = `🧩 Q${q + 1} / ${order.length}`;
+    $('#pzTarget').textContent = S.assign[ti];
+    $('#pzHints').innerHTML = ''; $('#pzMsg').textContent = ''; $('#pzMsg').className = 'pz-msg';
+    $('#pzNext').classList.add('hidden'); $('#pzHint').classList.remove('hidden'); $('#pzAnswer').classList.remove('hidden');
+    $('#pzNext').textContent = q === order.length - 1 ? '🎉 結果発表へ' : '▶ 次の問題';
+    pzScore();
+    if (PZ.cands.length === 1) { // 最後の1人は自動で判明
+      $('#pzHint').classList.add('hidden'); $('#pzAnswer').classList.add('hidden');
+      setAnn(`最後の「？」に座っているのは…`, ''); SFX.drumroll(1.5); await waitAbs(1500); if (S.skip) return;
+      pzReveal(ti); fx.at(S.seatEls[ti], 80); SFX.fanfareShort();
+      setAnn(`${S.assign[ti]}！`, '残った最後の席はこの人！');
+      await wait(1800);
+      continue;
+    }
+    PZ.hints = genHints(ti, PZ.cands);
+    PZ.target = ti;
+    grid.classList.add('guessing');
+    pzShowHint();
+    await new Promise(res => { PZ.resolve = res; });
+    PZ.resolve = null; PZ.target = null;
+  }
+  if (S.skip) return;
+  setAnn('🧩 全問終了！', `正解 ${PZ.stats.ok}問 ／ ヒント合計 ${PZ.stats.hints}個 ／ ハズレ ${PZ.stats.wrong}回`);
+  await wait(1200);
+}
+const RUNNERS = { death: runDeath, rpg: runRpg, race: runRace, card: runCard, puzzle: runPuzzle };
 
 /* ===== 実行 ===== */
 async function startShow() {
@@ -1078,7 +1309,8 @@ function finalize() {
   S.raceTimers.forEach(clearInterval); S.raceTimers = [];
   S.timers.forEach(x => clearTimeout(x.t)); S.timers = [];
   $('#tokenLayer').innerHTML = '';
-  grid.classList.remove('dim', 'shaking');
+  grid.classList.remove('dim', 'shaking', 'guessing');
+  $('#puzzlePanel').classList.add('hidden'); PZ.target = null; PZ.hidden = new Set();
   S.phase = 'done'; S.skip = false;
   updateUI();
   renderGrid('result');
@@ -1100,6 +1332,8 @@ function updateUI() {
   $('#btnSkip').classList.toggle('hidden', !running);
   $('#afterbar').classList.toggle('hidden', S.phase !== 'done');
   $('#cardOptWrap').classList.toggle('hidden', S.cfg.mode !== 'card');
+  $('#pzCountWrap').classList.toggle('hidden', S.cfg.mode !== 'puzzle');
+  $('#pzCountSel').value = String(S.cfg.pzCount);
   ['#btnSettings', '#btnSecret'].forEach(id => $(id).disabled = running);
   grid.classList.toggle('clickable', S.phase === 'done');
   $('#speedSel').value = S.cfg.speed; $('#cardOpenSel').value = S.cfg.cardOpen;
@@ -1227,6 +1461,7 @@ function setSwap(on) {
   if (on) setAnn('🔄 入れ替えモード', '交換したい2つの席を順番にタップ！（空席への移動もOK）');
 }
 function handleSwap(i) {
+  if (S.dis[i]) return;
   if (S.swapFirst === null) {
     if (!S.assign[i]) return;
     S.swapFirst = i; S.seatEls[i].classList.add('swap-sel'); SFX.pop(); return;
@@ -1344,6 +1579,7 @@ function drawChart(cv, opt) {
   const g = computeLayout(gw, gh, 16, 56, 0.62);
   const { cols, rows } = S.cfg;
   for (const s of S.seats) {
+    if (S.dis[s.i]) continue;
     let x = g.X[s.c], y = g.Y[s.r];
     if (opt.flip) { x = gw - x - g.sw; y = gh - y - g.sh; }
     x += gx0; y += top;
@@ -1390,11 +1626,199 @@ function exportPrint() {
 }
 function exportSave() {
   redrawExport();
-  const d = new Date(), fname = `座席表_${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}.png`;
+  const d = new Date(), fname = `seating-chart_${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}.png`;
   const cv = $('#exCanvas');
   const go = url => { const a = document.createElement('a'); a.href = url; a.download = fname; document.body.appendChild(a); a.click(); a.remove(); };
   if (cv.toBlob) cv.toBlob(b => { const u = URL.createObjectURL(b); go(u); setTimeout(() => URL.revokeObjectURL(u), 3000); }, 'image/png');
   else go(cv.toDataURL('image/png'));
+}
+
+
+/* ---- Excel（.xlsx）出力：ライブラリなしで生成 ---- */
+const CRC_TABLE = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(b) { let c = 0xFFFFFFFF; for (let i = 0; i < b.length; i++) c = CRC_TABLE[(c ^ b[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+function makeZip(files) { // 無圧縮ZIP
+  const enc = new TextEncoder(), parts = [], central = [];
+  let offset = 0;
+  for (const f of files) {
+    const name = enc.encode(f.name), data = enc.encode(f.data), crc = crc32(data);
+    const h = new DataView(new ArrayBuffer(30));
+    h.setUint32(0, 0x04034b50, true); h.setUint16(4, 20, true); h.setUint16(6, 0x0800, true); h.setUint16(8, 0, true);
+    h.setUint16(10, 0, true); h.setUint16(12, 0x21, true); h.setUint32(14, crc, true);
+    h.setUint32(18, data.length, true); h.setUint32(22, data.length, true); h.setUint16(26, name.length, true); h.setUint16(28, 0, true);
+    parts.push(new Uint8Array(h.buffer), name, data);
+    const c = new DataView(new ArrayBuffer(46));
+    c.setUint32(0, 0x02014b50, true); c.setUint16(4, 20, true); c.setUint16(6, 20, true); c.setUint16(8, 0x0800, true); c.setUint16(10, 0, true);
+    c.setUint16(12, 0, true); c.setUint16(14, 0x21, true); c.setUint32(16, crc, true); c.setUint32(20, data.length, true); c.setUint32(24, data.length, true);
+    c.setUint16(28, name.length, true); c.setUint32(42, offset, true);
+    central.push(new Uint8Array(c.buffer), name);
+    offset += 30 + name.length + data.length;
+  }
+  const cdSize = central.reduce((a, b) => a + b.length, 0);
+  const e = new DataView(new ArrayBuffer(22));
+  e.setUint32(0, 0x06054b50, true); e.setUint16(8, files.length, true); e.setUint16(10, files.length, true);
+  e.setUint32(12, cdSize, true); e.setUint32(16, offset, true);
+  return new Blob([...parts, ...central, new Uint8Array(e.buffer)], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+}
+const xesc = v => String(v).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch])).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '');
+const colName = n => { let s = ''; for (n++; n > 0; n = Math.floor((n - 1) / 26)) s = String.fromCharCode(65 + (n - 1) % 26) + s; return s; };
+// 簡易シート作成器
+function sheetBuilder() {
+  const rows = {}, heights = {}, merges = [];
+  return {
+    set(r, c, v, st = 0) { (rows[r] = rows[r] || {})[c] = { v, st }; },
+    style(r1, c1, r2, c2, st) { for (let r = r1; r <= r2; r++) for (let c = c1; c <= c2; c++) if (!rows[r]?.[c]) this.set(r, c, null, st); },
+    merge(r1, c1, r2, c2) { if (r1 !== r2 || c1 !== c2) merges.push(`${colName(c1)}${r1 + 1}:${colName(c2)}${r2 + 1}`); },
+    height(r, h) { heights[r] = h; },
+    xml(widths, extra = {}) {
+      const rowNums = Object.keys({ ...rows, ...heights }).map(Number).sort((a, b) => a - b);
+      const data = rowNums.map(r => {
+        const cells = Object.keys(rows[r] || {}).map(Number).sort((a, b) => a - b).map(c => {
+          const { v, st } = rows[r][c], ref = colName(c) + (r + 1);
+          if (v === null || v === undefined || v === '') return `<c r="${ref}" s="${st}"/>`;
+          if (typeof v === 'number') return `<c r="${ref}" s="${st}"><v>${v}</v></c>`;
+          return `<c r="${ref}" s="${st}" t="inlineStr"><is><t xml:space="preserve">${xesc(v)}</t></is></c>`;
+        }).join('');
+        const ht = heights[r] ? ` ht="${heights[r]}" customHeight="1"` : '';
+        return `<row r="${r + 1}"${ht}>${cells}</row>`;
+      }).join('');
+      const cols = widths.map((w, k) => `<col min="${k + 1}" max="${k + 1}" width="${w}" customWidth="1"/>`).join('');
+      return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+        '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' +
+        (extra.fit ? '<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>' : '') +
+        `<sheetViews><sheetView workbookViewId="0"${extra.noGrid ? ' showGridLines="0"' : ''}/></sheetViews>` +
+        `<sheetFormatPr defaultRowHeight="18"/><cols>${cols}</cols><sheetData>${data}</sheetData>` +
+        (merges.length ? `<mergeCells count="${merges.length}">${merges.map(m => `<mergeCell ref="${m}"/>`).join('')}</mergeCells>` : '') +
+        '<pageMargins left="0.4" right="0.4" top="0.4" bottom="0.4" header="0.2" footer="0.2"/>' +
+        `<pageSetup paperSize="9" orientation="${extra.landscape ? 'landscape' : 'portrait'}"${extra.fit ? ' fitToWidth="1" fitToHeight="1"' : ''}/>` +
+        '</worksheet>';
+    }
+  };
+}
+const XLSX_STYLES = (() => {
+  const F = 'Yu Gothic';
+  const md = '<color rgb="FF2B2B40"/>';
+  const fonts = [
+    `<font><sz val="11"/><name val="${F}"/><family val="3"/><charset val="128"/></font>`,
+    `<font><b/><sz val="20"/><name val="${F}"/><family val="3"/><charset val="128"/></font>`,
+    `<font><b/><sz val="16"/><name val="${F}"/><family val="3"/><charset val="128"/></font>`,
+    `<font><sz val="9"/><color rgb="FF5F3DC4"/><name val="${F}"/><family val="3"/><charset val="128"/></font>`,
+    `<font><b/><sz val="12"/><color rgb="FFFFFFFF"/><name val="${F}"/><family val="3"/><charset val="128"/></font>`,
+    `<font><b/><sz val="11"/><name val="${F}"/><family val="3"/><charset val="128"/></font>`,
+    `<font><sz val="10"/><color rgb="FF888888"/><name val="${F}"/><family val="3"/><charset val="128"/></font>`
+  ];
+  const solid = c => `<fill><patternFill patternType="solid"><fgColor rgb="FF${c}"/><bgColor indexed="64"/></patternFill></fill>`;
+  const fills = ['<fill><patternFill patternType="none"/></fill>', '<fill><patternFill patternType="gray125"/></fill>', solid('1F5B3A'), solid('C98B4A'), solid('F1F1F4'), solid('DDE7FF'), solid('D8F5FF')];
+  const side = (n, st, col = '<color auto="1"/>') => st ? `<${n} style="${st}">${col}</${n}>` : `<${n}/>`;
+  const border = (l, r, t, b, col) => `<border>${side('left', l, col)}${side('right', r, col)}${side('top', t, col)}${side('bottom', b, col)}<diagonal/></border>`;
+  const borders = [border(), border('thin', 'thin', 'thin', 'thin'), border('medium', 'medium', 'medium', null, md), border('medium', 'medium', null, 'medium', md)];
+  const al = (h, v, more = '') => `<alignment horizontal="${h}" vertical="${v}"${more}/>`;
+  const xf = (font, fill, bd, align = '') => `<xf numFmtId="0" fontId="${font}" fillId="${fill}" borderId="${bd}" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">${align}</xf>`;
+  const xfs = [
+    '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>',
+    xf(1, 0, 0, al('left', 'center')),                          // 1 タイトル
+    xf(2, 0, 2, al('center', 'center', ' shrinkToFit="1"')),     // 2 名前
+    xf(3, 0, 3, al('center', 'center', ' shrinkToFit="1"')),     // 3 ラベル
+    xf(4, 2, 1, al('center', 'center')),                        // 4 黒板
+    xf(4, 3, 1, al('center', 'center')),                        // 5 教卓
+    xf(6, 4, 2, al('center', 'center')),                        // 6 空席
+    xf(0, 4, 3, al('center', 'center')),                        // 7 空席ラベル
+    xf(5, 6, 1, al('center', 'center', ' textRotation="255"')), // 8 窓側/廊下側
+    xf(5, 5, 1, al('center', 'center')),                        // 9 表の見出し
+    xf(0, 0, 1, al('left', 'center')),                          // 10 表のセル
+    xf(6, 0, 0, al('right', 'center'))                          // 11 日付など
+  ];
+  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
+    `<fonts count="${fonts.length}">${fonts.join('')}</fonts><fills count="${fills.length}">${fills.join('')}</fills>` +
+    `<borders count="${borders.length}">${borders.join('')}</borders>` +
+    '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
+    `<cellXfs count="${xfs.length}">${xfs.join('')}</cellXfs>` +
+    '<cellStyles count="1"><cellStyle name="標準" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
+})();
+function buildXlsx(opt) {
+  const { cols, rows } = S.cfg, [gc, gr] = groupDims(), flip = opt.flip;
+  const d = new Date(), dateStr = `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
+  // --- シート1：座席表（見た目どおりの配置） ---
+  const sh = sheetBuilder(), widths = [5, 1.5], seatCol = [];
+  const isBigX = b => gc > 1 && (b + 1) % gc === 0, isBigY = b => gr > 1 && (b + 1) % gr === 0;
+  for (let dc = 0; dc < cols; dc++) {
+    const c = flip ? cols - 1 - dc : dc;
+    seatCol[c] = widths.length; widths.push(16);
+    if (dc < cols - 1) { const b = Math.min(c, flip ? c - 1 : c + 1); widths.push(gc === 1 ? 1.5 : isBigX(b) ? 4 : 0.6); }
+  }
+  const firstX = 2, lastX = widths.length - 1;
+  widths.push(1.5, 5);
+  const sideR = widths.length - 1;
+  let r = 0;
+  sh.set(r, 0, opt.title, 1); sh.set(r, sideR, dateStr, 11); sh.height(r, 34); r += 2;
+  const boardRows = () => {
+    const mid = Math.floor((firstX + lastX) / 2), half = Math.max(1, Math.floor((lastX - firstX) / 4));
+    const deskL = seatCol[Math.floor((cols - 1) / 2)], deskR = seatCol[Math.ceil((cols - 1) / 2)];
+    const putBoard = () => { sh.set(r, mid - half, '黒　板', 4); sh.style(r, mid - half, r, mid + half, 4); sh.merge(r, mid - half, r, mid + half); sh.height(r, 26); r++; };
+    const putDesk = () => { const a = Math.min(deskL, deskR), b = Math.max(deskL, deskR); sh.set(r, a, '教　卓', 5); sh.style(r, a, r, b, 5); sh.merge(r, a, r, b); sh.height(r, 22); r++; };
+    if (!flip) { putBoard(); putDesk(); } else { putDesk(); putBoard(); }
+  };
+  if (!flip) { boardRows(); sh.height(r, 12); r++; }
+  const seatTop = r;
+  for (let dr = 0; dr < rows; dr++) {
+    const rr = flip ? rows - 1 - dr : dr;
+    for (let c = 0; c < cols; c++) {
+      const s = seatAt(rr, c); if (S.dis[s.i]) continue;
+      const name = S.assign[s.i], x = seatCol[c];
+      const label = [opt.role ? labelOf(s, S.runMode) : '', opt.buff && S.buffs[s.i] ? `${S.buffs[s.i].icon}${S.buffs[s.i].name}` : ''].filter(Boolean).join(' / ');
+      if (name) { sh.set(r, x, name, 2); sh.set(r + 1, x, label, 3); }
+      else { sh.set(r, x, '空席', 6); sh.set(r + 1, x, '', 7); }
+    }
+    sh.height(r, 34); sh.height(r + 1, 15); r += 2;
+    if (dr < rows - 1) { const b = Math.min(rr, flip ? rr - 1 : rr + 1); sh.height(r, gr === 1 ? 8 : isBigY(b) ? 20 : 3); r++; }
+  }
+  const seatBottom = r - 1;
+  const winLeft = (S.cfg.windowSide === 'left') !== !!flip;
+  sh.set(seatTop, 0, winLeft ? '窓側' : '廊下側', 8); sh.style(seatTop, 0, seatBottom, 0, 8); sh.merge(seatTop, 0, seatBottom, 0);
+  sh.set(seatTop, sideR, winLeft ? '廊下側' : '窓側', 8); sh.style(seatTop, sideR, seatBottom, sideR, 8); sh.merge(seatTop, sideR, seatBottom, sideR);
+  if (flip) { sh.height(r, 12); r++; boardRows(); }
+  r++;
+  sh.set(r, 0, `生徒数 ${S.assign.filter(Boolean).length}名　／　${cols}列×${rows}行　／　セキガエ・フェス`, 0);
+  const sheet1 = sh.xml(widths, { fit: true, landscape: true, noGrid: true });
+
+  // --- シート2：名簿（並べ替え・集計用） ---
+  const t = sheetBuilder(), head = ['No.', '名前', '窓側から（列）', '前から（番目）', '席の場所', '注目席・ロール', '称号'];
+  head.forEach((h, k) => t.set(0, k, h, 9)); t.height(0, 22);
+  const pos = {}; S.assign.forEach((n, i) => { if (n) pos[n] = S.seats[i]; });
+  S.cfg.names.forEach((n, k) => {
+    const s = pos[n]; if (!s) return;
+    const row = [k + 1, n, Math.abs(s.c - windowCol()) + 1, s.r + 1, seatDesc(s), labelOf(s, S.runMode), S.buffs[s.i] ? `${S.buffs[s.i].icon}${S.buffs[s.i].name}` : ''];
+    row.forEach((v, j) => t.set(k + 1, j, v, 10));
+  });
+  const sheet2 = t.xml([6, 18, 14, 14, 28, 26, 24], { noGrid: false });
+
+  const ct = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+    '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>' +
+    '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>' +
+    '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>' +
+    '<Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>' +
+    '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>';
+  const rels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+    '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>';
+  const wb = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' +
+    '<sheets><sheet name="座席表" sheetId="1" r:id="rId1"/><sheet name="名簿" sheetId="2" r:id="rId2"/></sheets></workbook>';
+  const wbRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+    '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>' +
+    '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/>' +
+    '<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>';
+  return makeZip([
+    { name: '[Content_Types].xml', data: ct }, { name: '_rels/.rels', data: rels },
+    { name: 'xl/workbook.xml', data: wb }, { name: 'xl/_rels/workbook.xml.rels', data: wbRels },
+    { name: 'xl/styles.xml', data: XLSX_STYLES },
+    { name: 'xl/worksheets/sheet1.xml', data: sheet1 }, { name: 'xl/worksheets/sheet2.xml', data: sheet2 }
+  ]);
+}
+function exportXlsx() {
+  const blob = buildXlsx(exportOpts()), d = new Date();
+  const fname = `seating-chart_${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}.xlsx`;
+  const u = URL.createObjectURL(blob), a = document.createElement('a');
+  a.href = u; a.download = fname; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(u), 3000);
 }
 
 /* =========================================================
@@ -1410,13 +1834,32 @@ $$('.modal-bg').forEach(m => {
 let secretDirty = false;
 function resetIdleIfNeeded() { if (secretDirty) { secretDirty = false; saveCfg(); updateUI(); } }
 
+let draftOff = new Set();
+const setDims = () => [Math.max(1, Math.min(10, +$('#setCols').value || 1)), Math.max(1, Math.min(8, +$('#setRows').value || 1))];
+function draftCapacity() {
+  const [cols, rows] = setDims(); let n = 0;
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) if (!draftOff.has(r + '-' + c)) n++;
+  return n;
+}
+function renderSeatMap() {
+  const [cols, rows] = setDims(), map = $('#seatMap');
+  map.style.gridTemplateColumns = `repeat(${cols}, minmax(0,1fr))`;
+  map.innerHTML = '';
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+    const key = r + '-' + c, b = document.createElement('button');
+    const draw = () => { const off = draftOff.has(key); b.className = off ? 'off' : ''; b.textContent = off ? '×' : String(r * cols + c + 1); };
+    b.onclick = () => { if (draftOff.has(key)) draftOff.delete(key); else draftOff.add(key); draw(); updateSettingsInfo(); };
+    draw(); map.appendChild(b);
+  }
+  updateSettingsInfo();
+}
 function updateSettingsInfo() {
   const names = cleanNames($('#setNames').value.split(/\r?\n/));
-  const cols = +$('#setCols').value || 0, rows = +$('#setRows').value || 0;
+  const [cols, rows] = setDims(), cap = draftCapacity();
   $('#nameCount').textContent = `👥 ${names.length} 名`;
-  $('#seatCount').textContent = `🪑 席数 ${cols * rows} 席（${cols}列 × ${rows}行）`;
+  $('#seatCount').textContent = `🪑 使える席 ${cap} 席（${cols}列 × ${rows}行${cols * rows - cap ? `、使わない席 ${cols * rows - cap}` : ''}）`;
   const w = $('#seatWarn');
-  if (names.length > cols * rows) { w.textContent = `⚠ 席が ${names.length - cols * rows} 席足りません！ 列数か行数を増やしてください`; w.classList.remove('hidden'); }
+  if (names.length > cap) { w.textContent = `⚠ 席が ${names.length - cap} 席足りません！ 列数・行数を増やすか、使わない席を減らしてください`; w.classList.remove('hidden'); }
   else w.classList.add('hidden');
 }
 function openSettings() {
@@ -1424,14 +1867,17 @@ function openSettings() {
   $('#setNames').value = S.cfg.names.join('\n');
   $('#setCols').value = S.cfg.cols; $('#setRows').value = S.cfg.rows;
   $('#setLayout').value = S.cfg.layout; $('#setWindow').value = S.cfg.windowSide;
-  updateSettingsInfo(); openModal('#settingsModal');
+  draftOff = new Set(S.cfg.disabled);
+  renderSeatMap(); openModal('#settingsModal');
 }
 function saveSettings() {
   const names = cleanNames($('#setNames').value.split(/\r?\n/));
   const cols = Math.max(1, Math.min(10, +$('#setCols').value || 6)), rows = Math.max(1, Math.min(8, +$('#setRows').value || 5));
   if (!names.length) { toast('生徒名を1人以上入力してください'); return; }
-  if (names.length > cols * rows) { toast('席が足りません。列数か行数を増やしてください'); return; }
-  Object.assign(S.cfg, { names, cols, rows, className: $('#setClass').value.trim(), layout: $('#setLayout').value, windowSide: $('#setWindow').value });
+  $('#setCols').value = cols; $('#setRows').value = rows;
+  if (names.length > draftCapacity()) { toast('席が足りません。列数・行数を増やすか、使わない席を減らしてください'); return; }
+  const disabled = Array.from(draftOff).filter(k => { const [r, c] = k.split('-').map(Number); return r < rows && c < cols; });
+  Object.assign(S.cfg, { names, cols, rows, disabled, className: $('#setClass').value.trim(), layout: $('#setLayout').value, windowSide: $('#setWindow').value });
   S.cfg.frontFixed = S.cfg.frontFixed.filter(n => names.includes(n));
   S.cfg.pairs = S.cfg.pairs.filter(([a, b]) => names.includes(a) && names.includes(b));
   saveCfg(); closeModals(); resetIdle();
@@ -1473,6 +1919,16 @@ $('#btnStart').addEventListener('click', startShow);
 $('#btnSkip').addEventListener('click', doSkip);
 $('#speedSel').addEventListener('change', e => { S.cfg.speed = e.target.value; saveCfg(); });
 $('#cardOpenSel').addEventListener('change', e => { S.cfg.cardOpen = e.target.value; saveCfg(); });
+$('#pzCountSel').addEventListener('change', e => { S.cfg.pzCount = +e.target.value; saveCfg(); });
+$('#pzHint').addEventListener('click', pzShowHint);
+$('#pzAnswer').addEventListener('click', () => {
+  if (PZ.answered || PZ.target === null) return;
+  const i = PZ.target; pzReveal(i); SFX.crash(); fx.at(S.seatEls[i], 50);
+  $('#pzMsg').className = 'pz-msg'; $('#pzMsg').textContent = `🏳 答えはここ！ → ${seatDesc(S.seats[i])}`;
+  setAnn(`答え：${S.assign[i]}`, seatDesc(S.seats[i]));
+  pzFinishQuestion(false);
+});
+$('#pzNext').addEventListener('click', () => { if (PZ.resolve) PZ.resolve(); });
 $('#btnMute').addEventListener('click', () => { S.cfg.muted = !S.cfg.muted; saveCfg(); updateUI(); if (!S.cfg.muted) SFX.pop(); });
 $('#btnFull').addEventListener('click', () => {
   if (document.fullscreenElement) document.exitFullscreen?.();
@@ -1480,8 +1936,8 @@ $('#btnFull').addEventListener('click', () => {
 });
 $('#btnSettings').addEventListener('click', openSettings);
 $('#setNames').addEventListener('input', updateSettingsInfo);
-$('#setCols').addEventListener('input', updateSettingsInfo);
-$('#setRows').addEventListener('input', updateSettingsInfo);
+$('#setCols').addEventListener('input', renderSeatMap);
+$('#setRows').addEventListener('input', renderSeatMap);
 $('#setDummy').addEventListener('click', () => { $('#setNames').value = DEFAULT_NAMES.join('\n'); updateSettingsInfo(); });
 $('#setClear').addEventListener('click', () => { $('#setNames').value = ''; updateSettingsInfo(); });
 $('#setSave').addEventListener('click', saveSettings);
@@ -1498,8 +1954,10 @@ $('#secPairAdd').addEventListener('click', () => {
 });
 
 grid.addEventListener('click', e => {
-  const el = e.target.closest('.seat'); if (!el || S.phase !== 'done') return;
+  const el = e.target.closest('.seat'); if (!el || el.classList.contains('disabled')) return;
   const i = +el.dataset.i;
+  if (S.phase === 'running' && PZ.target !== null) { pzGuess(i); return; }
+  if (S.phase !== 'done') return;
   if (S.swapMode) handleSwap(i); else openMission(i);
 });
 $('#mcReroll').addEventListener('click', () => { if (missionSeat !== null) openMission(missionSeat); });
@@ -1526,6 +1984,7 @@ $('#btnExport').addEventListener('click', openExport);
 ['#exTitle', '#exFlip', '#exRole', '#exBuff'].forEach(id => $(id).addEventListener('input', redrawExport));
 $('#exPrint').addEventListener('click', exportPrint);
 $('#exSave').addEventListener('click', exportSave);
+$('#exXlsx').addEventListener('click', exportXlsx);
 
 document.addEventListener('keydown', e => {
   const typing = ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName);
