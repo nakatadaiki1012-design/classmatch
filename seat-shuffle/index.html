@@ -22,8 +22,11 @@
 html,body{margin:0;padding:0;height:100%}
 body{
   font-family:var(--ff);background:var(--bg);color:var(--text);
-  display:flex;flex-direction:column;height:100vh;overflow:hidden;
+  display:flex;flex-direction:column;height:100vh;height:100dvh;overflow:hidden;overscroll-behavior:none;
+  padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right);
 }
+button,select,.seat{touch-action:manipulation}
+:focus-visible{outline:3px solid var(--cyan);outline-offset:2px}
 button{font-family:inherit;cursor:pointer;border:none;color:inherit}
 button:disabled{opacity:.4;cursor:not-allowed}
 .hidden{display:none !important}
@@ -35,7 +38,8 @@ button:disabled{opacity:.4;cursor:not-allowed}
 #classChip{background:#ffffff18;border-radius:999px;padding:3px 12px;font-weight:800;font-size:clamp(13px,1.2vw,18px);white-space:nowrap}
 .spacer{flex:1}
 .icon-btn{background:#ffffff14;border:2px solid #ffffff30;border-radius:12px;padding:6px 12px;font-weight:800;font-size:clamp(13px,1.1vw,17px);white-space:nowrap;position:relative}
-.icon-btn:hover{background:#ffffff26}
+@media (hover:hover){.icon-btn:hover{background:#ffffff26}}
+#btnFocus.on{background:var(--cyan);color:#111}
 #btnSecret{opacity:.55;padding:6px 9px}
 #btnSecret.on::after{content:"";position:absolute;top:3px;right:3px;width:8px;height:8px;border-radius:50%;background:var(--green)}
 
@@ -45,10 +49,11 @@ button:disabled{opacity:.4;cursor:not-allowed}
 .mode-btn{display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:14px;border:3px solid #ffffff2e;background:#ffffff10;
   font-weight:800;font-size:clamp(13px,1.15vw,19px);transition:transform .15s,background .15s}
 .mode-btn .ic{font-size:1.45em;line-height:1}
-.mode-btn:hover:not(:disabled){transform:translateY(-2px)}
+@media (hover:hover){.mode-btn:hover:not(:disabled){transform:translateY(-2px)}}
 .mode-btn.active{background:var(--mc);color:#111;border-color:#fff;box-shadow:0 4px 0 #0007}
 .ctrl-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-wrap:wrap}
-.ctrl-right label{font-size:clamp(12px,1vw,15px);font-weight:800;color:var(--sub);display:flex;align-items:center;gap:6px}
+.ctrl-right label{font-size:clamp(12px,1vw,15px);font-weight:800;color:var(--sub);display:flex;align-items:center;gap:6px;white-space:nowrap}
+#btnStart,#btnSkip,.mode-btn,.act-btn{white-space:nowrap}
 select,input[type=number],input[type=text],textarea{font-family:inherit;font-size:16px;border-radius:10px;border:2px solid #ffffff40;background:#fff;color:#111;padding:6px 8px}
 #btnStart{background:linear-gradient(180deg,#ff6bb8,#ff2e8a);font-family:var(--ff-display);font-size:clamp(18px,1.8vw,28px);padding:8px 24px;border-radius:16px;
   box-shadow:0 5px 0 #a3104f;letter-spacing:.05em;animation:startGlow 1.6s infinite}
@@ -118,10 +123,11 @@ select,input[type=number],input[type=text],textarea{font-family:inherit;font-siz
 .face.back{transform:rotateY(180deg);background:repeating-linear-gradient(45deg,#6a1fb0 0 10px,#5a179a 10px 20px);border:4px solid #f5c542;box-shadow:0 5px 0 #0006;
   color:#f5c542;font-family:var(--ff-display);font-size:calc(var(--name)*1.8)}
 .face.back small{font-family:var(--ff);font-size:calc(var(--sub-size)*1.1);color:#ffe9a8;opacity:.8}
-.seat-name{font-weight:800;font-size:var(--name);line-height:1.12;word-break:keep-all;overflow-wrap:anywhere}
+.seat-name{font-weight:800;font-size:var(--name);line-height:1.12;word-break:keep-all;overflow-wrap:anywhere;max-width:100%}
+.seat-name.one{white-space:nowrap}
 .seat-label{font-size:var(--sub-size);font-weight:800;opacity:.95;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .seat-meta{font-size:calc(var(--sub-size)*.95);opacity:.85;white-space:nowrap}
-.seat-num{font-family:var(--ff-display);font-size:calc(var(--name)*1.2);opacity:.28}
+.seat-num{font-family:var(--ff-display);font-size:calc(var(--name)*1.2);opacity:.4}
 .ghost{opacity:.55}
 .seat.empty .face.front{opacity:.3;border-style:dashed}
 .seat.disabled{visibility:hidden;pointer-events:none}
@@ -158,7 +164,7 @@ select,input[type=number],input[type=text],textarea{font-family:inherit;font-siz
   border:2px solid #fff;animation:badgeIn .5s cubic-bezier(.3,1.6,.5,1)}
 @keyframes badgeIn{0%{transform:translateX(-50%) scale(0)}100%{transform:translateX(-50%) scale(1)}}
 #grid.clickable .seat:not(.empty){cursor:pointer}
-#grid.clickable .seat:not(.empty):hover .face.front{filter:brightness(1.15);transform:translateY(-2px)}
+@media (hover:hover){#grid.clickable .seat:not(.empty):hover .face.front{filter:brightness(1.15);transform:translateY(-2px)}}
 #grid.swapping .seat:not(.empty) .face.front{animation:wiggle .9s infinite}
 #grid.swapping .seat.empty .face.front{opacity:.6}
 @keyframes wiggle{25%{transform:rotate(-1.2deg)}75%{transform:rotate(1.2deg)}}
@@ -171,7 +177,7 @@ select,input[type=number],input[type=text],textarea{font-family:inherit;font-siz
 .seat.pz.wrong .face.back{background:#444;border-color:#888;color:#ff6b6b}
 .seat.pz.wrong .face.back::before{content:"✕";position:absolute;font-size:calc(var(--name)*2.2);color:#ff6b6b;opacity:.8}
 #grid.guessing .seat.pz:not(.wrong){cursor:pointer}
-#grid.guessing .seat.pz:not(.wrong):hover .face.back{filter:brightness(1.3)}
+@media (hover:hover){#grid.guessing .seat.pz:not(.wrong):hover .face.back{filter:brightness(1.3)}}
 
 /* puzzle panel */
 #puzzlePanel{flex:none;width:clamp(260px,27vw,420px);margin:8px 14px 8px 0;border-radius:20px;background:#071f26;border:3px solid var(--cyan);
@@ -276,13 +282,109 @@ body.timer-on #ann{padding-right:calc(clamp(200px,19vw,290px) + 20px)}
 #fxCanvas{position:fixed;inset:0;pointer-events:none;z-index:500}
 #printArea{display:none}
 
+/* modal close button */
+.modal,.mission-card{position:relative}
+.modal-x{position:sticky;top:-6px;float:right;z-index:5;width:42px;height:42px;border-radius:50%;background:#fff;color:#111;font-weight:800;font-size:18px;
+  margin:-6px -8px 0 8px;box-shadow:0 3px 0 #0006}
+.mission-card .modal-x{position:absolute;top:10px;right:12px;margin:0}
+
+/* help */
+.help-list{margin:6px 0;padding-left:1.3em;line-height:1.7;font-size:16px}
+.help-list b{color:var(--yellow)}
+kbd{background:#fff;color:#111;border-radius:6px;padding:0 6px;font-weight:800;font-family:inherit;box-shadow:0 2px 0 #0007}
+
+/* 投影モード（操作パネルを隠して座席を大きく） */
+body.focus #controlbar,body.focus #afterbar{display:none !important}
+#btnUnfocus{position:fixed;left:12px;bottom:12px;z-index:160;background:#000c;border:2px solid #fff6;border-radius:12px;padding:6px 12px;font-weight:800;font-size:14px;opacity:.55}
+#btnUnfocus:hover,#btnUnfocus:focus-visible{opacity:1}
+
+/* 縦長の小さい画面でもスクロールできる */
+#modes::-webkit-scrollbar{height:6px} #modes::-webkit-scrollbar-thumb{background:#ffffff40;border-radius:3px}
+
+/* ===== 高さが低い画面（Chromebook・ノートPC・ブラウザ枠つき） ===== */
+@media (max-height:760px){
+  #topbar{padding:4px 12px}
+  #controlbar{padding:5px 12px}
+  .mode-btn{padding:4px 11px}
+  #btnStart{padding:5px 20px}
+  #ann{min-height:52px;padding:4px 14px;margin-top:6px}
+  #annMain{font-size:clamp(20px,2.6vw,38px)}
+  #annSub{font-size:clamp(13px,1.3vw,19px)}
+  #ann.rpg{margin:8px 18px 2px}
+  #stage{margin:6px 12px}
+  #classroom{padding:6px 10px 8px}
+  #front{margin-bottom:4px;gap:3px;flex-direction:row;justify-content:center}
+  #board{height:22px;width:40%}
+  #desk{padding:1px 16px}
+  #afterbar{padding:5px 12px 7px}
+  .act-btn{padding:6px 13px}
+}
+
+/* ===== スマホ縦・小さい画面 ===== */
 @media (max-width:700px){
-  #mid{flex-direction:column}
-  #puzzlePanel{width:auto;margin:0 8px 8px;max-height:40vh}
-  #ann{margin:6px 8px 0}
-  #stage{margin:6px 8px}
+  body{height:auto;min-height:100dvh;overflow-y:auto;overscroll-behavior:auto}
+  #topbar{flex-wrap:nowrap;gap:6px;padding:6px 8px;position:sticky;top:0;z-index:50}
+  #logo{font-size:15px;letter-spacing:0}
+  #classChip,#btnFocus{display:none}
+  .icon-btn{padding:4px 7px;font-size:15px;border-radius:10px}
+  #topbar .spacer{min-width:0}
+  .icon-btn .lbl{display:none}
+  #controlbar{padding:6px 8px;gap:6px}
+  #modes{width:100%;flex-wrap:nowrap;overflow-x:auto;padding-bottom:3px;scroll-snap-type:x proximity}
+  .mode-btn{flex:none;padding:6px 11px;font-size:14px;scroll-snap-align:start}
+  .ctrl-right{margin-left:0;width:100%;gap:6px}
+  .ctrl-right label{font-size:12px}
+  .ctrl-right select{font-size:14px;padding:5px 4px}
+  #btnStart{flex:1;font-size:19px;padding:7px 10px}
+  #btnSkip{flex:1}
+  #ann{margin:6px 8px 0;min-height:56px;padding:6px 10px}
+  #annMain{font-size:clamp(19px,6vw,30px)}
+  #annSub{font-size:13px}
+  #ann.rpg{margin:8px 12px 2px}
+  #mid{flex:none;flex-direction:column}
+  #stage{flex:none;margin:6px 8px;height:min(74dvh,640px);min-height:340px}
+  #puzzlePanel{order:-1;width:auto;margin:6px 8px 0;max-height:none;padding:8px 10px}
+  #pzHints li{font-size:15px}
   .side-label{display:none}
-  #topbar{flex-wrap:wrap}
+  #room{gap:0}
+  #afterbar{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:6px 8px calc(10px + env(safe-area-inset-bottom))}
+  #afterbar .hint{display:none}
+  .act-btn{font-size:14px;padding:9px 6px}
+  #timerWidget{left:8px;right:8px;top:auto;bottom:calc(8px + env(safe-area-inset-bottom));width:auto;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 10px}
+  #timerWidget .tw-title,#twNames{display:none}
+  #twTime{font-size:40px}
+  body.timer-on #ann{padding-right:10px}
+  body.timer-on{padding-bottom:90px}
+  .modal-bg{padding:0;align-items:stretch}
+  .modal{max-height:100dvh;border-radius:0;border:none;padding:14px 14px calc(18px + env(safe-area-inset-bottom))}
+  .mission-card{padding:20px 16px;margin:auto 10px}
+  .mc-top{letter-spacing:.04em;font-size:16px;padding:4px 12px}
+  #btnUnfocus{bottom:calc(12px + env(safe-area-inset-bottom))}
+}
+/* ===== スマホ横向きなど、とても低い画面 ===== */
+@media (max-height:500px){
+  body{height:auto;min-height:100dvh;overflow-y:auto;overscroll-behavior:auto}
+  #topbar{padding:2px 10px}
+  #logo{font-size:16px}
+  .ctrl-right label{font-size:0;gap:0} .ctrl-right label select{font-size:14px}
+  .icon-btn{padding:2px 8px}
+  #controlbar{flex-wrap:nowrap;padding:3px 10px}
+  #modes{flex:1;min-width:0;flex-wrap:nowrap;overflow-x:auto}
+  .ctrl-right{flex:none;margin-left:0}
+  .mode-btn{flex:none;padding:2px 9px;font-size:13px}
+  .ctrl-right{flex-wrap:nowrap}
+  #btnStart{font-size:16px;padding:3px 14px}
+  #ann{min-height:40px;padding:2px 10px;margin-top:4px}
+  #annMain{font-size:20px} #annSub{font-size:12px}
+  #mid{flex:none}
+  #stage{flex:1;height:calc(100dvh - 16px);min-height:260px;margin:4px 10px}
+  #puzzlePanel{max-height:calc(100dvh - 16px)}
+  #afterbar{padding:4px 10px}
+  .act-btn{padding:4px 10px;font-size:13px}
+  #afterbar .hint{display:none}
+}
+@media (prefers-reduced-motion:reduce){
+  .seat.shake,#grid.shaking .seat,#grid.swapping .seat:not(.empty) .face.front,#btnStart,.seat.trade-glow::after,#afterbar .hint{animation:none !important}
 }
 @media print{
   @page{size:A4 landscape;margin:8mm}
@@ -299,10 +401,12 @@ body.timer-on #ann{padding-right:calc(clamp(200px,19vw,290px) + 20px)}
   <div id="logo">🎪 セキガエ・フェス！</div>
   <div id="classChip"></div>
   <div class="spacer"></div>
-  <button class="icon-btn" id="btnSettings" title="クラス・座席の設定">⚙ 設定</button>
-  <button class="icon-btn" id="btnMute" title="効果音のオン/オフ">🔊</button>
-  <button class="icon-btn" id="btnFull" title="全画面表示">⛶</button>
-  <button class="icon-btn" id="btnSecret" title="先生用">🔒</button>
+  <button class="icon-btn" id="btnHelp" title="使い方" aria-label="使い方">❓<span class="lbl"> 使い方</span></button>
+  <button class="icon-btn" id="btnSettings" title="クラス・座席の設定" aria-label="クラス・座席の設定">⚙<span class="lbl"> 設定</span></button>
+  <button class="icon-btn" id="btnMute" title="効果音のオン/オフ" aria-label="効果音のオン/オフ">🔊</button>
+  <button class="icon-btn" id="btnFocus" title="座席を大きく表示（操作パネルを隠す）" aria-label="座席を大きく表示">🖥</button>
+  <button class="icon-btn" id="btnFull" title="全画面表示" aria-label="全画面表示">⛶</button>
+  <button class="icon-btn" id="btnSecret" title="先生用" aria-label="先生用の設定">🔒</button>
 </header>
 
 <section id="controlbar">
@@ -379,6 +483,35 @@ body.timer-on #ann{padding-right:calc(clamp(200px,19vw,290px) + 20px)}
 </section>
 
 <div id="bigText"></div>
+<button id="btnUnfocus" class="hidden">⚙ 操作パネルを表示</button>
+
+<!-- ===== 使い方 ===== -->
+<div id="helpModal" class="modal-bg hidden">
+  <div class="modal">
+    <h2>❓ 使い方</h2>
+    <ol class="help-list">
+      <li><b>⚙ 設定</b> でクラス名・生徒名（名簿をコピペ）・列数×行数・使わない席を決める</li>
+      <li>先生だけの条件（前列固定・離したい2人）は右上の <b>🔒</b> で。<b>投影中は開かないように注意！</b></li>
+      <li>演出（サバイバル／RPG／競馬／一括オープン／推理パズル）を選んで <b>▶ スタート！</b></li>
+      <li>決まったら、席をタップでミッション、下のボタンで称号・トレード権・入れ替え・座席表の保存（印刷／画像／Excel）</li>
+    </ol>
+    <h3>⌨ キーボード（Chromebook・PC）</h3>
+    <ul class="help-list">
+      <li><kbd>Enter</kbd> または <kbd>Space</kbd>：スタート ／ 演出中はスキップ</li>
+      <li><kbd>S</kbd>：演出をスキップ</li>
+      <li><kbd>F</kbd>：座席を大きく表示（操作パネルを隠す／戻す）</li>
+      <li><kbd>M</kbd>：音のオン／オフ</li>
+      <li><kbd>Esc</kbd>：開いている画面を閉じる</li>
+    </ul>
+    <h3>💡 ヒント</h3>
+    <ul class="help-list">
+      <li>結果は自動で保存され、ページを開き直しても残ります</li>
+      <li>スマホは縦でも横でもOK。プロジェクターでは <b>🖥</b> と <b>⛶</b> で座席を最大に</li>
+      <li>設定はこのブラウザにだけ保存されます（名簿が外部に送られることはありません）</li>
+    </ul>
+    <div class="btns"><button class="btn primary" data-close>とじる</button></div>
+  </div>
+</div>
 <canvas id="fxCanvas"></canvas>
 <div id="toast" class="hidden"></div>
 
@@ -527,6 +660,8 @@ const DEFAULT_NAMES = [
 const SPEED = { slow: 1.5, normal: 1, fast: 0.55, turbo: 0.25 };
 const MODE_KEYS = ['death', 'rpg', 'race', 'card', 'puzzle'];
 const STORE_KEY = 'sekigae-fes-v1';
+// 動きを減らす設定の端末・非力な端末（Chromebookなど）では紙吹雪を控えめに
+const LITE = (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) || (navigator.hardwareConcurrency || 8) <= 4;
 
 const store = {
   load() { try { return JSON.parse(localStorage.getItem(STORE_KEY) || 'null'); } catch (e) { return null; } },
@@ -656,6 +791,7 @@ const fx = (() => {
   }
   function boom(o = {}) {
     const opt = Object.assign({ particleCount: 100, spread: 75, origin: { x: 0.5, y: 0.6 }, zIndex: 600, colors: COLORS }, o);
+    if (LITE) opt.particleCount = Math.round(opt.particleCount * 0.4);
     if (typeof window.confetti === 'function') window.confetti(opt); else fallback(opt);
   }
   return {
@@ -846,6 +982,7 @@ function fillSeat(i, anim) {
   const el = S.seatEls[i]; if (!el) return;
   el.querySelector('.face.front').innerHTML = filledHTML(S.seats[i]);
   el.classList.add('done');
+  fitNames(el);
   if (anim === 'stamp') {
     el.querySelector('.face.front').insertAdjacentHTML('beforeend', '<div class="stamp">確定</div>');
     anim = 'pop';
@@ -860,13 +997,13 @@ function gapFns(small, big) {
     gy: r => r >= rows - 1 ? 0 : gr === 1 ? small : ((r + 1) % gr === 0 ? big : small * 0.35)
   };
 }
-function computeLayout(W, H, small, big, ratio = 0.72) {
+function computeLayout(W, H, small, big, ratio = 0.72, wide = 2.3) {
   const { cols, rows } = S.cfg, { gx, gy } = gapFns(small, big);
   let sumX = 0, sumY = 0;
   for (let c = 0; c < cols - 1; c++) sumX += gx(c);
   for (let r = 0; r < rows - 1; r++) sumY += gy(r);
   let sw = (W - sumX) / cols, sh = (H - sumY) / rows;
-  sh = Math.min(sh, sw * ratio); sw = Math.min(sw, sh * 2.3);
+  sh = Math.min(sh, sw * ratio); sw = Math.min(sw, sh * wide);
   const X = [], Y = [];
   let x = (W - (sw * cols + sumX)) / 2, y = (H - (sh * rows + sumY)) / 2;
   for (let c = 0; c < cols; c++) { X.push(x); x += sw + gx(c); }
@@ -876,10 +1013,12 @@ function computeLayout(W, H, small, big, ratio = 0.72) {
 function layoutGrid() {
   const wrap = $('#gridWrap'), W = wrap.clientWidth, H = wrap.clientHeight - 10;
   if (!W || H <= 0) return;
-  const small = Math.max(6, Math.min(W, H) * 0.014);
-  const g = computeLayout(W, H, small, small * 3.4);
+  const small = Math.max(4, Math.min(W, H) * 0.014);
+  // 画面の形に合わせて席の縦横比を変える（スマホ縦は縦長OK、低い画面は横長OK）
+  const aspect = (W / S.cfg.cols) / (H / S.cfg.rows);
+  const g = computeLayout(W, H, small, small * 3.4, aspect < 1.1 ? Math.min(1.5, 1.1 / aspect) : 0.72, aspect > 2.2 ? 3.4 : 2.3);
   S.geom = g;
-  const name = Math.max(11, Math.min(g.sw * 0.15, g.sh * 0.26));
+  const name = Math.max(10, Math.min(g.sw * 0.16, g.sh * 0.3));
   const root = $('#stage');
   root.style.setProperty('--name', name + 'px');
   root.style.setProperty('--sub-size', Math.max(9, name * 0.52) + 'px');
@@ -887,6 +1026,28 @@ function layoutGrid() {
   S.seatEls.forEach((el, i) => {
     const s = S.seats[i];
     Object.assign(el.style, { left: g.X[s.c] + 'px', top: (g.Y[s.r] + 10) + 'px', width: g.sw + 'px', height: g.sh + 'px' });
+  });
+  g.name = name;
+  // 座席は黒板のすぐ下に寄せる（スマホ縦で上に大きなすき間ができないように）
+  const y0 = g.Y[0], shift = Math.max(0, y0 - 4);
+  if (shift) S.seatEls.forEach((el, i) => { el.style.top = (g.Y[S.seats[i].r] - shift + 10) + 'px'; });
+  g.Y = g.Y.map(y => y - shift);
+  fitNames(grid);
+}
+// 名前が席からはみ出さないよう、1人ずつ文字サイズを調整（姓と名の間で2行に分けることも）
+const textLen = t => Array.from(t).reduce((a, ch) => a + (/[ -~]/.test(ch) ? 0.58 : 1), 0);
+function fitNames(root) {
+  const g = S.geom; if (!g) return;
+  root.querySelectorAll('.seat-name').forEach(el => {
+    const t = el.textContent.trim(); if (!t) return;
+    const face = el.parentElement, extra = face.querySelectorAll('.seat-label,.seat-meta').length;
+    const sub = Math.max(9, g.name * 0.52), w = (g.sw - 22) * 0.94, h = g.sh - 16 - extra * sub * 1.25;
+    const parts = t.split(/\s+/), longest = Math.max(...parts.map(textLen));
+    const one = Math.min(w / textLen(t), h * 0.8);
+    const two = parts.length > 1 ? Math.min(w / longest, h / 2.4) : 0;
+    const size = Math.max(9, Math.min(g.name * 1.45, Math.max(one, two)));
+    el.style.fontSize = size + 'px';
+    el.classList.toggle('one', one >= two);
   });
 }
 
@@ -1293,8 +1454,13 @@ async function runPuzzle() {
 const RUNNERS = { death: runDeath, rpg: runRpg, race: runRace, card: runCard, puzzle: runPuzzle };
 
 /* ===== 実行 ===== */
+function confirmDiscard() {
+  return S.phase !== 'done' || confirm('今の席替え結果を消して、新しく席替えしますか？\n（残したい場合は先に「📄 座席表を出力」で保存してください）');
+}
 async function startShow() {
-  if (S.phase === 'running') return;
+  if (S.phase === 'running' || !confirmDiscard()) return;
+  closeModals();
+  keepAwake();
   SFX.unlock();
   buildSeats();
   const res = solve();
@@ -1319,9 +1485,24 @@ function finalize() {
   fx.big();
   saveLast();
 }
+const layoutSig = () => JSON.stringify([S.cfg.cols, S.cfg.rows, S.cfg.disabled.slice().sort(), S.cfg.names]);
 function saveLast() {
   const map = {}; S.assign.forEach((n, i) => { if (n) map[n] = i; });
-  S.cfg.last = { cols: S.cfg.cols, rows: S.cfg.rows, map }; saveCfg();
+  S.cfg.last = { cols: S.cfg.cols, rows: S.cfg.rows, map };
+  // ページを開き直しても結果が残るように保存
+  const buffs = {}; Object.entries(S.buffs).forEach(([i, b]) => { buffs[i] = BUFFS.indexOf(b); });
+  S.cfg.result = { sig: layoutSig(), assign: S.assign, runMode: S.runMode, buffs, stats: S.stats, at: Date.now() };
+  saveCfg();
+}
+function restoreResult() {
+  const r = S.cfg.result;
+  if (!r || r.sig !== layoutSig() || !Array.isArray(r.assign)) return false;
+  S.assign = r.assign; S.runMode = r.runMode || S.cfg.mode; S.stats = r.stats || {};
+  S.buffs = {}; Object.entries(r.buffs || {}).forEach(([i, k]) => { if (BUFFS[k]) S.buffs[i] = BUFFS[k]; });
+  S.phase = 'done'; updateUI(); renderGrid('result');
+  const d = new Date(r.at || Date.now());
+  setAnn('📂 前回の席替え結果', `${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')} の結果を表示中　｜　「🔁 もう一度！」で新しく席替え`);
+  return true;
 }
 
 function updateUI() {
@@ -1351,6 +1532,7 @@ function applyTheme() {
   $('#sideL').className = 'side-label' + (winLeft ? ' window' : ''); $('#sideR').className = 'side-label' + (winLeft ? '' : ' window');
 }
 function resetIdle() {
+  S.cfg.result = null;
   S.phase = 'idle'; S.assign = []; S.buffs = {}; S.tradeWinners = []; S.runMode = null;
   setSwap(false); buildSeats(); applyTheme(); updateUI(); renderGrid('idle');
   const [a, b] = MODE_INFO[S.cfg.mode]; setAnn(a, b + '　▶ スタートを押してね');
@@ -1447,7 +1629,7 @@ async function assignBuffs() {
     setAnn(`${b.icon} ${b.name}`, `${S.assign[s.i]} さん：${b.desc}`);
     await waitAbs(1300);
   }
-  if (S.phase === 'done') setAnn('✨ 称号の付与が完了！', '席をタップすると称号の効果も見られるよ');
+  if (S.phase === 'done') { setAnn('✨ 称号の付与が完了！', '席をタップすると称号の効果も見られるよ'); saveLast(); }
   buffBusy = false; $('#btnBuff').disabled = false;
 }
 
@@ -1874,6 +2056,7 @@ function saveSettings() {
   const names = cleanNames($('#setNames').value.split(/\r?\n/));
   const cols = Math.max(1, Math.min(10, +$('#setCols').value || 6)), rows = Math.max(1, Math.min(8, +$('#setRows').value || 5));
   if (!names.length) { toast('生徒名を1人以上入力してください'); return; }
+  if (!confirmDiscard()) return;
   $('#setCols').value = cols; $('#setRows').value = rows;
   if (names.length > draftCapacity()) { toast('席が足りません。列数・行数を増やすか、使わない席を減らしてください'); return; }
   const disabled = Array.from(draftOff).filter(k => { const [r, c] = k.split('-').map(Number); return r < rows && c < cols; });
@@ -1990,6 +2173,9 @@ document.addEventListener('keydown', e => {
   const typing = ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName);
   if (e.key === 'Escape') { closeModals(); resetIdleIfNeeded(); return; }
   if (typing || $$('.modal-bg').some(m => !m.classList.contains('hidden'))) return;
+  if (e.key === 'f' || e.key === 'F') { setFocus(!document.body.classList.contains('focus')); return; }
+  if (e.key === 'm' || e.key === 'M') { $('#btnMute').click(); return; }
+  if (e.target.tagName === 'BUTTON' && (e.key === 'Enter' || e.key === ' ')) return; // ボタン操作を優先
   if ((e.key === 'Enter' || e.key === ' ') && S.phase !== 'running') { e.preventDefault(); startShow(); }
   else if ((e.key === 's' || e.key === 'S' || e.key === ' ') && S.phase === 'running') { e.preventDefault(); doSkip(); }
 });
@@ -1997,8 +2183,31 @@ document.addEventListener('keydown', e => {
 if (window.ResizeObserver) new ResizeObserver(() => layoutGrid()).observe($('#gridWrap'));
 else window.addEventListener('resize', layoutGrid);
 
-/* 起動 */
+function setFocus(on) {
+  document.body.classList.toggle('focus', on);
+  $('#btnFocus').classList.toggle('on', on);
+  $('#btnUnfocus').classList.toggle('hidden', !on);
+}
+$('#btnFocus').addEventListener('click', () => setFocus(!document.body.classList.contains('focus')));
+$('#btnUnfocus').addEventListener('click', () => setFocus(false));
+$('#btnHelp').addEventListener('click', () => openModal('#helpModal'));
+if (!document.fullscreenEnabled) $('#btnFull').classList.add('hidden'); // iPhoneなど全画面非対応
+
+// 画面が暗くならないように（対応ブラウザのみ）
+let wakeLock = null;
+async function keepAwake() {
+  try { if ('wakeLock' in navigator && !wakeLock) { wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => { wakeLock = null; }); } } catch (e) { /* 非対応 */ }
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && S.phase !== 'idle') keepAwake(); });
+
+// すべての画面に「✕」閉じるボタン
+$$('.modal, .mission-card').forEach(m => m.insertAdjacentHTML('afterbegin', '<button class="modal-x" data-close aria-label="閉じる">✕</button>'));
+
+/* 起動（前回の結果があれば復元） */
+const savedResult = S.cfg.result;
 resetIdle();
+S.cfg.result = savedResult;
+restoreResult();
 </script>
 </body>
 </html>
