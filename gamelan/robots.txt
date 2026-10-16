@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://nakatadaiki1012-design.github.io/gamelan-simulator/sitemap.xml

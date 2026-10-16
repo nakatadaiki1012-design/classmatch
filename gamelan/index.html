@@ -5,7 +5,48 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#1b120c">
-<title>はじめてのガムラン教室</title>
+<title>はじめてのガムラン教室｜スマホで学べるガムラン学習アプリ（ジャワ・バリ）</title>
+<meta name="description" content="インドネシアの合奏音楽ガムランを、スマホ・タブレット・パソコンのブラウザで無料で学べる学習アプリ。14のレッスン、楽器ごとのセオリー、ゴングの周期の見える化、合奏の中での練習、ジャワとバリの比較。音楽の授業の教材にも。">
+<meta name="keywords" content="ガムラン,gamelan,ジャワ,バリ,インドネシア,民族音楽,音楽教育,教材,スレンドロ,ペロッグ,サロン,ボナン,ゴング,コテカン,学習アプリ">
+<meta name="robots" content="index,follow">
+<meta name="author" content="はじめてのガムラン教室">
+<link rel="canonical" href="https://nakatadaiki1012-design.github.io/gamelan-simulator/">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='44' fill='%23b8862f'/%3E%3Ccircle cx='50' cy='50' r='30' fill='%23d9a94a'/%3E%3Ccircle cx='50' cy='50' r='13' fill='%23f0cd7a'/%3E%3C/svg%3E">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="はじめてのガムラン教室">
+<meta property="og:title" content="はじめてのガムラン教室｜スマホで学べるガムラン学習アプリ">
+<meta property="og:description" content="インドネシアの合奏音楽ガムランを、スマホ・タブレット・パソコンのブラウザで無料で学べる学習アプリ。14のレッスン、楽器ごとのセオリー、ゴングの周期の見える化、合奏の中での練習、ジャワとバリの比較。音楽の授業の教材にも。">
+<meta property="og:url" content="https://nakatadaiki1012-design.github.io/gamelan-simulator/">
+<meta property="og:image" content="https://nakatadaiki1012-design.github.io/gamelan-simulator/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="ゴング・アグンと青銅の鍵盤楽器のイラスト「はじめてのガムラン教室」">
+<meta property="og:locale" content="ja_JP">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="はじめてのガムラン教室｜スマホで学べるガムラン学習アプリ">
+<meta name="twitter:description" content="インドネシアの合奏音楽ガムランを、スマホ・タブレット・パソコンのブラウザで無料で学べる学習アプリ。14のレッスン、楽器ごとのセオリー、ゴングの周期の見える化、合奏の中での練習、ジャワとバリの比較。音楽の授業の教材にも。">
+<meta name="twitter:image" content="https://nakatadaiki1012-design.github.io/gamelan-simulator/og-image.png">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": ["WebApplication", "LearningResource"],
+  "name": "はじめてのガムラン教室",
+  "alternateName": "Gamelan Lessons for Beginners",
+  "description": "インドネシアの合奏音楽ガムランを、スマホ・タブレット・パソコンのブラウザで無料で学べる学習アプリ。14のレッスン、楽器ごとのセオリー、ゴングの周期の見える化、合奏の中での練習、ジャワとバリの比較。音楽の授業の教材にも。",
+  "url": "https://nakatadaiki1012-design.github.io/gamelan-simulator/",
+  "image": "https://nakatadaiki1012-design.github.io/gamelan-simulator/og-image.png",
+  "inLanguage": "ja",
+  "applicationCategory": "EducationalApplication",
+  "operatingSystem": "Web browser (iOS, Android, Windows, macOS)",
+  "isAccessibleForFree": true,
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "JPY" },
+  "educationalUse": ["授業", "自習", "課題"],
+  "learningResourceType": ["レッスン", "クイズ", "シミュレーション"],
+  "teaches": ["ガムランのしくみ", "ゴングの周期（コロトミー）", "スレンドロとペロッグ", "イラマ", "バリのコテカン"],
+  "about": { "@type": "Thing", "name": "ガムラン", "sameAs": "https://ja.wikipedia.org/wiki/ガムラン" },
+  "keywords": "ガムラン, gamelan, ジャワ, バリ, インドネシア, 民族音楽, 音楽教育, 教材"
+}
+</script>
 <style>
   /* 構成：上部タブ → 各ページはパネルを縦に積む。色は青銅と木の楽器台から取る */
   :root{
@@ -63,6 +104,7 @@
   .tabs button{background:var(--panel); color:var(--sub); border:1px solid var(--line); padding:9px 2px; font-size:.8rem; line-height:1.25;}
   .tabs button.active{background:var(--accent); color:var(--onaccent); border-color:var(--accent);}
   .page{display:none;} .page.active{display:block;}
+  .about{margin-top:18px; font-size:.85rem; line-height:1.7;} .about h2{font-size:1rem; margin:0 0 6px;} .about h3{font-size:.9rem; margin:10px 0 4px;} .about ul{padding-left:1.2em; margin:6px 0;} .about dt{font-weight:bold; margin-top:6px;} .about dd{margin:0 0 0 1em; color:var(--sub);}
 
   .chips{display:flex; gap:6px; overflow-x:auto; padding-bottom:4px; scrollbar-width:thin;}
   .chips button{flex:0 0 auto; padding:8px 12px; font-size:.85rem;}
@@ -497,6 +539,26 @@
     </div>
   </div>
   <p class="note">※ 音は Web Audio による合成音です。収録曲は仕組みを学ぶための練習用オリジナル旋律で、装飾パターンは実際の奏法を簡単にしたものです。</p>
+</section>
+
+
+<!-- ============ このアプリについて（検索エンジンと初めての人向けの説明） ============ -->
+<noscript><p class="lead">このアプリは JavaScript を使って音を鳴らします。ブラウザの設定で JavaScript を有効にしてください。</p></noscript>
+<section id="about" class="panel about">
+  <h2>このアプリについて</h2>
+  <p>「はじめてのガムラン教室」は、インドネシアの青銅の合奏音楽<strong>ガムラン（gamelan）</strong>を、スマホ・タブレット・パソコンのブラウザだけで学べる無料の学習アプリです。インストールは要りません。</p>
+  <ul>
+    <li><strong>14のレッスン</strong>：数字の楽譜、ゴングが時間を区切るしくみ（コロトミー）、スレンドロとペロッグ、イラマ、バリのコテカンまで順番に学べます。</li>
+    <li><strong>楽器のセオリー</strong>：サロン、ボナン、クノン、ゴング・アグン、クンダンなど16の楽器の役割と決まりごと。</li>
+    <li><strong>合奏の中で練習</strong>：ほかの楽器は自動演奏。自分のパートを叩くと判定します。</li>
+    <li><strong>ジャワとバリのちがい</strong>：同じ旋律をジャワ風とバリ風で聴きくらべられます。</li>
+  </ul>
+  <h3>よくある質問</h3>
+  <dl>
+    <dt>授業で使えますか？</dt><dd>はい。1人1台の端末があれば、音楽の授業や民族音楽・異文化理解の学習の教材として使えます（現在開発中です）。</dd>
+    <dt>音は本物の録音ですか？</dt><dd>いいえ。ブラウザで作った合成音です。音の高さと響きの長さは測りながら調整しています。</dd>
+    <dt>お金はかかりますか？</dt><dd>無料です。</dd>
+  </dl>
 </section>
 
 <script>

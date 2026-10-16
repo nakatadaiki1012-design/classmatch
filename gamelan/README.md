@@ -95,3 +95,10 @@
 - 練習の判定：音の出力の遅れ（レイテンシー）を考慮し、拍との時間差で「ぴったり／おしい／ミス」。`AudioContext.currentTime` を使ったルックアヘッド・スケジューラで、1拍を8分割したティック単位で全楽器を正確に発音。
 - 楽器音は非整数倍音（鍵盤）や、わずかにずらした部分音（ゴングのうなり）を重ねた加算合成＋簡易リバーブ。
 - `pointerdown` によるマルチタッチ入力、レスポンシブUI。
+
+## 検索エンジン（Google）向けの設定
+
+- `index.html` の head に、説明文（description）、キーワード、正式なURL（canonical）、SNSでシェアしたときのカード（OGP / Twitter）、構造化データ（JSON-LD：学習用Webアプリ）を入れています。
+- ページの下に「このアプリについて」とよくある質問を載せています（検索エンジンが内容を理解しやすくするため）。
+- `og-image.png`（1200×630）はシェア用の画像、`robots.txt` と `sitemap.xml` は検索エンジン向けのファイルです。
+- URL は GitHub Pages の `https://nakatadaiki1012-design.github.io/gamelan-simulator/` を前提にしています。
