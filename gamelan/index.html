@@ -106,10 +106,28 @@
   .page{display:none;} .page.active{display:block;}
   /* 合奏ページ：曲と担当楽器を選ぶだけで、ほかの楽器は自動で演奏 */
   .jstep{font-weight:800; font-size:.9rem; margin:2px 0 6px; color:var(--accent);}
-  .jinsts{display:grid; grid-template-columns:repeat(auto-fill,minmax(98px,1fr)); gap:6px;}
-  .jinsts button{display:flex; flex-direction:column; align-items:flex-start; gap:2px; padding:8px 9px; text-align:left; font-size:.85rem; font-weight:800; min-height:54px;}
-  .jinsts button small{font-weight:400; font-size:.68rem; color:var(--sub); line-height:1.3;}
-  .jinsts button.on small{color:inherit; opacity:.85;}
+  .jinsts{display:grid; grid-template-columns:repeat(auto-fill,minmax(104px,1fr)); gap:7px;}
+  .jcard{display:flex; flex-direction:column; align-items:stretch; gap:2px; padding:6px 7px 8px; text-align:left; background:var(--panel2); color:var(--text);
+    border:2px solid var(--line); border-radius:12px; font-weight:800; font-size:.85rem; position:relative;}
+  .jcard .pic{height:64px; display:flex; align-items:center; justify-content:center; pointer-events:none; margin-bottom:2px;}
+  .jcard .pic svg{width:100% !important; height:100% !important; max-width:none !important;}
+  .jcard small{font-weight:400; font-size:.68rem; color:var(--sub); line-height:1.3;}
+  .jcard.sel{border-color:var(--accent); background:color-mix(in srgb, var(--accent) 16%, var(--panel2)); box-shadow:0 0 0 2px var(--accent);}
+  .jcard.sel::after{content:'✓ えらび中'; position:absolute; top:4px; right:5px; font-size:.6rem; background:var(--accent); color:var(--onaccent); border-radius:6px; padding:1px 5px; z-index:2;}
+  .jsongs{position:relative; display:flex; gap:8px; overflow-x:auto; scroll-snap-type:x mandatory; padding:2px 2px 8px; scrollbar-width:thin;}
+  .jsong{flex:0 0 min(78%, 270px); scroll-snap-align:start; display:flex; flex-direction:column; gap:5px; padding:10px 11px; text-align:left;
+    background:var(--panel2); color:var(--text); border:2px solid var(--line); border-radius:12px; font-weight:400; font-size:.78rem; cursor:pointer;}
+  .jsong.sel{border-color:var(--accent); box-shadow:0 0 0 2px var(--accent);}
+  .jsong .jt{font-weight:800; font-size:.95rem; line-height:1.3;}
+  .jsong .jr{font-size:.66rem; font-weight:700; border-radius:6px; padding:1px 6px; align-self:flex-start;}
+  .jsong .jr.java{background:#3d5a3a; color:#d8f2cf;} .jsong .jr.bali{background:#7a2c1c; color:#ffe0c8;} .jsong .jr.compare{background:#3b3f6b; color:#dfe3ff;}
+  .jsong .jtags{display:flex; flex-wrap:wrap; gap:4px;} .jsong .jtags span{font-size:.66rem; border:1px solid var(--line); border-radius:6px; padding:1px 5px; color:var(--sub);}
+  .jsong .jd{color:var(--sub); line-height:1.5;}
+  .jsong .jcyc{display:flex; gap:2px; align-items:center; flex-wrap:wrap;} .jsong .jcyc i{width:6px; height:6px; border-radius:50%; background:#5a3f2a;}
+  .jsong .jcyc i.n{background:#e9b44c;} .jsong .jcyc i.p{background:#d98c4a;} .jsong .jcyc i.g{width:12px; height:12px; background:#e0683c;}
+  .jsong .jcap{font-size:.62rem; color:var(--sub);}
+  .jsong .jl{align-self:flex-start; padding:5px 10px; font-size:.75rem;}
+  .jhint{font-size:.7rem; color:var(--sub); margin:-2px 0 6px;}
   .jnow{font-size:.85rem; margin:4px 0 8px;}
   .about{margin-top:18px; font-size:.85rem; line-height:1.7;} .about h2{font-size:1rem; margin:0 0 6px;} .about h3{font-size:.9rem; margin:10px 0 4px;} .about ul{padding-left:1.2em; margin:6px 0;} .about dt{font-weight:bold; margin-top:6px;} .about dd{margin:0 0 0 1em; color:var(--sub);}
 
@@ -410,9 +428,11 @@
 <section id="page-jam" class="page active">
   <div class="panel">
     <div class="jstep">① 演奏したい楽器をえらぶ</div>
+    <div class="jhint" id="jamInstHint"></div>
     <div class="jinsts" id="jamInsts"></div>
-    <div class="jstep" style="margin-top:12px">② 曲をえらぶ</div>
-    <select id="jamPiece" style="width:100%"></select>
+    <div class="jstep" style="margin-top:14px">② 曲をえらぶ</div>
+    <div class="jhint">← 横にスクロールすると、ほかの曲も出てきます。「▶ 聴いてみる」で試聴できます。</div>
+    <div class="jsongs" id="jamPiece"></div>
   </div>
   <div class="panel">
     <div class="jstep">③「一緒に弾く」を押して、光る音を叩こう</div>
@@ -659,27 +679,27 @@ function colotomy(form, N){
 const FORM_NAME = {lancaran:'ランチャラン', ketawang:'クタワン', ladrang:'ラドラン', bali:'バリ風', free:'自由形式'};
 
 const PIECES = [
-  {region:'java', name:'ランチャラン「はじめの一歩」（スレンドロ）', laras:'slendro', form:'lancaran', tempo:72,
+  {region:'java', desc:'いちばん基本の形。16拍ごとにゴングが鳴る、明るく元気な曲。はじめての人はここから。', level:'★', name:'ランチャラン「はじめの一歩」（スレンドロ）', laras:'slendro', form:'lancaran', tempo:72,
    bal:'6, 1 2 3  6, 1 2 3  5 6 5 3  2 1 2 6,'},
-  {region:'java', name:'クタワン「月のしずく」（ペロッグ・パテット・バラン）', laras:'pelog', form:'ketawang', tempo:56,
+  {region:'java', desc:'ゆったりした16拍の曲。ペロッグの少し切ない響き。ルバブやスリンなど柔らかい楽器も入ります。', level:'★★', name:'クタワン「月のしずく」（ペロッグ・パテット・バラン）', laras:'pelog', form:'ketawang', tempo:56,
    bal:'6 7 6 5  3 2 7 6  2 3 5 6  7 5 3 2'},
-  {region:'java', name:'ラドラン「ゆるやかな川」（スレンドロ）', laras:'slendro', form:'ladrang', tempo:52,
+  {region:'java', desc:'32拍の長い周期で、川のように落ち着いて流れる宮廷風の曲。ゴングまでの長い道のりを味わえます。', level:'★★', name:'ラドラン「ゆるやかな川」（スレンドロ）', laras:'slendro', form:'ladrang', tempo:52,
    bal:'2 1 2 6,  2 1 2 6,  3 5 6 5  3 2 1 2  . . 2 3  5 6 5 3  6 5 3 2  5 3 2 1'},
-  {region:'bali', name:'バリ風「火の鳥」コテカン（ペロッグ）', laras:'pelog', form:'bali', tempo:84,
+  {region:'bali', desc:'2人でかみ合わせる「コテカン」が主役。きらきらと速い、バリらしい響き。', level:'★★★', name:'バリ風「火の鳥」コテカン（ペロッグ）', laras:'pelog', form:'bali', tempo:84,
    bal:'1 2 3 1  2 3 5 3  6 5 3 2  3 5 3 1'},
-  {region:'bali', name:'バリ風「波」コテカン（スレンドロ）', laras:'slendro', form:'bali', tempo:90,
+  {region:'bali', desc:'スレンドロの音階で弾くバリ風の曲。寄せては返す波のようなコテカン。', level:'★★★', name:'バリ風「波」コテカン（スレンドロ）', laras:'slendro', form:'bali', tempo:90,
    bal:'3 5 6 5  3 2 1 2  3 5 3 2  1 2 1 6,'},
-  {region:'java', name:'ランチャラン「市場へ」（ペロッグ・1拍おき＝ニバニ）', laras:'pelog', form:'lancaran', tempo:84,
+  {region:'java', desc:'1拍おきに音がある（ニバニ）軽やかな曲。市場のにぎわいのように弾みます。', level:'★', name:'ランチャラン「市場へ」（ペロッグ・1拍おき＝ニバニ）', laras:'pelog', form:'lancaran', tempo:84,
    bal:'. 2 . 1  . 2 . 3  . 5 . 3  . 2 . 1'},
-  {region:'java', name:'ラドラン「朝の宮殿」（ペロッグ・パテット・バラン）', laras:'pelog', form:'ladrang', tempo:54,
+  {region:'java', desc:'宮殿の朝のように堂々とした32拍。ペロッグ・バランの明るく高い響き。', level:'★★', name:'ラドラン「朝の宮殿」（ペロッグ・パテット・バラン）', laras:'pelog', form:'ladrang', tempo:54,
    bal:'2 3 2 7  5 6 7 6  3 2 7 6  5 3 2 3  . . 3 2  7 6 5 6  3 5 6 7  6 5 3 2'},
-  {region:'java', name:'クタワン「夕べの祈り」（スレンドロ）', laras:'slendro', form:'ketawang', tempo:54,
+  {region:'java', desc:'音をのばす「休み」がある静かな曲。夕暮れの祈りのような落ち着いた雰囲気。', level:'★★', name:'クタワン「夕べの祈り」（スレンドロ）', laras:'slendro', form:'ketawang', tempo:54,
    bal:'3 3 . .  6 5 3 2  5 6 5 3  2 1 2 6,'},
-  {region:'bali', name:'バリ風「祭りの行列」32拍（ペロッグ）', laras:'pelog', form:'bali', tempo:96,
+  {region:'bali', desc:'お祭りの行列のように勢いのある32拍。途中でピタッと止まる「アンセル」も聴けます。', level:'★★★', name:'バリ風「祭りの行列」32拍（ペロッグ）', laras:'pelog', form:'bali', tempo:96,
    bal:'3 1 3 2  5 3 2 1  2 3 5 6  5 3 2 3  1 2 3 5  3 2 1 2  3 5 3 2  1 2 1 3'},
-  {region:'compare', name:'くらべる：同じ旋律をジャワ風に', laras:'pelog', form:'lancaran', tempo:66,
+  {region:'compare', desc:'となりの「バリ風」と同じ旋律を、ジャワ風にゆったり演奏。聴きくらべてみよう。', level:'★', name:'くらべる：同じ旋律をジャワ風に', laras:'pelog', form:'lancaran', tempo:66,
    bal:'1 2 3 5  3 2 1 2  3 5 3 2  1 6, 1 2'},
-  {region:'compare', name:'くらべる：同じ旋律をバリ風に', laras:'pelog', form:'bali', tempo:100,
+  {region:'compare', desc:'となりの「ジャワ風」と同じ旋律を、バリ風に速く、2人でかみ合わせて演奏。', level:'★★★', name:'くらべる：同じ旋律をバリ風に', laras:'pelog', form:'bali', tempo:100,
    bal:'1 2 3 5  3 2 1 2  3 5 3 2  1 6, 1 2'},
 ];
 const REGION_NAME = {java:'ジャワ（中部ジャワ風）', bali:'バリ（ゴン・クビャール風）', compare:'くらべる：同じ旋律をジャワ風・バリ風で', custom:'自作'};
@@ -2938,13 +2958,41 @@ const JAM_INST = {
     ['kajar','カジャール','拍を刻む'],['gong','ゴング','1周に1回'],['kendhang','クンダン','太鼓']],
 };
 const JAM_DENSE = new Set(['peking','bonang','panerus','polos','sangsih','kendhang']);
-let jamPiece = 0, jamInst = 'saron';
+let jamPiece = 0, jamInst = 'saron', jamListen = -1;
+// 楽器えらびの絵（実際に叩く画面と同じ絵を小さく表示）
+function jamThumb(k){
+  const S5 = LARAS.slendro.notes;
+  const svg = {saron:()=>svgBars(barKeys('slendro'),'saron'), demung:()=>svgBars(barKeys('slendro'),'demung'), peking:()=>svgBars(barKeys('slendro'),'peking'),
+    slenthem:()=>svgBars(barKeys('slendro'),'slenthem'), bonang:()=>svgBonang('slendro'), panerus:()=>svgBonang('slendro'), gong:()=>svgGongAgeng(250),
+    kenong:()=>svgKenongSet(S5.slice(1,4)), kempul:()=>svgKempulSet(S5.slice(2,5)), kethuk:()=>svgSmallKettles([{key:'t',label:'',r:30},{key:'p',label:'',r:22}]),
+    kajar:()=>svgSmallKettles([{key:'j',label:'',r:20}]), kendhang:()=>svgKendhang(), polos:()=>svgBars(gangsaKeys(),'gangsa'), sangsih:()=>svgBars(gangsaKeys(),'gangsa'),
+    calung:()=>svgBars(calungKeys(),'calung'), jegogan:()=>svgBars(calungKeys(),'jegogan')}[k];
+  return svg ? svg().replace(/ data-key="[^"]*"/g,'').replace(/ class="key"/g,'') : '';
+}
+const JAM_THUMBS = {};
+function jamSongCard(p, i){
+  const N = parseBal(p.bal).length, colo = colotomy(p.form, N), title = (p.name.match(/「[^」]+」/)||[p.name.replace(/^くらべる：/,'')])[0];
+  const speed = p.tempo >= 84 ? 'はやい' : p.tempo >= 62 ? 'ふつう' : 'ゆっくり';
+  const dots = Array.from({length:N}, (_,k)=>{ const m = colo[k+1]||[]; return `<i class="${m.includes('G')?'g':m.includes('N')?'n':m.includes('P')?'p':''}"></i>`; }).join('');
+  return `<div class="jsong ${i===jamPiece?'sel':''}" data-p="${i}" role="button" tabindex="0">
+    <span class="jr ${p.region}">${{java:'ジャワ',bali:'バリ',compare:'くらべる'}[p.region]}</span>
+    <span class="jt">${title}</span>
+    <span class="jtags"><span>${FORM_NAME[p.form]}</span><span>${N}拍で1周</span><span>${LARAS[p.laras].name}</span><span>${speed}</span><span>むずかしさ ${p.level||'★'}</span></span>
+    <span class="jd">${p.desc||''}</span>
+    <span class="jcyc">${dots}</span><span class="jcap">● 1周の拍（<b style="color:#e9b44c">黄</b>＝クノン、<b style="color:#d98c4a">橙</b>＝クンプル、<b style="color:#e0683c">赤</b>＝ゴング）</span>
+    <button class="sec jl" data-listen="${i}">${jamListen===i && S.playing ? '■ 止める' : '▶ 聴いてみる'}</button>
+  </div>`;
+}
 function jamList(){ return JAM_INST[PIECES[jamPiece].form==='bali' ? 'bali' : 'java']; }
 function renderJam(){
-  $('#jamPiece').innerHTML = ['java','bali','compare'].map(r => `<optgroup label="${REGION_NAME[r]}">${PIECES.map((p,i)=>[p,i]).filter(([p])=>p.region===r)
-    .map(([p,i])=>`<option value="${i}" ${i===jamPiece?'selected':''}>${p.name.replace(/^くらべる：/,'')}</option>`).join('')}</optgroup>`).join('');
+  const sc = $('#jamPiece'), keep = sc.scrollLeft;
+  sc.innerHTML = PIECES.map((p,i)=>[p,i]).filter(([p])=>p.region!=='custom' && p.region).map(([p,i])=>jamSongCard(p,i)).join('');
+  sc.scrollLeft = keep;
+  const sel = sc.querySelector('.sel');
+  if (sel && (sel.offsetLeft < sc.scrollLeft || sel.offsetLeft + sel.offsetWidth > sc.scrollLeft + sc.clientWidth)) sc.scrollLeft = sel.offsetLeft - 4;
+  $('#jamInstHint').textContent = PIECES[jamPiece].form==='bali' ? 'いまはバリの曲なので、バリの楽器が並んでいます（ジャワの曲をえらぶとジャワの楽器になります）。' : 'いまはジャワの曲なので、ジャワの楽器が並んでいます（バリの曲をえらぶとバリの楽器になります）。';
   if (!jamList().some(x=>x[0]===jamInst)) jamInst = jamList()[0][0];
-  $('#jamInsts').innerHTML = jamList().map(([k,n,r])=>`<button class="sec ${k===jamInst?'on':''}" data-i="${k}">${n}<small>${r}</small></button>`).join('');
+  $('#jamInsts').innerHTML = jamList().map(([k,n,r])=>`<button class="jcard ${k===jamInst?'sel':''}" data-i="${k}"><span class="pic">${JAM_THUMBS[k] ||= jamThumb(k)}</span>${n}<small>${r}</small></button>`).join('');
   const p = PIECES[jamPiece], java = p.form!=='bali', name = jamList().find(x=>x[0]===jamInst)[1];
   $('#jamNow').innerHTML = `あなたは <b>${name}</b> を担当。ほかの楽器は全部自動で演奏します（${FORM_NAME[p.form]}・${LARAS[p.laras].name}）。`;
   const bpm = Math.min(p.tempo, JAM_DENSE.has(jamInst) ? (java ? 48 : 40) : 66);
@@ -2956,7 +3004,16 @@ function renderJam(){
   [rows[0], '.pcount', '.pmsg', '.pkb', '.pstats', rows[1], '.pcalbox', '.pscore'].forEach(x => pr.appendChild(typeof x==='string' ? pr.querySelector(x) : x));
   pr.querySelector('.pgo').addEventListener('click', () => pr.querySelector('.pcount').scrollIntoView({behavior:'smooth', block:'start'}));
 }
-$('#jamPiece').onchange = e => { stopAll(); jamPiece = +e.target.value; renderJam(); };
+$('#jamPiece').onclick = e => {
+  const l = e.target.closest('[data-listen]');
+  if (l){ const i = +l.dataset.listen;
+    if (jamListen===i && S.playing){ stopAll(); jamListen = -1; }
+    else { initAudio(); jamListen = i; DEMOS.pieceOnce(i, t => { $('#jamNow').textContent = `🎧 試聴中：${t}`; }); S.onEnd = () => { jamListen = -1; jamSongLabels(); }; }
+    jamSongLabels(); return; }
+  const c = e.target.closest('[data-p]'); if (!c || +c.dataset.p===jamPiece) return;
+  stopAll(); jamListen = -1; jamPiece = +c.dataset.p; renderJam();
+};
+function jamSongLabels(){ document.querySelectorAll('#jamPiece [data-listen]').forEach(b => b.textContent = (+b.dataset.listen===jamListen && S.playing) ? '■ 止める' : '▶ 聴いてみる'); }
 $('#jamInsts').onclick = e => { const b = e.target.closest('[data-i]'); if (!b) return; stopAll(); jamInst = b.dataset.i; renderJam(); };
 renderJam();
 renderTheoryGroups(); renderTheory(); renderRangeMap();
