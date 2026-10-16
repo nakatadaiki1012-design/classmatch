@@ -868,7 +868,7 @@ function playInst(inst, ev, t, laras, vel=1, pan=PAN[inst]||0){
     case 'kempul':   return SYNTH.kempul(freqOf(laras, ev.d, -1), t, v, pan);
     case 'gong':     return SYNTH.gong(t, v, ev.bali ? 2.6 : 1.8, pan);
     case 'kethuk':   return SYNTH.kethuk(freqOf(laras, 2, 0), t, v, pan);
-    case 'kempyang': return SYNTH.kempyang(freqOf(laras, laras==='pelog' ? 6 : 6, 1), t, v, pan);
+    case 'kempyang': return SYNTH.kempyang(freqOf(laras, laras==='pelog' ? 6 : 1, 1), t, v, pan);
     case 'kajar':    return SYNTH.kajar(t, v, pan);
     case 'ceng':     return SYNTH.ceng(t, v, pan);
     case 'kendhang': return SYNTH.drum(ev.k, t, v, pan);
@@ -887,9 +887,9 @@ function playInst(inst, ev, t, laras, vel=1, pan=PAN[inst]||0){
  *     1拍＝8ティック。拍 b の瞬間は T = b*8（各拍の「終わり」に拍がある）
  * ========================================================= */
 const TPB = 8;
-const KPAT = { // クンダンの型（1文字＝1打。D=ドゥン t=タッ P=トゥン k=ケッ L=ドラン .=休み）
-  1:{a:'.t.P.t.D', b:'.P.t.P.D', pre:'.t.tP.PD', end:'tt.PtP.D'},
-  2:{a:'..t...P...t....D', b:'.k.t.k.P.k.t.P.D', pre:'..t.P.t.t.tP..PD', end:'tt..P.t.tP.P...D'},
+const KPAT = { // クンダンの型（1文字＝1打。D=ドゥン t=タッ P=トゥン k=ケッ L=ダン（両面同時） .=休み）
+  1:{a:'.t.P.t.D', b:'.P.t.P.D', pre:'.t.tP.PL', end:'tt.PtP.L'},
+  2:{a:'..t...P...t....D', b:'.k.t.k.P.k.t.P.D', pre:'..t.P.t.t.tP..PL', end:'tt..P.t.tP.P...L'},
   bali:'t.Pt.tP.tt.PDt.D',
 };
 function kotekanStream(a, b){ // a→b に向かう4音（最後がb）。奇数番目＝ポロス、偶数番目＝サンシ
@@ -939,9 +939,9 @@ function derive(bal, laras, form, irama=1){
     const P = KPAT[irama], slot = irama===1?4:2, per = 4*TPB/slot, G = Math.ceil(N/4);
     for (let g=1; g<=G; g++){
       const pat = (g===G ? P.pre : (g%2 ? P.a : P.b)).padStart(per,'.');
-      for (let s=0;s<per;s++){ const c = pat[s]; if (c!=='.') add('kendhang', (g-1)*4*TPB + (s+1)*slot, {k:c, v: c==='D'?1:.85}); }
+      for (let s=0;s<per;s++){ const c = pat[s]; if (c!=='.') add('kendhang', (g-1)*4*TPB + (s+1)*slot, {k:c, v: (c==='D'||c==='L')?1:.85}); }
       if (g===G){ const ep = P.end.padStart(per,'.');
-        for (let s=0;s<per;s++){ const c = ep[s]; if (c!=='.'){ const e = {inst:'kendhang', T:(g-1)*4*TPB+(s+1)*slot, k:c, v:c==='D'?1:.9}; e.key = c; endK.push(e); } } }
+        for (let s=0;s<per;s++){ const c = ep[s]; if (c!=='.'){ const e = {inst:'kendhang', T:(g-1)*4*TPB+(s+1)*slot, k:c, v:(c==='D'||c==='L')?1:.9}; e.key = c; endK.push(e); } } }
     }
     // 柔らかい楽器（簡略化）：ルバブは旋律を少し早めに先取りしてのばす、グンデルは近くの音をめぐりながら着地、スリンはゴングやクノンの前で自由に歌う
     const NS = LARAS[laras].notes, L = NS.length;
@@ -1015,7 +1015,7 @@ const visQ = [];
 function vis(time, fn){ visQ.push({time, fn}); }
 function flashEl(el, ms=140){ if (!el) return; el.classList.add('hit'); clearTimeout(el._t); el._t = setTimeout(()=>el.classList.remove('hit'), ms); }
 function evHTML(e, attrs=''){
-  const DR = {D:'ドゥ',t:'タ',P:'トゥ',k:'ケ',L:'ドラ'};
+  const DR = {D:'ドゥ',t:'タ',P:'トゥ',k:'ケ',L:'ダ'};
   let inner;
   if (e.inst==='bal') inner = noteHTML(e.d, e.o);
   else if (e.inst==='kendhang') return `<span class="ev small"${attrs}>${DR[e.k]||e.k}</span>`;
@@ -1297,7 +1297,7 @@ const PADS = { // 練習で使う1つだけの楽器
   kajar: () => svgSmallKettles([{key:'j', label:'', r:20}]),
 };
 function drumHTML(){
-  return svgKendhang() + `<div class="drumpads"><div class="pad" data-key="P">トゥン<small>指で小さい面</small></div><div class="pad" data-key="L">ドラン<small>両面いっしょ</small></div><div class="pad" data-key="k">ケッ<small>押さえて小さく</small></div></div>`;
+  return svgKendhang() + `<div class="drumpads"><div class="pad" data-key="P">トゥン<small>指で小さい面</small></div><div class="pad" data-key="L">ダン<small>両面いっしょ</small></div><div class="pad" data-key="k">ケッ<small>押さえて小さく</small></div></div>`;
 }
 let LAST_KB = null; // PCのキーボード操作で叩く対象
 function buildKeyboard(el, inst, laras, onHit, small=false){
@@ -1445,7 +1445,7 @@ function loadPiece(p){
     : '<span><i style="background:var(--c-gong)"></i>G ゴング</span><span><i style="background:var(--c-kenong)"></i>N クノン</span><span><i style="background:var(--c-kempul)"></i>P クンプル</span><span><i style="background:var(--c-kethuk)"></i>t クトゥッ</span>';
 }
 function evLabel(e){
-  if (e.inst==='kendhang') return {D:'ドゥン',P:'トゥン',t:'タッ',k:'ケッ',L:'ドラン'}[e.k];
+  if (e.inst==='kendhang') return {D:'ドゥン',P:'トゥン',t:'タッ',k:'ケッ',L:'ダン'}[e.k];
   if (e.inst==='kenong') return 'N'+e.d;
   if (e.inst==='kempul') return 'P'+e.d;
   if (e.inst==='kajar') return 'j';
@@ -2290,7 +2290,7 @@ const EXAM = [
   {q:'イラマ I から II に変わると？', o:['全部の楽器が2倍速くなる','バルンガンがゆっくりになり、飾りが2倍の細かさになる','ゴングの数が増える'], a:1, x:'骨組みはゆっくり、飾りは細かく。流れの速さは保たれます。'},
   {q:'イラマを切り替える瞬間は？', o:['好きなときにいきなり','クンダンの合図のあと、区切り（クノン）の拍でそろって','曲の最初だけ'], a:1, x:'合図→だんだんテンポを変える→区切りの拍で切り替え、の順です。'},
   {q:'バリの「コテカン」とは？', o:['2人で音をかみ合わせて1本の速い旋律を作る','太鼓の合図','音階の名前'], a:0, x:'ポロスとサンシの2人で、1人では弾けない速さの旋律を作ります。'},
-  {q:'ペロッグのパテット・バランで、ふつう使わない音は？', o:['7','1','2'], a:1, x:'バランは「7」を使い「1」を使いません（ブム系はその逆）。'},
+  {q:'ペロッグのパテット・バランで、ふつう使わない音は？', o:['7','1','2'], a:1, x:'バランは「7」を使い「1」を使いません（パテット・リモやヌムはその逆）。'},
   {q:'急に強くしたり、ピタッと止めたりする「アンセル」が特徴なのは？', o:['ジャワのガムラン','バリのガムラン'], a:1, x:'バリのガムランは速く、強弱や止めのメリハリが強いのが特徴です。'},
   {q:'柔らかい楽器（グンデル・ルバブ・スリン）がよく活躍するのは？', o:['ゆっくりした曲','速く大きな音のランチャラン','バリのコテカン'], a:0, x:'ゆっくりな曲で、旋律を自由に歌うように飾ります。'},
 ];
@@ -2488,7 +2488,7 @@ const LESSONS = [
       {type:'practice', title:'全員の合奏でサロンを弾こう', cfg:{piece:0, user:'saron', beats:[1,16], bpm:60, backing:'all', passRatio:.8, passMsg:'卒業おめでとう！'}},
     ] },
   { title:'おさらいテスト',
-    body:`<p>ここまでのレッスンのまとめです。音を聴いて答える問題もあります。全部で16問の中から毎回10問が出題され、<b>8問正解で合格</b>です。</p>
+    body:`<p>ここまでのレッスンのまとめです。音を聴いて答える問題もあります。全部で17問の中から毎回10問が出題され、<b>8問正解で合格</b>です。</p>
     <p>まちがえた問題には解説が出ます。何度でも挑戦できます。</p>`,
     point:'<b>ポイント</b> 🔊のついた問題は「音を聴く」を押してから答えよう。',
     widgets:[{type:'exam', title:'10問テスト（8問正解で合格）'}] },
@@ -2765,7 +2765,7 @@ const THEORY = [
    rules:['ゴンガンを2つ（クタワン）または4つ（ランチャラン・ラドラン）に分ける。','音の高さは、その拍のバルンガンの音に合わせる。','最後のクノンはゴングと同時に鳴る。'],
    tips:['区切りの拍の旋律を「ノーン」と強調する気持ちで。']},
   {group:'区切り（ゴング類）', id:'kethuk', name:'クトゥッ', p:{piece:0, beats:[1,8], bpm:70},
-   facts:[['役割','いちばん細かく時間を区切る'],['楽器','小さな壺型ゴング'],['鳴らす拍','ランチャラン：奇数拍／クタワン・ラドラン：クノンの間'],['道具','紐を巻いたバチ']],
+   facts:[['役割','クノンの間を細かく区切る（クタワン・ラドランではクンピャンがさらに細かく刻む）'],['楽器','小さな壺型ゴング'],['鳴らす拍','ランチャラン：奇数拍／クタワン・ラドラン：クノンの間'],['道具','紐を巻いたバチ']],
    rules:['叩いたらすぐに響きを止め、「トゥッ」と短く鳴らす。','ランチャランでは奇数拍に鳴らし、拍の流れを刻む。','クタワン・ラドランではクノンとクノンの間に鳴らし、さらに高い「クンピャン」と組み合わせる。'],
    tips:['短い音なので、拍のど真ん中をねらう。']},
   {group:'区切り（ゴング類）', id:'kempyang', name:'クンピャン', p:{piece:1, beats:[1,8], bpm:60},
@@ -2774,7 +2774,7 @@ const THEORY = [
    tips:['クトゥッと組み合わさって「ピャン・トゥッ・ピャン・…」と細かい時計の音のように聞こえる。']},
   {group:'指揮（太鼓）', id:'kendhang', name:'クンダン', p:{piece:0, beats:[1,8], bpm:54, iramaToggle:true},
    facts:[['役割','合奏の指揮者。テンポ・終わり・イラマ変更の合図'],['楽器','両面太鼓。大きなクンダン・アグン＋小さなクティプンの2つ組（クンダン・カリ）や、踊りの曲で使う中くらいのチブロンなど'],['1拍の音数','型による（イラマIで最大2音）'],['道具','手（両手で両面を叩く）']],
-   rules:['テンポを上げる・下げる、曲を終わらせる（スウック）、イラマを変える合図を出す。','ガトラ（4拍）単位で型をくり返し、ゴングの前で型を変えて「もうすぐゴング」と知らせる。','大きい面＝ドゥン（低い音）、小さい面を平手で＝タッ（乾いた音）、指で＝トゥン、両面同時＝ドラン。','ガトラの最後（セレ）にドゥンを置いて、旋律の着地を強調する。'],
+   rules:['テンポを上げる・下げる、曲を終わらせる（スウック）、イラマを変える合図を出す。','ガトラ（4拍）単位で型をくり返し、ゴングの前で型を変えて「もうすぐゴング」と知らせる。','大きい面＝ドゥン（低い音）、小さい面を平手で＝タッ（乾いた音）、指で＝トゥン、両面同時＝ダン（ゴングの拍で多く使う）。','ガトラの最後（セレ）にドゥンを置いて、旋律の着地を強調する。'],
    tips:['合奏のみんなが聴いている、と意識して堂々と。']},
   {group:'バリのガムラン', id:'polos', name:'ガンサ・ポロス', p:{piece:3, beats:[1,4], bpm:42, show:['bal','polos','sangsih']},
    facts:[['役割','コテカン（かみ合わせ）の「表」'],['楽器','10鍵の鍵盤楽器。中音のプマデと高音のカンティランがあり、それぞれ2台1組でうなり（オンバ）を作る'],['1拍の音数','2音（サンシと合わせて4音）'],['道具','木づち（片手で叩き、もう片方の手で止める）']],
