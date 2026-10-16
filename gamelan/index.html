@@ -364,6 +364,7 @@
   .inst .shine{opacity:0; transition:opacity .35s ease-out; pointer-events:none;}
   .inst .key.hit .shine{opacity:.42; transition:none;}
   .inst .ring{opacity:0; pointer-events:none;}
+  .hwy{margin:8px 0 6px;} .hwyc{display:block; width:100%; height:100px; border-radius:10px; background:#1a120c; border:1px solid var(--line);}
   .inst .key.target .ring,.inst .key.hintk .ring{opacity:1; animation:ringp .6s infinite alternate;}
   .inst .key.target, .inst .key.hintk{outline:none;}
   .inst .key.hit{filter:none;}
@@ -2014,6 +2015,7 @@ function mountPractice(el, cfg){
     <div class="pmsg">${cfg.intro || '「お手本を聴く」で流れをつかんでから、「一緒に弾く」で挑戦しよう。光る鍵盤が次に叩く音です。'}</div>
     <div class="pstats"><span class="bigstat">ぴったり <b class="sg">0</b></span><span class="bigstat">おしい <b class="so">0</b></span><span class="bigstat">ミス <b class="sm">0</b></span></div>
     <div class="pscore"></div>
+    <div class="hwy"><canvas class="hwyc" aria-label="叩くタイミングのレーン"></canvas></div>
     <div class="stage pkb"></div>
   </div>`;
   w.q = s => el.querySelector(s);
@@ -2025,6 +2027,7 @@ function mountPractice(el, cfg){
   };
   w.rebuild();
   w.kb = buildKeyboard(w.q('.pkb'), cfg.user, w.laras, (key, kel)=>practiceTap(w, key, kel), true);
+  requestAnimationFrame(()=>hwyIdle(w));
   w.q('.pgo').onclick = () => practiceStart(w, false);
   w.q('.pdemo').onclick = () => practiceStart(w, true);
   w.q('.pstop').onclick = () => stopPractice(w);
@@ -2052,12 +2055,15 @@ function practiceStart(w, demo){
   PW = w; w.demo = demo; w.running = true;
   w.rebuild();
   w.Ta = (w.a-1)*TPB+1; w.Tb = w.b*TPB; w.T = w.Ta; w.loop = 0; w.ci = demo ? 3*TPB : 0; w._tk = undefined; // お手本はカウント1つだけ
+  w.cin0 = w.ci; w.abs = 0; w.anchorAbs = 0; w.pops = [];
   w.targets = []; w.loops = {}; w.stat = {good:0, ok:0, miss:0}; w.handles = {};
   const filt = w.cfg.filter || (()=>true);
   const ts = (w.der.parts[w.cfg.user]||[]).filter(e=>e.T>=w.Ta && e.T<=w.Tb && filt(e)).map(e=>e.T);
   let gap = w.Tb - w.Ta + 1; for (let i=1;i<ts.length;i++) gap = Math.min(gap, ts[i]-ts[i-1]);
   w.gapTicks = Math.max(1, gap);
-  w.next = ctx.currentTime + 0.2;
+  w.next = ctx.currentTime + 0.2; w.anchorT = w.next;
+  // レーンに流す自分の音（拍の位置ごと）
+  w.uev = {}; for (const e of (w.der.parts[w.cfg.user]||[])) if (e.T>=w.Ta && e.T<=w.Tb && (demo || filt(e))) w.uev[e.T] = e;
   w.timer = setInterval(()=>practiceSched(w), 25); keepAwake(true);
   ['sg','so','sm'].forEach(c=>w.q('.'+c).textContent = '0');
   w.q('.pgo').disabled = w.q('.pdemo').disabled = true; w.q('.pstop').disabled = false;
@@ -2071,6 +2077,7 @@ function stopPractice(w){
   if (wasActive){ PW = null; visQ.length = 0; if (!S.playing) keepAwake(false); }
   if (ctx) for (const k in w.handles) w.handles[k].damp(ctx.currentTime);
   w.kb.setTarget(null); w._tk = undefined; w.q('.pcount').textContent = '';
+  w.kb.el.querySelectorAll('.ring[style]').forEach(r=>r.removeAttribute('style')); hwyIdle(w);
   w.scoreEl.querySelectorAll('.nowcol').forEach(x=>x.classList.remove('nowcol'));
   w.q('.pgo').disabled = w.q('.pdemo').disabled = false; w.q('.pstop').disabled = true;
   if (!wasActive) return;
@@ -2081,6 +2088,7 @@ function practiceSched(w){
   const cfg = w.cfg, filt = cfg.filter || (()=>true), back = cfg.backing || 'all';
   while (w.running && w.next < ctx.currentTime + 0.12){
     const t = w.next, dt = 60/w.bpm/TPB;
+    w.anchorAbs = w.abs; w.anchorT = t; w.abs++; // レーン表示用：何ティック目がいつ鳴るか
     if (w.ci < 4*TPB){ // カウント 4・3・2・1
       if (w.ci % TPB === 0){ const n = 4 - w.ci/TPB; SYNTH.click(t, n===1); if (!w.demo) vis(t, ()=>pmsg(w, `カウント <b>${n}</b> …`)); }
       w.ci++; w.next += dt; continue;
@@ -2156,6 +2164,7 @@ function mountCalib(el){
 function windows(w){ const gap = w.gapTicks*60/w.bpm/TPB; const ok = Math.min(0.22, gap*0.48); return {ok, good:Math.min(0.09, ok*0.55)}; }
 function judge(w, tg, kind){
   tg.j = kind;
+  (w.pops ||= []).push({kind, t: ctx.currentTime});
   const L = w.loops[tg.loop]; L.done++;
   if (kind==='good'){ w.stat.good++; L.hit++; } else if (kind==='ok'){ w.stat.ok++; L.hit++; } else w.stat.miss++;
   markCell(w, tg.e.T, 'j-'+kind);
@@ -2187,17 +2196,117 @@ function practiceTap(w, key, kel){
     const right = w.kb.el.querySelector(`[data-key="${pick.e.key}"]`); // 正しい音を一瞬見せる
     if (right){ right.classList.add('hintk'); setTimeout(()=>right.classList.remove('hintk'), 450); } }
 }
+/* タイミングのレーン：自分が叩く音が右から流れてきて、左の線に重なった瞬間に叩く */
+const HWY_PAD = {G:'ゴン', N:'ノン', P:'プル', t:'トゥッ', p:'ピャン', j:'ジャ'}, HWY_DR = {D:'ドゥン', P:'トゥン', t:'タッ', k:'ケッ', L:'ダン'};
+function hwyLabel(w, e){ if (w.cfg.user==='kendhang') return {txt:HWY_DR[e.k]||e.k, o:0}; if (e.key.includes(':')) return {txt:String(e.d), o:e.o}; return {txt:HWY_PAD[e.key]||e.key, o:0}; }
+function hwyCanvas(w){
+  const cv = w.q('.hwyc'); if (!cv || !cv.offsetParent) return null;
+  const dpr = window.devicePixelRatio||1, W = cv.clientWidth, H = cv.clientHeight;
+  if (cv.width !== Math.round(W*dpr) || cv.height !== Math.round(H*dpr)){ cv.width = Math.round(W*dpr); cv.height = Math.round(H*dpr); }
+  const g = cv.getContext('2d'); g.setTransform(dpr,0,0,dpr,0,0); g.clearRect(0,0,W,H); return {g, W, H};
+}
+function rrect(g, x, y, w, h, r){ g.beginPath(); g.moveTo(x+r,y); g.arcTo(x+w,y,x+w,y+h,r); g.arcTo(x+w,y+h,x,y+h,r); g.arcTo(x,y+h,x,y,r); g.arcTo(x,y,x+w,y,r); g.closePath(); }
+const HWY_X0 = 84;
+function hwyIdle(w){
+  const c = hwyCanvas(w); if (!c) return; const {g, W, H} = c;
+  hwyLine(g, H, 0);
+  g.fillStyle = '#c9b294'; g.font = '600 12px system-ui, sans-serif'; g.textAlign = 'left';
+  g.fillText('「一緒に弾く」を押すと、叩く音が右から流れてきます。', HWY_X0 + 10, H/2 - 4);
+  g.fillText('この線に重なった瞬間に叩こう ←', HWY_X0 + 10, H/2 + 14);
+  hwyNextPanel(g, H, null, null);
+}
+function hwyLine(g, H, glow){
+  g.fillStyle = `rgba(127,211,160,${.12 + glow*.35})`; g.fillRect(HWY_X0-10, 0, 20, H);
+  g.fillStyle = glow > .5 ? '#c8ffd9' : '#7fd3a0'; g.fillRect(HWY_X0-2, 0, 4, H);
+}
+function hwyNextPanel(g, H, lab, beats){
+  g.fillStyle = '#2a1c13'; g.fillRect(0, 0, HWY_X0-12, H);
+  g.fillStyle = '#c9b294'; g.font = '700 11px system-ui, sans-serif'; g.textAlign = 'center';
+  g.fillText('つぎ', (HWY_X0-12)/2, 16);
+  if (!lab){ g.fillStyle = '#6d5a45'; g.font = '800 22px system-ui, sans-serif'; g.fillText('—', (HWY_X0-12)/2, H/2 + 8); return; }
+  g.fillStyle = '#ffe7a0'; g.font = `900 ${lab.txt.length > 2 ? 17 : 30}px system-ui, sans-serif`; g.fillText(lab.txt, (HWY_X0-12)/2, H/2 + 9);
+  if (lab.o){ g.beginPath(); g.arc((HWY_X0-12)/2, lab.o > 0 ? H/2 - 22 : H/2 + 18, 3, 0, 7); g.fill(); }
+  if (beats != null){ g.fillStyle = '#c9b294'; g.font = '600 10.5px system-ui, sans-serif'; g.fillText(beats < .25 ? 'いま！' : `あと ${beats < 1 ? beats.toFixed(1) : Math.round(beats*2)/2} 拍`, (HWY_X0-12)/2, H - 9); }
+}
+// 次に叩く音（まだ判定されていない一番近い音）を、拍の予定から先に求める
+function hwyNextCalc(w){
+  if (w.anchorT == null || !w.uev) return null;
+  const dt = 60/w.bpm/TPB, nowV = ctx.currentTime - latency(), cin = 4*TPB - w.cin0, L = w.Tb - w.Ta + 1;
+  const late = w.demo ? 0.02 : windows(w).ok, res = new Set();
+  for (const tg of w.targets||[]) if (tg.j) res.add(tg.loop+':'+tg.e.T);
+  const aNow = Math.floor(w.anchorAbs + (nowV - late - w.anchorT)/dt);
+  for (let a = Math.max(cin, aNow); a < aNow + 2*L + cin + 4; a++){
+    const j = a - cin, T = w.Ta + (j % L), loop = Math.floor(j / L), e = w.uev[T];
+    if (!e || res.has(loop+':'+T)) continue;
+    const t = w.anchorT + (a - w.anchorAbs)*dt;
+    if (t < nowV - late) continue;
+    return {a, e, t, nowV};
+  }
+  return null;
+}
+function hwyDraw(w){
+  w._hn = hwyNextCalc(w);
+  const c = hwyCanvas(w); if (!c || w.anchorT == null) return; const {g, W, H} = c;
+  const dt = 60/w.bpm/TPB, lat = latency(), nowV = ctx.currentTime - lat; // 耳に届く時刻にそろえる
+  const span = Math.max(2.4, 3.2*TPB*dt), pps = (W - HWY_X0 - 6)/span, cin = 4*TPB - w.cin0, L = w.Tb - w.Ta + 1;
+  const tOf = a => w.anchorT + (a - w.anchorAbs)*dt, xOf = a => HWY_X0 + (tOf(a) - nowV)*pps;
+  const aNow = w.anchorAbs + (nowV - w.anchorT)/dt, aFrom = Math.max(0, Math.floor(aNow - 0.5/dt)), aTo = Math.ceil(aNow + span/dt) + 1;
+  const pieceT = a => { const j = a - cin; return j < 0 ? null : {T: w.Ta + (j % L), loop: Math.floor(j / L)}; };
+  const res = {}; for (const tg of w.targets||[]) if (tg.j) res[tg.loop+':'+tg.e.T] = tg.j;
+  const cy = H*0.6;
+  // 拍の線（4拍ごとに太く、ゴングの拍は赤）
+  for (let a = aFrom; a <= aTo; a++){
+    const x = xOf(a); if (x < HWY_X0 - 12 || x > W) continue;
+    const pt = pieceT(a);
+    if (!pt){ const ci = w.cin0 + a; if (ci % TPB === 0){ g.fillStyle = '#8a7358'; g.fillRect(x-.5, 18, 1, H-18); g.font = '800 15px system-ui, sans-serif'; g.textAlign = 'center'; g.fillStyle = '#e9dcc6'; g.fillText(String(4 - ci/TPB), x, 15); } continue; }
+    if (pt.T % TPB) continue;
+    const beat = pt.T/TPB, m = w.der.colo[beat]||[], gong = m.includes('G'), strong = beat % 4 === 0;
+    g.fillStyle = gong ? '#e0683c' : strong ? '#8a7358' : '#4a3526'; g.fillRect(x - (gong||strong ? 1 : .5), 18, gong ? 2 : strong ? 2 : 1, H-18);
+    g.font = '600 10px system-ui, sans-serif'; g.textAlign = 'center'; g.fillStyle = gong ? '#ff9a74' : '#a8957a';
+    g.fillText(gong ? `${beat}拍 ゴング` : `${beat}拍`, x, 12);
+  }
+  // 自分の音（流れてくる札）
+  const next = w._hn;
+  for (let a = aFrom; a <= aTo; a++){
+    const pt = pieceT(a); if (!pt) continue; const e = w.uev[pt.T]; if (!e) continue;
+    const x = xOf(a); if (x > W + 30) continue;
+    const r = res[pt.loop+':'+pt.T], past = tOf(a) < nowV - 0.02;
+    const lab = hwyLabel(w, e), bw = Math.max(30, 14 + lab.txt.length*13), bh = 40, isNext = next && next.a === a;
+    g.globalAlpha = r ? .35 : past ? .5 : 1;
+    rrect(g, x - bw/2, cy - bh/2, bw, bh, 9);
+    g.fillStyle = r==='good' ? '#3f8f5f' : r==='ok' ? '#9a7a2c' : r ? '#8a3a2c' : isNext ? '#7fd3a0' : '#e9b44c'; g.fill();
+    if (isNext){ g.lineWidth = 3; g.strokeStyle = '#eafff1'; g.stroke(); }
+    g.fillStyle = '#1b120c'; g.font = `900 ${lab.txt.length > 2 ? 13 : 20}px system-ui, sans-serif`; g.textAlign = 'center'; g.fillText(lab.txt, x, cy + (lab.txt.length > 2 ? 5 : 7));
+    if (lab.o){ g.beginPath(); g.arc(x, lab.o > 0 ? cy - 14 : cy + 14, 2.6, 0, 7); g.fill(); }
+    g.globalAlpha = 1;
+  }
+  // 叩く線：札が近づくほど光る
+  const d = next ? tOf(next.a) - nowV : 9;
+  hwyLine(g, H, Math.max(0, 1 - Math.abs(d)/0.25));
+  // 判定のふきだし
+  const LBL = {good:['ぴったり！','#9dffbf'], ok:['おしい','#ffd36a'], miss:['ミス','#ff8a7a'], wrong:['ちがう音','#ff8a7a']};
+  w.pops = (w.pops||[]).filter(p => ctx.currentTime - p.t < .7);
+  w.pops.forEach((p, i) => { if (!LBL[p.kind]) return; const k = (ctx.currentTime - p.t)/.7; g.globalAlpha = 1 - k; g.fillStyle = LBL[p.kind][1]; g.font = '900 14px system-ui, sans-serif'; g.textAlign = 'left';
+    g.fillText(LBL[p.kind][0], HWY_X0 + 8, 34 - k*12 + (i%2)*0); g.globalAlpha = 1; });
+  hwyNextPanel(g, H, next ? hwyLabel(w, next.e) : null, next ? d/(TPB*dt) : null);
+}
 function practiceFrame(){
-  const w = PW; if (!w || w.demo || !w.targets || !ctx) return;
+  const w = PW; if (!w || !ctx) return;
+  if (w.running || w.demo) hwyDraw(w);
+  if (w.demo || !w.targets) return;
   const now = ctx.currentTime, lat = latency(), win = windows(w);
-  let next = null;
   for (const tg of w.targets){
     if (tg.j) continue;
     if (now > tg.time + lat + win.ok) judge(w, tg, 'miss');
-    else if (!next) next = tg;
   }
-  const tk = next && next.time - now < 2.5 ? next.e.key : null;
-  if (tk !== w._tk){ w._tk = tk; w.kb.setTarget(tk); }
+  // 光らせる鍵盤は、拍の予定から求めた「次の音」（2拍前から光る）
+  const hn = w._hn, beatS = 60/w.bpm, next = hn ? {time: hn.t, e: hn.e} : null;
+  const tk = hn && hn.t - hn.nowV < beatS*2.2 ? hn.e.key : null;
+  if (tk !== w._tk){ w._tk = tk; w.kb.el.querySelectorAll('.ring[style]').forEach(r=>r.removeAttribute('style')); w.kb.setTarget(tk); }
+  // 次に叩く鍵盤の輪：叩く瞬間に向かって縮み、ぴったり重なったときが叩くタイミング
+  if (tk && next){ const r = w.kb.el.querySelector('.target .ring'), beat = 60/w.bpm;
+    if (r){ const p = Math.max(0, Math.min(1, (next.time - (now - lat))/(beat*1.5)));
+      r.style.cssText = `transform-box:fill-box;transform-origin:center;transform:scale(${(1+p*1.1).toFixed(3)});stroke-opacity:${(1-p*.6).toFixed(2)};animation:none;stroke-width:${p<.08?6:3}`; } }
   // 1周ごとに結果を判定
   for (const L in w.loops){
     const o = w.loops[L];
@@ -3001,7 +3110,7 @@ function renderJam(){
     intro:'「一緒に弾く」を押すと、カウントのあと合奏が始まります。光った鍵盤を、拍に合わせて叩こう。むずかしいときはテンポを下げてね。'});
   // すぐ叩けるように、楽器を上に、設定と楽譜を下に並べかえる
   const pr = $('#jamPrac .prac'), rows = pr.querySelectorAll(':scope > .row');
-  [rows[0], '.pcount', '.pmsg', '.pkb', '.pstats', rows[1], '.pcalbox', '.pscore'].forEach(x => pr.appendChild(typeof x==='string' ? pr.querySelector(x) : x));
+  [rows[0], '.pcount', '.pmsg', '.hwy', '.pkb', '.pstats', rows[1], '.pcalbox', '.pscore'].forEach(x => pr.appendChild(typeof x==='string' ? pr.querySelector(x) : x));
   pr.querySelector('.pgo').addEventListener('click', () => pr.querySelector('.pcount').scrollIntoView({behavior:'smooth', block:'start'}));
 }
 $('#jamPiece').onclick = e => {
