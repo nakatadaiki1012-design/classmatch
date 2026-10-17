@@ -364,6 +364,7 @@
   .inst .shine{opacity:0; transition:opacity .35s ease-out; pointer-events:none;}
   .inst .key.hit .shine{opacity:.42; transition:none;}
   .inst .ring{opacity:0; pointer-events:none;}
+  .ev.gb .n{outline:2px solid #c59bff; outline-offset:1px; border-radius:4px;}
   .hwy{margin:8px 0 6px;} .hwyc{display:block; width:100%; height:100px; border-radius:10px; background:#1a120c; border:1px solid var(--line);}
   .inst .key.target .ring,.inst .key.hintk .ring{opacity:1; animation:ringp .6s infinite alternate;}
   .inst .key.target, .inst .key.hintk{outline:none;}
@@ -906,8 +907,8 @@ function playInst(inst, ev, t, laras, vel=1, pan=PAN[inst]||0){
     case 'demung':   return SYNTH.bar(F(0), t, v, 8, pan, .8);
     case 'peking':   return SYNTH.bar(F(2), t, v, 4, pan, 1.3);
     case 'slenthem': return SYNTH.slenthem(F(-1), t, v, pan);
-    case 'bonang':   return SYNTH.kettle(F(0), t, v, 4, pan);
-    case 'panerus':  return SYNTH.kettle(F(1), t, v, 3, pan);
+    case 'bonang':   return ev.gemb ? pair(SYNTH.kettle(F(0), t, v*.8, 4, pan-.05), SYNTH.kettle(F(1), t, v*.75, 4, pan+.05)) : SYNTH.kettle(F(0), t, v, 4, pan);
+    case 'panerus':  return ev.gemb ? pair(SYNTH.kettle(F(1), t, v*.8, 3, pan-.05), SYNTH.kettle(F(2), t, v*.75, 3, pan+.05)) : SYNTH.kettle(F(1), t, v, 3, pan);
     case 'kenong':   return SYNTH.kenong(freqOf(laras, ev.d, 0), t, v, pan);
     case 'kempul':   return SYNTH.kempul(freqOf(laras, ev.d, -1), t, v, pan);
     case 'gong':     return SYNTH.gong(t, v, ev.bali ? 2.6 : 1.8, pan);
@@ -972,12 +973,25 @@ function derive(bal, laras, form, irama=1){
     }
     // 装飾：2拍を1組 (x y) にして、組の最後がバルンガンと重なるよう先取りで弾く
     const W = 2*TPB, pStep = irama===1?4:2, bS = irama===1?4:2, nS = irama===1?2:1;
+    const lancG = form==='lancaran' && irama===1; // ランチャラン（速い曲）のボナンはグンビャン
+    const nextNote = b => { for (let k=0;k<N;k++){ const r = bal[(b-1+k)%N]; if (r.d) return r; } return {d:1,o:0}; };
     for (let T=1;T<=N*TPB;T++){
       const q = 2*Math.ceil(T/W), pos = T-(q-2)*TPB, x = res(q-1), y = res(q);
       const acc = pos===W ? 1 : (pos===TPB ? .9 : .8);
       if (pos%pStep===0){ const i = pos/pStep-1; const n = clampToKeys(Math.floor(i/2)%2===0 ? x : y, keys); add('peking', T, {d:n.d, o:n.o, v:acc}); }
-      if (pos%bS===0){ const i = pos/bS-1; const n = i%2===0 ? x : y; add('bonang', T, {d:n.d, o:Math.max(0,Math.min(1,n.o)), v:acc}); }
-      if (pos%nS===0){ const i = pos/nS-1; const n = i%2===0 ? x : y; add('panerus', T, {d:n.d, o:Math.max(0,Math.min(1,n.o)), v:acc}); }
+      if (lancG){ // ランチャラン：オクターブ（グンビャン）を裏拍で。次に来る音を先取りして、バルンガンとは重ねない
+        const ph = T % TPB, nn = nextNote(Math.ceil(T/TPB));
+        if (ph === TPB/2) add('bonang', T, {d:nn.d, o:0, gemb:true, v:.95});
+        if (ph === TPB/4 || ph === 3*TPB/4) add('panerus', T, {d:nn.d, o:0, gemb:true, v:.85});
+        continue;
+      }
+      const gant = x.d === y.d; // ガントゥンガン（同じ音が続く・休みでのびる）：ミピルではなくオクターブ打ち
+      if (pos%bS===0){ const i = pos/bS-1;
+        if (gant){ if (i%2===0) add('bonang', T, {d:y.d, o:0, gemb:true, v:acc}); }
+        else { const n = i%2===0 ? x : y; add('bonang', T, {d:n.d, o:Math.max(0,Math.min(1,n.o)), v:acc}); } }
+      if (pos%nS===0){ const i = pos/nS-1;
+        if (gant){ if (i%2===0) add('panerus', T, {d:y.d, o:0, gemb:true, v:acc*.9}); }
+        else { const n = i%2===0 ? x : y; add('panerus', T, {d:n.d, o:Math.max(0,Math.min(1,n.o)), v:acc}); } }
     }
     // クンダン：ガトラ単位の型。ゴング前のガトラは形を変えて知らせる
     const P = KPAT[irama], slot = irama===1?4:2, per = 4*TPB/slot, G = Math.ceil(N/4);
@@ -1067,6 +1081,7 @@ function evHTML(e, attrs=''){
   else if (e.inst==='gong') return `<span class="ev"${attrs}><b>G</b></span>`;
   else if (e.inst==='kethuk'||e.inst==='kempyang'||e.inst==='kajar'||e.inst==='ceng') return `<span class="ev small"${attrs}>${{kethuk:'t',kempyang:'p',kajar:'j',ceng:'x'}[e.inst]}</span>`;
   else if (e.inst==='kempul' || e.inst==='kenong') inner = noteHTML(e.d, 0);
+  else if (e.gemb) return `<span class="ev gb"${attrs} title="オクターブ同時（グンビャン）">${noteHTML(e.d, 0)}</span>`;
   else inner = noteHTML(e.d, e.o);
   return `<span class="ev"${attrs}>${inner}</span>`;
 }
@@ -2171,6 +2186,8 @@ function judge(w, tg, kind){
   markCell(w, tg.e.T, 'j-'+kind);
   w.q('.sg').textContent = w.stat.good; w.q('.so').textContent = w.stat.ok; w.q('.sm').textContent = w.stat.miss;
 }
+// オクターブ打ち（グンビャン）は、高い方・低い方どちらの壺を叩いてもよい（音は両方鳴る）
+function keyMatch(e, key){ return e.key===key || (e.gemb && key.split(':')[0]===String(e.d)); }
 function practiceTap(w, key, kel){
   const now = ctx.currentTime, active = PW===w && !w.demo && w.targets;
   let ev = evFromKey(key);
@@ -2180,6 +2197,8 @@ function practiceTap(w, key, kel){
     const src = best ? best.e : (w.der.parts[w.cfg.user]||[])[0];
     if (src) ev = Object.assign({}, src, {k:key});
   }
+  if (active){ const near = w.targets.find(tg => !tg.j && tg.e.gemb && keyMatch(tg.e, key) && Math.abs(now - tg.time - latency()) < 0.35);
+    if (near) ev = Object.assign({}, ev, {d:near.e.d, o:0, gemb:true}); }
   damped(w.handles, w.cfg.user, playInst(w.cfg.user, ev, now, w.laras, 1), now);
   if (!active) return;
   const lat = latency(), win = windows(w);
@@ -2188,18 +2207,18 @@ function practiceTap(w, key, kel){
     if (tg.j) continue;
     const d = Math.abs(now - (tg.time + lat));
     if (d >= win.ok) continue;
-    const better = !pick || (tg.e.key===key && pick.e.key!==key) || ((tg.e.key===key) === (pick.e.key===key) && d < pd);
+    const better = !pick || (keyMatch(tg.e,key) && !keyMatch(pick.e,key)) || (keyMatch(tg.e,key) === keyMatch(pick.e,key) && d < pd);
     if (better){ pick = tg; pd = d; }
   }
   if (!pick) return;
-  if (pick.e.key === key) judge(w, pick, pd < win.good ? 'good' : 'ok');
+  if (keyMatch(pick.e, key)) judge(w, pick, pd < win.good ? 'good' : 'ok');
   else { judge(w, pick, 'wrong'); w.kb.wrong(kel);
     const right = w.kb.el.querySelector(`[data-key="${pick.e.key}"]`); // 正しい音を一瞬見せる
     if (right){ right.classList.add('hintk'); setTimeout(()=>right.classList.remove('hintk'), 450); } }
 }
 /* タイミングのレーン：自分が叩く音が右から流れてきて、左の線に重なった瞬間に叩く */
 const HWY_PAD = {G:'ゴン', N:'ノン', P:'プル', t:'トゥッ', p:'ピャン', j:'ジャ'}, HWY_DR = {D:'ドゥン', P:'トゥン', t:'タッ', k:'ケッ', L:'ダン'};
-function hwyLabel(w, e){ if (w.cfg.user==='kendhang') return {txt:HWY_DR[e.k]||e.k, o:0}; if (e.key.includes(':')) return {txt:String(e.d), o:e.o}; return {txt:HWY_PAD[e.key]||e.key, o:0}; }
+function hwyLabel(w, e){ if (w.cfg.user==='kendhang') return {txt:HWY_DR[e.k]||e.k, o:0}; if (e.gemb) return {txt:String(e.d), o:0, both:true}; if (e.key.includes(':')) return {txt:String(e.d), o:e.o}; return {txt:HWY_PAD[e.key]||e.key, o:0}; }
 function hwyCanvas(w){
   const cv = w.q('.hwyc'); if (!cv || !cv.offsetParent) return null;
   const dpr = window.devicePixelRatio||1, W = cv.clientWidth, H = cv.clientHeight;
@@ -2212,8 +2231,8 @@ function hwyIdle(w){
   const c = hwyCanvas(w); if (!c) return; const {g, W, H} = c;
   hwyLine(g, H, 0);
   g.fillStyle = '#c9b294'; g.font = '600 12px system-ui, sans-serif'; g.textAlign = 'left';
-  g.fillText('「一緒に弾く」を押すと、叩く音が右から流れてきます。', HWY_X0 + 10, H/2 - 4);
-  g.fillText('この線に重なった瞬間に叩こう ←', HWY_X0 + 10, H/2 + 14);
+  g.fillText('叩く音が右から流れてきます', HWY_X0 + 10, H/2 - 4);
+  g.fillText('← この線に重なったら叩く', HWY_X0 + 10, H/2 + 14);
   hwyNextPanel(g, H, null, null);
 }
 function hwyLine(g, H, glow){
@@ -2227,6 +2246,7 @@ function hwyNextPanel(g, H, lab, beats){
   if (!lab){ g.fillStyle = '#6d5a45'; g.font = '800 22px system-ui, sans-serif'; g.fillText('—', (HWY_X0-12)/2, H/2 + 8); return; }
   g.fillStyle = '#ffe7a0'; g.font = `900 ${lab.txt.length > 2 ? 17 : 30}px system-ui, sans-serif`; g.fillText(lab.txt, (HWY_X0-12)/2, H/2 + 9);
   if (lab.o){ g.beginPath(); g.arc((HWY_X0-12)/2, lab.o > 0 ? H/2 - 22 : H/2 + 18, 3, 0, 7); g.fill(); }
+  if (lab.both){ g.font = '700 9.5px system-ui, sans-serif'; g.fillText('オクターブ', (HWY_X0-12)/2, H/2 - 22); }
   if (beats != null){ g.fillStyle = '#c9b294'; g.font = '600 10.5px system-ui, sans-serif'; g.fillText(beats < .25 ? 'いま！' : `あと ${beats < 1 ? beats.toFixed(1) : Math.round(beats*2)/2} 拍`, (HWY_X0-12)/2, H - 9); }
 }
 // 次に叩く音（まだ判定されていない一番近い音）を、拍の予定から先に求める
@@ -2279,6 +2299,7 @@ function hwyDraw(w){
     if (isNext){ g.lineWidth = 3; g.strokeStyle = '#eafff1'; g.stroke(); }
     g.fillStyle = '#1b120c'; g.font = `900 ${lab.txt.length > 2 ? 13 : 20}px system-ui, sans-serif`; g.textAlign = 'center'; g.fillText(lab.txt, x, cy + (lab.txt.length > 2 ? 5 : 7));
     if (lab.o){ g.beginPath(); g.arc(x, lab.o > 0 ? cy - 14 : cy + 14, 2.6, 0, 7); g.fill(); }
+    if (lab.both){ g.beginPath(); g.arc(x, cy - 14, 2.6, 0, 7); g.arc(x, cy + 14, 2.6, 0, 7); g.fill(); g.font = '700 8px system-ui, sans-serif'; g.fillText('8va', x, cy - 21); }
     g.globalAlpha = 1;
   }
   // 叩く線：札が近づくほど光る
@@ -2303,7 +2324,8 @@ function practiceFrame(){
   // 光らせる鍵盤は、拍の予定から求めた「次の音」（2拍前から光る）
   const hn = w._hn, beatS = 60/w.bpm, next = hn ? {time: hn.t, e: hn.e} : null;
   const tk = hn && hn.t - hn.nowV < beatS*2.2 ? hn.e.key : null;
-  if (tk !== w._tk){ w._tk = tk; w.kb.el.querySelectorAll('.ring[style]').forEach(r=>r.removeAttribute('style')); w.kb.setTarget(tk); }
+  if (tk !== w._tk){ w._tk = tk; w.kb.el.querySelectorAll('.ring[style]').forEach(r=>r.removeAttribute('style')); w.kb.setTarget(tk);
+    if (tk && w._hn && w._hn.e.gemb){ const k2 = w.kb.el.querySelector(`[data-key="${w._hn.e.d}:1"]`); if (k2) k2.classList.add('target'); } }
   // 次に叩く鍵盤の輪：叩く瞬間に向かって縮み、ぴったり重なったときが叩くタイミング
   if (tk && next){ const r = w.kb.el.querySelector('.target .ring'), beat = 60/w.bpm;
     if (r){ const p = Math.max(0, Math.min(1, (next.time - (now - lat))/(beat*1.5)));
@@ -2361,7 +2383,7 @@ const DEMOS = {
     S.onEnd = () => say && say('おわり（最後はゆっくりになってゴングで終わりました）'); startAuto(); },
   layers(say){ stopAll(); usePiece(0);
     const order = [['gong'],['saron','demung','slenthem'],['peking'],['bonang'],['panerus','kendhang']];
-    const names = ['ゴング類だけ','＋ バルンガン（サロン・デムン・スレンテム）','＋ ペキン（2回ずつ先取り）','＋ ボナン（2音を行き来）','＋ パネルスとクンダン（全員）'];
+    const names = ['ゴング類だけ','＋ バルンガン（サロン・デムン・スレンテム）','＋ ペキン（2回ずつ先取り）','＋ ボナン（ランチャランなので、オクターブを裏拍で）','＋ パネルスとクンダン（全員）'];
     LANES_JAVA.forEach(l=>S.muted[l.id] = true); S.muted.gong = false; renderLanes();
     let step = 0; say && say('いま：'+names[0]);
     S.onCycle = c => { if (c<=1) return; step++; if (step < order.length){ order[step].forEach(id=>S.muted[id]=false); renderLanes(); say && say('いま：'+names[step]); } if (step === order.length-1) S.endAfter = c+1; };
@@ -2585,12 +2607,13 @@ const LESSONS = [
     ] },
   { title:'ボナン：2つの音を行ったり来たり',
     body:`<p>ボナンは小さな壺型のゴングを2列に並べた楽器です。バルンガンの2拍を1組（x y）にして、<b>「x y x y」と2つの音を行き来</b>します。これを<b>ミピル</b>奏法といいます。</p>
-    <p>組の最後の音（y）は、バルンガンの2拍目とぴったり重なります。ペキンと同じく「先を読む」楽器です。</p>`,
+    <p>組の最後の音（y）は、バルンガンの2拍目とぴったり重なります。ペキンと同じく「先を読む」楽器です。</p>
+    <p>ただし、<b>同じ音が続くところ</b>（「3 3」や「2 .」のように音がのびるところ）では、行き来せずに<b>高い音と低い音を同時に打つ（グンビャン＝オクターブ打ち）</b>になります。また、<b>ランチャランのような速い曲</b>では、ミピルではなく、次の音のオクターブを<b>裏拍</b>（バルンガンの間）で打つのが基本です。楽譜では紫の枠つきの数字がオクターブ打ちです。</p>`,
     point:'<b>ポイント</b> ボナン奏者は楽譜の「次の2音」をいつも見ています。',
     widgets:[
       {type:'quiz', title:'クイズ', q:'バルンガンが「3 5」のとき、ボナンは？', options:['3 3 5 5','3 5 3 5','5 3 5 3'], answer:1, explain:'2つの音を行き来して、最後に5（2拍目の音）に着地します。'},
-      {type:'grid', title:'楽譜で見てみよう', piece:0, insts:['bal','bonang','panerus'], beats:[1,4], note:'パネルスはボナンの仲間で、同じ動きを倍の速さで弾きます。'},
-      {type:'practice', title:'ボナンを弾こう', cfg:{piece:0, user:'bonang', beats:[1,8], bpm:46, backing:['saron','demung','kethuk','kenong','gong','kempul'], passRatio:.7}},
+      {type:'grid', title:'楽譜で見てみよう', piece:2, insts:['bal','bonang','panerus'], beats:[1,4], note:'ラドラン「ゆるやかな川」の最初の4拍。パネルスはボナンの仲間で、同じ動きを倍の速さで弾きます。'},
+      {type:'practice', title:'ボナンを弾こう', cfg:{piece:2, user:'bonang', beats:[1,8], bpm:46, backing:['saron','demung','kethuk','kenong','gong','kempul'], passRatio:.7}},
     ] },
   { title:'密度の層を重ねる',
     body:`<p>ここまでの楽器を重ねると、ガムランの響きになります。低く大きい楽器はゆっくり、高く小さい楽器ほど細かく速く演奏します。</p>
@@ -2897,11 +2920,11 @@ const THEORY = [
    facts:[['役割','バルンガンを先取りして予告する'],['音域','サロンより1オクターブ高い（いちばん高い）'],['1拍の音数','イラマI＝2音、イラマII＝4音'],['道具','水牛の角のバチ（硬く明るい音）']],
    rules:['バルンガンの2音を1組（x y）として考える。','各音を2回ずつ「x x y y」と叩く。イラマIIでは「x x y y x x y y」。','先取り：2回目の音がバルンガンと同時になるよう、少し前から叩き始める。','休み（.）のときは、直前の音が続いているとみなして叩く。'],
    tips:['「次の音はこれだよ」と予告するつもりで。','明るく硬い音なので、強く叩きすぎない。']},
-  {group:'飾り（旋律を細かくする）', id:'bonang', name:'ボナン（ボナン・バルン）', p:{piece:0, beats:[1,8], bpm:46, iramaToggle:true},
-   facts:[['役割','旋律を飾り、合奏をリードする'],['楽器','小さな壺型ゴングを2列に並べたもの（約2オクターブ）'],['1拍の音数','イラマI＝2音、イラマII＝4音'],['道具','紐を巻いた2本のバチ（両手）']],
-   rules:['2拍を1組（x y）として、「x y x y」と2つの音を行き来する（ミピル奏法）。','組の最後の音が、バルンガンの2拍目とぴったり重なる。','休み（.）のときは直前の音が続いているとみなす。','多くの曲で、前奏（ブカ）をひとりで弾いて合奏をリードする。','ランチャランなど速い形式では、オクターブを裏拍で打つなど別の弾き方をすることも多い。','ほかに、オクターブを同時に打つ「グンビャン」など多くの奏法がある（このアプリではミピルを簡単にしたものだけ）。'],
+  {group:'飾り（旋律を細かくする）', id:'bonang', name:'ボナン（ボナン・バルン）', p:{piece:2, beats:[1,8], bpm:46, iramaToggle:true},
+   facts:[['役割','旋律を飾り、合奏をリードする'],['楽器','小さな壺型ゴングを2列に並べたもの（約2オクターブ）'],['1拍の音数','イラマI＝2音、イラマII＝4音（ランチャランは裏拍に1回のオクターブ）'],['道具','紐を巻いた2本のバチ（両手）']],
+   rules:['2拍を1組（x y）として、「x y x y」と2つの音を行き来する（ミピル奏法）。','組の最後の音が、バルンガンの2拍目とぴったり重なる。','休み（.）のときは直前の音が続いているとみなす。','多くの曲で、前奏（ブカ）をひとりで弾いて合奏をリードする。','ランチャラン（速い曲）では、次の音のオクターブ（グンビャン）を裏拍で打つ。バルンガンとは重ねない。','同じ音が続く・休みで音がのびるところ（ガントゥンガン）でも、行き来せずにオクターブで打つ。','ほかにも、パネルスとかみ合わせる「インバル」、旋律を自由に飾る「スカラン」など多くの奏法がある（このアプリでは未対応）。'],
    tips:['楽譜の「次の2音」をいつも先に見ておく。','高い列と低い列を行き来するときは、手の動きを小さく。']},
-  {group:'飾り（旋律を細かくする）', id:'panerus', name:'ボナン・パネルス', p:{piece:0, beats:[1,4], bpm:40, iramaToggle:true, show:['bal','bonang','panerus']},
+  {group:'飾り（旋律を細かくする）', id:'panerus', name:'ボナン・パネルス', p:{piece:2, beats:[1,4], bpm:40, iramaToggle:true, show:['bal','bonang','panerus']},
    facts:[['役割','ボナン・バルンの動きを倍の速さで重ね、きらめきを加える'],['音域','ボナン・バルンより1オクターブ高い'],['1拍の音数','イラマI＝4音、イラマII＝8音'],['道具','紐を巻いた2本のバチ']],
    rules:['ボナン・バルンと同じ「x y x y」の動きを、倍の細かさで弾く。','組の最後の音がバルンガンと重なるのは同じ。'],
    tips:['速いので、まずはテンポを下げて「x y」の往復に慣れよう。']},
