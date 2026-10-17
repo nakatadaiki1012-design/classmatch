@@ -1047,7 +1047,8 @@ function derive(bal, laras, form, irama=1){
   const buka = Array.from({length:N*TPB+1}, ()=>[]);
   const lead = bali ? 'kendhang' : 'bonang';
   for (const e of parts[lead]||[]) if (e.T > (N-4)*TPB) buka[e.T].push(e);
-  for (const e of parts.gong) buka[e.T].push(e);
+  // ゴングの拍で全員が入る（ブカの最後の音＝ゴング音を、全楽器がゴングと同時に鳴らす）
+  buka[N*TPB] = byTick[N*TPB].slice();
   const endByT = {}; for (const e of endK) (endByT[e.T] ||= []).push(e);
   return {N, colo, parts, byTick, buka, endK:endByT, laras, form, angsel};
 }
@@ -1512,9 +1513,9 @@ function scheduler(){
       list = list.filter(e=>e.inst!=='kendhang');
       if (T % 2 === 0 && !S.muted.kendhang){ const k = {2:'t',4:'P',6:'t',0:'D'}[T % TPB]; playInst('kendhang', {k}, t, S.laras, k==='D'?.95:.7); hit('kendhang', t, '合図'); }
     }
-    if (S.phase==='main' && S.ending && T > (S.N-4)*TPB && S.form!=='bali') list = list.filter(e=>e.inst!=='kendhang').concat(D.endK[T]||[]);
+    if (S.phase==='main' && S.slowed && T > (S.N-4)*TPB && S.form!=='bali') list = list.filter(e=>e.inst!=='kendhang').concat(D.endK[T]||[]);
     for (const e of list){
-      const lane = laneOf(e.inst); if (S.muted[lane] && S.phase!=='buka') continue; // 前奏（ブカ）はいつも鳴らす
+      const lane = laneOf(e.inst); if (S.muted[lane] && (S.phase!=='buka' || T===S.N*TPB)) continue; // 前奏（ブカ）の独奏はいつも鳴らす
       const tt = t + (e.inst==='gong' ? 0 : (Math.random()-.5)*0.008); // 人間らしいわずかなズレ
       if (e.durT) e.durSec = e.durT*60/S.tempo/TPB;
       const h = playInst(e.inst, e, tt, S.laras, e.v*(0.92+Math.random()*0.14));
@@ -1523,12 +1524,12 @@ function scheduler(){
     }
     logTick(T, t, S.phase);
     if (T % TPB === 0){ const beat = T/TPB, buka = S.phase==='buka'; vis(t, ()=>showBeat(beat, buka)); }
-    S.tempo += (S.target - S.tempo) * (S.ending ? 0.02 : S.pendingIrama ? 0.035 : 0.012); // 生演奏のように少しずつテンポが変わる
+    S.tempo += (S.target - S.tempo) * (S.slowed ? 0.045 : S.pendingIrama ? 0.05 : 0.012); // 生演奏のように少しずつテンポが変わる
     S.nextTime += 60 / S.tempo / TPB;
     S.tick++;
     if (S.tick > S.N * TPB){
       if (S.phase === 'buka') S.phase = 'main';
-      else if (S.ending){ finishAuto(S.nextTime); return; }
+      else if (S.ending && S.slowed){ finishAuto(S.nextTime); return; } // 最後のガトラで遅くなってからゴングで終わる
       S.tick = 1; S.cycle++;
       const c = S.cycle; vis(S.nextTime, ()=>{ $('#statCycle').textContent = c; if (S.onCycle) S.onCycle(c); });
       if (S.endAfter && c >= S.endAfter) S.ending = true;
@@ -1541,14 +1542,14 @@ function scheduler(){
           ir===2 ? '区切りの拍で全員そろって切り替えました。バルンガンはゆっくりのまま、ペキン・ボナンは1拍に4音、パネルスは8音に増えます。' : '区切りの拍で切り替えました。飾りの楽器の音数が半分に戻り、テンポが上がります。']]); });
       }
     }
-    if (S.ending && S.tick === (S.N-4)*TPB + 1 && S.phase==='main') S.target = S.tempo * 0.5; // スウック：最後のガトラで減速
+    if (S.ending && S.tick === (S.N-4)*TPB + 1 && S.phase==='main'){ S.slowed = true; S.target = S.tempo * (S.form==='bali' ? 0.75 : 0.5); } // スウック：最後のガトラで減速（バリは控えめ）
   }
 }
 function startAuto(){
   initAudio();
   if (PW) stopPractice(PW);
   if (S.playing) return;
-  S.playing = true; S.ending = false; S.cycle = 0; S.handles = {}; TL.length = 0; S._tail = false;
+  S.playing = true; S.ending = false; S.slowed = false; S.cycle = 0; S.handles = {}; TL.length = 0; S._tail = false;
   S.phase = 'buka'; S.tick = (S.N - 4) * TPB + 1;
   S.tempo = S.target = +$('#tempo').value;
   S.irama = S.pendingIrama || S.irama; S.pendingIrama = null;
@@ -1567,7 +1568,7 @@ function finishAuto(at){
 function stopAuto(silent){
   if (S.timer) clearInterval(S.timer);
   const was = S.playing;
-  S.timer = null; S.playing = false; S.ending = false; S.onCycle = S.onBeat = null; S.endAfter = 0; S._tail = false; TL.length = 0;
+  S.timer = null; S.playing = false; S.ending = false; S.slowed = false; S.onCycle = S.onBeat = null; S.endAfter = 0; S._tail = false; TL.length = 0;
   if (!PW) keepAwake(false);
   const cb = S.onEnd; S.onEnd = null;
   visQ.length = 0;
@@ -1922,7 +1923,7 @@ function setIrama(n, immediate){
   if (S.phase==='buka'){ S.irama = n; S.pendingIrama = null; return; }
   S.pendingIrama = n;
   const cur = Math.ceil(S.tick/TPB); S.switchBeat = 0;
-  for (let k=2; k<=S.N+2; k++){ const b = ((cur-1+k) % S.N) + 1, m = S.colo[b]||[]; if (m.includes('N') || m.includes('G')){ S.switchBeat = b; break; } }
+  for (let k=5; k<=S.N+5; k++){ const b = ((cur-1+k) % S.N) + 1, m = S.colo[b]||[]; if (m.includes('N') || m.includes('G')){ S.switchBeat = b; break; } }
   const names = COLO_NAME(), mk = (S.colo[S.switchBeat]||[]).includes('G') ? 'ゴング' : names.N;
   for (const g of GUIDES) g.push([['warn', `クンダンの合図（イラマ ${n===2?'II':'I'} へ）`,
     `クンダンが細かく打ち込んで合図し、全員がだんだん${n===2?'ゆっくり':'速く'}になります。次の${mk}（${S.switchBeat}拍目）で、飾りの楽器の細かさが${n===2?'2倍':'半分'}に切り替わります。`]]);
@@ -2602,7 +2603,7 @@ const LESSONS = [
     ] },
   { title:'イラマ：遅くなると細かくなる',
     body:`<p>ガムランでは、テンポが半分になると、飾りの楽器は<b>1拍に入れる音数を2倍</b>にします。全体の流れの速さは保ったまま、骨組みだけがゆったりになるのです。この関係を<b>イラマ</b>といいます。</p>
-    <p>切り替えはいきなりではありません。<b>クンダンが細かく打ち込んで合図</b>を出し、全員がだんだんテンポを変えていき、<b>次のクノン（区切り）の拍</b>でそろって飾りの細かさを切り替えます。</p>
+    <p>切り替えはいきなりではありません。<b>クンダンが細かく打ち込んで合図</b>を出し、全員がだんだんテンポを変えていき、テンポが変わりきったころの<b>クノン（区切り）の拍</b>でそろって飾りの細かさを切り替えます。</p>
     <p>実際のジャワのガムランには、速い順に<b>ランチャル → タングン（I） → ダドス（II） → ウィレッ（III） → ランケップ（IV）</b>という段階があり、1段ゆっくりになるごとに飾りの音数が倍になります。このアプリではタングンとダドスの2段階を体験できます。</p>`,
     point:'<b>ポイント</b> イラマ I（タングン）→ II（ダドス）：バルンガンは半分の速さ、ペキンやボナンは1拍に2音 → 4音。',
     widgets:[
