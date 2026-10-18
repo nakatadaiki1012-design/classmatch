@@ -713,8 +713,12 @@ let ctx = null, bus = null, noiseBuf = null;
 function initAudio(){
   if (ctx) { if (ctx.state !== 'running') ctx.resume(); return; }
   try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch(e){}
-  ctx = new (window.AudioContext || window.webkitAudioContext)();
+  // 計算を軽くする設定：少し大きめの音の受け渡し（バッファ）と、耳に十分な 32kHz の標本化
+  const AC = window.AudioContext || window.webkitAudioContext;
+  try { ctx = new AC({latencyHint:'balanced', sampleRate:32000}); }
+  catch(e){ try { ctx = new AC({latencyHint:'balanced'}); } catch(e2){ ctx = new AC(); } }
   buildGraph();
+  setTimeout(() => { if (S.der && S.der[1]) prewarm(S.der[1], S.laras); if (PW_LAST && PW_LAST.der) prewarm(PW_LAST.der, PW_LAST.laras); }, 50);
   const s = ctx.createBufferSource(); s.buffer = ctx.createBuffer(1,1,22050); s.connect(ctx.destination); s.start(0);
 }
 // 音の通り道：各楽器 → bus → (残響) → コンプレッサー → 高音を少し抑える → 出力
@@ -753,18 +757,25 @@ function makeIR(sec){
  * partials: [倍率, 音量, 減衰秒, 加算Hz, 立ち上がり秒]
  * opt.noise: バチが当たる音などの雑音成分 [{type,f,q,a,d}]
  * opt.glide: 叩いた瞬間だけ少し高く→落ち着く（ゴングの特徴） */
-let ACTIVE = 0; // いま鳴っている音の数。多すぎるときは弱い倍音を省いてスマホの負担を減らす
+let ACTIVE = 0; // いま鳴っている発振器の数。多いときは弱い倍音や雑音を省いて計算を軽くし、音のビリビリ（処理落ち）を防ぐ
+const FLOOR = 0.0012; // ここまで小さくなった倍音は聞こえないので、その時点で止める
+let RENDERING = false; // 音を前もって作っている最中（このときは最高品質で作る）
 function voice(freq, t, vel, partials, opt={}){
-  if (ACTIVE > 70) partials = partials.filter(p=>p[1] >= .14).slice(0, 3);
-  const life = Math.max(...partials.map(p=>(p[4] ?? opt.attack ?? .003) + p[2]), .1) + Math.max(0, t - ctx.currentTime);
-  ACTIVE++; setTimeout(()=>{ ACTIVE--; }, life*1000);
+  const lim = RENDERING ? 8 : opt.lite ? 3 : ACTIVE > 220 ? 2 : ACTIVE > 140 ? 3 : ACTIVE > 80 ? 4 : 8, minA = ACTIVE > 140 ? .03 : .008;
+  const ps = [];
+  for (const p of partials){ const f = freq*p[0] + (p[3]||0); if (f > 15000 || f < 20 || p[1]*vel < minA) continue; ps.push(p); if (ps.length >= lim) break; }
+  const noise = RENDERING ? (opt.lite ? [] : (opt.noise||[])) : (opt.lite || ACTIVE > 140) ? [] : ACTIVE > 80 ? (opt.noise||[]).slice(0,1) : (opt.noise||[]);
+  const atk0 = opt.attack ?? 0.003, ends = ps.map(([r, a, dec, addHz, atk=atk0]) => { const A = a*vel; return atk + dec*Math.log(A/FLOOR)/Math.log(A/0.0001); });
+  const life = Math.max(...ends, .1) + Math.max(0, t - ctx.currentTime);
+  const cnt = RENDERING ? 0 : ps.length; let live = true; ACTIVE += cnt;
+  const release = ms => { if (cnt) setTimeout(()=>{ if (live){ live = false; ACTIVE -= cnt; } }, ms); };
+  release(life*1000 + 50);
   const out = ctx.createGain(); out.gain.value = 1;
-  if (opt.pan && ctx.createStereoPanner){ const p = ctx.createStereoPanner(); p.pan.value = opt.pan; out.connect(p); p.connect(bus); }
-  else out.connect(bus);
-  const atk0 = opt.attack ?? 0.003, srcs = [];
-  for (const [r, a, dec, addHz=0, atk=atk0] of partials){
+  if (opt.pan && ctx.createStereoPanner && !RENDERING){ const p = ctx.createStereoPanner(); p.pan.value = opt.pan; out.connect(p); p.connect(bus); }
+  else out.connect(bus); // 作り置きはモノラルで作り、鳴らすときに左右の位置を付ける
+  const srcs = [];
+  ps.forEach(([r, a, dec, addHz=0, atk=atk0], k) => {
     const f = freq*r + addHz;
-    if (f > 15000 || f < 20 || a*vel < 0.002) continue;
     const o = ctx.createOscillator(); o.type = 'sine';
     if (opt.glide){ o.frequency.setValueAtTime(f*opt.glide, t); o.frequency.exponentialRampToValueAtTime(f, t + (opt.glideTime||0.12)); }
     else o.frequency.setValueAtTime(f, t);
@@ -773,9 +784,9 @@ function voice(freq, t, vel, partials, opt={}){
     g.gain.linearRampToValueAtTime(a*vel, t + atk);
     g.gain.exponentialRampToValueAtTime(0.0001, t + atk + dec);
     o.connect(g); g.connect(out);
-    o.start(t); o.stop(t + atk + dec + 0.05); srcs.push(o);
-  }
-  for (const nz of (opt.noise||[])){
+    o.start(t); o.stop(t + ends[k] + 0.02); srcs.push(o);
+  });
+  for (const nz of noise){
     const n = ctx.createBufferSource(); n.buffer = noiseBuf;
     const f = ctx.createBiquadFilter(); f.type = nz.type||'bandpass'; f.frequency.value = Math.min(nz.f, 12000); f.Q.value = nz.q || 1;
     const g = ctx.createGain();
@@ -784,29 +795,31 @@ function voice(freq, t, vel, partials, opt={}){
     n.start(t, Math.random()*0.5); n.stop(t + nz.d + 0.02);
   }
   // ダンプ：響きを手で止める。止めた音の発振器も早めに止めてスマホの負担を減らす
-  return { damp(at){ const tt = Math.max(at, ctx.currentTime); out.gain.setTargetAtTime(0, tt, 0.022);
-    for (const o of srcs){ try { o.stop(tt + 0.2); } catch(e){} } } };
+  // soft：重なりすぎた古い響きを、ゆっくり（約0.1秒で）消すとき
+  return { damp(at, soft){ const tt = Math.max(at, ctx.currentTime), tail = soft ? .6 : .2; out.gain.setTargetAtTime(0, tt, soft ? .1 : .022);
+    for (const o of srcs){ try { o.stop(tt + tail); } catch(e){} }
+    release((tt + tail - ctx.currentTime)*1000 + 50); } };
 }
-function pair(a, b){ return { damp(x){ a.damp(x); b.damp(x); } }; }
+function pair(a, b){ return { damp(x, s){ a.damp(x, s); b.damp(x, s); } }; }
 
 const SYNTH = {
   // サロン・デムン・ペキン：青銅の板。倍音は整数倍にならない（約2.7倍・5倍）
-  bar(f, t, v, dec, pan=0, hard=1){
+  bar(f, t, v, dec, pan=0, hard=1, lite=false){
     const b = 0.55 + 0.45*v;
     return voice(f, t, v, [
       [1, .52, dec], [1, .14, dec*.85, .9], [2.72, .15*b, dec*.26], [2.72, .05*b, dec*.22, 2.1],
       [4.95, .055*b*hard, dec*.1], [7.3, .025*b*hard, dec*.05],
-    ], {pan, noise:[{type:'bandpass', f:f*3.6, q:1.4, a:.11*b*hard, d:.022}, {type:'bandpass', f:420, q:.8, a:.05, d:.018}]});
+    ], {pan, lite, noise:[{type:'bandpass', f:f*3.6, q:1.4, a:.11*b*hard, d:.022}, {type:'bandpass', f:420, q:.8, a:.05, d:.018}]});
   },
   // スレンテム：薄い板＋竹筒の共鳴。共鳴管が少し遅れてふくらむ
-  slenthem(f, t, v, pan=0){
+  slenthem(f, t, v, pan=0, lite=false){
     return voice(f, t, v, [[1,.5,10,0,.004],[1,.26,9,.7,.07],[2,.11,3.6],[3,.045,1.6],[4.1,.02,.8]],
-      {pan, noise:[{type:'lowpass', f:700, q:.7, a:.05, d:.03}]});
+      {pan, lite, noise:[{type:'lowpass', f:700, q:.7, a:.05, d:.03}]});
   },
   // ボナン：こぶ付きの小さな壺型ゴング。布を巻いたバチで柔らかく
-  kettle(f, t, v, dec=1.5, pan=0){
+  kettle(f, t, v, dec=1.5, pan=0, lite=false){
     return voice(f, t, v, [[1,.5,dec],[1,.13,dec,1.3],[2.03,.15,dec*.5],[2.98,.11,dec*.32],[4.18,.045,dec*.18],[5.4,.02,dec*.1]],
-      {pan, attack:.005, glide:1.006, glideTime:.07, noise:[{type:'lowpass', f:520, q:.7, a:.09, d:.03},{type:'bandpass', f:f*2.5, q:2, a:.03, d:.015}]});
+      {pan, lite, attack:.005, glide:1.006, glideTime:.07, noise:[{type:'lowpass', f:520, q:.7, a:.09, d:.03},{type:'bandpass', f:f*2.5, q:2, a:.03, d:.015}]});
   },
   // クンプル：吊りゴング。叩いた瞬間少し高く、ゆっくり「うなり」ながら消える
   kempul(f, t, v, pan=0){
@@ -898,8 +911,68 @@ const PAN = {gender:-.12, rebab:.05, suling:.18, saron:-.05, demung:-.3, slenthe
 const DAMP = new Set(['rebab','suling','saron','demung','peking','slenthem','polos','sangsih','gangsa','calung','jegogan']);
 let ombakHz = 6;
 
+// 楽器ごとの同時に響かせる数の上限。超えたら一番古い響きをそっと消す（重なりすぎによる処理落ちを防ぐ）
+const VOICECAP = {bonang:6, panerus:6, gender:6, kenong:3, kempul:2, gong:2, kethuk:2, kempyang:2, kajar:2, ceng:3, kendhang:4};
+const POLY = {};
+/* 音の作り置き：同じ楽器・同じ高さの音は、最初の1回だけ合成して録音（AudioBuffer）しておき、2回目からはそれを再生する。
+ * 1音あたりの計算が数十分の一になり、たくさん重なってもスマホで音がビリビリしにくくなる。 */
+const NOTEBUF = new Map(), RQ = [], NOCACHE = new Set(['rebab','suling']);
+const RENDER_SEC = {gong:20, kempul:11, kenong:9, slenthem:7, jegogan:7, demung:6, saron:5, calung:5, polos:4, sangsih:4, gangsa:4, peking:3.5,
+  bonang:4, panerus:3.5, gender:6, kethuk:.5, kempyang:.6, kajar:.4, ceng:.4, kendhang:.8};
+let rBusy = false, rWait = [];
+const OMBAK_INST = new Set(['polos','sangsih','gangsa','calung','jegogan']);
+function noteKey(inst, ev, laras){ return `${inst}|${laras}|${ev.d||0}|${ev.o||0}|${ev.k||''}|${ev.gemb?1:0}|${ev.bali?1:0}|${OMBAK_INST.has(inst)?ombakHz:''}`; }
+function noteBuffer(inst, ev, laras){
+  const key = noteKey(inst, ev, laras), b = NOTEBUF.get(key);
+  if (b) return b === 1 ? null : b;
+  NOTEBUF.set(key, 1); RQ.push({key, inst, ev:{d:ev.d, o:ev.o, k:ev.k, gemb:ev.gemb, bali:ev.bali}, laras}); pumpRender(); return null;
+}
+async function pumpRender(){
+  if (rBusy || !ctx) return;
+  if (!RQ.length){ const w = rWait; rWait = []; w.forEach(f=>f()); return; }
+  rBusy = true;
+  const {key, inst, ev, laras} = RQ.shift();
+  try {
+    const sr = ctx.sampleRate, off = new OfflineAudioContext(1, Math.ceil(sr*(RENDER_SEC[inst]||3)), sr);
+    const save = [ctx, bus]; ctx = off; bus = off.createGain(); bus.connect(off.destination); RENDERING = true;
+    try { playInst0(inst, ev, 0, laras, 1, 0); } finally { ctx = save[0]; bus = save[1]; RENDERING = false; }
+    const buf = await off.startRendering(), d = buf.getChannelData(0);
+    let n = d.length; while (n > 1 && Math.abs(d[n-1]) < 1.5e-4) n--; // 聞こえない余韻を切る
+    n = Math.min(d.length, n + Math.round(sr*0.02));
+    const out = ctx.createBuffer(1, n, sr), od = out.getChannelData(0); od.set(d.subarray(0, n));
+    const fade = Math.min(n, Math.round(sr*0.01)); for (let i=0;i<fade;i++) od[n-1-i] *= i/fade;
+    NOTEBUF.set(key, out);
+    if (NOTEBUF.size > 360){ for (const k of NOTEBUF.keys()){ NOTEBUF.delete(k); if (NOTEBUF.size <= 300) break; } }
+  } catch(e){ NOTEBUF.delete(key); }
+  rBusy = false; setTimeout(pumpRender, 0);
+}
+// 曲を始める前に、その曲で使う音をまとめて作っておく（終わったら resolve）
+function prewarm(D, laras){
+  if (!ctx) return Promise.resolve();
+  for (const k in D.parts) if (k!=='bal') for (const e of D.parts[k]) if (!NOCACHE.has(e.inst)) noteBuffer(e.inst, e, laras);
+  return new Promise(res => { rWait.push(res); pumpRender(); });
+}
+const PANBUS = {};
+function panBus(p){ const k = Math.round(p*20)/20; if (!k) return bus; if (!PANBUS[k] || PANBUS[k].context !== ctx){ const n = ctx.createStereoPanner ? ctx.createStereoPanner() : ctx.createGain(); if (n.pan) n.pan.value = k; n.connect(bus); PANBUS[k] = n; } return PANBUS[k]; }
+function playBuf(buf, t, gain, pan){
+  const src = ctx.createBufferSource(), g = ctx.createGain(); src.buffer = buf; g.gain.value = gain;
+  src.connect(g); g.connect(panBus(pan)); src.start(Math.max(t, ctx.currentTime));
+  return { damp(at, soft){ const tt = Math.max(at, ctx.currentTime); g.gain.setTargetAtTime(0, tt, soft ? .1 : .022); try { src.stop(tt + (soft ? .6 : .2)); } catch(e){} } };
+}
+function playInst(inst, ev, t, laras, vel=1, pan){
+  pan = pan ?? PAN[inst] ?? 0;
+  let h = null;
+  if (ctx && !RENDERING && !NOCACHE.has(inst)){
+    const buf = noteBuffer(inst, ev, laras), m = MIX[inst]||.7;
+    if (buf) h = playBuf(buf, t, Math.min(1.2, vel*m)/Math.min(1.2, m), pan);
+  }
+  if (!h) h = playInst0(inst, ev, t, laras, vel, pan);
+  const cap = VOICECAP[inst];
+  if (h && cap){ const q = POLY[inst] ||= []; q.push(h); while (q.length > cap) q.shift().damp(t, true); }
+  return h;
+}
 // 1つの音を鳴らす（自由演奏・自動演奏・練習で共通）
-function playInst(inst, ev, t, laras, vel=1, pan=PAN[inst]||0){
+function playInst0(inst, ev, t, laras, vel=1, pan=PAN[inst]||0){
   const v = Math.min(1.2, vel * (MIX[inst]||.7));
   const F = (o) => freqOf(laras, ev.d, ev.o + o);
   switch(inst){
@@ -907,8 +980,8 @@ function playInst(inst, ev, t, laras, vel=1, pan=PAN[inst]||0){
     case 'demung':   return SYNTH.bar(F(0), t, v, 8, pan, .8);
     case 'peking':   return SYNTH.bar(F(2), t, v, 4, pan, 1.3);
     case 'slenthem': return SYNTH.slenthem(F(-1), t, v, pan);
-    case 'bonang':   return ev.gemb ? pair(SYNTH.kettle(F(0), t, v*.8, 4, pan-.05), SYNTH.kettle(F(1), t, v*.75, 4, pan+.05)) : SYNTH.kettle(F(0), t, v, 4, pan);
-    case 'panerus':  return ev.gemb ? pair(SYNTH.kettle(F(1), t, v*.8, 3, pan-.05), SYNTH.kettle(F(2), t, v*.75, 3, pan+.05)) : SYNTH.kettle(F(1), t, v, 3, pan);
+    case 'bonang':   return ev.gemb ? pair(SYNTH.kettle(F(0), t, v*.8, 4, pan-.05), SYNTH.kettle(F(1), t, v*.75, 4, pan+.05, true)) : SYNTH.kettle(F(0), t, v, 4, pan);
+    case 'panerus':  return ev.gemb ? pair(SYNTH.kettle(F(1), t, v*.8, 3, pan-.05), SYNTH.kettle(F(2), t, v*.75, 3, pan+.05, true)) : SYNTH.kettle(F(1), t, v, 3, pan);
     case 'kenong':   return SYNTH.kenong(freqOf(laras, ev.d, 0), t, v, pan);
     case 'kempul':   return SYNTH.kempul(freqOf(laras, ev.d, -1), t, v, pan);
     case 'gong':     return SYNTH.gong(t, v, ev.bali ? 2.6 : 1.8, pan);
@@ -918,9 +991,9 @@ function playInst(inst, ev, t, laras, vel=1, pan=PAN[inst]||0){
     case 'ceng':     return SYNTH.ceng(t, v, pan);
     case 'kendhang': return SYNTH.drum(ev.k, t, v, pan);
     case 'polos': case 'sangsih': case 'gangsa': // 2台1組（低めのペンゴンバン＋高めのペンギセップ）でうなりを作る
-      return pair(SYNTH.bar(F(1), t, v*.72, 4, pan-.1), SYNTH.bar(F(1)+ombakHz, t, v*.72, 4, pan+.1));
-    case 'calung':   return pair(SYNTH.bar(F(0), t, v*.72, 6, pan, .8), SYNTH.bar(F(0)+ombakHz*.6, t, v*.72, 6, pan, .8));
-    case 'jegogan':  return pair(SYNTH.slenthem(F(-1), t, v*.75, pan), SYNTH.slenthem(F(-1)+ombakHz*.35, t, v*.75, pan));
+      return pair(SYNTH.bar(F(1), t, v*.72, 4, pan-.1), SYNTH.bar(F(1)+ombakHz, t, v*.72, 4, pan+.1, 1, true));
+    case 'calung':   return pair(SYNTH.bar(F(0), t, v*.72, 6, pan, .8), SYNTH.bar(F(0)+ombakHz*.6, t, v*.72, 6, pan, .8, true));
+    case 'jegogan':  return pair(SYNTH.slenthem(F(-1), t, v*.75, pan), SYNTH.slenthem(F(-1)+ombakHz*.35, t, v*.75, pan, true));
     case 'gender':   return SYNTH.gender(F(0), t, v, pan);
     case 'rebab':    return SYNTH.sustain('rebab', F(1), t, ev.durSec || 1, v*.5, pan, ev.fromD ? freqOf(laras, ev.fromD, ev.fromO + 1) : 0);
     case 'suling':   return SYNTH.sustain('suling', F(1), t, ev.durSec || 1.2, v*.45, pan);
@@ -1493,6 +1566,7 @@ function loadPiece(p){
   S.bal = parseBal(p.bal); S.N = S.bal.length;
   S.colo = colotomy(p.form, S.N);
   S.der = {1: derive(S.bal, S.laras, S.form, 1), 2: derive(S.bal, S.laras, S.form, 2)};
+  if (ctx) prewarm(S.der[1], S.laras);
   // 速く大きな音のランチャランでは、柔らかい楽器はふつう演奏しない（ゆっくりな曲で活躍する）
   ['gender','rebab','suling'].forEach(id => S.muted[id] = p.form==='lancaran');
   S.tempo = S.target = p.tempo;
@@ -1521,7 +1595,7 @@ function hit(laneId, time, label, inst){
   });
 }
 function scheduler(){
-  while (S.nextTime < ctx.currentTime + 0.12){
+  while (S.nextTime < ctx.currentTime + 0.2){
     const T = S.tick, t = S.nextTime, D = S.der[S.irama] || S.der[1];
     let list = S.phase==='buka' ? D.buka[T] : D.byTick[T];
     if (S.pendingIrama && S.phase==='main' && S.form!=='bali'){ // クンダンの合図：細かく打ち込んで「イラマを変えるよ」と知らせる
@@ -2008,6 +2082,7 @@ $('#randBtn').onclick = () => { // ガトラの最後を大事にしながら、
  *  8. 練習エンジン：合奏の中で1つの楽器を担当し、タイミングを判定
  * ========================================================= */
 let PW = null; // いま動いている練習ウィジェット
+let PW_LAST = null; // 最後に作った練習ウィジェット（音の作り置き用）
 function mountPractice(el, cfg){
   const piece = typeof cfg.piece==='number' ? PIECES[cfg.piece] : cfg.piece;
   const w = {el, cfg, piece, bal:parseBal(piece.bal), laras:piece.laras, bpm:cfg.bpm||60, irama:cfg.irama||1,
@@ -2034,10 +2109,11 @@ function mountPractice(el, cfg){
     <div class="hwy"><canvas class="hwyc" aria-label="叩くタイミングのレーン"></canvas></div>
     <div class="stage pkb"></div>
   </div>`;
-  w.q = s => el.querySelector(s);
+  w.q = s => el.querySelector(s); PW_LAST = w;
   w.scoreEl = w.q('.pscore');
   w.rebuild = () => {
     w.der = derive(w.bal, w.laras, piece.form, w.irama);
+    if (ctx) prewarm(w.der, w.laras);
     const [a,b] = cfg.beats || [1, w.der.N]; w.a = a; w.b = b;
     renderScore(w.scoreEl, w.der, show, a, b, 'p-');
   };
@@ -2102,7 +2178,7 @@ function stopPractice(w){
 }
 function practiceSched(w){
   const cfg = w.cfg, filt = cfg.filter || (()=>true), back = cfg.backing || 'all';
-  while (w.running && w.next < ctx.currentTime + 0.12){
+  while (w.running && w.next < ctx.currentTime + 0.2){
     const t = w.next, dt = 60/w.bpm/TPB;
     w.anchorAbs = w.abs; w.anchorT = t; w.abs++; // レーン表示用：何ティック目がいつ鳴るか
     if (w.ci < 4*TPB){ // カウント 4・3・2・1
