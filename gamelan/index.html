@@ -100,8 +100,8 @@
   .chk input{width:18px; height:18px; accent-color:var(--accent);}
 
   /* タブ */
-  .tabs{display:grid; grid-template-columns:repeat(5,1fr); gap:4px; margin:8px 0 12px; position:sticky; top:env(safe-area-inset-top, 0px); z-index:20; background:var(--bg); padding:6px 0;}
-  .tabs button{background:var(--panel); color:var(--sub); border:1px solid var(--line); padding:9px 2px; font-size:.8rem; line-height:1.25;}
+  .tabs{display:grid; grid-template-columns:repeat(6,1fr); gap:3px; margin:8px 0 12px; position:sticky; top:env(safe-area-inset-top, 0px); z-index:20; background:var(--bg); padding:6px 0;}
+  .tabs button{background:var(--panel); color:var(--sub); border:1px solid var(--line); padding:8px 1px; font-size:.72rem; line-height:1.25;}
   .tabs button.active{background:var(--accent); color:var(--onaccent); border-color:var(--accent);}
   .page{display:none;} .page.active{display:block;}
   /* 合奏ページ：曲と担当楽器を選ぶだけで、ほかの楽器は自動で演奏 */
@@ -365,7 +365,23 @@
   .inst .key.hit .shine{opacity:.42; transition:none;}
   .inst .ring{opacity:0; pointer-events:none;}
   .ev.gb .n{outline:2px solid #c59bff; outline-offset:1px; border-radius:4px;}
-  .hwy{margin:8px 0 6px;} .hwyc{display:block; width:100%; height:100px; border-radius:10px; background:#1a120c; border:1px solid var(--line);}
+  .hwy{margin:8px 0 6px;}
+  /* 3D合奏 */
+  .s3ctl{gap:6px;} .s3ctl select{flex:1 1 180px; min-width:0;}
+  .s3box{position:relative; height:min(64vh, 540px); min-height:320px; border-radius:14px; overflow:hidden; background:#e7dccb; margin-top:8px; touch-action:none;}
+  #s3gl{width:100%; height:100%; display:block;}
+  #s3labels{position:absolute; inset:0; pointer-events:none; overflow:hidden;}
+  .s3tag{position:absolute; left:0; top:0; pointer-events:auto; background:rgba(255,250,240,.9); color:#2a1c13; border:1px solid #c9a24a; border-radius:8px;
+    padding:2px 7px; font-size:.7rem; font-weight:800; line-height:1.15; text-align:center; white-space:nowrap; box-shadow:0 2px 6px rgba(0,0,0,.18); transition:background .15s;}
+  .s3tag small{display:block; font-weight:400; font-size:.56rem; color:#7a5a3a;}
+  .s3tag.act{background:#ffe7a0; box-shadow:0 0 0 2px #ffd36a, 0 2px 8px rgba(0,0,0,.25);}
+  .s3tag.off{opacity:.5; text-decoration:line-through;}
+  .s3cam{position:absolute; top:8px; right:8px; display:flex; gap:4px;}
+  .s3cam button{padding:4px 9px; font-size:.72rem; background:rgba(255,250,240,.88); color:#2a1c13; border:1px solid #c9a24a; border-radius:999px;}
+  .s3cam button.on{background:var(--accent); color:var(--onaccent);}
+  .s3load{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; text-align:center; padding:20px; color:#2a1c13; font-weight:700; background:rgba(231,220,203,.92);}
+  .s3st{font-size:.85rem; font-weight:700;}
+  @media (max-width:520px){ .s3tag{font-size:.6rem; padding:1px 5px;} .s3tag small{display:none;} } .hwyc{display:block; width:100%; height:100px; border-radius:10px; background:#1a120c; border:1px solid var(--line);}
   .inst .key.target .ring,.inst .key.hintk .ring{opacity:1; animation:ringp .6s infinite alternate;}
   .inst .key.target, .inst .key.hintk{outline:none;}
   .inst .key.hit{filter:none;}
@@ -420,6 +436,7 @@
 
 <nav class="tabs">
   <button data-tab="jam" class="active">🥢<br>合奏</button>
+  <button data-tab="stage3d">🎭<br>3D合奏</button>
   <button data-tab="lesson">🎓<br>レッスン</button>
   <button data-tab="theory">🎼<br>セオリー</button>
   <button data-tab="play">🎹<br>自由演奏</button>
@@ -440,6 +457,28 @@
     <div class="jstep">③「一緒に弾く」を押して、光る音を叩こう</div>
     <div class="jnow muted" id="jamNow"></div>
     <div id="jamPrac"></div>
+  </div>
+</section>
+
+<!-- ============ 3D合奏：奏者たちが演奏するようす ============ -->
+<section id="page-stage3d" class="page">
+  <div class="panel s3panel">
+    <div class="row s3ctl">
+      <select id="s3piece" aria-label="曲をえらぶ"></select>
+      <button id="s3play">▶ 合奏</button><button class="sec" id="s3stop">■ 止める</button><button class="sec" id="s3suwuk">終わりへ</button>
+      <span class="row" id="s3ir" style="gap:4px"><button class="sec on" data-ir="1">イラマ I</button><button class="sec" data-ir="2">イラマ II</button></span>
+    </div>
+    <div class="s3box" id="s3box"><canvas id="s3gl"></canvas><div id="s3labels"></div>
+      <div class="s3cam" id="s3cam"><button data-cam="front" class="on">正面</button><button data-cam="top">真上</button><button data-cam="side">横</button><button data-cam="near">近く</button></div>
+      <div class="s3load" id="s3load" hidden>3Dの舞台を準備中…</div></div>
+    <div class="row" style="justify-content:space-between;margin-top:6px"><span class="s3st" id="s3st">▶ を押すと合奏が始まります</span><label class="chk"><input type="checkbox" id="s3names" checked>名前を出す</label></div>
+    <p class="muted" style="margin:4px 0 0">奏者や名前をタップすると、その楽器を休ませたり戻したりできます。指でドラッグすると回せます（2本指で拡大）。</p>
+  </div>
+  <div class="panel">
+    <div class="jstep">🥢 自分も合奏に入る</div>
+    <div class="jhint">楽器をえらぶと、その奏者のかわりにあなたが叩きます（ほかの奏者は自動で演奏）。</div>
+    <div class="chips" id="s3join"></div>
+    <div id="s3prac" style="margin-top:8px"></div>
   </div>
 </section>
 
@@ -952,6 +991,7 @@ function prewarm(D, laras){
   for (const k in D.parts) if (k!=='bal') for (const e of D.parts[k]) if (!NOCACHE.has(e.inst)) noteBuffer(e.inst, e, laras);
   return new Promise(res => { rWait.push(res); pumpRender(); });
 }
+function ANIM_HIT(){} // 3D合奏が読み込まれると、奏者を動かす関数に置きかわる
 const PANBUS = {};
 function panBus(p){ const k = Math.round(p*20)/20; if (!k) return bus; if (!PANBUS[k] || PANBUS[k].context !== ctx){ const n = ctx.createStereoPanner ? ctx.createStereoPanner() : ctx.createGain(); if (n.pan) n.pan.value = k; n.connect(bus); PANBUS[k] = n; } return PANBUS[k]; }
 function playBuf(buf, t, gain, pan){
@@ -1554,7 +1594,7 @@ const LANES_BALI = [
 const S = {
   playing:false, laras:'slendro', form:'lancaran', bal:[], N:16, colo:{}, der:{},
   tick:0, nextTime:0, tempo:60, target:60, irama:1, pendingIrama:null, phase:'idle', cycle:0,
-  muted:{}, ending:false, timer:null, handles:{}, onCycle:null, onBeat:null, onEnd:null, endAfter:0,
+  muted:{}, mutedInst:{}, ending:false, timer:null, handles:{}, onCycle:null, onBeat:null, onEnd:null, endAfter:0,
 };
 const lanesNow = () => S.form==='bali' ? LANES_BALI : LANES_JAVA;
 function laneOf(inst){ const l = lanesNow().find(l=>l.insts.includes(inst)); return l ? l.id : inst; }
@@ -1567,6 +1607,7 @@ function loadPiece(p){
   S.colo = colotomy(p.form, S.N);
   S.der = {1: derive(S.bal, S.laras, S.form, 1), 2: derive(S.bal, S.laras, S.form, 2)};
   if (ctx) prewarm(S.der[1], S.laras);
+  if (typeof s3Sync === 'function') setTimeout(s3Sync, 0);
   // 速く大きな音のランチャランでは、柔らかい楽器はふつう演奏しない（ゆっくりな曲で活躍する）
   ['gender','rebab','suling'].forEach(id => S.muted[id] = p.form==='lancaran');
   S.tempo = S.target = p.tempo;
@@ -1600,16 +1641,16 @@ function scheduler(){
     let list = S.phase==='buka' ? D.buka[T] : D.byTick[T];
     if (S.pendingIrama && S.phase==='main' && S.form!=='bali'){ // クンダンの合図：細かく打ち込んで「イラマを変えるよ」と知らせる
       list = list.filter(e=>e.inst!=='kendhang');
-      if (T % 2 === 0 && !S.muted.kendhang){ const k = {2:'t',4:'P',6:'t',0:'D'}[T % TPB]; playInst('kendhang', {k}, t, S.laras, k==='D'?.95:.7); hit('kendhang', t, '合図'); }
+      if (T % 2 === 0 && !S.muted.kendhang){ const k = {2:'t',4:'P',6:'t',0:'D'}[T % TPB]; playInst('kendhang', {k}, t, S.laras, k==='D'?.95:.7); hit('kendhang', t, '合図'); ANIM_HIT('kendhang', {k}, t); }
     }
     if (S.phase==='main' && S.slowed && T > (S.N-4)*TPB && S.form!=='bali') list = list.filter(e=>e.inst!=='kendhang').concat(D.endK[T]||[]);
     for (const e of list){
-      const lane = laneOf(e.inst); if (S.muted[lane] && (S.phase!=='buka' || T===S.N*TPB)) continue; // 前奏（ブカ）の独奏はいつも鳴らす
+      const lane = laneOf(e.inst); if ((S.muted[lane] || S.mutedInst[e.inst]) && (S.phase!=='buka' || T===S.N*TPB)) continue; // 前奏（ブカ）の独奏はいつも鳴らす
       const tt = t + (e.inst==='gong' ? 0 : (Math.random()-.5)*0.008); // 人間らしいわずかなズレ
       if (e.durT) e.durSec = e.durT*60/S.tempo/TPB;
       const h = playInst(e.inst, e, tt, S.laras, e.v*(0.92+Math.random()*0.14));
       if (DAMP.has(e.inst)) damped(S.handles, e.inst, h, tt);
-      hit(lane, t, evLabel(e), e.inst);
+      hit(lane, t, evLabel(e), e.inst); ANIM_HIT(e.inst, e, tt);
     }
     logTick(T, t, S.phase);
     if (T % TPB === 0){ const beat = T/TPB, buka = S.phase==='buka'; vis(t, ()=>showBeat(beat, buka)); }
@@ -2192,15 +2233,15 @@ function practiceSched(w){
       const tt = t + (e.inst==='gong' ? 0 : (Math.random()-.5)*0.006);
       if (e.inst === cfg.user){
         if (w.demo){
-          damped(w.handles, e.inst, playInst(e.inst, e, t, w.laras, e.v), t);
+          damped(w.handles, e.inst, playInst(e.inst, e, t, w.laras, e.v), t); ANIM_HIT(e.inst, e, t);
           vis(t, ()=>{ w.kb.flash(e.key); markCell(w, e.T, 'j-demo'); });
         } else {
           if (w.guide) damped(w.handles, e.inst+'g', playInst(e.inst, e, t, w.laras, e.v*0.28), t);
           if (filt(e)){ w.targets.push({time:t, e, loop:w.loop, j:null}); (w.loops[w.loop] ||= {n:0, hit:0, done:0, shown:false}).n++; }
         }
-      } else if ((back==='all' && !(w.piece.form==='lancaran' && ['gender','rebab','suling'].includes(e.inst))) || (back!=='all' && back.includes(e.inst))){
+      } else if (!S.mutedInst[e.inst] && ((back==='all' && !(w.piece.form==='lancaran' && ['gender','rebab','suling'].includes(e.inst))) || (back!=='all' && back.includes(e.inst)))){
         if (e.durT) e.durSec = e.durT*60/w.bpm/TPB;
-        const h = playInst(e.inst, e, tt, w.laras, e.v*0.85*(0.93+Math.random()*0.12));
+        const h = playInst(e.inst, e, tt, w.laras, e.v*0.85*(0.93+Math.random()*0.12)); ANIM_HIT(e.inst, e, tt);
         if (DAMP.has(e.inst)) damped(w.handles, e.inst, h, tt);
       }
     }
@@ -2275,7 +2316,7 @@ function practiceTap(w, key, kel){
   }
   if (active){ const near = w.targets.find(tg => !tg.j && tg.e.gemb && keyMatch(tg.e, key) && Math.abs(now - tg.time - latency()) < 0.35);
     if (near) ev = Object.assign({}, ev, {d:near.e.d, o:0, gemb:true}); }
-  damped(w.handles, w.cfg.user, playInst(w.cfg.user, ev, now, w.laras, 1), now);
+  damped(w.handles, w.cfg.user, playInst(w.cfg.user, ev, now, w.laras, 1), now); ANIM_HIT(w.cfg.user, Object.assign({key}, ev), now);
   if (!active) return;
   const lat = latency(), win = windows(w);
   let pick = null, pd = 9;
@@ -3107,6 +3148,7 @@ document.querySelector('.tabs').addEventListener('click', e=>{
   if (PW) stopPractice(PW);
   document.querySelectorAll('.tabs button').forEach(x=>x.classList.toggle('active', x===b));
   document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active', p.id==='page-'+b.dataset.tab));
+  if (b.dataset.tab==='stage3d'){ s3Sync(); open3D(); }
 });
 $('#unlockBtn').onclick = () => { initAudio(); $('#unlock').remove(); };
 // PCのキーボードでも叩ける：数字1〜7＝音（Shiftで高い音）、スペース＝ゴングなど、D T P K L＝クンダン
@@ -3226,6 +3268,705 @@ function jamSongLabels(){ document.querySelectorAll('#jamPiece [data-listen]').f
 $('#jamInsts').onclick = e => { const b = e.target.closest('[data-i]'); if (!b) return; stopAll(); jamInst = b.dataset.i; renderJam(); };
 renderJam();
 renderTheoryGroups(); renderTheory(); renderRangeMap();
+</script>
+<script>
+'use strict';
+/* =========================================================
+ *  13. 3D合奏：ジャワの東屋（プンドポ）やバリの集会所で、奏者たちが楽器を叩くようすを、音と同時に見せる
+ *      Three.js（r128）は 3D合奏タブを開いたときにだけ読み込む
+ * ========================================================= */
+const G3 = {ready:false, loading:false, hit:null};
+function ANIM_HIT(inst, ev, t){ if (G3.ready && G3.hit) try { G3.hit(inst, ev, t); } catch(e){ console.error(e); } }
+function loadScript(src){ return new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s); }); }
+async function ensureThree(){
+  if (window.THREE && THREE.OrbitControls) return true;
+  try {
+    if (!window.THREE) await loadScript('https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js');
+    if (!THREE.OrbitControls) await loadScript('https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js');
+    return true;
+  } catch(e){ return false; }
+}
+async function open3D(){
+  if (G3.ready){ G3.resize(); G3.sync(); return; }
+  if (G3.loading) return;
+  G3.loading = true; $('#s3load').hidden = false; $('#s3load').textContent = '3Dの舞台を準備中…';
+  const ok = await ensureThree();
+  if (!ok || !window.THREE){ $('#s3load').textContent = '3Dを読み込めませんでした。インターネットにつながっているか確かめてください（音と操作はほかのタブで使えます）。'; G3.loading = false; return; }
+  try { init3D(); $('#s3load').hidden = true; }
+  catch(e){ console.error(e); $('#s3load').textContent = 'この端末では3Dを表示できませんでした。'; }
+  G3.loading = false;
+}
+
+function init3D(){
+  const cv = $('#s3gl'), boxEl = $('#s3box');
+  const renderer = new THREE.WebGLRenderer({canvas:cv, antialias:true, alpha:false, powerPreference:'high-performance'});
+  renderer.setPixelRatio(Math.min(1.6, window.devicePixelRatio||1));
+  renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.outputEncoding = THREE.sRGBEncoding; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.08;
+  const scene = new THREE.Scene();
+  const V = (x,y,z) => new THREE.Vector3(x,y,z);
+  const col = c => new THREE.Color(c).convertSRGBToLinear();
+  const M = (c, o={}) => new THREE.MeshStandardMaterial(Object.assign({roughness:.75, metalness:0}, o, {color:col(c)}));
+  // 金属が光るための映り込み（空・白い壁・床）
+  const envMap = (() => { const es = new THREE.Scene(), c = document.createElement('canvas'); c.width = 8; c.height = 128; const x = c.getContext('2d'), g = x.createLinearGradient(0,0,0,128);
+    g.addColorStop(0,'#cfdbe6'); g.addColorStop(.48,'#fbf3e4'); g.addColorStop(.56,'#8a7058'); g.addColorStop(1,'#2e2018'); x.fillStyle = g; x.fillRect(0,0,8,128);
+    const tx = new THREE.CanvasTexture(c); tx.encoding = THREE.sRGBEncoding;
+    es.add(new THREE.Mesh(new THREE.SphereGeometry(10,32,16), new THREE.MeshBasicMaterial({map:tx, side:THREE.BackSide})));
+    [[-6,2,2],[6,3,-1],[0,6,4],[0,2,-6]].forEach(([a,b,d]) => { const p = new THREE.Mesh(new THREE.PlaneGeometry(4,3), new THREE.MeshBasicMaterial({color:0xfff2dc, side:THREE.DoubleSide})); p.position.set(a,b,d); p.lookAt(0,0,0); es.add(p); });
+    const pm = new THREE.PMREMGenerator(renderer), e = pm.fromScene(es, .04).texture; pm.dispose(); return e; })();
+  scene.environment = envMap;
+  const camera = new THREE.PerspectiveCamera(34, 1, .1, 120);
+  const controls = new THREE.OrbitControls(camera, cv);
+  controls.enableDamping = true; controls.dampingFactor = .08; controls.target.set(0,.45,0); controls.maxPolarAngle = 1.48; controls.minDistance = 2.2; controls.maxDistance = 22; controls.enablePan = false;
+  const hemi = new THREE.HemisphereLight(0xfff4e2, 0x3a2a20, .5); scene.add(hemi);
+  const sun = new THREE.DirectionalLight(0xffe9cc, 1.0); sun.position.set(-5,11,7); sun.castShadow = true; sun.shadow.mapSize.set(2048,2048); sun.shadow.bias = -.0004;
+  Object.assign(sun.shadow.camera, {left:-7, right:7, top:6, bottom:-6, near:1, far:32}); scene.add(sun);
+  const fill = new THREE.DirectionalLight(0xdbe6ff, .28); fill.position.set(6,4,-5); scene.add(fill);
+  const warm = new THREE.PointLight(0xffb060, .35, 14, 2); warm.position.set(0,3.4,.5); scene.add(warm);
+
+  // ---- 質感（キャンバスで描く小さな模様） ----
+  const rnd = (() => { let s = 11; return () => (s = (s*16807) % 2147483647) / 2147483647; })();
+  function tex(w, h, draw, rep){ const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h);
+    const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; if (rep) t.repeat.set(rep[0], rep[1]); t.anisotropy = 4; t.encoding = THREE.sRGBEncoding; return t; }
+  // バティック（パラン：斜めに流れる刀の模様）… ジャワの奏者の腰布（ジャリッ）
+  const parang = tex(256, 256, (x, w, h) => { x.fillStyle = '#5b3518'; x.fillRect(0,0,w,h);
+    x.save(); x.translate(w/2,h/2); x.rotate(-Math.PI/4); x.translate(-w,-h);
+    for (let r = 0; r < 12; r++){ const y0 = r*44;
+      x.fillStyle = '#e9d9b5'; x.fillRect(0, y0, w*2, 5); x.fillStyle = '#2a170a'; x.fillRect(0, y0+5, w*2, 3);
+      for (let k = 0; k < 14; k++){ const cx = k*40 + (r%2)*20, cy = y0 + 24;
+        x.fillStyle = '#e9d9b5'; x.beginPath(); x.ellipse(cx, cy, 15, 9, .5, 0, Math.PI*2); x.fill();
+        x.fillStyle = '#7a4a22'; x.beginPath(); x.ellipse(cx, cy, 9, 5, .5, 0, Math.PI*2); x.fill();
+        x.fillStyle = '#2a170a'; x.beginPath(); x.arc(cx+12, cy+11, 3, 0, Math.PI*2); x.fill(); } }
+    x.restore(); }, [3,2]);
+  // バティック（カウン：花びら4枚の丸い模様）… ブランコン（頭の布）
+  const kawung = tex(128, 128, (x, w, h) => { x.fillStyle = '#3a2412'; x.fillRect(0,0,w,h);
+    for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++){ const cx = i*32+16, cy = j*32+16; x.fillStyle = '#b48a52';
+      for (const [dx,dy,a] of [[0,-8,0],[0,8,0],[-8,0,Math.PI/2],[8,0,Math.PI/2]]){ x.beginPath(); x.ellipse(cx+dx, cy+dy, 4, 7.5, a, 0, Math.PI*2); x.fill(); }
+      x.fillStyle = '#3a2412'; x.beginPath(); x.arc(cx, cy, 2, 0, Math.PI*2); x.fill(); } }, [2,2]);
+  // バリの腰布（金糸の入ったソンケット風）
+  const songket = tex(128, 128, (x, w, h) => { x.fillStyle = '#7a1630'; x.fillRect(0,0,w,h);
+    for (let j = 0; j < h; j += 16){ x.fillStyle = '#d9b14a'; x.fillRect(0, j, w, 2);
+      for (let i = 0; i < w; i += 16){ x.beginPath(); x.moveTo(i+8, j+4); x.lineTo(i+13, j+9); x.lineTo(i+8, j+14); x.lineTo(i+3, j+9); x.closePath(); x.fill(); } } }, [3,2]);
+  // 床に敷くござ（ティカル）
+  const tikar = tex(256, 256, (x, w, h) => { x.fillStyle = '#b8955c'; x.fillRect(0,0,w,h);
+    for (let i = 0; i < w; i += 8) for (let j = 0; j < h; j += 8){ const on = ((i>>3) + (j>>3)) % 2; x.fillStyle = on ? 'rgba(90,60,25,.22)' : 'rgba(255,240,200,.18)'; x.fillRect(i, j, 8, 8); }
+    x.strokeStyle = '#7a2a18'; x.lineWidth = 10; x.strokeRect(6, 6, w-12, h-12); }, [1,1]);
+  // 木目
+  const grain = tex(256, 64, (x, w, h) => { x.fillStyle = '#808080'; x.fillRect(0,0,w,h);
+    for (let k = 0; k < 40; k++){ x.strokeStyle = `rgba(0,0,0,${.08+rnd()*.18})`; x.lineWidth = .6+rnd()*1.5; const y = rnd()*h; x.beginPath(); x.moveTo(0,y); x.bezierCurveTo(w*.3, y+(rnd()-.5)*8, w*.6, y+(rnd()-.5)*8, w, y+(rnd()-.5)*4); x.stroke(); } }, [1,1]);
+  // 石の床（タイル）
+  const tiles = tex(256, 256, (x, w, h) => { x.fillStyle = '#c9bfae'; x.fillRect(0,0,w,h);
+    for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++){ const L = 72+rnd()*8; x.fillStyle = `hsl(36,14%,${L}%)`; x.fillRect(i*64+1, j*64+1, 62, 62); }
+    x.fillStyle = 'rgba(80,60,40,.35)'; for (let i = 0; i <= 4; i++){ x.fillRect(i*64-1, 0, 2, h); x.fillRect(0, i*64-1, w, 2); } }, [6,4]);
+
+  const bronze = M(0xb57a26, {metalness:.92, roughness:.3}), bronzeDark = M(0x8a5e22, {metalness:.9, roughness:.32});
+  const gold = M(0xd4a645, {metalness:1, roughness:.28}), lacRed = M(0x7d1a12, {roughness:.38, metalness:.05}), lacBlack = M(0x1d1410, {roughness:.35});
+  const woodM = new THREE.MeshStandardMaterial({color:col(0x6e3f1e), roughness:.55, map:grain}), woodDark = new THREE.MeshStandardMaterial({color:col(0x3e2412), roughness:.5, map:grain});
+  const bamboo = M(0xcdb072, {roughness:.55}), cordM = M(0xe8d6ad, {roughness:.9}), skinHead = M(0xe9dcc0, {roughness:.85});
+  const ring0 = new THREE.RingGeometry(.52, .6, 40);
+
+  // ---- 地面と建物 ----
+  const world = new THREE.Group(); scene.add(world);
+  const mesh = (geo, mat, x=0, y=0, z=0, par, shadow=true) => { const m = new THREE.Mesh(geo, mat); m.position.set(x,y,z); m.castShadow = shadow; m.receiveShadow = true; (par||world).add(m); return m; };
+  let envGroup = null; const ROOF = [];
+  function buildEnv(bali){
+    if (envGroup){ world.remove(envGroup); envGroup.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
+    const G = envGroup = new THREE.Group(); world.add(G);
+    scene.background = col(bali ? 0xcfe3e8 : 0xe7dccb); scene.fog = new THREE.Fog(scene.background.getHex(), 18, 46);
+    // 地面
+    mesh(new THREE.CircleGeometry(40, 48), M(bali ? 0x7d8b5a : 0x8a7f62, {roughness:1}), 0, -.36, 0, G, false).rotation.x = -Math.PI/2;
+    // 一段高い床（石のタイル）と階段
+    const plat = mesh(new THREE.BoxGeometry(13.6, .34, 9.6), new THREE.MeshStandardMaterial({map:tiles, roughness:.7}), 0, -.17, -.4, G); plat.castShadow = false;
+    mesh(new THREE.BoxGeometry(4, .17, .5), M(0xb7ab96), 0, -.27, 4.65, G, false);
+    // ござ
+    const mat = mesh(new THREE.PlaneGeometry(10.4, 7.0), new THREE.MeshStandardMaterial({map:tikar, roughness:.95}), 0, .004, -.35, G, false); mat.rotation.x = -Math.PI/2;
+    const PIL = bali ? lacRed : woodDark, CAP = gold;
+    // 柱（ジャワ：4本の大黒柱ソコ・グル＋外周の柱／バリ：朱塗りの柱）
+    const pillars = bali ? [[-5.9,-4.3],[5.9,-4.3],[-5.9,3.2],[5.9,3.2],[0,-4.3]] : [[-3.3,-3.9],[3.3,-3.9],[-6.2,-3.9],[6.2,-3.9],[-6.2,3.4],[6.2,3.4]];
+    for (const [x,z] of pillars){
+      mesh(new THREE.CylinderGeometry(.26, .32, .32, 8), M(0x9a8f7c, {roughness:.9}), x, .16, z, G);      // 礎石（ウンパッ）
+      mesh(new THREE.CylinderGeometry(.16, .17, 4.1, 12), PIL, x, 2.37, z, G);
+      mesh(new THREE.CylinderGeometry(.21, .19, .14, 12), CAP, x, .38, z, G);
+      mesh(new THREE.CylinderGeometry(.19, .17, .12, 12), CAP, x, 4.3, z, G);
+    }
+    // 屋根（ジャワ：高くとがったジョグロ屋根／バリ：茅葺き風）
+    const roofM = M(bali ? 0x5a4630 : 0x4a2f22, {roughness:.85});
+    ROOF.length = 0;
+    const roof = mesh(new THREE.ConeGeometry(9.2, 2.2, 4, 1, true), roofM, 0, 5.5, -.4, G); roof.rotation.y = Math.PI/4; roof.scale.set(1, 1, .72); ROOF.push(roof);
+    if (!bali){ const top = mesh(new THREE.ConeGeometry(3.4, 2.6, 4, 1, true), roofM, 0, 7.4, -.4, G); top.rotation.y = Math.PI/4; top.scale.set(1.3, 1, .9); ROOF.push(top); }
+    const ceil = mesh(new THREE.BoxGeometry(13.2, .12, 8.6), new THREE.MeshStandardMaterial({color:col(bali ? 0x6b3a1e : 0x5a3a20), roughness:.6, map:grain}), 0, 4.42, -.4, G); ceil.castShadow = false; ROOF.push(ceil);
+    // 天井の金の装飾帯（トゥンパン・サリ）
+    for (let k = 0; k < 3; k++){ const b = mesh(new THREE.BoxGeometry(6.4 - k*1.3, .08, 5 - k*1), k%2 ? gold : lacRed, 0, 4.32 - k*.09, -.6, G, false); ROOF.push(b); }
+    if (bali){
+      // 背景：割れ門（チャンディ・ブンタル）とプルメリアの木
+      const brick = M(0x9a4a2c, {roughness:.9}), stone = M(0x7e7a70, {roughness:.95});
+      for (const s of [-1, 1]){
+        let y = 0; for (let k = 0; k < 7; k++){ const w = 2.3 - k*.28, hgt = .9 - k*.07; y += hgt/2; mesh(new THREE.BoxGeometry(w, hgt, 1.3 - k*.12), k%2 ? stone : brick, s*(.95 + w/2), y, -9, G); y += hgt/2; }
+      }
+      for (const [x,z] of [[-9,-6],[9,-6.5],[-10,2],[10,1.5]]){ mesh(new THREE.CylinderGeometry(.12,.2,2.2,6), M(0x6a5a48), x, .8, z, G);
+        for (let k = 0; k < 6; k++) mesh(new THREE.SphereGeometry(.7, 10, 8), M(k%2 ? 0x3f6a34 : 0x4f7a3c), x + Math.cos(k)*.7, 2.1 + (k%3)*.25, z + Math.sin(k)*.6, G); }
+    } else {
+      // 背景：白い塀と門（パドゥラクサ風）、木々
+      const wall = M(0xe9e2d2, {roughness:.95}), brick = M(0x8e4a2e, {roughness:.9});
+      mesh(new THREE.BoxGeometry(30, 1.6, .4), wall, 0, .45, -10, G);
+      const gate = mesh(new THREE.BoxGeometry(2.6, 3.4, .7), brick, 0, 1.4, -10, G);
+      mesh(new THREE.BoxGeometry(1.2, 2.2, .75), M(0x2a1a10), 0, .9, -9.95, G);
+      for (let k = 0; k < 3; k++) mesh(new THREE.BoxGeometry(2.2 - k*.6, .4, .6), brick, 0, 3.3 + k*.4, -10, G);
+      for (const [x,z] of [[-9,-6],[9,-6.5],[-11,1],[11,2]]){ mesh(new THREE.CylinderGeometry(.18,.28,2.6,7), M(0x5a4636), x, .9, z, G);
+        mesh(new THREE.SphereGeometry(1.6, 12, 10), M(0x46663a), x, 3.0, z, G).scale.y = .8; }
+    }
+  }
+
+  // ---- 奏者（あぐら＝ブルシラで座る） ----
+  const skins = [0x8a5a3a, 0x9a6844, 0x7a4e32, 0xa06e4a, 0x8f6040];
+  const hairM = M(0x14100e, {roughness:.6}), eyeW = M(0xf2ede4), eyeB = M(0x1a1410);
+  function limb(par, mat, r, r2){ const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r2||r, 1, 10), mat); m.castShadow = true; par.add(m); return m; }
+  const _Y = V(0,1,0);
+  function setLimb(m, a, b){ const d = new THREE.Vector3().subVectors(b, a), L = Math.max(1e-4, d.length()); m.position.copy(a).addScaledVector(d, .5); m.scale.set(1, L, 1); m.quaternion.setFromUnitVectors(_Y, d.multiplyScalar(1/L)); }
+  const UA = .27, FA = .26, _d = V(0,0,0), _p = V(0,0,0);
+  function elbow(out, s, h, side){ _d.subVectors(h, s); const L = _d.length(), Lc = Math.min(L, UA+FA-.002); _d.normalize();
+    const a = (UA*UA - FA*FA + Lc*Lc)/(2*Lc), hgt = Math.sqrt(Math.max(0, UA*UA - a*a));
+    _p.set(side*.6, -1, -.2); _p.addScaledVector(_d, -_p.dot(_d)).normalize();
+    return out.copy(s).addScaledVector(_d, a).addScaledVector(_p, hgt); }
+  // 奏者は +z（客席）を向く。右手は −x、左手は +x
+  function figure(bali, k){
+    const g = new THREE.Group(), body = new THREE.Group(), legs = new THREE.Group(); g.add(legs); g.add(body);
+    const vr = () => rnd()*2 - 1;
+    const skin = M(skins[k % skins.length], {roughness:.7}); skin.color.offsetHSL(vr()*.01, vr()*.04, vr()*.03);
+    const top = bali ? M(0xf4efe2, {roughness:.85}) : M(0x1f2430, {roughness:.6, metalness:.05});         // ジャワ：黒っぽい上着（ブスカップ）／バリ：白い上着
+    const low = bali ? new THREE.MeshStandardMaterial({map:songket, roughness:.6, metalness:.15}) : new THREE.MeshStandardMaterial({map:parang, roughness:.75});
+    body.scale.setScalar(1 + vr()*.03);
+    const mk = (geo, mat, x, y, z, par) => { const m = new THREE.Mesh(geo, mat); m.position.set(x,y,z); m.castShadow = true; m.receiveShadow = true; (par||body).add(m); return m; };
+    // あぐら（腰布が床に広がる）とひざ・足
+    const lap = new THREE.LatheGeometry([[.41,0],[.405,.03],[.36,.1],[.27,.16],[.15,.185],[0,.19]].map(([r,y]) => new THREE.Vector2(r,y)), 32);
+    mk(lap, low, 0, 0, .04, legs).scale.z = .78;
+    [1,-1].forEach(s => { mk(new THREE.SphereGeometry(.1, 16, 10), low, s*.25, .1, .17, legs).scale.set(1.4, .62, 1.05);
+      mk(new THREE.SphereGeometry(.04, 10, 8), skin, -s*.1, .07, .27, legs).scale.set(1.6, .7, 1); });   // 組んだ足先
+    // 胴
+    const prof = [[0,.14],[.2,.15],[.2,.24],[.185,.36],[.178,.5],[.188,.62],[.198,.69],[.17,.74],[.1,.772],[0,.782]].map(([r,y]) => new THREE.Vector2(r,y));
+    mk(new THREE.LatheGeometry(prof, 22), top, 0, 0, -.01).scale.z = .74;
+    [1,-1].forEach(s => mk(new THREE.SphereGeometry(.072, 14, 10), top, s*.172, .71, 0).scale.set(1.2, .8, 1));
+    if (!bali){
+      // ブスカップ：右前で斜めに合わせ、ボタンが並ぶ。立った襟
+      for (let i = 0; i < 5; i++) mk(new THREE.SphereGeometry(.011, 8, 6), gold, .045 + i*.012, .66 - i*.065, .138 - i*.002).castShadow = false;
+      mk(new THREE.CylinderGeometry(.056, .06, .05, 14), top, 0, .772, 0);
+      const flap = mk(new THREE.BoxGeometry(.012, .38, .01), M(0x2e3444), .03, .5, .14); flap.rotation.z = -.18;
+      // 腰の帯（サブッ）
+      const sb = mk(new THREE.TorusGeometry(.19, .02, 6, 24), M(0x6a1a1a, {roughness:.6}), 0, .2, -.01); sb.rotation.x = Math.PI/2; sb.scale.y = .75;
+    } else {
+      // バリ：腰に巻く布（サプッ）と帯
+      const sp = mk(new THREE.CylinderGeometry(.215, .245, .14, 20, 1, true), new THREE.MeshStandardMaterial({map:songket, roughness:.6, side:THREE.DoubleSide}), 0, .23, -.01); sp.scale.z = .78;
+      const sb = mk(new THREE.TorusGeometry(.2, .016, 6, 24), gold, 0, .3, -.01); sb.rotation.x = Math.PI/2; sb.scale.y = .75;
+      mk(new THREE.BoxGeometry(.05, .03, .06), M(0xf4efe2), 0, .74, .1);
+    }
+    mk(new THREE.CylinderGeometry(.04, .045, .07, 10), skin, 0, .81, 0);
+    // 頭
+    const hd = new THREE.Group(); hd.position.set(0, .835, 0); hd.rotation.set(.05 + vr()*.05, vr()*.06, vr()*.04); body.add(hd);
+    const hm = (geo, mat, x, y, z) => { const m = new THREE.Mesh(geo, mat); m.position.set(x,y,z); m.castShadow = geo.parameters && (geo.parameters.radius || 0) > .06; hd.add(m); return m; };
+    hm(new THREE.SphereGeometry(.1, 22, 16), skin, 0, .075, .005).scale.set(.92, 1.08, 1);
+    hm(new THREE.SphereGeometry(.066, 14, 10), skin, 0, .035, .038).scale.set(1, .9, .95);
+    [1,-1].forEach(s => { hm(new THREE.SphereGeometry(.021, 8, 6), skin, s*.09, .07, -.005).scale.set(.5, 1, .8);
+      hm(new THREE.SphereGeometry(.012, 10, 6), eyeW, s*.033, .085, .086).scale.set(1.4, .62, .5);
+      hm(new THREE.SphereGeometry(.007, 8, 6), eyeB, s*.033, .085, .092);
+      const br = hm(new THREE.BoxGeometry(.03, .006, .008), hairM, s*.035, .106, .088); br.rotation.z = s*.12; });
+    hm(new THREE.ConeGeometry(.012, .034, 8), skin, 0, .062, .1).rotation.x = -.35;
+    hm(new THREE.BoxGeometry(.028, .004, .006), M(0x5a2a22), 0, .032, .095);
+    if (k % 3 === 1) hm(new THREE.BoxGeometry(.04, .006, .006), hairM, 0, .045, .1);   // ひげの人も
+    if (!bali){
+      // ブランコン（バティックの頭布）：頭をおおい、後ろに丸いふくらみ（モンドラン）
+      const bl = new THREE.MeshStandardMaterial({map:kawung, roughness:.7});
+      const cap = hm(new THREE.SphereGeometry(.104, 22, 12, 0, Math.PI*2, 0, Math.PI*.42), bl, 0, .083, -.006); cap.scale.set(.98, 1.08, 1.04); cap.rotation.x = -.18;
+      const band = hm(new THREE.TorusGeometry(.094, .011, 6, 26), bl, 0, .13, -.004); band.rotation.x = Math.PI/2 - .2; band.scale.set(1, 1.08, 1);
+      hm(new THREE.SphereGeometry(.05, 14, 10), bl, 0, .09, -.11).scale.set(1.25, .85, .85);       // 後ろのふくらみ（モンドラン）
+      [1,-1].forEach(s => { const w = hm(new THREE.BoxGeometry(.02, .055, .01), bl, s*.03, .05, -.115); w.rotation.z = s*.5; });
+      hm(new THREE.SphereGeometry(.1, 16, 8, 0, Math.PI*2, Math.PI*.42, Math.PI*.2), hairM, 0, .078, -.012).scale.set(.95, 1.05, 1);   // 布の下のもみあげ
+    } else {
+      // ウドゥン（バリの頭布）：額をまわる白い布と、前で立つ結び目
+      const ud = M(0xf6f2e6, {roughness:.85}), udg = M(0xd9b14a, {metalness:.5, roughness:.4});
+      hm(new THREE.SphereGeometry(.104, 18, 10, 0, Math.PI*2, 0, Math.PI*.45), hairM, 0, .082, -.004).scale.set(.97, 1.06, 1.02);
+      const r1 = hm(new THREE.TorusGeometry(.097, .022, 8, 26), ud, 0, .145, -.004); r1.rotation.x = Math.PI/2 - .22;
+      const top2 = hm(new THREE.SphereGeometry(.09, 16, 8, 0, Math.PI*2, 0, Math.PI*.35), ud, 0, .13, -.02); top2.scale.set(1, .7, 1.05);
+      const knot = hm(new THREE.ConeGeometry(.03, .08, 4), ud, 0, .2, .055); knot.rotation.x = .5;
+      hm(new THREE.BoxGeometry(.09, .01, .01), udg, 0, .152, .09);
+    }
+    // 腕と手
+    const sh = {L:V(.18, .72, 0), R:V(-.18, .72, 0)};
+    const up = {L:limb(g, top, .058, .062), R:limb(g, top, .058, .062)}, fo = {L:limb(g, top, .048, .055), R:limb(g, top, .048, .055)};
+    const mkHand = s => { const hg = new THREE.Group(); g.add(hg);
+      const p = new THREE.Mesh(new THREE.BoxGeometry(.05, .022, .065), skin); p.position.z = .028; p.castShadow = true; hg.add(p);
+      const f = new THREE.Mesh(new THREE.BoxGeometry(.046, .018, .04), skin); f.position.set(0, -.012, .066); f.rotation.x = .9; f.castShadow = true; hg.add(f);
+      const t = new THREE.Mesh(new THREE.CylinderGeometry(.009, .011, .038, 6), skin); t.position.set(s*.028, .004, .03); t.rotation.set(Math.PI/2, 0, s*.6); hg.add(t);
+      return hg; };
+    const hand = {L:mkHand(1), R:mkHand(-1)};
+    const knee = {L:V(.22, .22, .2), R:V(-.22, .22, .2)};
+    // 足もとの光る輪（いま鳴らしている人がわかる）
+    const halo = new THREE.Mesh(ring0, new THREE.MeshBasicMaterial({color:0xffd36a, transparent:true, opacity:0, depthWrite:false}));
+    halo.rotation.x = -Math.PI/2; halo.position.set(0, .012, .25); g.add(halo);
+    return {g, body, legs, top, skin, sh, up, fo, hand, knee, halo, lean:0, twist:0, h:{L:knee.L.clone(), R:knee.R.clone()}, el:{L:V(0,0,0), R:V(0,0,0)}, sticks:{}, q:{L:[], R:[]}, bob:rnd()*6, lv:0};
+  }
+  // バチ（持ち手＋頭）
+  function stick(P, side, len, r, head){ const m = limb(P.g, woodM, r, r*1.15); let hm = null;
+    if (head === 'pad'){ hm = new THREE.Mesh(new THREE.CylinderGeometry(.034, .034, .05, 14), M(0x3a2a20, {roughness:.9})); }
+    else if (head === 'big'){ hm = new THREE.Mesh(new THREE.SphereGeometry(.085, 14, 10), M(0x8a2a1a, {roughness:.85})); }
+    else if (head === 'disc'){ hm = new THREE.Mesh(new THREE.CylinderGeometry(.04, .04, .014, 18), M(0x2a2018, {roughness:.85})); }
+    else if (head === 'horn'){ hm = new THREE.Mesh(new THREE.ConeGeometry(.016, .07, 8), M(0xd9cdb2, {roughness:.5})); }
+    else if (head === 'hammer'){ hm = new THREE.Mesh(new THREE.CylinderGeometry(.022, .022, .09, 10), woodM); }
+    if (hm){ hm.castShadow = true; P.g.add(hm); }
+    P.sticks[side] = {m, hm, len, head}; }
+
+  // ---- 楽器 ----
+  const ens = new THREE.Group(); world.add(ens);
+  let PERF = [], INSTS = {}, LABELS = [];
+  const KEYFLASH = [];
+  function keyMat(base){ const m = base.clone(); m.emissive = col(0xffb040); m.emissiveIntensity = 0; return m; }
+  function box(par, w, h, d, mat, x, y, z){ const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x,y,z); m.castShadow = true; m.receiveShadow = true; par.add(m); return m; }
+  function cyl(par, r1, r2, h, mat, x, y, z, seg=16){ const m = new THREE.Mesh(new THREE.CylinderGeometry(r1, r2, h, seg), mat); m.position.set(x,y,z); m.castShadow = true; m.receiveShadow = true; par.add(m); return m; }
+  // こぶ付きの壺型ゴング（横から見た形を回して作る）
+  // 横から見た輪郭を回して作る（点は下から上の順＝面が外を向く）
+  const kettleGeo = (r, h) => new THREE.LatheGeometry([[0,h*1.12],[r*.2,h*1.1],[r*.3,h*.98],[r*.36,h*.88],[r*.7,h*.86],[r*.98,h*.8],[r,h*.62],[r*.9,h*.1],[r*.86,0]].reverse().map(([a,b]) => new THREE.Vector2(a,b)), 24);
+  const gongGeo = (R, rim) => { const g = new THREE.LatheGeometry([[0,.06*R],[R*.13,.06*R],[R*.17,.035*R],[R*.24,.02*R],[R*.86,.01*R],[R*.97,-.02*R],[R,-rim*R],[R*.94,-rim*R],[R*.9,-rim*R*.6],[0,-rim*R*.4]].reverse().map(([a,b]) => new THREE.Vector2(a,b)), 40); g.rotateX(Math.PI/2); return g; };
+  // 楽器をひとつ置く：keys[キー] = 打つ点（ens の座標）
+  function addInst(id, x, z, rotY=0){ const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = rotY; ens.add(g); const I = {id, g, keys:{}, keyMesh:{}, label:null}; INSTS[id] = I; return I; }
+  function pt(I, key, local, mesh){ I.g.updateMatrixWorld(true); I.keys[key] = local.clone().applyMatrix4(I.g.matrix); if (mesh) I.keyMesh[key] = mesh; }
+  // サロン類：舟形の木の台（ランチャカン）に厚い青銅の鍵盤
+  function saronInst(id, x, z, keys, size){ const I = addInst(id, x, z), g = I.g, n = keys.length;
+    const W = (.06 + .045*size)*n + .14, D = .24 + .06*size, H = .2 + .04*size;
+    box(g, W, H, D, lacRed, 0, H/2, 0); box(g, W - .1, .02, D - .08, lacBlack, 0, H + .005, 0);
+    [1,-1].forEach(s => { const e = box(g, .1, H + .12, D + .04, lacRed, s*(W/2 + .02), (H + .12)/2, 0); box(g, .11, .03, D + .06, gold, s*(W/2 + .02), H + .11, 0); });
+    box(g, W - .02, .03, .02, gold, 0, H*.55, D/2 + .006);
+    const bw = (W - .16)/n - .012;
+    keys.forEach(([d,o], i) => { const bx = -W/2 + .09 + i*(bw + .012) + bw/2, L = D - .02 - i*.004;
+      const m = box(g, bw, .022 + .006*size, L, keyMat(bronze), bx, H + .025, 0);
+      [-1,1].forEach(s => cyl(g, .006, .006, .03, gold, bx, H + .04, s*L*.36, 6));
+      pt(I, `${d}:${o}`, V(bx, H + .04, .02), m); });
+    I.top = H + .04; I.depth = D; return I; }
+  // スレンテム・グンデル：薄い鍵盤をひもで吊り、下に竹の筒
+  function genderInst(id, x, z, keys, size){ const I = addInst(id, x, z), g = I.g, n = keys.length;
+    const W = (.06 + .04*size)*n + .16, D = .32 + .08*size, H = .3;
+    [1,-1].forEach(s => { box(g, .1, H + .2, D + .06, lacRed, s*W/2, (H + .2)/2, 0); box(g, .12, .035, D + .08, gold, s*W/2, H + .2, 0); });
+    box(g, W, .06, .05, lacRed, 0, .05, D/2); box(g, W, .06, .05, lacRed, 0, .05, -D/2);
+    const bw = (W - .2)/n - .008;
+    keys.forEach(([d,o], i) => { const bx = -W/2 + .12 + i*(bw + .008) + bw/2, L = D - .04 - i*(size > 1 ? .01 : .004);
+      cyl(g, bw*.38, bw*.38, H - .02 - i*.01, bamboo, bx, (H - .02 - i*.01)/2, 0, 10);
+      const m = box(g, bw, .012, L, keyMat(bronze), bx, H + .03, 0); pt(I, `${d}:${o}`, V(bx, H + .04, .02), m); });
+    box(g, W, .006, .006, cordM, 0, H + .02, D*.3); box(g, W, .006, .006, cordM, 0, H + .02, -D*.3);
+    I.top = H + .04; I.depth = D; return I; }
+  // ボナン：ひもを張った長い枠に、壺型ゴングを2列
+  function bonangInst(id, x, z, ns, size){ const I = addInst(id, x, z), g = I.g, n = ns.length;
+    const sp = .17 + .02*size, W = n*sp + .18, D = .56, H = .28;
+    box(g, W, .08, .06, lacRed, 0, H, D/2); box(g, W, .08, .06, lacRed, 0, H, -D/2); box(g, W, .08, .05, lacRed, 0, H, 0);
+    [1,-1].forEach(s => { box(g, .08, H + .12, D + .1, lacRed, s*W/2, (H + .12)/2, 0); box(g, .1, .04, D + .12, gold, s*W/2, H + .12, 0); });
+    box(g, W, .03, .02, gold, 0, H + .045, D/2 + .03);
+    const r = .075 + .012*size;
+    [[1, -D/4], [0, D/4]].forEach(([o, zz]) => ns.forEach((d, i) => { const kx = -W/2 + .1 + sp*(i + .5);
+      for (const s of [-1,1]) box(g, .006, .006, D/2 - .04, cordM, kx + s*.05, H + .045, zz);
+      const m = new THREE.Mesh(kettleGeo(r, .1), keyMat(bronze)); m.position.set(kx, H + .05, zz); m.castShadow = true; g.add(m);
+      pt(I, `${d}:${o}`, V(kx, H + .05 + .113, zz), m); }));
+    I.top = H + .16; I.depth = D; return I; }
+  // クノン：大きな壺型ゴングを1つずつ箱の上に
+  function kenongInst(id, x, z, ns){ const I = addInst(id, x, z), g = I.g, n = ns.length;
+    // 奏者をかこむように弧に並べる（奏者は弧の中心、+z 側に座る）
+    ns.forEach((d, i) => { const a = (i - (n-1)/2) * (n > 3 ? .62 : .8), kx = Math.sin(a)*.6, kz = Math.cos(a)*.6;
+      const bx = box(g, .34, .34, .34, lacRed, kx, .17, kz); bx.rotation.y = -a; const tp = box(g, .36, .03, .36, gold, kx, .34, kz); tp.rotation.y = -a;
+      for (const s of [-1,1]){ const c = box(g, .42, .008, .008, cordM, kx, .355, kz); c.rotation.y = -a + s*Math.PI/4; }
+      const m = new THREE.Mesh(kettleGeo(.145, .18), keyMat(bronze)); m.position.set(kx, .36, kz); m.castShadow = true; g.add(m);
+      pt(I, String(d), V(kx, .36 + .2, kz), m); });
+    I.top = .6; return I; }
+  // 小さな壺型ゴング（クトゥッ・クンピャン・カジャール・クモン）
+  function smallKettles(id, x, z, list){ const I = addInst(id, x, z), g = I.g;
+    list.forEach(([key, r, kx]) => { box(g, r*2.5, .26, r*2.5, lacRed, kx, .13, 0); box(g, r*2.6, .02, r*2.6, gold, kx, .27, 0);
+      const m = new THREE.Mesh(kettleGeo(r, r*1.15), keyMat(bronze)); m.position.set(kx, .28, 0); m.castShadow = true; g.add(m);
+      pt(I, key, V(kx, .28 + r*1.15*1.12, 0), m); });
+    I.top = .4; return I; }
+  // 吊りゴング（ゴン・アグン、クンプル）：彫刻のある木の台（ガヨール）
+  function hangingGongs(id, x, z, list, rotY){ const I = addInst(id, x, z, rotY), g = I.g; I.face = V(0, 0, 1).applyAxisAngle(_Y, rotY);
+    const xs = list.map(l => l.x), W = Math.max(...xs) - Math.min(...xs) + list[0].R*2 + .5, cx = (Math.max(...xs) + Math.min(...xs))/2, Ht = Math.max(...list.map(l => l.y + l.R)) + .3;
+    [1,-1].forEach(s => { box(g, .12, Ht, .14, woodDark, cx + s*W/2, Ht/2, 0); box(g, .3, .1, .4, woodDark, cx + s*W/2, .05, 0);
+      const fin = new THREE.Mesh(new THREE.ConeGeometry(.08, .22, 6), gold); fin.position.set(cx + s*W/2, Ht + .2, 0); g.add(fin); });
+    box(g, W + .3, .14, .16, woodDark, cx, Ht, 0); box(g, W + .1, .04, .17, gold, cx, Ht - .09, 0);
+    // 上の飾り（金の唐草をイメージ）
+    const crest = new THREE.Mesh(new THREE.TorusGeometry(.2, .03, 6, 18, Math.PI), gold); crest.position.set(cx, Ht + .07, 0); g.add(crest);
+    list.forEach(L => { const m = new THREE.Mesh(gongGeo(L.R, .2), keyMat(L.big ? bronzeDark : bronze)); m.position.set(L.x, L.y, 0); m.castShadow = true; g.add(m);
+      box(g, .006, Ht - L.y - L.R, .006, cordM, L.x - L.R*.3, (Ht + L.y + L.R)/2, 0).rotation.z = .15; box(g, .006, Ht - L.y - L.R, .006, cordM, L.x + L.R*.3, (Ht + L.y + L.R)/2, 0).rotation.z = -.15;
+      pt(I, L.key, V(L.x, L.y, .075*L.R + .02), m); });
+    return I; }
+  // クンダン（両面太鼓）：横に寝かせて台に置く。大きい面は奏者の左
+  function kendhangInst(id, x, z, bali){ const I = addInst(id, x, z), g = I.g;
+    const shell = new THREE.LatheGeometry([[.13,-.3],[.17,-.2],[.19,-.05],[.185,.1],[.16,.22],[.115,.3]].map(([r,y]) => new THREE.Vector2(r,y)), 24); shell.rotateZ(-Math.PI/2);
+    const Y = .42;
+    const sm = new THREE.Mesh(shell, bali ? lacRed : woodM); sm.position.set(0, Y, 0); sm.castShadow = true; g.add(sm);
+    const hb = new THREE.Mesh(new THREE.CircleGeometry(.13, 20), keyMat(skinHead)); hb.position.set(.3, Y, 0); hb.rotation.y = Math.PI/2; g.add(hb);
+    const hs = new THREE.Mesh(new THREE.CircleGeometry(.115, 20), keyMat(skinHead)); hs.position.set(-.3, Y, 0); hs.rotation.y = -Math.PI/2; g.add(hs);
+    for (let k = 0; k < 10; k++){ const a = k/10*Math.PI*2; const c = limb(g, cordM, .004); setLimb(c, V(.29, Y + Math.cos(a)*.13, Math.sin(a)*.13), V(-.29, Y + Math.cos(a + .3)*.115, Math.sin(a + .3)*.115)); }
+    box(g, .46, .06, .24, woodDark, 0, .03, 0); [1,-1].forEach(s => { const leg = box(g, .05, .26, .05, woodDark, s*.17, .17, 0); const cr = box(g, .06, .05, .26, woodDark, s*.17, .27, 0); });
+    pt(I, 'D', V(.3, Y, 0), hb); pt(I, 'k', V(-.3, Y, 0), hs); pt(I, 't', V(-.3, Y + .03, .03), hs); pt(I, 'P', V(-.3, Y - .02, 0), hs);
+    return I; }
+  // ルバブ（2本弦）とスリン（竹の笛）
+  function rebabInst(id, x, z){ const I = addInst(id, x, z), g = I.g;
+    const bodyM = new THREE.Mesh(new THREE.SphereGeometry(.1, 16, 12), woodM); bodyM.scale.set(1, 1.15, .6); bodyM.position.set(0, .28, .32); g.add(bodyM);
+    const face = new THREE.Mesh(new THREE.CircleGeometry(.075, 16), skinHead); face.position.set(0, .28, .38); g.add(face);
+    const neck = limb(g, lacBlack, .012, .015); setLimb(neck, V(0, .02, .3), V(0, .95, .26)); cyl(g, .018, .01, .1, gold, 0, 1.0, .26, 8);
+    for (const s of [-1,1]){ const st = limb(g, cordM, .002); setLimb(st, V(s*.01, .18, .36), V(s*.006, .9, .27)); }
+    const toE = v => v.applyMatrix4(g.matrix); g.updateMatrix(); I.bowA = toE(V(.18, .34, .44)); I.bowB = toE(V(-.22, .3, .44)); I.neck = toE(V(.0, .74, .28)); return I; }
+  function sulingInst(id, x, z){ const I = addInst(id, x, z); I.flute = true; return I; }
+  // バリ：ガンサ類（朱塗り・金彫りの台に鍵盤を吊る）
+  function baliBars(id, x, z, keys, size, n){ const I = addInst(id, x, z), g = I.g; n = n || keys.length;
+    const W = (.07 + .05*size)*n + .24, D = .3 + .08*size, H = .3 + .04*size;
+    box(g, W, H*.62, D, lacRed, 0, H*.31, 0); box(g, W + .02, .04, D + .02, gold, 0, H*.62, 0);
+    for (let k = 0; k < Math.floor(W/.14); k++) cyl(g, .025, .025, .02, gold, -W/2 + .07 + k*.14, H*.32, D/2 + .002, 8).rotation.x = Math.PI/2;
+    [1,-1].forEach(s => { const e = box(g, .12, H + .26, D + .06, lacRed, s*(W/2 + .03), (H + .26)/2, 0);
+      const fl = new THREE.Mesh(new THREE.ConeGeometry(.07, .24, 5), gold); fl.position.set(s*(W/2 + .03), H + .36, 0); g.add(fl); });
+    const bw = (W - .24)/n - .01, seen = {};
+    let i = 0;
+    for (const [d,o] of keys){ if (n < keys.length && seen[d]) continue; seen[d] = 1; if (i >= n) break;
+      const bx = -W/2 + .13 + i*(bw + .01) + bw/2, L = D - .04 - i*.006;
+      const m = box(g, bw, .016 + .006*size, L, keyMat(bronze), bx, H + .06, 0);
+      const k = `${d}:${o}`; pt(I, k, V(bx, H + .075, .03), m); I.byD = I.byD || {}; I.byD[d] = I.byD[d] || k; i++; }
+    box(g, W - .2, .006, .006, cordM, 0, H + .045, D*.32); box(g, W - .2, .006, .006, cordM, 0, H + .045, -D*.32);
+    I.top = H + .075; I.depth = D; return I; }
+  function cengInst(id, x, z){ const I = addInst(id, x, z), g = I.g;
+    const turtle = new THREE.Mesh(new THREE.SphereGeometry(.2, 16, 10, 0, Math.PI*2, 0, Math.PI/2), lacRed); turtle.scale.set(1.3, .7, 1); turtle.position.y = .02; g.add(turtle);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(.06, 10, 8), gold); head.position.set(0, .1, .27); g.add(head);
+    for (let k = 0; k < 5; k++){ const a = (k - 2)*.32; const c = new THREE.Mesh(gongGeo(.06, .1), keyMat(bronze)); c.rotation.x = -Math.PI/2; c.position.set(Math.sin(a)*.12, .16, Math.cos(a)*.04); g.add(c); }
+    pt(I, 'c', V(0, .2, .02), null); return I; }
+
+  // ---- 合奏の並び方（客席は +z）と、奏者の割り当て ----
+  // 奏者 P.inst = 担当する楽器（複数可）。P.kind で動かし方を決める
+  function perf(bali, k, x, z, rotY, insts, kind, opt={}){
+    const P = figure(bali, k); P.g.position.set(x, 0, z); P.g.rotation.y = rotY; ens.add(P.g);
+    P.insts = insts; P.kind = kind; Object.assign(P, opt); PERF.push(P); return P; }
+  function buildEnsemble(form, laras){
+    while (ens.children.length) ens.remove(ens.children[0]);
+    PERF = []; INSTS = {}; KEYFLASH.length = 0; LABELS.forEach(l => l.el.remove()); LABELS = [];
+    const bali = form === 'bali'; buildEnv(bali);
+    let k = 0;
+    if (!bali){
+      const bk = barKeys(laras), ns = LARAS[laras].notes.filter((d, i) => laras === 'slendro' || [1,2,3,5,6].includes(d)).slice(0, 7);
+      const bonNs = LARAS[laras].notes;
+      // 後列：ゴング類
+      hangingGongs('gong', 4.35, -2.55, [{key:'G', R:.46, x:.5, y:.72, big:true}, ...LARAS[laras].notes.filter(d => [5,6,1,2,3].includes(d)).slice(0,2).map((d, i) => ({key:'P'+d, R:.19, x:-.22 - i*.4, y:.6}))], -Math.PI/2);
+      kenongInst('kenong', 1.35, -3.05, bonNs.filter(d => [6,1,2,3,5].includes(d)).slice(0,5));
+      smallKettles('kethuk', -.75, -2.85, [['t', .1, -.15], ['p', .075, .17]]);
+      // 中列：サロン類
+      genderInst('slenthem', -3.15, -1.15, bk, 1.4);
+      saronInst('demung', -1.75, -1.25, bk, 1.5); saronInst('demung2', -.55, -1.25, bk, 1.5);
+      saronInst('saron', .65, -1.25, bk, 1); saronInst('saron2', 1.8, -1.25, bk, 1);
+      saronInst('peking', 2.95, -1.2, bk, .55);
+      // 前列：ボナン・クンダン・柔らかい楽器
+      bonangInst('bonang', -2.75, .55, bonNs, 1); bonangInst('panerus', -2.75, 1.75, bonNs, .3);
+      kendhangInst('kendhang', .05, .9, false);
+      genderInst('gender', 2.35, .55, [...bonNs.map(d => [d,0]), ...bonNs.map(d => [d,1])], .9);
+      rebabInst('rebab', 1.1, 1.75); sulingInst('suling', 3.55, 1.75);
+      const S0 = 0, behind = I => I.g.position.z - (I.depth||.4)/2 - .33;
+      perf(false, k++, 3.72, -2.5, Math.PI/2, ['gong','kempul'], 'gong');
+      perf(false, k++, 1.35, -3.12, 0, ['kenong'], 'kenong');
+      perf(false, k++, -.75, -2.47, 0, ['kethuk','kempyang'], 'kethuk');
+      perf(false, k++, -3.15, behind(INSTS.slenthem), 0, ['slenthem'], 'bars', {iid:'slenthem', head:'disc', len:.24});
+      perf(false, k++, -1.75, behind(INSTS.demung), 0, ['demung'], 'bars', {iid:'demung', head:'hammer', len:.26});
+      perf(false, k++, -.55, behind(INSTS.demung2), 0, ['demung'], 'bars', {iid:'demung2', head:'hammer', len:.26});
+      perf(false, k++, .65, behind(INSTS.saron), 0, ['saron'], 'bars', {iid:'saron', head:'hammer', len:.22});
+      perf(false, k++, 1.8, behind(INSTS.saron2), 0, ['saron'], 'bars', {iid:'saron2', head:'hammer', len:.22});
+      perf(false, k++, 2.95, behind(INSTS.peking), 0, ['peking'], 'bars', {iid:'peking', head:'horn', len:.2});
+      perf(false, k++, -2.75, behind(INSTS.bonang), 0, ['bonang'], 'kettles', {iid:'bonang', head:'pad', len:.24});
+      perf(false, k++, -2.75, behind(INSTS.panerus), 0, ['panerus'], 'kettles', {iid:'panerus', head:'pad', len:.22});
+      perf(false, k++, .05, .5, 0, ['kendhang'], 'drum');
+      perf(false, k++, 2.35, behind(INSTS.gender), 0, ['gender'], 'kettles', {iid:'gender', head:'disc', len:.2});
+      perf(false, k++, 1.1, 1.75, 0, ['rebab'], 'rebab');
+      perf(false, k++, 3.55, 1.75, 0, ['suling'], 'suling');
+    } else {
+      const gk = gangsaKeys(), ck = calungKeys();
+      hangingGongs('gong', 4.3, -2.4, [{key:'G', R:.46, x:.5, y:.72, big:true}, {key:'P', R:.27, x:-.28, y:.64}, {key:'N', R:.16, x:-.76, y:.58}], -Math.PI/2);
+      smallKettles('kajar', 1.55, -2.55, [['j', .1, 0]]);
+      cengInst('ceng', -.1, -2.5);
+      baliBars('jegogan', -3.0, -1.35, ck, 1.6, 5); baliBars('jegogan2', -1.45, -1.35, ck, 1.6, 5);
+      baliBars('calung', .15, -1.35, ck, 1.15, 5); baliBars('calung2', 1.65, -1.35, ck, 1.15, 5);
+      baliBars('polos', -2.6, .5, gk, .65); baliBars('polos2', -.95, .5, gk, .65);
+      baliBars('sangsih', .95, .5, gk, .65); baliBars('sangsih2', 2.6, .5, gk, .65);
+      kendhangInst('kendhang', 0, 1.9, true);
+      const behind = I => I.g.position.z - (I.depth||.4)/2 - .33;
+      perf(true, k++, 3.67, -2.45, Math.PI/2, ['gong','kempul','kenong'], 'gong');
+      perf(true, k++, 1.55, -2.17, 0, ['kajar'], 'kenong', {iid:'kajar'});
+      perf(true, k++, -.1, -2.0, 0, ['ceng'], 'ceng');
+      perf(true, k++, -3.0, behind(INSTS.jegogan), 0, ['jegogan'], 'bars', {iid:'jegogan', head:'pad', len:.28});
+      perf(true, k++, -1.45, behind(INSTS.jegogan2), 0, ['jegogan'], 'bars', {iid:'jegogan2', head:'pad', len:.28});
+      perf(true, k++, .15, behind(INSTS.calung), 0, ['calung'], 'bars', {iid:'calung', head:'hammer', len:.24});
+      perf(true, k++, 1.65, behind(INSTS.calung2), 0, ['calung'], 'bars', {iid:'calung2', head:'hammer', len:.24});
+      perf(true, k++, -2.6, behind(INSTS.polos), 0, ['polos'], 'bars', {iid:'polos', head:'hammer', len:.22});
+      perf(true, k++, -.95, behind(INSTS.polos2), 0, ['polos'], 'bars', {iid:'polos2', head:'hammer', len:.22});
+      perf(true, k++, .95, behind(INSTS.sangsih), 0, ['sangsih'], 'bars', {iid:'sangsih', head:'hammer', len:.22});
+      perf(true, k++, 2.6, behind(INSTS.sangsih2), 0, ['sangsih'], 'bars', {iid:'sangsih2', head:'hammer', len:.22});
+      perf(true, k++, 0, 1.5, 0, ['kendhang'], 'drum');
+    }
+    // バチを持たせる
+    for (const P of PERF){
+      if (P.kind === 'bars'){ stick(P, 'R', P.len, .007, P.head); }
+      else if (P.kind === 'kettles'){ stick(P, 'R', P.len, .007, P.head); stick(P, 'L', P.len, .007, P.head); }
+      else if (P.kind === 'gong'){ stick(P, 'R', .42, .012, 'big'); }
+      else if (P.kind === 'kenong'){ stick(P, 'R', .3, .009, 'pad'); }
+      else if (P.kind === 'kethuk'){ stick(P, 'R', .26, .008, 'pad'); stick(P, 'L', .24, .008, 'pad'); }
+      else if (P.kind === 'ceng'){ stick(P, 'R', .02, .01, 'disc'); stick(P, 'L', .02, .01, 'disc'); }
+      else if (P.kind === 'rebab'){ stick(P, 'R', .5, .004, null); }
+      else if (P.kind === 'suling'){ const f = limb(P.g, bamboo, .014, .016); P.flute = f; }
+      P.inst = INSTS[P.iid] || INSTS[P.insts[0]];
+      if (P.kind === 'gong') P.inst = INSTS.gong; if (P.kind === 'kenong' && !P.iid) P.inst = INSTS.kenong; if (P.kind === 'kethuk') P.inst = INSTS.kethuk; if (P.kind === 'drum') P.inst = INSTS.kendhang;
+      if (P.kind === 'ceng') P.inst = INSTS.ceng; if (P.kind === 'rebab') P.inst = INSTS.rebab;
+    }
+    ens.updateMatrixWorld(true);
+    for (const P of PERF){ mergeStatic(P.body, new Set()); mergeStatic(P.legs, new Set()); }
+    for (const I of Object.values(INSTS)) mergeStatic(I.g, new Set(Object.values(I.keyMesh)));
+    // 名札（同じ楽器が2台あるときは1つ）
+    const NAMES = bali
+      ? [['gong','ゴング類','1周の区切り',['gong','kempul','kenong']],['kajar','カジャール','拍を刻む',['kajar']],['ceng','チェンチェン','シンバル',['ceng']],['jegogan','ジェゴガン','低い骨組み',['jegogan']],['calung','チャルン','骨組み',['calung']],['polos','ガンサ・ポロス','コテカンの表',['polos']],['sangsih','ガンサ・サンシ','コテカンの裏',['sangsih']],['kendhang','クンダン','リーダー',['kendhang']]]
+      : [['gong','ゴング・クンプル','1周の区切り',['gong','kempul']],['kenong','クノン','大きな区切り',['kenong']],['kethuk','クトゥッ','細かい区切り',['kethuk','kempyang']],['slenthem','スレンテム','低い骨組み',['slenthem']],['demung','デムン','骨組み',['demung']],['saron','サロン','骨組み',['saron']],['peking','ペキン','先取りで飾る',['peking']],['bonang','ボナン','飾り',['bonang']],['panerus','パネルス','細かい飾り',['panerus']],['kendhang','クンダン','指揮者',['kendhang']],['gender','グンデル','柔らかく飾る',['gender']],['rebab','ルバブ','旋律を歌う',['rebab']],['suling','スリン','笛',['suling']]];
+    const layer = $('#s3labels');
+    for (const [iid, name, role, insts] of NAMES){ const I = INSTS[iid]; if (!I) continue;
+      const bb = new THREE.Box3().setFromObject(I.g), c = bb.getCenter(V(0,0,0)); c.y = bb.max.y + .25;
+      if (iid === 'demung') c.x = (INSTS.demung.g.position.x + INSTS.demung2.g.position.x)/2;
+      if (iid === 'saron') c.x = (INSTS.saron.g.position.x + INSTS.saron2.g.position.x)/2;
+      if (iid === 'jegogan' || iid === 'calung' || iid === 'polos' || iid === 'sangsih') c.x = (INSTS[iid].g.position.x + INSTS[iid + '2'].g.position.x)/2;
+      const el = document.createElement('button'); el.className = 's3tag'; el.innerHTML = `${name}<small>${role}</small>`; el.dataset.insts = insts.join(' ');
+      el.onclick = () => toggleMute(insts); layer.appendChild(el);
+      LABELS.push({el, at:c, insts}); }
+    syncMute();
+  }
+
+  // 動かない部品を、材質ごとに1つの形にまとめる（描く回数が減ってスマホでも軽くなる）
+  function mergeStatic(root, keep){
+    root.updateMatrixWorld(true);
+    const inv = new THREE.Matrix4().copy(root.matrixWorld).invert(), byMat = new Map(), victims = [];
+    root.traverse(o => { if (o.isMesh && !keep.has(o) && !o.material.transparent) victims.push(o); });
+    for (const o of victims){ const g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone();
+      g.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld));
+      if (!g.attributes.uv) g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(g.attributes.position.count*2), 2));
+      const e = byMat.get(o.material) || {geos:[], shadow:false}; e.geos.push(g); e.shadow = e.shadow || o.castShadow; byMat.set(o.material, e); }
+    for (const o of victims){ o.parent.remove(o); o.geometry.dispose(); }
+    for (const [mat, {geos, shadow}] of byMat){ let n = 0; for (const g of geos) n += g.attributes.position.count;
+      const pos = new Float32Array(n*3), nor = new Float32Array(n*3), uv = new Float32Array(n*2); let off = 0;
+      for (const g of geos){ pos.set(g.attributes.position.array, off*3); nor.set(g.attributes.normal.array, off*3); uv.set(g.attributes.uv.array, off*2); off += g.attributes.position.count; g.dispose(); }
+      const mg = new THREE.BufferGeometry(); mg.setAttribute('position', new THREE.BufferAttribute(pos, 3)); mg.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); mg.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+      const mm = new THREE.Mesh(mg, mat); mm.castShadow = shadow; mm.receiveShadow = true; root.add(mm); }
+  }
+
+  // ---- 休ませる・戻す ----
+  function toggleMute(insts){ const on = !insts.every(i => S.mutedInst[i]); insts.forEach(i => S.mutedInst[i] = on); syncMute(); }
+  function syncMute(){ for (const L of LABELS) L.el.classList.toggle('off', L.insts.every(i => S.mutedInst[i])); }
+  G3.syncMute = syncMute;
+
+  // ---- 音が鳴った（鳴る予定）ときに、奏者の打つ動きを予約する ----
+  const toLocal = (P, w) => P.g.worldToLocal(w.clone().applyMatrix4(ens.matrixWorld));
+  const UPV = V(0,1,0);
+  function strike(P, side, t, w, opt={}){ if (!w) return;
+    const loc = toLocal(P, w), dir = opt.dir ? opt.dir.clone().applyQuaternion(P.g.quaternion.clone().invert()) : UPV;
+    const s = {t, head:loc, dir, H:opt.H ?? .13, mesh:opt.mesh};
+    const q = P.q[side]; q.push(s); if (q.length > 1 && q[q.length-2].t > t) q.sort((a,b) => a.t - b.t);
+    if (opt.mesh) KEYFLASH.push({m:opt.mesh, t}); P.last = t; }
+  const sideOf = (P, w) => toLocal(P, w).x >= 0 ? 'L' : 'R';
+  G3.hit = (inst, ev, t) => {
+    for (const P of PERF){ if (!P.insts.includes(inst)) continue;
+      const I = P.inst; if (!I) continue;
+      if (P.kind === 'bars'){
+        let key = ev.key && ev.key.includes(':') ? ev.key : `${ev.d}:${ev.o}`;
+        if (!I.keys[key]) key = (I.byD && I.byD[ev.d]) || Object.keys(I.keys).find(k => k.startsWith(ev.d + ':'));
+        const w = I.keys[key]; if (!w) continue;
+        // 右手で打ち、左手で前の音を押さえて止める（ダンプ）
+        if (P.prevKey && P.prevKey !== key){ const pw = I.keys[P.prevKey].clone(); pw.z += .07; strike(P, 'L', t, pw, {H:.05}); }
+        strike(P, 'R', t, w, {mesh:I.keyMesh[key]}); P.prevKey = key;
+      } else if (P.kind === 'kettles'){
+        const keys = ev.gemb ? [`${ev.d}:0`, `${ev.d}:1`] : [ev.key && ev.key.includes(':') ? ev.key : `${ev.d}:${Math.max(0, Math.min(1, ev.o||0))}`];
+        keys.forEach((key, i) => { let w = I.keys[key]; if (!w){ const kk = Object.keys(I.keys).find(k => k.startsWith(ev.d + ':')); w = I.keys[kk]; key = kk; } if (!w) return;
+          const side = ev.gemb ? (i ? 'L' : 'R') : sideOf(P, w); strike(P, side, t, w, {mesh:I.keyMesh[key]}); });
+      } else if (P.kind === 'gong'){
+        const ks = P.inst.keys; let key = 'G';
+        if (inst === 'kempul') key = ks.P ? 'P' : (ks['P' + ev.d] ? 'P' + ev.d : Object.keys(ks).find(k => k[0] === 'P'));
+        else if (inst === 'kenong') key = 'N';
+        const w = ks[key] || ks.G;
+        strike(P, 'R', t, w, {dir:P.inst.face.clone(), H: inst === 'gong' ? .3 : .18, mesh:P.inst.keyMesh[key]});
+      } else if (P.kind === 'kenong'){
+        const key = P.inst.keys[String(ev.d)] ? String(ev.d) : Object.keys(P.inst.keys)[0]; strike(P, 'R', t, P.inst.keys[key], {H:.18, mesh:P.inst.keyMesh[key]});
+      } else if (P.kind === 'kethuk'){
+        const key = inst === 'kempyang' ? 'p' : 't'; strike(P, key === 'p' ? 'L' : 'R', t, P.inst.keys[key], {H:.12, mesh:P.inst.keyMesh[key]});
+      } else if (P.kind === 'drum'){
+        const k = ev.k || 'D', sides = k === 'L' ? ['L','R'] : (k === 'D' ? ['L'] : ['R']);
+        sides.forEach(sd => { const w = I.keys[sd === 'L' ? 'D' : (k === 'L' ? 'k' : k)] || I.keys.D; strike(P, sd, t, w, {dir:V(sd === 'L' ? 1 : -1, .4, 0).normalize(), H:.09, mesh:I.keyMesh[sd === 'L' ? 'D' : 'k']}); });
+      } else if (P.kind === 'ceng'){
+        const w = I.keys.c; [-1,1].forEach(s => { const ww = w.clone(); ww.x += s*.07; strike(P, s < 0 ? 'R' : 'L', t, ww, {H:.12}); });
+      } else if (P.kind === 'rebab'){
+        P.bow = {t, dur: ev.durSec || .8, dir: (P.bow ? -P.bow.dir : 1)}; P.last = t;
+      } else if (P.kind === 'suling'){ P.blow = {t, dur: ev.durSec || 1}; P.last = t; }
+    }
+  };
+
+  // ---- 毎フレーム：手・腕・バチを動かす ----
+  const tA = V(0,0,0), tB = V(0,0,0), tC = V(0,0,0), ZAX = V(0,0,1);
+  function headAt(P, side, now, guard){
+    const q = P.q[side]; while (q.length > 2 && q[1].t < now - .6) q.shift();
+    let last = null, next = null; for (const s of q){ if (s.t <= now) last = s; else { next = s; break; } }
+    const e = last ? now - last.t : 99, d = next ? next.t - now : 99;
+    if (!last && !next) return null;
+    if (e > 1.4 && d > .8) return null;                                  // しばらく打たない → 構えに戻る
+    const H = next ? next.H : last.H;
+    let h = Math.min(H, e * H/.09, d * H/.15);
+    const gap = last && next ? next.t - last.t : .8, win = Math.min(.42, gap*.9);
+    let base;
+    if (next && d < win){ const u = 1 - d/win, s = u*u*(3 - 2*u); base = tC.copy(last ? last.head : guard).lerp(next.head, s); }
+    else base = tC.copy(last ? last.head : next.head);
+    const dir = (next && d < win) ? next.dir : (last ? last.dir : next.dir);
+    return {pos: base.clone().addScaledVector(dir, Math.max(0, h)), dir};
+  }
+  function updatePerformer(P, now, dt, playing){
+    const muted = P.insts.every(i => S.mutedInst[i]);
+    const age = P.last != null ? now - P.last : 99;
+    P.lv += ((age >= 0 && age < .35 ? 1 - age/.35 : 0) - P.lv) * Math.min(1, dt*20);
+    P.halo.material.opacity = muted ? .0 : P.lv*.75 + (playing ? .08 : 0);
+    P.halo.material.color.set(muted ? 0x888888 : 0xffd36a);
+    const breath = Math.sin(now*1.6 + P.bob)*.004;
+    // 遠い鍵盤には上半身を傾け・ひねって手をのばす
+    let wantLean = 0, wantTwist = 0;
+    if (!muted && P.kind !== 'rebab' && P.kind !== 'suling'){
+      const hs = ['L','R'].map(sd => headAt(P, sd, now, P.knee[sd])).filter(Boolean);
+      if (hs.length){ const c = hs.reduce((a, h) => a.add(h.pos), V(0,0,0)).multiplyScalar(1/hs.length);
+        wantTwist = Math.max(-.5, Math.min(.5, Math.atan2(-c.x, Math.max(.15, c.z)) * -.55));
+        const reach = Math.hypot(c.x*.6, c.z, (c.y - .5)*.5); wantLean = Math.max(0, Math.min(.32, (reach - .34)*.9)); } }
+    P.lean += (wantLean - P.lean)*Math.min(1, dt*8); P.twist += (wantTwist - P.twist)*Math.min(1, dt*8);
+    P.body.position.y = breath; P.body.rotation.set((muted ? -.02 : .05) + P.lv*.02 + P.lean, P.twist, 0, 'YXZ');
+    const ready = playing && !muted || age < 2;
+    const I = P.inst;
+    // 構えの位置（楽器の上）と休みの位置（ひざ）
+    let guardR = P.knee.R.clone(), guardL = P.knee.L.clone();
+    if (ready && I){ const ks = Object.values(I.keys); if (ks.length){ const c = ks.reduce((a, b) => a.add(b), V(0,0,0)).multiplyScalar(1/ks.length); const lc = toLocal(P, c);
+      guardR = lc.clone().add(V(-.12, .14, -.02)); guardL = lc.clone().add(V(.12, .12, -.04)); } }
+    for (const side of ['L','R']){
+      const st = P.sticks[side], L = st ? st.len : 0;
+      const guard = side === 'L' ? guardL : guardR;
+      let target, aimDir = V(0, -.45, 1).normalize();
+      if (P.kind === 'rebab' && I){
+        const neck = toLocal(P, I.neck), a = toLocal(P, I.bowA), b = toLocal(P, I.bowB);
+        if (side === 'L') target = neck.clone();
+        else { const bw = P.bow, act = bw && now >= bw.t && now < bw.t + bw.dur + .1 && !muted; const u = act ? Math.min(1, (now - bw.t)/bw.dur) : .5;
+          target = (bw && bw.dir < 0) ? b.clone().lerp(a, u) : a.clone().lerp(b, u); target.y -= .02; }
+      } else if (P.kind === 'suling'){
+        target = V(side === 'L' ? .015 : -.015, side === 'L' ? .66 : .55, side === 'L' ? .2 : .27);
+        if (P.blow && now >= P.blow.t && now < P.blow.t + P.blow.dur && !muted) target.y += Math.sin(now*9)*.004;
+      } else {
+        const hp = muted ? null : headAt(P, side, now, guard);
+        if (hp){ const hd = hp.pos; aimDir = (P.kind === 'gong' ? hp.dir.clone().negate().add(V(0, -.25, 0)).normalize() : P.kind === 'drum' ? V(side === 'L' ? 1 : -1, -.3, .2) : V(side === 'L' ? .25 : -.25, -.5, 1)).normalize();
+          target = hd.clone().addScaledVector(aimDir, -L); P._head = P._head || {}; }
+        else target = (ready && !muted) ? guard.clone().addScaledVector(V(0,-.45,1).normalize(), -L*.6) : (side === 'L' ? P.knee.L : P.knee.R).clone();
+      }
+      // 腕が届く範囲におさめる（届かないときは体をのばした所まで）
+      { const shp = P.sh[side].clone().applyEuler(P.body.rotation), v = tB.subVectors(target, shp), Lm = UA + FA - .01; if (v.length() > Lm) target = shp.clone().addScaledVector(v.normalize(), Lm); }
+      // 打つ瞬間の前後は計算どおりに（音とずれないように）、それ以外はなめらかに
+      const near = headAt(P, side, now, guard), exact = near && P.kind !== 'rebab' && P.kind !== 'suling';
+      if (exact) P.h[side].copy(target); else P.h[side].lerp(target, Math.min(1, dt*10));
+      const sh = tA.copy(P.sh[side]).applyEuler(P.body.rotation); sh.y += breath;
+      const e = elbow(P.el[side], sh, P.h[side], side === 'L' ? 1 : -1);
+      setLimb(P.up[side], sh, e); setLimb(P.fo[side], e, P.h[side]);
+      P.hand[side].position.copy(P.h[side]);
+      P.hand[side].quaternion.setFromUnitVectors(ZAX, tB.subVectors(P.h[side], e).normalize());
+      if (st){ const dir = (P.kind === 'rebab') ? V(-1, -.05, .05).normalize() : aimDir;
+        const tip = tC.copy(P.h[side]).addScaledVector(dir, Math.max(.02, st.len));
+        setLimb(st.m, P.h[side], tip); if (st.hm){ st.hm.position.copy(tip); st.hm.quaternion.setFromUnitVectors(_Y, dir); if (st.head === 'pad' || st.head === 'disc') st.hm.quaternion.setFromUnitVectors(_Y, V(1,0,0).applyQuaternion(new THREE.Quaternion().setFromUnitVectors(V(0,0,1), dir))); } }
+    }
+    if (P.flute){ setLimb(P.flute, V(0, .78, .14), V(0, .42, .36)); }
+  }
+
+  // ---- 画面に合わせる・カメラ ----
+  const CAMS = {front:[V(0, 3.7, 7.6), V(0, .3, -.7)], top:[V(0, 12.5, .6), V(0, 0, -.4)], side:[V(9.2, 3.2, 3.4), V(0, .4, -.4)], near:[V(-.6, 1.55, 4.0), V(-.4, .5, -.2)]};
+  let camAnim = null;
+  function setCam(name){ const [p, t] = CAMS[name]; camAnim = {p0:camera.position.clone(), t0:controls.target.clone(), p, t, s:performance.now()}; document.querySelectorAll('#s3cam [data-cam]').forEach(b => b.classList.toggle('on', b.dataset.cam === name)); }
+  camera.position.copy(CAMS.front[0]); controls.target.copy(CAMS.front[1]); controls.update();
+  function resize(){ const w = boxEl.clientWidth, h = boxEl.clientHeight; if (!w || !h) return; renderer.setSize(w, h, true); camera.aspect = w/h;
+    camera.fov = w/h < .9 ? 48 : 34; camera.updateProjectionMatrix(); }
+  window.addEventListener('resize', resize);
+  if (window.ResizeObserver) new ResizeObserver(() => resize()).observe(boxEl);
+  // 奏者をタップ → 休ませる・戻す
+  const ray = new THREE.Raycaster(), mp = new THREE.Vector2(); let downAt = null;
+  cv.addEventListener('pointerdown', e => { downAt = [e.clientX, e.clientY]; });
+  cv.addEventListener('pointerup', e => { if (!downAt || Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 8) return; const r = cv.getBoundingClientRect();
+    mp.set((e.clientX - r.left)/r.width*2 - 1, -(e.clientY - r.top)/r.height*2 + 1); ray.setFromCamera(mp, camera);
+    const hits = ray.intersectObjects(ens.children, true); if (!hits.length) return;
+    let o = hits[0].object; while (o && o.parent !== ens) o = o.parent;
+    const P = PERF.find(P => P.g === o); if (P){ toggleMute(P.insts); return; }
+    const I = Object.values(INSTS).find(I => I.g === o); if (I){ const P2 = PERF.find(P => P.inst === I); if (P2) toggleMute(P2.insts); } });
+
+  // ---- 描画ループ（3D合奏タブを開いているときだけ動く） ----
+  let lastMs = performance.now(), curKey = '', perfAvg = 1/60, perfN = 0, quality = 2;
+  const outLat = () => ctx ? Math.min(.25, (ctx.outputLatency||0) + (ctx.baseLatency||0)) : 0;
+  function frame(ms){
+    requestAnimationFrame(frame);
+    if (!$('#page-stage3d').classList.contains('active') || document.hidden) { lastMs = ms; return; }
+    const dt = Math.min(.05, (ms - lastMs)/1000), rawDt = (ms - lastMs)/1000; lastMs = ms;
+    // 重い端末では画質を自動で下げる（なめらかさを優先）
+    if (rawDt > 0 && rawDt < 1){ perfAvg = perfAvg*.97 + rawDt*.03; perfN++;
+      if (perfN > 120 && perfAvg > 1/28 && quality > 0){ quality--; perfN = 0; perfAvg = 1/40;
+        if (quality === 1) renderer.setPixelRatio(1); else { renderer.shadowMap.enabled = false; scene.traverse(o => { if (o.material) o.material.needsUpdate = true; }); }
+        resize(); } }
+    if (camAnim){ const u = Math.min(1, (ms - camAnim.s)/700), s = u*u*(3 - 2*u); camera.position.lerpVectors(camAnim.p0, camAnim.p, s); controls.target.lerpVectors(camAnim.t0, camAnim.t, s); if (u >= 1) camAnim = null; }
+    controls.update();
+    const above = camera.position.y > 4.1; for (const r of ROOF) r.visible = !above;
+    const now = ctx ? ctx.currentTime - outLat() : ms/1000;
+    const playing = S.playing || !!PW;
+    for (const P of PERF) updatePerformer(P, now, dt, playing);
+    for (let i = KEYFLASH.length - 1; i >= 0; i--){ const f = KEYFLASH[i], a = now - f.t;
+      if (a < 0) continue; if (a > .5){ f.m.material.emissiveIntensity = 0; KEYFLASH.splice(i, 1); continue; }
+      f.m.material.emissiveIntensity = (1 - a/.5) * .9; }
+    renderer.render(scene, camera);
+    // 名札の位置
+    const w = boxEl.clientWidth, h = boxEl.clientHeight, show = $('#s3names').checked;
+    for (const L of LABELS){ const p = L.at.clone().applyMatrix4(ens.matrixWorld).project(camera);
+      const vis = show && p.z < 1 && Math.abs(p.x) < 1.1 && Math.abs(p.y) < 1.1;
+      L.el.style.display = vis ? '' : 'none'; if (vis) L.el.style.transform = `translate(${((p.x + 1)/2*w).toFixed(1)}px, ${((1 - p.y)/2*h).toFixed(1)}px) translate(-50%, -100%)`;
+      const act = L.insts.some(i => PERF.some(P => P.insts.includes(i) && P.lv > .3)); L.el.classList.toggle('act', act); }
+    s3Status();
+  }
+  G3.rebuild = () => { const key = S.form + '|' + S.laras; if (key === curKey) return; curKey = key; buildEnsemble(S.form, S.laras); };
+  // 点検用：各奏者が自分の楽器のすべての打つ点にバチが届くか（届かない点の数）
+  G3.reach = () => { const out = {}; for (const P of PERF){ if (!P.inst || !P.sticks.R || ['rebab','suling','drum','ceng'].includes(P.kind)) continue; let bad = 0, worst = 0;
+      for (const w of Object.values(P.inst.keys)){ const loc = toLocal(P, w), side = loc.x >= 0 && P.sticks.L ? 'L' : 'R', L = P.sticks[side].len;
+        const aim = (P.kind === 'gong' ? (P.inst.face ? P.inst.face.clone().applyQuaternion(P.g.quaternion.clone().invert()).negate().add(V(0,-.25,0)).normalize() : V(0,0,1)) : V(side === 'L' ? .25 : -.25, -.5, 1).normalize());
+        const hand = loc.clone().addScaledVector(aim, -L), d = hand.distanceTo(P.sh[side]); worst = Math.max(worst, d); if (d > UA + FA + .2) bad++; }
+      out[(P.iid||P.insts[0]) + '@' + P.g.position.x.toFixed(1)] = bad + ' / ' + Object.keys(P.inst.keys).length + ' (max ' + worst.toFixed(2) + ')'; } return out; };
+  G3.resize = resize; G3.setCam = setCam; G3.info = renderer.info; G3.look = (p, t) => { camAnim = null; camera.position.set(...p); controls.target.set(...t); controls.update(); };
+  G3.sync = () => { G3.rebuild(); syncMute(); };
+  G3.ready = true;
+  G3.rebuild(); resize(); requestAnimationFrame(frame);
+}
+
+// ---- 3D合奏ページの操作 ----
+function s3Sync(){
+  const sel = $('#s3piece'); if (!sel) return;
+  sel.innerHTML = $('#pieceSel').innerHTML; sel.value = $('#pieceSel').value;
+  const bali = S.form === 'bali';
+  $('#s3ir').style.display = bali ? 'none' : '';
+  document.querySelectorAll('#s3ir [data-ir]').forEach(b => b.classList.toggle('on', +b.dataset.ir === (S.pendingIrama || S.irama)));
+  const list = JAM_INST[bali ? 'bali' : 'java'];
+  $('#s3join').innerHTML = list.map(([k,n]) => `<button class="sec ${S3_ME===k?'on':''}" data-i="${k}">${n}</button>`).join('') + (S3_ME ? '<button class="sec" data-i="">やめる</button>' : '');
+  if (S3_ME && !list.some(x => x[0] === S3_ME)){ S3_ME = null; $('#s3prac').innerHTML = ''; }
+  if (G3.ready) G3.sync();
+}
+let S3_ME = null;
+$('#s3piece').onchange = e => { stopAll(); S3_ME = null; $('#s3prac').innerHTML = ''; usePiece(+e.target.value); };
+$('#s3play').onclick = () => { if (PW) stopPractice(PW); initAudio(); startAuto(); };
+$('#s3stop').onclick = () => { stopAll(); };
+$('#s3suwuk').onclick = () => suwuk();
+$('#s3ir').onclick = e => { const b = e.target.closest('[data-ir]'); if (!b) return; setIrama(+b.dataset.ir); s3Sync(); };
+$('#s3cam').onclick = e => { const b = e.target.closest('[data-cam]'); if (b && G3.ready) G3.setCam(b.dataset.cam); };
+$('#s3join').onclick = e => { const b = e.target.closest('[data-i]'); if (!b) return; stopAll();
+  S3_ME = b.dataset.i || null; s3Sync();
+  if (!S3_ME){ $('#s3prac').innerHTML = ''; return; }
+  const idx = +$('#pieceSel').value, p = PIECES[idx];
+  mountPractice($('#s3prac'), {piece:idx, user:S3_ME, bpm:Math.min(p.tempo, JAM_DENSE.has(S3_ME) ? (p.form==='bali' ? 40 : 48) : 66), backing:'all', passRatio:.75,
+    intro:'「一緒に弾く」を押すと、舞台の奏者たちと一緒に合奏が始まります。あなたの奏者は、あなたが叩いたときに動きます。'});
+  const pr = $('#s3prac .prac'), rows = pr.querySelectorAll(':scope > .row');
+  [rows[0], '.pcount', '.pmsg', '.hwy', '.pkb', '.pstats', rows[1], '.pcalbox', '.pscore'].forEach(x => pr.appendChild(typeof x==='string' ? pr.querySelector(x) : x));
+};
+function s3Status(){ const el = $('#s3st'); if (!el) return; let t;
+  if (PW && PW.running && PW.el === $('#s3prac')) t = '🥢 あなたも合奏に参加中';
+  else if (S.playing){ const ep = enginePos(), b = ep ? Math.max(1, Math.ceil(ep.pos - 1e-6)) : 0;
+    t = !ep ? '▶ 合奏中' : ep.phase === 'buka' ? `ブカ（前奏）… ${b}拍目` : `▶ ${b} / ${S.N} 拍 ・ ゴングまで あと ${S.N - b} 拍`; if (S.ending) t += '（終わりに向かっています）'; }
+  else t = '▶ を押すと合奏が始まります';
+  if (el.textContent !== t) el.textContent = t; }
+
 </script>
 </body>
 </html>
