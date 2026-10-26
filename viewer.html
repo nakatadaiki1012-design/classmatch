@@ -1,0 +1,798 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>クラ���マッチ ライブ</title>
+  <style>
+/* ── CSS Variables ────��────────────────────── */
+:root {
+  --primary:#2563eb; --navy:#1e3a5f; --ok:#16a34a;
+  --surface:#fff; --surface2:#f8fafc; --border:#e2e8f0; --border2:#cbd5e1;
+  --muted:#64748b; --subtle:#94a3b8; --text:#1e293b;
+  font-family:'Noto Sans JP','Hiragino Kaku Gothic ProN','Yu Gothic',sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{background:#f1f5f9;color:var(--text);font-size:14px;line-height:1.5;min-height:100vh;}
+
+/* ── Header ────────────────────────────────── */
+header{
+  position:sticky;top:0;z-index:50;
+  background:var(--navy);color:#fff;
+  padding:10px 16px;
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  box-shadow:0 2px 8px rgba(0,0,0,.25);
+}
+header h1{font-size:16px;font-weight:800;}
+header h1 span{font-weight:400;opacity:.7;}
+#headerSub{font-size:11px;opacity:.65;margin-top:1px;}
+#liveIndicator{
+  display:flex;align-items:center;gap:6px;
+  font-size:12px;font-weight:700;
+  background:rgba(255,255,255,.15);
+  padding:4px 10px;border-radius:999px;white-space:nowrap;
+}
+#liveDot{
+  width:8px;height:8px;border-radius:50%;background:#4ade80;
+  animation:liveDot .9s ease-in-out infinite;flex-shrink:0;
+}
+@keyframes liveDot{0%,100%{opacity:1;}50%{opacity:.2;}}
+#lastUpdated{font-size:10px;opacity:.7;white-space:nowrap;}
+
+/* ── Layout ────────────────────────────────── */
+main{max-width:1200px;margin:0 auto;padding:14px 12px 40px;}
+.card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:12px;padding:16px;margin-bottom:14px;
+  box-shadow:0 1px 4px rgba(0,0,0,.06);
+}
+.hidden{display:none!important;}
+
+/* ── Event Tabs ─────────────────────────────── */
+#eventTabs{
+  display:flex;gap:6px;flex-wrap:wrap;
+  margin-bottom:14px;padding-bottom:10px;
+  border-bottom:1px solid var(--border);
+}
+.tabBtn{
+  padding:6px 14px;border-radius:999px;font-size:12px;font-weight:700;
+  border:1.5px solid var(--border2);background:var(--surface2);
+  color:var(--text);cursor:pointer;transition:all .15s;
+}
+.tabBtn.active{background:var(--navy);color:#fff;border-color:var(--navy);}
+.tabBtn .prog{
+  display:inline-block;margin-left:5px;font-size:10px;opacity:.7;
+}
+
+/* ── Progress bar ───────────────────────────── */
+.progWrap{
+  display:flex;align-items:center;gap:8px;
+  padding:8px 14px;margin-bottom:12px;
+  background:var(--surface2);border-radius:8px;border:1px solid var(--border);
+  font-size:13px;
+}
+progress{flex:1;height:8px;border-radius:4px;}
+progress::-webkit-progress-bar{background:#e2e8f0;border-radius:4px;}
+progress::-webkit-progress-value{background:var(--ok);border-radius:4px;transition:width .4s;}
+
+/* ── SVG bracket styles ─────────────────────── */
+.line{fill:none;stroke:#cbd5e1;stroke-width:1.5;stroke-linecap:square;}
+.line.win{stroke:#16a34a;stroke-width:2.5;}
+.sideBox{fill:#f8fafc;stroke:#cbd5e1;stroke-width:1;}
+.sideBox.match-playing{fill:#fff1f2;stroke:#f43f5e;stroke-width:2;animation:playPulse 1.5s ease-in-out infinite;}
+.sideBox.match-calling{fill:#fffbeb;stroke:#f59e0b;stroke-width:1.5;animation:callPulse 1.2s ease-in-out infinite;}
+.sideBox.overtime-pulse{fill:#fef3c7!important;stroke:#f97316!important;stroke-width:2.5;animation:otPulse .8s ease-in-out infinite!important;}
+.sideBox.selected{stroke:var(--primary)!important;stroke-width:2.5;}
+.teamTxtH{fill:var(--text);}
+.teamTxtH.subtle{fill:var(--subtle);}
+.vsTxt{fill:#94a3b8;}
+.roundLabel{fill:var(--muted);font-weight:700;}
+.hlBox{stroke:var(--primary);stroke-width:2;fill:none;stroke-dasharray:4 2;}
+.hlBox.hidden{display:none;}
+@keyframes playPulse{0%,100%{stroke-width:2;}50%{stroke-width:3;}}
+@keyframes callPulse{0%,100%{opacity:1;}50%{opacity:.6;}}
+@keyframes otPulse{0%,100%{fill:#fef3c7;}50%{fill:#fed7aa;}}
+
+/* ── Empty / error states ───────────────────── */
+#loadingMsg,#errorMsg{
+  text-align:center;padding:40px 20px;font-size:15px;color:var(--muted);
+}
+#errorMsg{color:#dc2626;}
+
+/* ── Live badge in bracket area ─────────────── */
+.sectionHead{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:10px;flex-wrap:wrap;gap:6px;
+}
+.sectionHead h2{font-size:17px;font-weight:800;color:var(--navy);margin:0;}
+.badge{
+  display:inline-flex;align-items:center;gap:4px;
+  padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;
+  white-space:nowrap;
+}
+.badge.green{background:#dcfce7;color:#16a34a;border:1px solid #bbf7d0;}
+.badge.red  {background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;}
+.badge.blue {background:#dbeafe;color:#1d4ed8;border:1px solid #bfdbfe;}
+.badge.orange{background:#fff7ed;color:#ea580c;border:1px solid #fed7aa;}
+.badge.gray {background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0;}
+
+.bracketWrap{overflow-x:auto;padding:6px 0;}
+.championBanner{
+  display:flex;align-items:center;gap:14px;
+  padding:14px 20px;margin-bottom:14px;
+  background:linear-gradient(90deg,#fef9c3,#fde68a);
+  border:2px solid #fbbf24;border-radius:12px;
+  box-shadow:0 2px 10px rgba(251,191,36,.3);
+  animation:champIn .4s ease;
+}
+.championBanner .cbTrophy{font-size:38px;line-height:1;animation:champBounce 1.6s ease-in-out infinite;}
+.championBanner .cbLabel{font-size:12px;font-weight:700;color:#a16207;letter-spacing:2px;}
+.championBanner .cbName{font-size:24px;font-weight:900;color:#78350f;line-height:1.1;}
+@keyframes champIn{from{opacity:0;transform:translateY(-8px);}to{opacity:1;transform:none;}}
+@keyframes champBounce{0%,100%{transform:translateY(0);}50%{transform:translateY(-5px);}}
+.loserLabel{
+  margin:20px 0 8px;padding:8px 12px;
+  background:linear-gradient(90deg,#f5f3ff,#ede9fe);
+  border-left:4px solid #7c3aed;border-radius:0 8px 8px 0;
+  font-size:11px;color:#7c3aed;font-weight:700;
+  letter-spacing:.3px;text-transform:uppercase;
+}
+
+/* ── Match status legend ────────────────────── */
+#legend{
+  display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px;
+  font-size:11px;color:var(--muted);align-items:center;
+}
+.legendItem{display:flex;align-items:center;gap:4px;}
+.legendBox{
+  width:14px;height:14px;border-radius:3px;
+  border:1.5px solid #cbd5e1;
+}
+.legendBox.playing{background:#fff1f2;border-color:#f43f5e;}
+.legendBox.calling{background:#fffbeb;border-color:#f59e0b;}
+.legendBox.done   {background:#dcfce7;border-color:#16a34a;}
+.legendBox.pending{background:#f8fafc;border-color:#cbd5e1;}
+
+/* ── League table ─────────────────────────── */
+.leagueWrap{overflow-x:auto;}
+.league-table{border-collapse:collapse;font-size:13px;min-width:100%;}
+.league-table th,.league-table td{border:1px solid var(--border2);padding:6px 10px;text-align:center;}
+.league-table th{background:#f1f5f9;font-weight:700;color:var(--navy);}
+.league-cell.win{background:#dcfce7;font-weight:700;}
+.league-cell.loss{background:#fee2e2;color:#991b1b;}
+.league-cell.draw{background:#fef9c3;}
+
+@media(max-width:600px){
+  header h1{font-size:14px;}
+  .card{padding:12px;}
+}
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1 id="viewerTitle">🏆 クラスマッチ <span>ライブ</span></h1>
+      <div id="headerSub">-</div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
+      <div id="liveIndicator">
+        <span id="liveDot"></span>
+        <span id="liveStatus">接続中...</span>
+      </div>
+      <div id="lastUpdated"></div>
+    </div>
+  </header>
+
+  <main>
+    <div id="loadingMsg">📡 データを読み込んでいます...</div>
+    <div id="errorMsg" class="hidden">❌ ブラケットデータが見つかりません。<br/>先生から共有リンクを受け取ってください。</div>
+
+    <div id="viewerContent" class="hidden">
+      <!-- Progress summary -->
+      <div class="card">
+        <div class="progWrap">
+          <span id="progText" style="font-weight:700;color:var(--navy);">0 / 0 試合完了</span>
+          <progress id="progBar" value="0" max="100"></progress>
+          <span id="progPct" style="font-size:12px;color:var(--muted);">0%</span>
+        </div>
+        <div id="legend">
+          <span class="legendItem"><span class="legendBox playing"></span>試合中</span>
+          <span class="legendItem"><span class="legendBox calling"></span>招集中</span>
+          <span class="legendItem"><span class="legendBox done"></span>終了</span>
+          <span class="legendItem"><span class="legendBox pending"></span>待機</span>
+        </div>
+      </div>
+
+      <!-- Event tabs -->
+      <div id="eventTabs"></div>
+
+      <!-- Bracket area -->
+      <div class="card" id="bracketCard">
+        <div class="sectionHead">
+          <h2 id="eventTitle">-</h2>
+          <div id="eventStatusBadge"></div>
+        </div>
+        <div class="bracketWrap" id="bracket"></div>
+      </div>
+    </div>
+  </main>
+
+<script>
+(function() {
+  // ── Utilities ──────────────────────────────
+  const el = id => document.getElementById(id);
+  function escapeHtml(s) {
+    return String(s)
+      .replaceAll("&","&amp;").replaceAll("<","&lt;")
+      .replaceAll(">","&gt;").replaceAll('"',"&quot;");
+  }
+  function fmtTime(d) {
+    if (!d) return "";
+    const dt = new Date(d);
+    return String(dt.getHours()).padStart(2,"0") + ":" + String(dt.getMinutes()).padStart(2,"0");
+  }
+  function formatTeamName(name) {
+    if (!name) return name;
+    if (name.startsWith("__L|") && name.endsWith("__")) {
+      const content = name.replaceAll("__L|","").replaceAll("__","");
+      const parts = content.split("|");
+      return parts.length >= 2 ? `${parts[1]}\nの負け` : `${parts[0]}\nの負け`;
+    }
+    return name;
+  }
+
+  // ── Decode share ───────────────────────────
+  function decodeShare(b64) {
+    const pad = "=".repeat((4 - b64.length % 4) % 4);
+    return JSON.parse(decodeURIComponent(escape(atob(b64 + pad))));
+  }
+
+  // ── State ──────────────────────────────────
+  let state = null;
+  let currentEventId = null;
+  const STORAGE_KEY = "classmatch_local_v2_state";
+
+  // ── BroadcastChannel listener ──────────────
+  if (typeof BroadcastChannel !== "undefined") {
+    const ch = new BroadcastChannel("classmatch-live");
+    ch.addEventListener("message", e => {
+      if (e.data?.type === "state-update" && e.data.state) {
+        state = e.data.state;
+        renderAll();
+        el("liveStatus").textContent = "同期中 (ライブ)";
+        el("lastUpdated").textContent = "たった今更新";
+      }
+    });
+  }
+
+  // ── Load state ─────────────────────────────
+  function loadState() {
+    // 1) URL hash #share=...
+    const hash = location.hash.replace(/^#/, "");
+    if (hash.startsWith("share=")) {
+      try {
+        state = decodeShare(hash.slice(6));
+        el("liveStatus").textContent = "スナップショット";
+        el("lastUpdated").textContent = "URLから読み込み";
+        renderAll();
+        return;
+      } catch(e) {
+        showError();
+        return;
+      }
+    }
+    // 2) localStorage (same device)
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        state = JSON.parse(raw);
+        el("liveStatus").textContent = "同期中 (ライブ)";
+        el("lastUpdated").textContent = "ローカルデータ";
+        renderAll();
+        return;
+      }
+    } catch {}
+    showError();
+  }
+
+  function showError() {
+    el("loadingMsg").classList.add("hidden");
+    el("errorMsg").classList.remove("hidden");
+    el("liveStatus").textContent = "未接続";
+    el("liveDot").style.background = "#f87171";
+    el("liveDot").style.animation = "none";
+  }
+
+  // ── Render ─────────────────────────────────
+  function renderAll() {
+    if (!state) { showError(); return; }
+    el("loadingMsg").classList.add("hidden");
+    el("errorMsg").classList.add("hidden");
+    el("viewerContent").classList.remove("hidden");
+
+    const t = state.tournament || {};
+    el("viewerTitle").innerHTML = `🏆 ${escapeHtml(t.name || "クラスマッチ")} <span>ライブ</span>`;
+    el("headerSub").textContent = [t.date, t.place].filter(Boolean).join(" / ");
+
+    if (t.updatedAt) {
+      const d = new Date(t.updatedAt);
+      el("lastUpdated").textContent = d.toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit",second:"2-digit"}) + " 更新";
+    }
+
+    // Progress summary
+    const events = state.events || [];
+    let total = 0, done = 0;
+    for (const ev of events) {
+      const ms = [...(ev.matches||[]), ...(ev.loserMatches||[])].filter(m=>!m.isBye&&!m.isExhibition);
+      total += ms.length;
+      done  += ms.filter(m=>m.state==="final"&&m.winner).length;
+    }
+    const pct = total > 0 ? Math.round(done/total*100) : 0;
+    el("progText").textContent = `${done} / ${total} 試合完了`;
+    el("progBar").value = pct;
+    el("progPct").textContent = pct + "%";
+
+    // Tabs
+    renderTabs();
+    renderCurrentEvent();
+  }
+
+  function renderTabs() {
+    const tabs = el("eventTabs");
+    tabs.innerHTML = "";
+    const events = state.events || [];
+    if (!events.length) return;
+    if (!currentEventId) currentEventId = events[0].id;
+
+    for (const ev of events) {
+      const ms = (ev.matches||[]).filter(m=>!m.isBye&&!m.isExhibition);
+      const d = ms.filter(m=>m.state==="final"&&m.winner).length;
+      const pct = ms.length ? Math.round(d/ms.length*100) : 0;
+      const hasPlaying = ms.some(m=>m.state==="playing");
+      const btn = document.createElement("button");
+      btn.className = "tabBtn" + (ev.id === currentEventId ? " active" : "");
+      btn.innerHTML = escapeHtml(ev.name || ev.id) +
+        `<span class="prog">${pct}%${hasPlaying?" 🔴":""}</span>`;
+      btn.onclick = () => { currentEventId = ev.id; renderTabs(); renderCurrentEvent(); };
+      tabs.appendChild(btn);
+    }
+  }
+
+  function renderCurrentEvent() {
+    const ev = (state.events||[]).find(e=>e.id===currentEventId);
+    if (!ev) { el("bracket").innerHTML = "<div style='padding:20px;color:#94a3b8;'>イベントがありません</div>"; return; }
+
+    el("eventTitle").textContent = ev.name || ev.id;
+
+    // status badge
+    const ms = (ev.matches||[]).filter(m=>!m.isBye&&!m.isExhibition);
+    const done2 = ms.filter(m=>m.state==="final"&&m.winner).length;
+    const playing = ms.filter(m=>m.state==="playing").length;
+    const calling = ms.filter(m=>m.state==="calling").length;
+    let badge = "";
+    if (done2 === ms.length && ms.length > 0) {
+      badge = `<span class="badge green">✅ 終了</span>`;
+    } else if (playing > 0) {
+      badge = `<span class="badge red">🔴 試合中 ${playing}試合</span>`;
+    } else if (calling > 0) {
+      badge = `<span class="badge orange">📢 招集中 ${calling}試合</span>`;
+    } else {
+      badge = `<span class="badge blue">${done2}/${ms.length} 完了</span>`;
+    }
+    el("eventStatusBadge").innerHTML = badge;
+
+    const bracket = el("bracket");
+    bracket.innerHTML = "";
+
+    // 優勝バナー: 決勝が確定していたら大きく表示
+    const champ = getChampion(ev);
+    if (champ) {
+      const banner = document.createElement("div");
+      banner.className = "championBanner";
+      banner.innerHTML = `<span class="cbTrophy">🏆</span><div><div class="cbLabel">優勝</div><div class="cbName">${escapeHtml(champ)}</div></div>`;
+      bracket.appendChild(banner);
+    }
+
+    if (ev.format === "league") {
+      bracket.appendChild(buildLeagueHTML(ev));
+    } else {
+      const mainMs = (ev.matches||[]).filter(m=>!m.isExhibition);
+      if (mainMs.length) bracket.appendChild(buildBracketSVG(mainMs, ev));
+
+      if (ev.loserMatches && ev.loserMatches.length > 0) {
+        const lbl = document.createElement("div");
+        lbl.className = "loserLabel";
+        lbl.textContent = "▊ 裏トーナメント";
+        bracket.appendChild(lbl);
+        bracket.appendChild(buildBracketSVG(ev.loserMatches, ev));
+      }
+    }
+  }
+
+  // 決勝（最終ラウンド）の勝者を返す。未確定なら null
+  function getChampion(ev) {
+    if (!ev || ev.format === "league") {
+      // リーグは首位を優勝扱い（全試合終了時のみ）
+      if (ev?.format === "league") {
+        const ms = (ev.matches||[]);
+        if (ms.length && ms.every(m=>m.state==="final")) return leagueLeader(ev);
+      }
+      return null;
+    }
+    const ms = (ev.matches||[]).filter(m=>!m.isExhibition && !m.isThirdPlace);
+    if (!ms.length) return null;
+    const maxRound = Math.max(...ms.map(m=>m.round));
+    const finalM = ms.find(m=>m.round===maxRound);
+    if (finalM && finalM.state==="final" && finalM.winner) {
+      return finalM.winner==="A" ? finalM.teamA : finalM.teamB;
+    }
+    return null;
+  }
+  function leagueLeader(ev) {
+    const teams = new Set();
+    ev.matches.forEach(m=>{ if(m.teamA)teams.add(m.teamA); if(m.teamB)teams.add(m.teamB); });
+    const res = {}; [...teams].forEach(t=>res[t]={pts:0,gd:0});
+    ev.matches.forEach(m=>{
+      if(!m.teamA||!m.teamB||m.state!=="final")return;
+      const a=Number(m.scoreA),b=Number(m.scoreB); if(isNaN(a)||isNaN(b))return;
+      if(a>b)res[m.teamA].pts+=3; else if(b>a)res[m.teamB].pts+=3; else {res[m.teamA].pts++;res[m.teamB].pts++;}
+      res[m.teamA].gd+=a-b; res[m.teamB].gd+=b-a;
+    });
+    const sorted=[...teams].sort((x,y)=>(res[y].pts-res[x].pts)||(res[y].gd-res[x].gd));
+    return sorted[0] || null;
+  }
+
+  // ── Build bracket SVG (read-only, visual only) ──
+  function buildBracketSVG(matches, ev) {
+    matches = matches.filter(m=>!m.isExhibition);
+    const ui = {};
+    const fontSize = 13, totalW = 140, boxH = 32;
+    const gapX = 8, roundGapY = 110, midGap = 10;
+    const branchLen = 34, sideW = (totalW - midGap) / 2;
+
+    const allRounds = [...new Set(matches.map(m=>m.round))].sort((a,b)=>a-b);
+    const rounds = allRounds[allRounds.length-1] || 1;
+
+    const padX = 24, padTop = 50, padBottom = 30;
+
+    const yRound = {};
+    let currentY = padTop;
+    for (let r = rounds; r >= 1; r--) {
+      yRound[r] = currentY;
+      if (r > 1) {
+        const multiplier = (rounds - r) + 1;
+        currentY += roundGapY * multiplier * 0.7;
+      }
+    }
+
+    const xPos = {};
+    for (let r = 1; r <= rounds; r++) {
+      const step = (totalW + gapX) * Math.pow(2, r-1);
+      const startX = 28 + padX + (step/2 - totalW/2);
+      matches.filter(m=>m.round===r).forEach(m => {
+        xPos[matchKey(m)] = startX + m.slot * step;
+      });
+    }
+
+    let actualMaxX = 0;
+    for (const k in xPos) actualMaxX = Math.max(actualMaxX, xPos[k] + totalW);
+    let rootCX = 0;
+    const finalM = matches.find(m=>m.round===rounds);
+    if (finalM && xPos[matchKey(finalM)] !== undefined) {
+      rootCX = xPos[matchKey(finalM)] + totalW / 2;
+    }
+    const svgW = Math.max(actualMaxX + padX, rootCX * 2);
+    const svgH = currentY + boxH + padBottom;
+
+    const ns = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(ns, "svg");
+    svg.setAttribute("width", svgW);
+    svg.setAttribute("height", svgH);
+    svg.setAttribute("viewBox", `0 0 ${svgW} ${svgH}`);
+    svg.style.display = "block";
+    svg.style.margin = "0 auto";
+
+    function matchKey(m) { return `${m.isLoserMatch?"L":"R"}${m.round}-${m.slot}`; }
+    const byKey = {};
+    matches.forEach(m => byKey[matchKey(m)] = m);
+
+    const leftX  = x => x;
+    const rightX = x => x + sideW + midGap;
+    const lCX    = x => x + sideW / 2;
+    const rCX    = x => x + sideW + midGap + sideW / 2;
+    const mCX    = x => x + totalW / 2;
+
+    const mkPath = (d, cls) => {
+      const p = document.createElementNS(ns, "path");
+      p.setAttribute("d", d);
+      p.setAttribute("class", cls);
+      svg.insertBefore(p, svg.firstChild);
+    };
+
+    // Round labels
+    for (let r = 1; r <= rounds; r++) {
+      const matchesInR = matches.filter(m=>m.round===r);
+      let minX = svgW;
+      matchesInR.forEach(m => { const mx = xPos[matchKey(m)]; if (mx !== undefined && mx < minX) minX = mx; });
+      if (minX === svgW) minX = 4;
+      const t = document.createElementNS(ns, "text");
+      t.setAttribute("x", minX + 2);
+      t.setAttribute("y", yRound[r] - 6);
+      t.setAttribute("class", "roundLabel");
+      t.setAttribute("font-size", "11");
+      const diff = rounds - r;
+      t.textContent = diff===0?"決勝":diff===1?"準決勝":diff===2?"準々決勝":`${r}回戦`;
+      svg.appendChild(t);
+    }
+
+    // Connectors
+    const innerBranch = Math.max(8, Math.round(branchLen * 0.42));
+    const junctionsByParent = {};
+    for (const m of matches) {
+      const r = m.round;
+      if (r >= Math.max(...allRounds)) continue;
+      const childKey = matchKey(m);
+      if (!m.nextMatchKey) continue;
+      const cx = xPos[childKey];
+      const cy = yRound[r];
+      const parentKey = m.nextMatchKey;
+      const parentRound = parseInt(parentKey.replace("R","").replace("L","").split("-")[0]);
+      const parentEndY = yRound[parentRound] + boxH;
+      const currentBranchLen = Math.min(branchLen, (cy - parentEndY) * 0.4);
+      const juncY1 = cy - innerBranch;
+      const juncY2 = cy - currentBranchLen;
+      const isFin = m?.state==="final" && m?.winner;
+      const winA = isFin && m.winner==="A";
+      const winB = isFin && m.winner==="B";
+      const isBye = m?.isBye;
+      if (isBye) {
+        mkPath(`M ${mCX(cx)} ${cy} V ${juncY2}`, "line win");
+      } else {
+        mkPath(`M ${lCX(cx)} ${cy} V ${juncY1}`, winA?"line win":"line");
+        mkPath(`M ${rCX(cx)} ${cy} V ${juncY1}`, winB?"line win":"line");
+        mkPath(`M ${lCX(cx)} ${juncY1} H ${mCX(cx)}`, winA?"line win":"line");
+        mkPath(`M ${mCX(cx)} ${juncY1} H ${rCX(cx)}`, winB?"line win":"line");
+        mkPath(`M ${mCX(cx)} ${juncY1} V ${juncY2}`, isFin?"line win":"line");
+      }
+      if (!junctionsByParent[parentKey]) junctionsByParent[parentKey] = [];
+      junctionsByParent[parentKey].push({ x: mCX(cx), juncY: juncY2, isFinal: isFin });
+    }
+    for (const [parentKey, children] of Object.entries(junctionsByParent)) {
+      children.sort((a,b)=>a.x-b.x);
+      const x0 = children[0].x, x1 = children[children.length-1].x;
+      const juncY = children[0].juncY;
+      const midX = (x0+x1)/2;
+      const parentRound = parseInt(parentKey.replace("R","").replace("L","").split("-")[0]);
+      const endY = yRound[parentRound] + boxH;
+      const leftWin = children[0]?.isFinal??false;
+      const rightWin = children[1]?.isFinal??false;
+      if (children.length >= 2) {
+        mkPath(`M ${x0} ${juncY} H ${midX}`, leftWin?"line win":"line");
+        mkPath(`M ${midX} ${juncY} H ${x1}`, rightWin?"line win":"line");
+      }
+      mkPath(`M ${midX} ${juncY} V ${endY}`, (leftWin||rightWin)?"line win":"line");
+    }
+
+    // Boxes
+    for (const m of matches) {
+      const r = m.round;
+      const key = matchKey(m);
+      const x = xPos[key];
+      const y = yRound[r];
+      if (x === undefined) continue;
+
+      const hasScore = m.scoreA != null && m.scoreB != null;
+      const isBye = m.isBye;
+      const isFinalResult = m.state==="final" && m.winner;
+      const isChampion = isFinalResult && r === rounds;
+
+      if (isBye) {
+        const winner = m.winner==="A"?m.teamA:m.teamB;
+        const boxW = totalW * 0.7;
+        const bx = x + (totalW - boxW) / 2;
+        const rect = document.createElementNS(ns,"rect");
+        rect.setAttribute("x",bx); rect.setAttribute("y",y);
+        rect.setAttribute("width",boxW); rect.setAttribute("height",boxH);
+        rect.setAttribute("rx",6); rect.setAttribute("fill","#f0fdf4");
+        rect.setAttribute("stroke","#86efac"); rect.setAttribute("stroke-width","1.5");
+        svg.appendChild(rect);
+        const bt = document.createElementNS(ns,"text");
+        bt.setAttribute("x",x+totalW/2); bt.setAttribute("y",y+boxH/2+1);
+        bt.setAttribute("text-anchor","middle"); bt.setAttribute("dominant-baseline","middle");
+        bt.setAttribute("font-size",String(fontSize)); bt.setAttribute("font-weight","700");
+        bt.setAttribute("fill","#15803d");
+        bt.textContent = formatTeamName(winner||"?").replace("\n"," ");
+        svg.appendChild(bt);
+        const bBg = document.createElementNS(ns,"rect");
+        bBg.setAttribute("x",bx+boxW-30); bBg.setAttribute("y",y-6);
+        bBg.setAttribute("width","26"); bBg.setAttribute("height","12");
+        bBg.setAttribute("rx","6"); bBg.setAttribute("fill","#22c55e");
+        svg.appendChild(bBg);
+        const bTxt = document.createElementNS(ns,"text");
+        bTxt.setAttribute("x",bx+boxW-17); bTxt.setAttribute("y",y);
+        bTxt.setAttribute("text-anchor","middle"); bTxt.setAttribute("dominant-baseline","middle");
+        bTxt.setAttribute("font-size","7.5"); bTxt.setAttribute("font-weight","800");
+        bTxt.setAttribute("fill","#fff"); bTxt.textContent="BYE";
+        svg.appendChild(bTxt);
+        continue;
+      }
+
+      // fill colors
+      const fillWin  = isChampion?"#bbf7d0":"#dcfce7";
+      const fillLoss = "#f1f5f9";
+      const fillN = m.state==="playing"?"#fff1f2":m.state==="calling"?"#fffbeb":"#f8fafc";
+      const fillA = isFinalResult?(m.winner==="A"?fillWin:fillLoss):fillN;
+      const fillB = isFinalResult?(m.winner==="B"?fillWin:fillLoss):fillN;
+      const strokeA = isFinalResult?(m.winner==="A"?"#16a34a":"#e2e8f0"):(m.state==="playing"?"#f43f5e":m.state==="calling"?"#f59e0b":"#cbd5e1");
+      const strokeB = isFinalResult?(m.winner==="B"?"#16a34a":"#e2e8f0"):strokeA;
+
+      let stClass = m.state==="calling"?"match-calling":m.state==="playing"?"match-playing":(m.state||"pending");
+
+      const matchG = document.createElementNS(ns,"g");
+
+      const rectA = document.createElementNS(ns,"rect");
+      rectA.setAttribute("x",leftX(x)); rectA.setAttribute("y",y);
+      rectA.setAttribute("width",sideW); rectA.setAttribute("height",boxH);
+      rectA.setAttribute("rx",6);
+      rectA.setAttribute("fill",fillA); rectA.setAttribute("stroke",strokeA);
+      rectA.setAttribute("stroke-width",isFinalResult&&m.winner==="A"?"2":"1");
+      rectA.setAttribute("class",`sideBox ${stClass}`);
+      matchG.appendChild(rectA);
+
+      const rectB = document.createElementNS(ns,"rect");
+      rectB.setAttribute("x",rightX(x)); rectB.setAttribute("y",y);
+      rectB.setAttribute("width",sideW); rectB.setAttribute("height",boxH);
+      rectB.setAttribute("rx",6);
+      rectB.setAttribute("fill",fillB); rectB.setAttribute("stroke",strokeB);
+      rectB.setAttribute("stroke-width",isFinalResult&&m.winner==="B"?"2":"1");
+      rectB.setAttribute("class",`sideBox ${stClass}`);
+      matchG.appendChild(rectB);
+
+      // center: score or vs
+      const centerTxt = document.createElementNS(ns,"text");
+      centerTxt.setAttribute("x",mCX(x)); centerTxt.setAttribute("y",y+boxH/2);
+      centerTxt.setAttribute("text-anchor","middle"); centerTxt.setAttribute("dominant-baseline","middle");
+      if (hasScore) {
+        centerTxt.setAttribute("font-size","9"); centerTxt.setAttribute("fill","#475569");
+        centerTxt.setAttribute("font-weight","700");
+        centerTxt.textContent = `${m.scoreA}-${m.scoreB}`;
+      } else {
+        centerTxt.setAttribute("class","vsTxt"); centerTxt.setAttribute("font-size","10");
+        centerTxt.textContent = "vs";
+      }
+      matchG.appendChild(centerTxt);
+
+      // team name helper
+      function mkTeamTxt(team, x0, anchor, isWin, isLoss) {
+        const t = document.createElementNS(ns,"text");
+        t.setAttribute("x",x0); t.setAttribute("y",y+boxH/2);
+        t.setAttribute("text-anchor",anchor); t.setAttribute("dominant-baseline","middle");
+        t.setAttribute("font-size",String(fontSize));
+        t.setAttribute("font-weight",isWin?"900":isLoss?"400":"600");
+        if (isWin) t.setAttribute("fill",isChampion?"#15803d":"#166534");
+        else if (isLoss) t.setAttribute("fill","#94a3b8");
+        t.setAttribute("class","teamTxtH"+(team?"":""+" subtle"));
+        const raw = formatTeamName(team||"?");
+        const maxLen = Math.max(4, Math.floor(sideW/(fontSize*0.63)));
+        const txt = raw.includes("\n") ? raw.split("\n")[0]+"…" :
+                    raw.length > maxLen ? raw.slice(0,maxLen-1)+"…" : raw;
+        t.textContent = txt + (isWin ? " ✓" : "");
+        return t;
+      }
+
+      matchG.appendChild(mkTeamTxt(
+        m.teamA,
+        m.winner==="A" ? leftX(x)+sideW-5 : leftX(x)+5,
+        m.winner==="A" ? "end" : "start",
+        m.winner==="A", isFinalResult && m.winner==="B"
+      ));
+      matchG.appendChild(mkTeamTxt(
+        m.teamB,
+        m.winner==="B" ? rightX(x)+5 : rightX(x)+sideW-5,
+        m.winner==="B" ? "start" : "end",
+        m.winner==="B", isFinalResult && m.winner==="A"
+      ));
+
+      // Champion badge
+      if (isChampion) {
+        const cW=36,cH=14;
+        const cX = (m.winner==="A" ? leftX(x)+sideW/2 : rightX(x)+sideW/2) - cW/2;
+        const cY = y - 8;
+        const cBg = document.createElementNS(ns,"rect");
+        cBg.setAttribute("x",cX); cBg.setAttribute("y",cY);
+        cBg.setAttribute("width",cW); cBg.setAttribute("height",cH);
+        cBg.setAttribute("rx",7); cBg.setAttribute("fill","#fbbf24");
+        matchG.appendChild(cBg);
+        const cTxt = document.createElementNS(ns,"text");
+        cTxt.setAttribute("x",cX+cW/2); cTxt.setAttribute("y",cY+cH/2+0.5);
+        cTxt.setAttribute("text-anchor","middle"); cTxt.setAttribute("dominant-baseline","middle");
+        cTxt.setAttribute("font-size","9"); cTxt.setAttribute("font-weight","800");
+        cTxt.setAttribute("fill","#78350f"); cTxt.textContent="🏆 優勝";
+        matchG.appendChild(cTxt);
+      }
+
+      // time badge
+      const time = fmtTime(m.scheduledStart);
+      if (time || m.matchNum) {
+        const numStr = m.matchNum ? `第${m.matchNum}試合` : "";
+        const label = `${numStr} ${time||""}${m.court?"·"+m.court:""}`.trim();
+        const tfz = 9;
+        const bW = label.length*tfz*0.62+10, bH = tfz+5;
+        const bX = x+totalW/2-bW/2, bY = y+boxH-bH-2;
+        const bg = document.createElementNS(ns,"rect");
+        bg.setAttribute("x",bX); bg.setAttribute("y",bY);
+        bg.setAttribute("width",bW); bg.setAttribute("height",bH);
+        bg.setAttribute("rx",bH/2); bg.setAttribute("fill","#eff6ff");
+        bg.setAttribute("stroke","#bfdbfe"); bg.setAttribute("stroke-width","1");
+        matchG.appendChild(bg);
+        const mt = document.createElementNS(ns,"text");
+        mt.setAttribute("x",x+totalW/2); mt.setAttribute("y",bY+bH/2+0.5);
+        mt.setAttribute("text-anchor","middle"); mt.setAttribute("dominant-baseline","middle");
+        mt.setAttribute("font-size",String(tfz));
+        mt.setAttribute("fill","#2563eb"); mt.setAttribute("font-weight","700");
+        mt.textContent = label;
+        matchG.appendChild(mt);
+      }
+
+      svg.appendChild(matchG);
+    }
+
+    return svg;
+  }
+
+  // ── League table ──────────────────────────
+  function buildLeagueHTML(ev) {
+    const wrap = document.createElement("div");
+    wrap.className = "leagueWrap";
+    const teams = new Set();
+    ev.matches.forEach(m => { if(m.teamA)teams.add(m.teamA); if(m.teamB)teams.add(m.teamB); });
+    const arr = [...teams].sort();
+    const results = {};
+    arr.forEach(t => results[t] = {pts:0,w:0,d:0,l:0,gf:0,ga:0});
+    ev.matches.forEach(m => {
+      if (!m.teamA||!m.teamB||m.state!=="final") return;
+      const a = Number(m.scoreA), b = Number(m.scoreB);
+      if (isNaN(a)||isNaN(b)) return;
+      if (a>b) { results[m.teamA].pts+=3;results[m.teamA].w++;results[m.teamB].l++; }
+      else if (a<b) { results[m.teamB].pts+=3;results[m.teamB].w++;results[m.teamA].l++; }
+      else { results[m.teamA].pts+=1;results[m.teamA].d++;results[m.teamB].pts+=1;results[m.teamB].d++; }
+      results[m.teamA].gf+=a;results[m.teamA].ga+=b;
+      results[m.teamB].gf+=b;results[m.teamB].ga+=a;
+    });
+    const ranked = arr.slice().sort((a,b)=>(results[b].pts-results[a].pts)||(results[b].gf-results[b].ga-(results[a].gf-results[a].ga)));
+    const tbl = document.createElement("table");
+    tbl.className = "league-table";
+    tbl.innerHTML = `<thead><tr><th>#</th><th>チーム</th><th>勝点</th><th>勝</th><th>分</th><th>負</th><th>得点</th><th>失点</th></tr></thead>`;
+    const tbody = document.createElement("tbody");
+    ranked.forEach((t,i) => {
+      const r = results[t];
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td>${i+1}</td><td style="text-align:left;font-weight:700;">${escapeHtml(t)}</td><td style="font-weight:800;color:#1d4ed8;">${r.pts}</td><td>${r.w}</td><td>${r.d}</td><td>${r.l}</td><td>${r.gf}</td><td>${r.ga}</td>`;
+      tbody.appendChild(tr);
+    });
+    tbl.appendChild(tbody);
+    wrap.appendChild(tbl);
+    return wrap;
+  }
+
+  // ── Auto-refresh every 15s from localStorage (same device) ──
+  setInterval(() => {
+    try {
+      const raw = localStorage.getItem("classmatch_local_v2_state");
+      if (!raw) return;
+      const newState = JSON.parse(raw);
+      const newTs = newState?.tournament?.updatedAt;
+      const curTs = state?.tournament?.updatedAt;
+      if (newTs && newTs !== curTs) {
+        state = newState;
+        renderAll();
+      }
+    } catch {}
+  }, 5000);
+
+  // ── Kick off ───────────────────────────────
+  loadState();
+})();
+</script>
+</body>
+</html>
