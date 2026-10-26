@@ -816,6 +816,21 @@
     });
   }
 
+  // ── 設定ウィザード（1画面1ステップ）────────────────────────
+  let wizStep = 1;
+  function showWizStep(n) {
+    wizStep = Math.max(1, Math.min(4, n));
+    document.querySelectorAll(".wizPane").forEach(p => p.classList.toggle("show", Number(p.dataset.pane) === wizStep));
+    document.querySelectorAll(".wizTabs .spStep").forEach(b => b.classList.toggle("current", Number(b.dataset.step) === wizStep));
+    const prev = el("wizPrev"), next = el("wizNext");
+    if (prev) prev.disabled = wizStep === 1;
+    if (next) next.disabled = wizStep === 4;
+    if (wizStep === 4) renderEvents();
+  }
+  document.querySelectorAll(".wizTabs .spStep").forEach(b => b.onclick = () => showWizStep(Number(b.dataset.step)));
+  if (el("wizPrev")) el("wizPrev").onclick = () => showWizStep(wizStep - 1);
+  if (el("wizNext")) el("wizNext").onclick = () => showWizStep(wizStep + 1);
+
   function renderSetupChecklist() {
     const box = el("setupProblems");
     if (!box) return;
@@ -1293,6 +1308,7 @@
     toast("ブラケットを生成しました", "info");
     renderEvents();
     show("setupView");
+    showWizStep(4);
   };
 
   if (el("btnGoEvents")) el("btnGoEvents").onclick = () => { renderEvents(); show("setupView"); };
@@ -4436,6 +4452,7 @@
   renderVersionLog();
   renderEvents();
   show("setupView");
+  showWizStep(state.events.length ? 4 : 1);
   updateHeaderMeta();
   updateLiveShareBanner();
 

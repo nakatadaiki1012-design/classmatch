@@ -602,3 +602,31 @@ details[open] > summary { margin-bottom: 6px; }
 @keyframes liveDot {
   0%,100% { opacity:1; } 50% { opacity:.25; }
 }
+
+/* ── 設定ウィザード（1画面1ステップ・スクロール不要）── */
+#setupView { padding: 16px 20px; }
+.wizTabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 8px; }
+.wizTabs .spStep {
+  background: #e2e8f0; color: #475569; border: 2px solid transparent;
+  border-radius: 10px; padding: 10px 4px; font-size: 14px; font-weight: 700;
+}
+.wizTabs .spStep.done { background: #dcfce7; color: #15803d; }
+.wizTabs .spStep.current { background: var(--navy); color: #fff; }
+.wizTabs .spStep.done.current { background: #15803d; color: #fff; }
+.wizStatus { min-height: 18px; margin-bottom: 10px; }
+.wizPane { display: none; }
+.wizPane.show { display: block; animation: modalIn .15s ease; }
+.wizPane .wInputSection { margin-bottom: 10px; padding: 14px 16px; }
+.wizPane .wInputSection h3 { margin-bottom: 10px; padding-bottom: 6px; }
+#classList { min-height: 110px; max-height: 180px; }
+#btnSaveMeta, #btnSaveClasses, #btnSaveSports { display: none; }
+.wizMore { margin: 8px 0; padding: 8px 12px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); }
+.wizMore > summary { cursor: pointer; font-weight: 700; color: var(--muted); font-size: 13px; }
+.wizMore[open] > summary { margin-bottom: 10px; }
+.wizMore .wInputSection { border: none; padding: 0; margin: 0; background: none; }
+.wizGenerate { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+.wizGenerate #btnGenerateAll { font-size: 16px; padding: 12px 28px; }
+.wizNav { display: flex; justify-content: space-between; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
+.wizNav button { min-width: 110px; min-height: 42px; }
+.wizNav button[disabled] { visibility: hidden; }
+#eventsArea { max-height: 52vh; overflow-y: auto; }

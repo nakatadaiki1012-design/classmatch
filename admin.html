@@ -6,13 +6,6 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>クラスマッチ トーナメント（管理）</title>
   <link rel="stylesheet" href="style.css" />
-  <style>
-.setupProgress { display:flex; align-items:center; gap:6px; margin-bottom:16px; padding:10px 14px; background:#f1f5f9; border-radius:8px; flex-wrap:wrap; }
-.spStep { padding:5px 12px; border-radius:20px; background:#e2e8f0; color:#64748b; font-size:13px; font-weight:600; transition:all .2s; }
-.spStep.done { background:#dcfce7; color:#16a34a; }
-.spStep.active { background:#dbeafe; color:#1d4ed8; }
-.spArrow { color:#cbd5e1; font-size:12px; }
-  </style>
 </head>
 
 <body>
@@ -32,24 +25,15 @@
 
     <!-- ══════ SETUP & GENERATE (統合) ══════ -->
     <section class="card" id="setupView">
-      <h2>⚙ 設定・生成</h2>
+      <nav class="wizTabs" id="setupProgress">
+        <button class="spStep" id="spStep1" data-step="1">① 大会</button>
+        <button class="spStep" id="spStep2" data-step="2">② クラス</button>
+        <button class="spStep" id="spStep3" data-step="3">③ 競技</button>
+        <button class="spStep" id="spStep4" data-step="4">④ 生成・一覧</button>
+      </nav>
+      <div id="setupProblems" class="small wizStatus">-</div>
 
-      <div class="setupProgress" id="setupProgress">
-        <div class="spStep" id="spStep1">① 大会情報</div>
-        <div class="spArrow">→</div>
-        <div class="spStep" id="spStep2">② クラス</div>
-        <div class="spArrow">→</div>
-        <div class="spStep" id="spStep3">③ 競技</div>
-        <div class="spArrow">→</div>
-        <div class="spStep" id="spStep4">⚡ 生成</div>
-      </div>
-
-      <div id="setupChecklist">
-        <b>① ② ③ を上から順に入力するだけ</b>
-        <div class="small" style="margin-top:2px;">保存ボタンは押さなくてOK（入力すると自動保存されます）。すべて緑になったら下の「⚡ ブラケット生成」を押してください。</div>
-        <div class="small" id="setupProblems" style="margin-top:4px;">-</div>
-      </div>
-
+      <div class="wizPane" data-pane="1">
       <!-- 大会情報 -->
       <div class="wInputSection">
         <h3><span class="sectionAccent"></span>① 大会情報</h3>
@@ -67,6 +51,36 @@
         </div>
       </div>
 
+      <!-- 詳細設定 -->
+      <details class="advancedSettingsCard"
+        style="margin-bottom:14px; background:var(--surface2); padding:10px; border-radius:var(--radius); border:1px solid var(--border);">
+        <summary style="font-weight:bold; cursor:pointer; color:var(--navy);">⚙️ 詳細設定（PIN・テロップ・チームカラー）</summary>
+        <div style="margin-top:10px;">
+          <h4>🔑 運営PIN（3文字以上）</h4>
+          <div class="row" style="margin-bottom:12px; gap:8px; align-items:center;">
+            <input id="adminPin" placeholder="例：1234" style="width:120px" />
+            <div class="small" style="color:var(--muted);">※ 共有コード出力・データ取込時に使用</div>
+          </div>
+          <h4>📺 TVモード用テロップ（流れる文字）</h4>
+          <textarea id="tTickerText" rows="2" style="width:100%;" placeholder="例：第3試合の選手は本部前に集合してください"></textarea>
+          <div class="small" style="margin-bottom:12px;">※ 入力するとTVモード表示時に画面下部にスクロール表示されます。</div>
+          <h4>🔔 Webhook通知設定 (LINE / Discord)</h4>
+          <input id="tWebhookUrl" placeholder="https://..." style="width:100%;" />
+          <div class="small" style="margin-bottom:12px;">※ 設定すると、試合ステータスが「招集中」または「確定」になった時に自動で通知が飛びます。</div>
+          <h4>🎨 チームカラー設定（クラスごとのテーマカラー）</h4>
+          <div class="small" style="margin-bottom:6px;">クラスを生成・保存するとここに一覧が表示され、色を指定できます。</div>
+          <div id="teamColorList"
+            style="display:flex; flex-wrap:wrap; gap:10px; max-height:150px; overflow-y:auto; padding:4px; border:1px solid var(--border2); border-radius:4px; background:var(--surface);">
+          </div>
+          <div class="row" style="margin-top:8px;">
+            <button id="btnSaveAdvanced" class="primary">詳細設定を保存</button>
+          </div>
+        </div>
+      </details>
+
+      </div>
+
+      <div class="wizPane" data-pane="2">
       <!-- 参加クラス -->
       <div class="wInputSection">
         <h3><span class="sectionAccent"></span>② 参加クラス</h3>
@@ -119,6 +133,9 @@
         </details>
       </div>
 
+      </div>
+
+      <div class="wizPane" data-pane="3">
       <!-- 競技設定 -->
       <div class="wInputSection">
         <h3><span class="sectionAccent"></span>③ 競技設定</h3>
@@ -131,7 +148,7 @@
       </div>
 
       <!-- ポイント設定 -->
-      <div class="wInputSection">
+      <details class="wizMore"><summary>🏅 総合ポイント設定</summary>
         <h3><span class="sectionAccent"></span>④ 総合ポイント設定</h3>
         <div class="pointOptionsPanel" id="pointOptionsPanel">
           <div class="row" style="gap:14px; flex-wrap:wrap; align-items:center;">
@@ -142,47 +159,15 @@
             <button id="btnSavePoints" class="secondary small">適用</button>
           </div>
         </div>
-      </div>
-
-      <!-- 詳細設定 -->
-      <details class="advancedSettingsCard"
-        style="margin-bottom:14px; background:var(--surface2); padding:10px; border-radius:var(--radius); border:1px solid var(--border);">
-        <summary style="font-weight:bold; cursor:pointer; color:var(--navy);">⚙️ 詳細設定（PIN・テロップ・チームカラー）</summary>
-        <div style="margin-top:10px;">
-          <h4>🔑 運営PIN（3文字以上）</h4>
-          <div class="row" style="margin-bottom:12px; gap:8px; align-items:center;">
-            <input id="adminPin" placeholder="例：1234" style="width:120px" />
-            <div class="small" style="color:var(--muted);">※ 共有コード出力・データ取込時に使用</div>
-          </div>
-          <h4>📺 TVモード用テロップ（流れる文字）</h4>
-          <textarea id="tTickerText" rows="2" style="width:100%;" placeholder="例：第3試合の選手は本部前に集合してください"></textarea>
-          <div class="small" style="margin-bottom:12px;">※ 入力するとTVモード表示時に画面下部にスクロール表示されます。</div>
-          <h4>🔔 Webhook通知設定 (LINE / Discord)</h4>
-          <input id="tWebhookUrl" placeholder="https://..." style="width:100%;" />
-          <div class="small" style="margin-bottom:12px;">※ 設定すると、試合ステータスが「招集中」または「確定」になった時に自動で通知が飛びます。</div>
-          <h4>🎨 チームカラー設定（クラスごとのテーマカラー）</h4>
-          <div class="small" style="margin-bottom:6px;">クラスを生成・保存するとここに一覧が表示され、色を指定できます。</div>
-          <div id="teamColorList"
-            style="display:flex; flex-wrap:wrap; gap:10px; max-height:150px; overflow-y:auto; padding:4px; border:1px solid var(--border2); border-radius:4px; background:var(--surface);">
-          </div>
-          <div class="row" style="margin-top:8px;">
-            <button id="btnSaveAdvanced" class="primary">詳細設定を保存</button>
-          </div>
-        </div>
       </details>
-
-      <!-- 生成ボタン -->
-      <div class="row" style="margin-top:4px; flex-wrap:wrap; gap:10px; align-items:center;">
-        <button id="btnGenerateAll">⚡ ブラケット生成（競技×男女）</button>
-        <button id="btnGoEvents" class="secondary">📋 イベント一覧へ</button>
-      </div>
-      <div class="small" style="margin-top:6px;">生成後は下のイベント一覧から各ブラケットを開けます。</div>
-      <div style="margin-top:16px; padding-top:12px; border-top:2px dashed #fca5a5;">
-        <button id="btnReset" style="background:#fee2e2; color:#dc2626; border:1.5px solid #fca5a5; font-size:12px; padding:5px 12px;">⚠ 全消去して最初からやり直す</button>
       </div>
 
-      <hr style="margin: 24px 0;" />
-
+      <div class="wizPane" data-pane="4">
+        <div class="wizGenerate">
+          <button id="btnGenerateAll">⚡ ブラケット生成</button>
+          <button id="btnGoEvents" class="hidden">一覧</button>
+          <span class="small">作り直すと結果は消えます</span>
+        </div>
       <!-- イベント一覧（旧homeView） -->
       <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:8px;">
         <h3 style="margin:0;">📋 イベント一覧</h3>
@@ -196,6 +181,8 @@
       <div id="eventsArea"></div>
       <div class="small" style="margin-top:12px;" id="eventsHint">※ 各競技の決勝が終わると、自動で総合ポイントが加算されます。</div>
 
+        <details class="wizMore"><summary>その他</summary>
+          <button id="btnReset" class="ghost danger small">⚠ 全消去して最初からやり直す</button>
       <!-- バージョンログ -->
       <div class="versionLog" style="margin-top:20px;">
         <details>
@@ -203,8 +190,12 @@
           <div class="vlBody" id="versionLogBody"></div>
         </details>
       </div>
-      <div class="small" style="margin-top:10px;">
-        ★ この管理ページは<b>先生だけ</b>が使う想定です。生徒には <b>viewer.html</b> の共有リンクを配ってください。
+        </details>
+      </div>
+
+      <div class="wizNav">
+        <button id="wizPrev" class="ghost">← 戻る</button>
+        <button id="wizNext" class="primary">次へ →</button>
       </div>
     </section>
 
