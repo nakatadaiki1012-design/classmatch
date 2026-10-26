@@ -630,3 +630,38 @@ details[open] > summary { margin-bottom: 6px; }
 .wizNav button { min-width: 110px; min-height: 42px; }
 .wizNav button[disabled] { visibility: hidden; }
 #eventsArea { max-height: 52vh; overflow-y: auto; }
+
+/* ── 管理画面（ブラケット画面）の整理 ───────────────── */
+#eventView { padding: 14px 18px; }
+#eventView .eventNavChips { margin-bottom: 6px; padding-bottom: 8px; }
+#matchProgressBar { padding: 4px 0 !important; border-bottom: none !important; margin-bottom: 6px; }
+.evHeader { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.evHeader h2 { margin: 0; font-size: 20px; }
+#debugBar:empty { display: none; }
+.bracketToolbar details > div { min-width: 190px !important; }
+#adminPanel {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 12px; padding: 12px; align-self: start;
+  position: sticky !important; top: 8px;
+}
+.mlFilter { display: flex; gap: 4px; margin-bottom: 8px; background: #e2e8f0; padding: 3px; border-radius: 9px; }
+.mlFilter button { flex: 1; background: transparent; color: var(--muted); border: none; padding: 6px; font-size: 13px; }
+.mlFilter button.on { background: #fff; color: var(--navy); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+#matchList { gap: 6px; max-height: calc(100vh - 290px); min-height: 120px; overflow-y: auto; padding-right: 2px; }
+.mlRow {
+  display: grid; grid-template-columns: 48px 1fr auto; align-items: center; gap: 8px;
+  width: 100%; text-align: left; padding: 9px 10px; min-height: 48px;
+  background: #fff; color: var(--text); border: 1px solid var(--border); border-radius: 10px; font-weight: 500;
+}
+.mlRow:hover { background: #eff6ff; border-color: var(--primary); }
+.mlRow.sel { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(37,99,235,.2); }
+.mlRow.done { background: #f8fafc; color: var(--muted); }
+.mlRow.notReady { opacity: .55; }
+.mlTime { font-family: ui-monospace, monospace; font-size: 13px; font-weight: 700; color: var(--navy); line-height: 1.1; }
+.mlTime small { display: block; font-size: 10px; color: var(--muted); font-weight: 600; }
+.mlTeams { font-size: 14px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mlTeams i { font-style: normal; font-size: 11px; color: var(--subtle); margin: 0 3px; font-weight: 500; }
+.mlTeams .w { color: #15803d; }
+.mlRow .statusBadge { font-size: 10px; padding: 2px 7px; }
+.mlEmpty { text-align: center; padding: 24px 8px; color: var(--muted); font-size: 13px; }
+.mlHint { text-align: center; margin-top: 8px; }

@@ -279,16 +279,11 @@
         <span id="dashboardDelay" class="badge" style="font-size:12px; white-space:nowrap;">-</span>
         <span id="dashboardText" style="font-size:12px; color:var(--muted);"></span>
       </div>
-      <div class="row between">
-        <div>
-          <h2 id="eventTitle">イベント</h2>
-          <div class="small" id="eventMeta">-</div>
-        </div>
-        <div class="row" style="gap:8px;">
-          <button id="btnBackToHome">← 一覧へ</button>
-          <button id="btnPrevEvent" class="ghost" title="前の競技へ" disabled>▲ 前の競技</button>
-          <button id="btnNextEvent" class="ghost" title="次の競技へ" disabled>▼ 次の競技</button>
-        </div>
+      <div class="evHeader">
+        <button id="btnBackToHome" class="ghost small">← 一覧</button>
+        <h2 id="eventTitle">イベント</h2>
+        <div class="hidden"><span id="eventMeta"></span>
+          <button id="btnPrevEvent" disabled></button><button id="btnNextEvent" disabled></button></div>
       </div>
 
       <div id="debugBar"></div>
@@ -304,7 +299,7 @@
                 <button id="tabTable">タイムテーブル</button>
               </div>
               <div style="margin-left:12px; display:flex; gap:8px; align-items:center;"
-                class="quickSettings print-hide">
+                class="quickSettings print-hide hidden">
                 <label class="small">1試合 <input id="qsMatchMin" type="number" min="1"
                     style="width:50px; padding:2px;" />分</label>
                 <label class="small">入替 <input id="qsIntervalMin" type="number" min="0"
@@ -315,22 +310,22 @@
               <!-- よく使うボタン -->
               <button id="btnEditMatchups" class="ghost small">✏️ 組み合せ</button>
               <button id="btnEditSchedule" class="ghost small">⏳ 時間・順序</button>
-              <button id="btnAutoFit" class="ghost small" title="チーム数に合わせてブラケット表示を自動調整">🔧 自動調整</button>
-              <button id="btnPrint" class="ghost small" title="A4縦印刷">🖨️ 印刷</button>
-              <div class="toolbarSep"></div>
               <!-- 折りたたみ（その他） -->
               <details style="display:inline-block; position:relative;">
                 <summary class="ghost small" style="cursor:pointer; list-style:none; padding:3px 8px; border:1px solid var(--border2); border-radius:4px; font-size:12px; background:var(--surface2);">▾ その他</summary>
                 <div style="position:absolute; right:0; top:100%; background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:6px; z-index:100; display:flex; flex-direction:column; gap:4px; min-width:160px; box-shadow:0 4px 12px rgba(0,0,0,.1);">
+                  <button id="btnAutoFit" class="ghost small" style="text-align:left;">🔧 表示を自動調整</button>
+                  <button id="btnFitBracket" class="ghost small" style="text-align:left;">↔ 画面に収める</button>
+                  <button id="btnPrint" class="ghost small" style="text-align:left;">🖨️ 印刷</button>
                   <button id="btnOpenLoserModal" class="ghost small" style="text-align:left;">🏳 裏トーナメント設定</button>
                   <button id="btnEditLoserMatchups" class="ghost small hidden" style="text-align:left;">✏️ 裏組み合せ</button>
                   <button id="btnAddThirdPlace" class="ghost small" style="text-align:left;">🥉 3位決定戦</button>
                   <button id="btnAddExhibition" class="ghost small" style="text-align:left;">➕ エキシビション</button>
                   <button id="btnBracketDir" class="ghost small" title="ブラケット方向切替" style="text-align:left;">↕ 縦型/横型切替</button>
                   <button id="btnUi" class="ghost small" style="text-align:left;">🎛 表示調整</button>
-                  <button id="btnFitBracket" class="ghost small" style="text-align:left;">↔ 画面に収める</button>
                   <button id="btnCopyTable" class="ghost small" style="text-align:left;">📋 表コピー</button>
                   <button id="btnExportCSV" class="ghost small" style="text-align:left;">📄 CSV</button>
+                  <button id="btnReshuffle" class="ghost small" style="text-align:left;">🔀 組み合わせを再抽選</button>
                 </div>
               </details>
             </div>
@@ -439,7 +434,7 @@
         <!-- 運営入力パネル -->
         <div id="adminPanel" style="transition: width 0.3s; position: relative;">
           <div class="row between" style="align-items: center; margin-bottom: 8px;">
-            <h3 style="margin: 0;">運営入力</h3>
+            <h3 style="margin: 0;">試合</h3>
             <div class="row" style="gap: 4px;">
               <button id="btnUndo" class="ghost small hidden" title="直前の操作を取り消す">↩️ 元に戻す</button>
               <button id="btnToggleAdmin" class="ghost small">▶ 隠す</button>
@@ -448,50 +443,20 @@
 
           <div id="adminPanelContent">
 
-            <div class="row" style="margin-bottom:8px;">
-              <label>ラウンド
-                <select id="roundSel">
-                  <option value="1">1回戦</option>
-                  <option value="2">2回戦</option>
-                  <option value="3">準々決勝</option>
-                  <option value="4">準決勝</option>
-                  <option value="5">決勝</option>
-                </select>
-              </label>
+            <div class="mlFilter">
+              <button id="mlTodo" class="on">未完了</button>
+              <button id="mlAll">すべて</button>
             </div>
-
             <div id="matchList"></div>
-
-            <hr />
-
-            <div class="small" id="pickInfo">試合を選択してください（ブラケットの枠クリックでもOK）</div>
-
-            <div class="row" id="scorePanel" style="margin-top:10px;">
-              <div class="box">
-                <div class="teamName" id="tA">-</div>
-                <label>Score <input id="sA" type="number" min="0" style="width:90px" /></label>
-              </div>
-              <div class="box">
-                <div class="teamName" id="tB">-</div>
-                <label>Score <input id="sB" type="number" min="0" style="width:90px" /></label>
-              </div>
+            <div class="small mlHint">試合をタップ → 結果入力</div>
+            <!-- 旧入力パネル（内部互換用・非表示） -->
+            <div class="hidden">
+              <select id="roundSel"><option value="1">1</option></select>
+              <div id="pickInfo"></div><div id="timeInfo"></div>
+              <div id="scorePanel"><div id="tA"></div><input id="sA"/><div id="tB"></div><input id="sB"/></div>
+              <div id="winlosePanel"><button id="btnWinA"></button><button id="btnWinB"></button><div id="winloseHint"></div></div>
+              <button id="btnFinalize"></button><button id="btnClear"></button>
             </div>
-
-            <div class="row hidden" id="winlosePanel" style="margin-top:10px;">
-              <button id="btnWinA">上・左(A)の勝ち</button>
-              <button id="btnWinB">下・右(B)の勝ち</button>
-              <div class="small" id="winloseHint">※ 勝敗のみモード</div>
-            </div>
-
-            <div class="row" style="margin-top:10px;">
-              <button id="btnFinalize">✅ 勝敗確定 → 次へ</button>
-              <button id="btnClear" class="ghost">取り消し</button>
-            </div>
-            <div class="row" style="margin-top:6px;">
-              <button id="btnReshuffle" class="ghost">🔀 この競技を再抽選（R1のみ）</button>
-            </div>
-
-            <div class="small" id="timeInfo" style="margin-top:8px;"></div>
           </div> <!-- end adminPanelContent -->
         </div>
       </div>

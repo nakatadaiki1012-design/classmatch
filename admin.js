@@ -693,7 +693,7 @@
     const delayEl = el("dashboardDelay");
 
     if (progEl) { progEl.value = pct; progEl.max = 100; }
-    if (stickyText) stickyText.textContent = `${completed} / ${total} 試合完了`;
+    if (stickyText) stickyText.textContent = `全競技 ${completed} / ${total} 試合完了`;
     if (textEl) textEl.textContent = `(${pct}%)`;
 
     if (delayEl) {
@@ -2698,6 +2698,7 @@
     currentEvent = state.events.find(e => e.id === eventId) || null;
     renderBracket();
     renderMatchButtons();
+    renderDashboard();
   }
 
   // BUG-05修正: ブラウザ外でマウスを離した場合にもD&D変数をリセット
@@ -3945,22 +3946,47 @@
   }
 
   // ── Match buttons ────────────────────────────────────────────
+  // 右パネル: 試合を時間順に並べ、タップで結果入力モーダルを開く
+  let mlShowAll = false;
   function renderMatchButtons() {
     if (!currentEvent) return;
-    const r = Number(el("roundSel").value);
-    const allM = currentEvent.loserMatches ? [...currentEvent.matches, ...currentEvent.loserMatches] : currentEvent.matches;
-    const list = allM.filter(m => m.round === r).sort((a, b) => a.slot - b.slot);
     const ml = el("matchList");
+    if (!ml) return;
+    const allM = currentEvent.loserMatches ? [...currentEvent.matches, ...currentEvent.loserMatches] : currentEvent.matches;
+    const list = allM
+      .filter(m => !m.isBye && (mlShowAll || m.state !== "final"))
+      .sort((a, b) => (a.scheduledStart || "").localeCompare(b.scheduledStart || "") || (a.court || "").localeCompare(b.court || ""));
     ml.innerHTML = "";
+    if (!list.length) {
+      ml.innerHTML = `<div class="mlEmpty">${mlShowAll ? "試合がありません" : "🎉 すべての試合が終了しました"}</div>`;
+      return;
+    }
+    const stLabel = { final: ["final", "終了"], playing: ["playing", "試合中"], calling: ["calling", "招集"] };
     for (const m of list) {
       const key = matchKey(m);
-      const b = document.createElement("button");
-      b.textContent = `${m.isLoserMatch ? "[裏]" : ""}${m.teamA ?? "—"} vs ${m.teamB ?? "—"} [${m.state}]`;
-      if (m.state === "final") { b.style.borderColor = "var(--ok-border)"; b.style.color = "var(--ok)"; }
-      b.onclick = () => selectMatch(key);
-      ml.appendChild(b);
+      const [cls, lbl] = stLabel[m.state] || ["waiting", "待機"];
+      const ready = m.teamA && m.teamB;
+      const row = document.createElement("button");
+      row.className = "mlRow" + (m.state === "final" ? " done" : "") + (ready ? "" : " notReady") + (selectedMatchKey === key ? " sel" : "");
+      const A = escapeHtml(formatTeamName(m.teamA) || "未定").replace("\n", " ");
+      const B = escapeHtml(formatTeamName(m.teamB) || "未定").replace("\n", " ");
+      const score = m.state === "final" && m.scoreA != null ? `<b>${m.scoreA}-${m.scoreB}</b>` : "vs";
+      row.innerHTML = `
+        <span class="mlTime">${fmtTime(m.scheduledStart) || "--:--"}<small>${escapeHtml(m.court || "")}</small></span>
+        <span class="mlTeams"><span class="${m.winner === "A" ? "w" : ""}">${A}</span> <i>${score}</i> <span class="${m.winner === "B" ? "w" : ""}">${B}</span></span>
+        <span class="statusBadge ${cls}">${lbl}</span>`;
+      row.onclick = () => { selectedMatchKey = key; if (ready || m.state === "final") openResultModal(key); renderBracket(); renderMatchButtons(); };
+      ml.appendChild(row);
     }
   }
+  const setMlFilter = (all) => {
+    mlShowAll = all;
+    el("mlTodo")?.classList.toggle("on", !all);
+    el("mlAll")?.classList.toggle("on", all);
+    renderMatchButtons();
+  };
+  if (el("mlTodo")) el("mlTodo").onclick = () => setMlFilter(false);
+  if (el("mlAll")) el("mlAll").onclick = () => setMlFilter(true);
 
   function selectMatch(key) {
     if (!currentEvent) return;
@@ -3968,6 +3994,7 @@
     const allM = currentEvent.loserMatches ? [...currentEvent.matches, ...currentEvent.loserMatches] : currentEvent.matches;
     const m = findMatchByKey(allM, key);
 
+    if (!m) return;
     el("pickInfo").textContent = `選択: ${key} / 予定:${fmtTime(m.scheduledStart)} ${m.court ? "(" + m.court + ")" : ""}`;
     el("tA").textContent = formatTeamName(m.teamA) ?? "—";
     el("tB").textContent = formatTeamName(m.teamB) ?? "—";
