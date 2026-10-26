@@ -162,6 +162,28 @@ progress::-webkit-progress-value{background:var(--ok);border-radius:4px;transiti
 .league-cell.loss{background:#fee2e2;color:#991b1b;}
 .league-cell.draw{background:#fef9c3;}
 
+/* ── 見やすさ調整（生徒のスマホ・タブレット向け）── */
+body{font-size:15px;}
+header h1{font-size:18px;}
+#headerSub{font-size:12px;}
+#liveIndicator{font-size:13px;}
+#lastUpdated{font-size:11px;}
+.tabBtn{font-size:15px;padding:9px 16px;min-height:42px;}
+.tabBtn .prog{font-size:12px;}
+.progWrap{font-size:15px;}
+#legend{font-size:13px;gap:14px;}
+.legendBox{width:16px;height:16px;}
+.sectionHead h2{font-size:20px;}
+.badge{font-size:13px;padding:4px 12px;}
+.viewCtl{display:flex;gap:10px;flex-wrap:wrap;margin:-2px 0 12px;}
+.seg{display:inline-flex;align-items:center;gap:2px;background:#e2e8f0;border-radius:10px;padding:3px;}
+.segLbl{font-size:12px;color:var(--muted);font-weight:700;padding:0 6px 0 8px;}
+.seg button{border:none;background:transparent;color:#475569;font-weight:700;font-size:14px;
+  min-width:48px;min-height:36px;border-radius:8px;cursor:pointer;font-family:inherit;}
+.seg button.on{background:#fff;color:var(--navy);box-shadow:0 1px 3px rgba(0,0,0,.15);}
+body.fz-l{font-size:17px;}
+body.fz-l .tabBtn{font-size:17px;} body.fz-l .sectionHead h2{font-size:23px;}
+body.fz-s .tabBtn{font-size:13px;padding:6px 12px;min-height:34px;}
 @media(max-width:600px){
   header h1{font-size:14px;}
   .card{padding:12px;}
@@ -211,6 +233,16 @@ progress::-webkit-progress-value{background:var(--ok);border-radius:4px;transiti
         <div class="sectionHead">
           <h2 id="eventTitle">-</h2>
           <div id="eventStatusBadge"></div>
+        </div>
+        <div class="viewCtl">
+          <div class="seg" id="segOrient" role="group" aria-label="表示の向き">
+            <span class="segLbl">表示</span>
+            <button data-v="auto">自動</button><button data-v="h">横型</button><button data-v="v">縦型</button>
+          </div>
+          <div class="seg" id="segFont" role="group" aria-label="文字の大きさ">
+            <span class="segLbl">文字</span>
+            <button data-v="s">小</button><button data-v="m">中</button><button data-v="l">大</button>
+          </div>
         </div>
         <div class="bracketWrap" id="bracket"></div>
       </div>
@@ -338,6 +370,29 @@ progress::-webkit-progress-value{background:var(--ok);border-radius:4px;transiti
     renderCurrentEvent();
   }
 
+  const evLabel = (ev) => ev.sportName
+    ? `${ev.sportName} ${ev.gender === "M" ? "男子" : ev.gender === "F" ? "女子" : ev.gender === "X" ? "混合" : ""}`.trim()
+    : (ev.name || ev.id);
+
+  // ── 表示設定（この端末に保存） ─────────────────
+  const PREF_KEY = "cm_viewer_prefs";
+  const FONT = { s: { fontSize: 14 }, m: { fontSize: 15, minFontPx: 13 }, l: { fontSize: 18, minFontPx: 16 } };
+  let prefs = { orient: null, font: "m" };
+  try { Object.assign(prefs, JSON.parse(localStorage.getItem(PREF_KEY) || "{}")); } catch {}
+  function savePrefs() { try { localStorage.setItem(PREF_KEY, JSON.stringify(prefs)); } catch {} }
+  function currentOrient() { return prefs.orient || state?.tournament?.bracketOrient || "auto"; }
+  function syncCtl() {
+    document.querySelectorAll("#segOrient button").forEach(b => b.classList.toggle("on", b.dataset.v === currentOrient()));
+    document.querySelectorAll("#segFont button").forEach(b => b.classList.toggle("on", b.dataset.v === prefs.font));
+    document.body.classList.remove("fz-s", "fz-m", "fz-l");
+    document.body.classList.add("fz-" + prefs.font);
+  }
+  document.querySelectorAll("#segOrient button").forEach(b => b.onclick = () => { prefs.orient = b.dataset.v; savePrefs(); syncCtl(); if (state) renderCurrentEvent(); });
+  document.querySelectorAll("#segFont button").forEach(b => b.onclick = () => { prefs.font = b.dataset.v; savePrefs(); syncCtl(); if (state) renderCurrentEvent(); });
+  function bracketOpts(bracket) {
+    return Object.assign({ maxWidth: bracket.clientWidth, maxHeight: Math.max(360, window.innerHeight - 160), orientation: currentOrient() }, FONT[prefs.font] || FONT.m);
+  }
+
   function renderTabs() {
     const tabs = el("eventTabs");
     tabs.innerHTML = "";
@@ -352,7 +407,7 @@ progress::-webkit-progress-value{background:var(--ok);border-radius:4px;transiti
       const hasPlaying = ms.some(m=>m.state==="playing");
       const btn = document.createElement("button");
       btn.className = "tabBtn" + (ev.id === currentEventId ? " active" : "");
-      btn.innerHTML = escapeHtml(ev.name || ev.id) +
+      btn.innerHTML = escapeHtml(evLabel(ev)) +
         `<span class="prog">${pct}%${hasPlaying?" 🔴":""}</span>`;
       btn.onclick = () => { currentEventId = ev.id; renderTabs(); renderCurrentEvent(); };
       tabs.appendChild(btn);
@@ -363,7 +418,8 @@ progress::-webkit-progress-value{background:var(--ok);border-radius:4px;transiti
     const ev = (state.events||[]).find(e=>e.id===currentEventId);
     if (!ev) { el("bracket").innerHTML = "<div style='padding:20px;color:#94a3b8;'>イベントがありません</div>"; return; }
 
-    el("eventTitle").textContent = ev.name || ev.id;
+    syncCtl();
+    el("eventTitle").textContent = evLabel(ev);
 
     // status badge
     const ms = (ev.matches||[]).filter(m=>!m.isBye&&!m.isExhibition);
@@ -398,7 +454,7 @@ progress::-webkit-progress-value{background:var(--ok);border-radius:4px;transiti
       bracket.appendChild(buildLeagueHTML(ev));
     } else {
       const mainMs = (ev.matches||[]).filter(m=>!m.isExhibition);
-      if (mainMs.length) bracket.appendChild(window.BracketView.build(mainMs, { maxWidth: bracket.clientWidth, maxHeight: Math.max(360, window.innerHeight - 180) }));
+      if (mainMs.length) bracket.appendChild(window.BracketView.build(mainMs, bracketOpts(bracket)));
 
       window.BracketView.addScrollHint(bracket);
       if (ev.loserMatches && ev.loserMatches.length > 0) {
@@ -406,7 +462,7 @@ progress::-webkit-progress-value{background:var(--ok);border-radius:4px;transiti
         lbl.className = "loserLabel";
         lbl.textContent = "▊ 裏トーナメント";
         bracket.appendChild(lbl);
-        bracket.appendChild(window.BracketView.build(ev.loserMatches, { maxWidth: bracket.clientWidth, maxHeight: Math.max(360, window.innerHeight - 180) }));
+        bracket.appendChild(window.BracketView.build(ev.loserMatches, bracketOpts(bracket)));
       }
     }
   }
