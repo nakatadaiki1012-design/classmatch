@@ -1,6 +1,6 @@
 // クラスマッチ: トーナメント表の描画（admin.html / viewer.html 共通）
 // 1試合 = 上下2段のカード。サイズ・配置はチーム名の長さと試合数から自動で決める。
-// 8チーム以上は左右から決勝へ向かう「両側型」にして縦の長さを半分にする。
+// 8チーム以上は左右(縦型は上下)から決勝へ向かう「両側型」。横型でもスマホ幅は片側型。
 (function () {
   const NS = "http://www.w3.org/2000/svg";
 
@@ -8,32 +8,39 @@
     .bv text { font-family: 'Noto Sans JP','Hiragino Kaku Gothic ProN','Yu Gothic',sans-serif; dominant-baseline: middle; }
     .bvHead { font-size: 12px; font-weight: 800; fill: #64748b; letter-spacing: .5px; }
     .bvHead.final { fill: #b45309; }
-    .bvLine { fill: none; stroke: #cbd5e1; stroke-width: 1.6; }
-    .bvLine.win { stroke: #16a34a; stroke-width: 2.6; }
-    .bvBox { fill: #fff; stroke: #cbd5e1; stroke-width: 1.2; }
-    .bvCard:hover .bvBox { stroke: #2563eb; stroke-width: 2; }
-    .bvCard.sel .bvBox { stroke: #2563eb; stroke-width: 2.4; }
-    .bvCard.st-final .bvBox { stroke: #94a3b8; }
-    .bvCard.st-playing .bvBox, .bvCard.live .bvBox { stroke: #ef4444; stroke-width: 2.4; }
-    .bvCard.st-calling .bvBox { stroke: #f59e0b; stroke-width: 2.2; }
-    .bvSep { stroke: #e2e8f0; stroke-width: 1; }
-    .bvWinBg { fill: #dcfce7; }
+    .bvLine { fill: none; stroke: #cbd5e1; stroke-width: 1.8; }
+    .bvLine.win { stroke: #16a34a; stroke-width: 3; }
+    .bvBox { fill: #fff; stroke: #94a3b8; stroke-width: 1.5; }
+    .bvCard.tbd .bvBox { stroke: #cbd5e1; stroke-dasharray: 5 4; }
+    .bvCard:hover .bvBox { stroke: #2563eb; stroke-width: 2.2; }
+    .bvCard.sel .bvBox { stroke: #2563eb; stroke-width: 2.6; }
+    .bvCard.st-playing .bvBox, .bvCard.live .bvBox { stroke: #ef4444; stroke-width: 2.8; }
+    .bvCard.st-calling .bvBox { stroke: #f59e0b; stroke-width: 2.6; }
+    .bvHdr { fill: #eef2f7; }
+    .bvCard.st-playing .bvHdr, .bvCard.live .bvHdr { fill: #fee2e2; }
+    .bvCard.st-calling .bvHdr { fill: #fef3c7; }
+    .bvHdrTxt { fill: #334155; font-weight: 700; }
+    .bvSep { stroke: #e2e8f0; stroke-width: 1.2; }
+    .bvWinBg { fill: #f0fdf4; }
+    .bvWinBar { fill: #16a34a; }
     .bvMineBg { fill: #fef08a; }
     .bvMineBar { fill: #ca8a04; }
-    .bvName { fill: #1e293b; font-weight: 600; }
-    .bvName.win { fill: #14532d; font-weight: 800; }
-    .bvName.lose, .bvScore.lose { fill: #9ca3af; }
-    .bvName.tbd { fill: #b6bfcc; font-weight: 400; font-size: 12px; }
-    .bvScore { fill: #334155; font-weight: 800; font-family: ui-monospace, monospace; }
-    .bvScore.win { fill: #14532d; }
-    .bv text.bvCap { font-size: 10px; fill: #64748b; font-weight: 600; dominant-baseline: auto; }
-    .bvCapBg { fill: #f1f5f9; }
-    .bvCapIn { fill: #475569; font-weight: 700; }
+    .bvName { fill: #0f172a; font-weight: 700; }
+    .bvName.win { fill: #14532d; font-weight: 900; }
+    .bvName.lose { fill: #9ca3af; font-weight: 500; }
+    .bvName.tbd { fill: #94a3b8; font-weight: 500; }
+    .bvScBox { fill: #f1f5f9; stroke: #cbd5e1; stroke-width: 1; }
+    .bvScBox.win { fill: #16a34a; stroke: #15803d; }
+    .bvScBox.lose { fill: #f1f5f9; stroke: #e2e8f0; }
+    .bvScore { fill: #334155; font-weight: 800; font-family: ui-monospace, 'SF Mono', monospace; }
+    .bvScore.win { fill: #fff; }
+    .bvScore.lose { fill: #9ca3af; }
     .bvTag.playing { fill: #ef4444; } .bvTag.calling { fill: #f59e0b; }
     .bvTagTxt { font-size: 9px; font-weight: 800; fill: #fff; }
     .bvChampBg { fill: #fef3c7; stroke: #f59e0b; stroke-width: 1.5; }
     .bvChamp { font-size: 13px; font-weight: 900; fill: #92400e; }
   `;
+
 
   const keyOf = (m) => `${m.isLoserMatch ? "L" : "R"}${m.round}-${m.slot}`;
   const fmtTime = (d) => {
@@ -82,7 +89,7 @@
    * @param {Object} opt
    *   onClick(key), selectedKey, isLive(m)
    *   maxWidth / maxHeight : 表示に使える幅・高さ(px)。配置と縮尺の自動選択に使う
-   *   orientation : "auto"(既定) | "h"(横型: 左→右) | "v"(縦型: 下→上、決勝が上)
+   *   orientation : "h"(横型: 左→右。既定) | "v"(縦型: 下→上、決勝が上)。自動では入れ替えない
    *   fontSize    : 基本の文字サイズ（既定14）
    *   minFontPx   : 画面上でこれより小さくしない（足りなければスクロール）
    *   highlightTeam : このチーム名の段を黄色で強調（「自分のクラス」）
@@ -102,95 +109,70 @@
     const r1count = Math.max(1, Math.max(...r1.map(m => m.slot)) + 1);
     const half = r1count / 2;
 
-    // ── サイズの自動決定 ─────────────────────────────
+    // ── 向き・形はユーザーの選択とチーム数だけで決める（画面サイズで勝手に入れ替えない）
+    const V = opt.orientation === "v";                    // 既定は横型
+    // スマホかどうかは画面（端末）の幅で判断する。表を置く枠の幅で判断すると、
+    // 試合リストの開閉などで形が変わってしまうため
+    const narrow = typeof window !== "undefined" ? window.innerWidth < 600 : !!(opt.maxWidth && opt.maxWidth < 600);
+    // 両側型: 縦型は常に（横幅を半分にできる）、横型はスマホ以外で
+    const mirrored = rounds >= 3 && r1count >= 4 && (V || !narrow);
+
+    // ── サイズ ───────────────────────────────────────
     const names = [];
     matches.forEach(m => { if (m.teamA) names.push(teamLabel(m.teamA)); if (m.teamB) names.push(teamLabel(m.teamB)); });
     const longest = Math.max(3, ...names.map(textUnits));
-    const nameUnits = Math.min(longest, 10);              // 10文字分を上限に省略
-    const scoreW = Math.round(fs * 1.9);
-    const cardW = Math.round(Math.max(fs * 6, Math.min(fs * 17, nameUnits * fs * 1.12 + scoreW + 22)));
-    const rowH = Math.round(fs * 1.9);
+    const nameUnits = Math.min(longest, 10);
+    const scoreW = Math.round(fs * 2.1);                   // 点数の箱
+    const hdrUnits = 8.8;                                  // 見出し「第15試合 10:24 A」が入る幅
+    const cardW = Math.round(Math.max(fs * 7, hdrUnits * fs * 0.8 + 16, Math.min(fs * 17, nameUnits * fs * 1.12 + scoreW + 26)));
+    const rowH = Math.round(fs * 2.1);
     const cardH = rowH * 2;
     const pad = 12;
-    // 横型
-    const gapV = 12;
-    const colGap = r1count >= 8 ? 22 : 30;
+    const gapV = 14;
+    const colGap = r1count >= 8 ? 24 : 32;
     const colW = cardW + colGap;
     const headH = Math.round(fs * 2.1);
-    // 縦型
-    const labelW = Math.round(fs * 4.6);                  // 左端のラウンド名
-    const gapX = r1count >= 8 ? 10 : 18;
+    const labelW = Math.round(fs * 4.6);
+    const gapX = r1count >= 8 ? 12 : 20;
     const pitchX = cardW + gapX;
-    const vGap = Math.round(fs * 2.4);                    // 段と段の間（線を通す）
+    const vGap = Math.round(fs * 2.4);
 
-    const narrow = opt.maxWidth && opt.maxWidth < 600;
     const MIN_SCALE = opt.minFontPx ? Math.min(1.6, Math.max(0.6, opt.minFontPx / fs)) : (narrow ? 0.85 : 0.7);
     const MAX_SCALE = Math.max(1.15, MIN_SCALE);
-
-    // ── 配置の自動選択 ──────────────────────────────
-    // 向き（横型/縦型）× 両側型/片側型 の候補から、画面に出る文字がいちばん大きく、
-    // 縦横のはみ出しが少ないものを選ぶ。
-    const depthFor = (mir) => mir ? 2 * (rounds - 1) + 1 : rounds;   // 回戦方向の段数
-    const spreadFor = (mir) => mir ? half : r1count;                 // 試合が並ぶ数
-    const sizeFor = (o, mir, capH) => o === "h"
-      ? { w: pad * 2 + depthFor(mir) * colW - colGap,
-          h: headH + spreadFor(mir) * (cardH + capH + gapV) + pad + (third ? cardH + capH + gapV + 10 : 0) }
-      : { w: pad * 2 + labelW + spreadFor(mir) * pitchX - gapX,
-          h: pad * 2 + depthFor(mir) * (cardH + capH + 6 + vGap) - vGap };
-    const scaleOf = (sz) => opt.maxWidth ? Math.max(MIN_SCALE, Math.min(MAX_SCALE, opt.maxWidth / sz.w)) : 1;
-    const orients = opt.orientation === "h" ? ["h"] : opt.orientation === "v" ? ["v"] : ["h", "v"];
-    const mirs = (rounds >= 3 && r1count >= 4) ? [false, true] : [false];
-    let orient = orients[0], mirrored = false, best = -Infinity;
-    for (const o of orients) for (const mir of mirs) {
-      const sz = sizeFor(o, mir, 15);
-      const sc = scaleOf(sz);
-      const screenH = sz.h * sc;
-      let score = sc;
-      if (opt.maxHeight && screenH > opt.maxHeight) score *= (screenH > opt.maxHeight * 2 ? 0.5 : 0.8);
-      const over = opt.maxWidth ? (sz.w * sc) / opt.maxWidth : 1;
-      if (over > 1.02) score /= Math.sqrt(over);         // 横スクロールは縦より使いにくい
-      if (o === "v" && orients.length > 1) score *= 0.97; // 自動のときは横型をやや優先
-      score -= screenH / 1e5;                            // 同点なら背の低い方
-      if (score > best) { best = score; orient = o; mirrored = mir; }
-    }
-    const expScale = scaleOf(sizeFor(orient, mirrored, 15));
-    // 「第n試合 09:00 A」は画面上で 9.5px 以上、かつ本文の7割以上
-    const capFs = Math.min(fs * 0.85, Math.max(10, fs * 0.72, 9.5 / expScale));
-    const capH = Math.round(capFs + 5);
+    const depth = mirrored ? 2 * (rounds - 1) + 1 : rounds;     // 回戦方向の段数
+    const spread = mirrored ? half : r1count;                   // 試合が並ぶ数
+    const estW = V ? pad * 2 + labelW + spread * pitchX - gapX : pad * 2 + depth * colW - colGap;
+    const expScale = opt.maxWidth ? Math.max(MIN_SCALE, Math.min(MAX_SCALE, opt.maxWidth / estW)) : 1;
+    const capFs = Math.min(fs * 0.85, Math.max(10.5, fs * 0.74, 9.5 / expScale));
+    const capRow = Math.round(capFs + 11);                // カード内の見出し帯
+    const boxH = capRow + cardH;
     const headFs = Math.max(12, fs * 0.86, 11 / expScale);
 
-    // ── 位置（共通）──────────────────────────────────
-    const span = (r) => Math.pow(2, r - 1);              // 1試合が覆う1回戦の枠数
+    // ── 位置 ─────────────────────────────────────────
+    const span = (r) => Math.pow(2, r - 1);
     const sideOf = (m) => (!mirrored || m.round === rounds) ? "C" : ((m.slot * span(m.round)) < half ? "L" : "R");
-    const posOf = (m) => {                                // 並び方向の位置（1回戦換算）
+    const posOf = (m) => {
       if (mirrored && m.round === rounds) return (half - 1) / 2;
       let p = m.slot * span(m.round) + (span(m.round) - 1) / 2;
       if (mirrored && sideOf(m) === "R") p -= half;
       return p;
     };
-    const depth = depthFor(mirrored);
-    const depthOf = (m) => {                              // 回戦方向の段
+    const depthOf = (m) => {
       if (!mirrored) return m.round - 1;
       if (m.round === rounds) return rounds - 1;
       return sideOf(m) === "L" ? m.round - 1 : depth - m.round;
     };
     const roundAtDepth = (d) => !mirrored ? d + 1 : (d <= rounds - 1 ? d + 1 : depth - d);
-
-    const V = orient === "v";
-    const capRow = capH + 6;                              // 縦型: カード内の見出し行
-    const boxH = V ? capRow + cardH : cardH;
     const rowStep = boxH + vGap;
-    // 縦型は決勝を上に置く（片側型）／上下から中央の決勝へ（両側型）
-    const vRow = (d) => mirrored ? d : (rounds - 1 - d);
+    const vRow = (d) => mirrored ? d : (rounds - 1 - d);  // 縦型: 決勝が上
     const cardX = (m) => V ? pad + labelW + posOf(m) * pitchX : pad + depthOf(m) * colW;
-    const cardY = (m) => V ? pad + vRow(depthOf(m)) * rowStep : headH + posOf(m) * (cardH + capH + gapV) + capH;
+    const cardY = (m) => V ? pad + vRow(depthOf(m)) * rowStep : headH + posOf(m) * (boxH + gapV);
 
     const svg = el("svg", { class: "bv" });
     svg.append(el("style", {}, STYLE));
     const gLines = el("g", {});
     const gCards = el("g", {});
     svg.append(gLines, gCards);
-    // 縦型は描いた範囲から表の大きさを決める
     let minX = 0, minY = 0, maxX = 0, maxY = 0;
     const bump = (x, y, w, h) => { minX = Math.min(minX, x); minY = Math.min(minY, y); maxX = Math.max(maxX, x + w); maxY = Math.max(maxY, y + h); };
 
@@ -198,14 +180,12 @@
     for (let d = 0; d < depth; d++) {
       const r = roundAtDepth(d);
       const cls = "bvHead" + (r === rounds ? " final" : "");
-      if (V) {
-        gCards.append(el("text", { x: pad, y: pad + vRow(d) * rowStep + boxH / 2, class: cls, style: `font-size:${headFs}px` }, roundName(r, rounds)));
-      } else {
-        gCards.append(el("text", { x: pad + d * colW + cardW / 2, y: headH * 0.6, "text-anchor": "middle", class: cls, style: `font-size:${headFs}px` }, roundName(r, rounds)));
-      }
+      if (V) gCards.append(el("text", { x: pad, y: pad + vRow(d) * rowStep + boxH / 2, class: cls, style: `font-size:${headFs}px` }, roundName(r, rounds)));
+      else gCards.append(el("text", { x: pad + d * colW + cardW / 2, y: headH * 0.5, "text-anchor": "middle", class: cls, style: `font-size:${headFs}px` }, roundName(r, rounds)));
     }
 
-    // ── 線（子カード → 親カード）─────────────────────
+    // ── 線 ───────────────────────────────────────
+    const rowMid = (m, slot) => cardY(m) + capRow + (slot === "B" ? rowH * 1.5 : rowH * 0.5);
     for (const m of matches) {
       if (!m.nextMatchKey || m.isBye) continue;
       const p = byKey[m.nextMatchKey];
@@ -213,7 +193,7 @@
       const cls = "bvLine" + (m.state === "final" && m.winner ? " win" : "");
       let d;
       if (V) {
-        const up = vRow(depthOf(p)) < vRow(depthOf(m));   // 親が上にある
+        const up = vRow(depthOf(p)) < vRow(depthOf(m));
         const x1 = cardX(m) + cardW / 2;
         const y1 = up ? cardY(m) : cardY(m) + boxH;
         const x2 = cardX(p) + cardW * (m.nextSlot === "B" ? 0.72 : 0.28);
@@ -222,75 +202,74 @@
       } else {
         const right = depthOf(p) > depthOf(m);
         const x1 = right ? cardX(m) + cardW : cardX(m);
-        const y1 = cardY(m) + cardH / 2;
+        const y1 = cardY(m) + capRow + cardH / 2;
         const x2 = right ? cardX(p) : cardX(p) + cardW;
-        const y2 = cardY(p) + (m.nextSlot === "B" ? rowH * 1.5 : rowH * 0.5);
+        const y2 = rowMid(p, m.nextSlot);
         d = `M${x1} ${y1} H${(x1 + x2) / 2} V${y2} H${x2}`;
       }
       gLines.append(el("path", { d, class: cls }));
     }
 
     // ── カード ──────────────────────────────────────
-    const nameMax = (cardW - scoreW - 18) / (fs * 1.08);
+    const nameMax = (cardW - scoreW - 26) / (fs * 1.08);
+    const tfs = Math.max(9.5, capFs * 0.9), tagW = tfs * 4.2, tagH = tfs + 6;
+    const headerFit = (m, prefix, avail) => {
+      const n = m.matchNum, t = fmtTime(m.scheduledStart), c = m.court || "";
+      // 幅が足りないときは コート → 時刻 の順に省く（試合番号は呼び出しに使うので最後まで残す）
+      const v = [[n && `第${n}試合`, t, c && c + "コート"], [n && `第${n}試合`, t, c], [n && `第${n}試合`, t], [n && `第${n}試合`], [t, c], [t]]
+        .map(x => (prefix ? prefix + " " : "") + x.filter(Boolean).join(" "));
+      return v.find(x => textUnits(x) * capFs * 1.05 <= avail) || v[v.length - 1];
+    };
     const drawCard = (m, x, y, prefix = "") => {
       const key = keyOf(m);
       const st = m.state || "pending";
       const live = opt.isLive ? opt.isLive(m) : false;
-      const hasTag = live || st === "playing" || st === "calling";
-      const tfs = Math.max(9, capFs * 0.9), tagW = tfs * 4.4;
-      // ラベルはカード右上に置くので、ラベルがあるときは見出しをカード幅の内側に収める
-      const avail = hasTag ? cardW - tagW - (V ? 18 : 12) : (V ? cardW - 16 : cardW + colGap * 0.8);
-      const caption = captionFit(m, prefix, avail);
-      const g = el("g", { class: `bvCard st-${st}` + (live ? " live" : "") + (opt.selectedKey === key ? " sel" : ""), "data-key": key });
-      const top = V ? y + capRow : y;                     // チーム名の1段目
-      g.append(el("rect", { x, y, width: cardW, height: boxH, rx: 7, class: "bvBox" }));
-      if (V) {
-        g.append(el("rect", { x: x + 1, y: y + 1, width: cardW - 2, height: capRow - 1, rx: 6, class: "bvCapBg" }));
-        g.append(el("text", { x: x + 8, y: y + capRow / 2 + 1, class: "bvCapIn", style: `font-size:${capFs}px` }, caption));
-      } else {
-        g.append(el("text", { x, y: y - 4, class: "bvCap", style: `font-size:${capFs}px` }, caption));
+      const tagKind = st === "calling" ? "calling" : (live || st === "playing") ? "playing" : null;
+      const tbd = !(m.teamA && m.teamB) && st !== "final";
+      const g = el("g", { class: `bvCard st-${st}` + (live ? " live" : "") + (tbd ? " tbd" : "") + (opt.selectedKey === key ? " sel" : ""), "data-key": key });
+      g.append(el("rect", { x, y, width: cardW, height: boxH, rx: 8, class: "bvBox" }));
+      // 見出し帯（試合番号・時刻・コート、右端に状態）
+      g.append(el("path", { d: `M${x + 1} ${y + capRow} V${y + 8} Q${x + 1} ${y + 1} ${x + 8} ${y + 1} H${x + cardW - 8} Q${x + cardW - 1} ${y + 1} ${x + cardW - 1} ${y + 8} V${y + capRow} Z`, class: "bvHdr" }));
+      g.append(el("line", { x1: x + 1, x2: x + cardW - 1, y1: y + capRow, y2: y + capRow, class: "bvSep" }));
+      const avail = cardW - 16 - (tagKind ? tagW + 6 : 0);
+      g.append(el("text", { x: x + 8, y: y + capRow / 2 + 1, class: "bvHdrTxt", style: `font-size:${capFs}px` }, headerFit(m, prefix, avail)));
+      if (tagKind) {
+        const ty = y + (capRow - tagH) / 2;
+        g.append(el("rect", { x: x + cardW - tagW - 6, y: ty, width: tagW, height: tagH, rx: tagH / 2, class: "bvTag " + tagKind }));
+        g.append(el("text", { x: x + cardW - tagW / 2 - 6, y: ty + tagH / 2 + 0.5, "text-anchor": "middle", class: "bvTagTxt", style: `font-size:${tfs}px` }, tagKind === "calling" ? "招集中" : "試合中"));
       }
+      const top = y + capRow;
       [["A", m.teamA, m.scoreA], ["B", m.teamB, m.scoreB]].forEach(([side, team, score], i) => {
         const ry = top + i * rowH;
         const won = m.winner === side;
         const cls = won ? "win" : (m.winner ? "lose" : "");
         const mine = opt.highlightTeam && team === opt.highlightTeam;
-        if (mine) g.append(el("rect", { x: x + 1, y: ry + 1, width: cardW - 2, height: rowH - 2, rx: 6, class: "bvMineBg" }));
-        else if (won) g.append(el("rect", { x: x + 1, y: ry + 1, width: cardW - 2, height: rowH - 2, rx: 6, class: "bvWinBg" }));
-        if (mine) g.append(el("rect", { x: x + 1, y: ry + 3, width: 4, height: rowH - 6, rx: 2, class: "bvMineBar" }));
+        const bottom = i === 1;
+        const bgD = (fill) => el("path", { d: bottom
+          ? `M${x + 1} ${ry} H${x + cardW - 1} V${ry + rowH - 8} Q${x + cardW - 1} ${ry + rowH - 1} ${x + cardW - 8} ${ry + rowH - 1} H${x + 8} Q${x + 1} ${ry + rowH - 1} ${x + 1} ${ry + rowH - 8} Z`
+          : `M${x + 1} ${ry} H${x + cardW - 1} V${ry + rowH} H${x + 1} Z`, class: fill });
+        if (mine) g.append(bgD("bvMineBg"));
+        else if (won) g.append(bgD("bvWinBg"));
+        if (won || mine) g.append(el("rect", { x: x + 1, y: ry + 4, width: 5, height: rowH - 8, rx: 2.5, class: mine ? "bvMineBar" : "bvWinBar" }));
         const label = team ? fit(teamLabel(team), nameMax) : "未定";
-        g.append(el("text", { x: x + 10, y: ry + rowH / 2, class: `bvName ${cls}` + (team ? "" : " tbd"), "font-size": fs }, label));
+        g.append(el("text", { x: x + 12, y: ry + rowH / 2 + 1, class: `bvName ${cls}` + (team ? "" : " tbd"), "font-size": team ? fs : fs * 0.9 }, label));
         if (score != null && score !== "") {
-          g.append(el("text", { x: x + cardW - 10, y: ry + rowH / 2, "text-anchor": "end", class: `bvScore ${cls}`, "font-size": fs }, String(score)));
+          const bx = x + cardW - scoreW - 6, bh = rowH - 10;
+          g.append(el("rect", { x: bx, y: ry + 5, width: scoreW, height: bh, rx: 5, class: `bvScBox ${cls}` }));
+          g.append(el("text", { x: bx + scoreW / 2, y: ry + rowH / 2 + 1, "text-anchor": "middle", class: `bvScore ${cls}`, "font-size": fs * 1.05 }, String(score)));
         }
       });
-      g.append(el("line", { x1: x + 8, x2: x + cardW - 8, y1: top + rowH, y2: top + rowH, class: "bvSep" }));
-      if (hasTag) {
-        const t = st === "calling" ? "招集中" : "試合中";
-        const bw = tagW, bh = tfs + 5;
-        const by = V ? y + (capRow - bh) / 2 : y - bh - 1;
-        g.append(el("rect", { x: x + cardW - bw - 4, y: by, width: bw, height: bh, rx: bh / 2, class: "bvTag " + (st === "calling" ? "calling" : "playing") }));
-        g.append(el("text", { x: x + cardW - bw / 2 - 4, y: by + bh / 2 + 0.5, "text-anchor": "middle", class: "bvTagTxt", style: `font-size:${tfs}px` }, t));
-      }
+      g.append(el("line", { x1: x + 1, x2: x + cardW - 1, y1: top + rowH, y2: top + rowH, class: "bvSep" }));
       if (opt.onClick) {
         g.style.cursor = "pointer";
         g.addEventListener("click", () => opt.onClick(key));
       }
       gCards.append(g);
-      bump(x, V ? y : y - capH, cardW, boxH + (V ? 0 : capH));
-    };
-
-    // 「第n試合 09:00 A」を入る幅に合わせて短くする
-    const captionFit = (m, prefix, avail) => {
-      const n = m.matchNum, t = fmtTime(m.scheduledStart), c = m.court || "";
-      const variants = [
-        [n && `第${n}試合`, t, c], [n && `第${n}`, t, c], [n && `第${n}`, t], [n && `第${n}`], [t],
-      ].map(v => (prefix ? prefix + " " : "") + v.filter(Boolean).join(" "));
-      return variants.find(v => textUnits(v) * capFs * 1.05 <= avail) || variants[variants.length - 1];
+      bump(x, y, cardW, boxH);
     };
 
     for (const m of matches) {
-      if (m.isBye) continue; // 不戦勝は描かない（勝ち上がったチームが次の回戦に表示される）
+      if (m.isBye) continue;
       drawCard(m, cardX(m), cardY(m));
     }
 
@@ -300,23 +279,21 @@
     const champFs = Math.max(13, fs * 0.95);
 
     if (!V) {
-      // 横型: 優勝は決勝の下、3位決定戦はその下
-      if (champ) {
-        const fx = cardX(finalM), fy = cardY(finalM) + cardH + 8;
-        gCards.append(el("rect", { x: fx, y: fy, width: cardW, height: 26, rx: 13, class: "bvChampBg" }));
-        gCards.append(el("text", { x: fx + cardW / 2, y: fy + 13, "text-anchor": "middle", class: "bvChamp", style: `font-size:${champFs}px` }, `🏆 優勝 ${champ}`));
+      bump(0, 0, 0, 0);
+      for (let d = 0; d < depth; d++) bump(pad + d * colW, 0, cardW, headH);
+      if (finalM) {
+        const fx = cardX(finalM), fy = cardY(finalM) + boxH + 10;
+        let ny = fy;
+        if (champ) {
+          gCards.append(el("rect", { x: fx, y: fy, width: cardW, height: 28, rx: 14, class: "bvChampBg" }));
+          gCards.append(el("text", { x: fx + cardW / 2, y: fy + 14, "text-anchor": "middle", class: "bvChamp", style: `font-size:${champFs}px` }, `🏆 優勝 ${champ}`));
+          bump(fx, fy, cardW, 28); ny += 40;
+        }
+        if (third) drawCard(third, fx, Math.max(ny + 8, fy + 30), "3位決定戦");
       }
-      const width = pad * 2 + depth * colW - colGap;
-      const rowsN = spreadFor(mirrored);
-      let height = headH + rowsN * (cardH + capH + gapV) + pad + (third ? cardH + capH + gapV + 10 : 0);
-      if (third && finalM) {
-        const ty = Math.max(cardY(finalM) + cardH + 56, headH + rowsN * (cardH + capH + gapV) - cardH + capH);
-        drawCard(third, cardX(finalM), Math.min(ty, height - cardH - pad), "3位決定戦");
-      }
-      return finish(svg, 0, 0, width, height);
+      return finish(svg, 0, 0, Math.max(maxX, pad * 2 + depth * colW - colGap) + pad, maxY + pad);
     }
 
-    // 縦型: 優勝は決勝の右、3位決定戦は決勝の左
     if (finalM) {
       const fx = cardX(finalM), fy = cardY(finalM);
       if (champ) {
@@ -336,9 +313,8 @@
       svgEl.setAttribute("viewBox", `${x0} ${y0} ${w} ${h}`);
       svgEl.dataset.naturalWidth = w;
       svgEl.dataset.expectedScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, opt.maxWidth ? opt.maxWidth / w : 1)).toFixed(3);
-      svgEl.dataset.orientation = orient;
+      svgEl.dataset.orientation = V ? "v" : "h";
       svgEl.dataset.mirrored = mirrored ? "1" : "0";
-      // 縮尺: 基本は実寸、画面に合わせて MIN_SCALE〜MAX_SCALE の範囲で伸縮。足りなければスクロール
       svgEl.style.width = "100%";
       svgEl.style.maxWidth = Math.round(w * MAX_SCALE) + "px";
       svgEl.style.minWidth = Math.round(w * MIN_SCALE) + "px";

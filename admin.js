@@ -2695,15 +2695,14 @@
   }
 
   // 表の向き（自動 → 横型 → 縦型）。生徒用画面の初期設定にも使われる
-  const ORIENT_LABEL = { auto: "自動", h: "横型", v: "縦型" };
+  // 表の向きは 横型 ⇔ 縦型 の2択（自動で入れ替えることはしない）
+  const ORIENT_LABEL = { h: "横型", v: "縦型" };
   function syncOrientBtn() {
     const b = el("btnOrient");
-    if (b) b.textContent = "↕ 表の向き: " + ORIENT_LABEL[state.tournament?.bracketOrient || "auto"];
+    if (b) b.textContent = "↕ 表の向き: " + ORIENT_LABEL[state.tournament?.bracketOrient === "v" ? "v" : "h"] + "（切替）";
   }
   if (el("btnOrient")) el("btnOrient").onclick = () => {
-    const order = ["auto", "h", "v"];
-    const cur = state.tournament.bracketOrient || "auto";
-    state.tournament.bracketOrient = order[(order.indexOf(cur) + 1) % order.length];
+    state.tournament.bracketOrient = state.tournament.bracketOrient === "v" ? "h" : "v";
     saveState(); syncOrientBtn();
     if (currentEvent) renderBracket();
     toast("表の向き: " + ORIENT_LABEL[state.tournament.bracketOrient], "info", 1500);
@@ -3777,7 +3776,7 @@
     const durMin = (currentEvent.settings?.matchMinutes || 10) + (currentEvent.settings?.turnoverMinutes || 2);
     const now = new Date();
     const bvOpt = {
-      orientation: state.tournament?.bracketOrient || "auto",
+      orientation: state.tournament?.bracketOrient === "v" ? "v" : "h",
       maxWidth: (bracket.closest(".bracketWrap") || bracket).clientWidth,
       maxHeight: Math.max(320, window.innerHeight - Math.max(0, bracket.getBoundingClientRect().top) - 16),
       selectedKey: selectedMatchKey,

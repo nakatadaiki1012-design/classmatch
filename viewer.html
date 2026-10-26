@@ -309,7 +309,7 @@ body.fz-l .teamBox .tbText{font-size:20px;}
         <div id="settingsPanel" class="hidden">
           <div class="setRow"><span class="setLbl">表の向き</span>
             <div class="seg" id="segOrient" role="group" aria-label="表の向き">
-              <button data-v="auto">自動</button><button data-v="h">横型</button><button data-v="v">縦型</button>
+              <button data-v="h">横型</button><button data-v="v">縦型</button>
             </div></div>
           <div class="setRow"><span class="setLbl">文字</span>
             <div class="seg" id="segFont" role="group" aria-label="文字の大きさ">
@@ -450,7 +450,11 @@ body.fz-l .teamBox .tbText{font-size:20px;}
   let prefs = { view: "auto", orient: null, font: "m", team: "" };
   try { Object.assign(prefs, JSON.parse(localStorage.getItem(PREF_KEY) || "{}")); } catch {}
   function savePrefs() { try { localStorage.setItem(PREF_KEY, JSON.stringify(prefs)); } catch {} }
-  function currentOrient() { return prefs.orient || state?.tournament?.bracketOrient || "auto"; }
+  // 表の向き: この端末で選んだ向き → 先生が設定した向き → 横型（自動では入れ替えない）
+  function currentOrient() {
+    const o = (prefs.orient === "h" || prefs.orient === "v") ? prefs.orient : state?.tournament?.bracketOrient;
+    return o === "v" ? "v" : "h";
+  }
   function syncCtl() {
     const on = (sel, v) => document.querySelectorAll(sel + " button").forEach(b => b.classList.toggle("on", b.dataset.v === v));
     on("#segView", prefs.view); on("#segOrient", currentOrient()); on("#segFont", prefs.font);
