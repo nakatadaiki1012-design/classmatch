@@ -2694,6 +2694,14 @@
     renderDashboard();
   }
 
+  // 「その他」メニュー: 項目を選んだら閉じる／メニューの外をクリックしても閉じる
+  document.querySelectorAll(".bracketToolbar details").forEach(d => {
+    d.querySelectorAll("button").forEach(b => b.addEventListener("click", () => { d.open = false; }));
+  });
+  document.addEventListener("click", (e) => {
+    document.querySelectorAll(".bracketToolbar details[open]").forEach(d => { if (!d.contains(e.target)) d.open = false; });
+  });
+
   // 画面サイズが変わったらトーナメント表を描き直す（両側型/片側型の自動切替のため）
   let _resizeTimer = null;
   window.addEventListener("resize", () => {
@@ -3754,6 +3762,7 @@
     const now = new Date();
     const bvOpt = {
       maxWidth: (bracket.closest(".bracketWrap") || bracket).clientWidth,
+      maxHeight: Math.max(320, window.innerHeight - Math.max(0, bracket.getBoundingClientRect().top) - 16),
       selectedKey: selectedMatchKey,
       isLive: (m) => m.state !== "final" && isMatchOngoing(m, now, durMin),
       onClick: (key) => {
@@ -3765,7 +3774,16 @@
         renderBracket(); renderMatchButtons();
       },
     };
-    bracket.appendChild(window.BracketView.build(mainMatches, bvOpt));
+    const mainSvg = window.BracketView.build(mainMatches, bvOpt);
+    bracket.appendChild(mainSvg);
+    window.BracketView.addScrollHint(bracket.closest(".bracketWrap"), bracket);
+    // 試合リストを開いたままだと文字が小さくなりすぎる大きな大会では、リストを自動で畳んで表を広げる
+    // （ユーザーが自分で開閉した場合はその選択を優先）
+    if (!_panelUserChoice && window.innerWidth > 820 && Number(mainSvg.dataset.expectedScale) < 0.85
+        && !el("adminPanel")?.classList.contains("collapsed")) {
+      setAdminPanelCollapsed(true);
+      return renderBracket();
+    }
 
     // 裏トーナメント
     if (currentEvent.loserMatches && currentEvent.loserMatches.length > 0) {
@@ -4100,38 +4118,45 @@
   };
 
   // ── Finalize / Clear match ────────────────────────────────────
+  // m の結果を取り消す/変えるとき、勝ち上がり先の試合の結果を連鎖的に取り消し、
+  // 勝ち上がっていたチームを外す。先に下流を処理するのは、下流の勝者が誰だったかを
+  // （チーム名を外す前に）辿れるようにするため。m.winner はまだ元の値である前提。
+  function resetDownstream(matches, m, seen = new Set()) {
+    if (!m) return;
+    const advanced = m.winner === "A" ? m.teamA : m.winner === "B" ? m.teamB : null;
+    const loser = m.winner === "A" ? m.teamB : m.winner === "B" ? m.teamA : null;
+    const next = m.nextMatchKey && !seen.has(m.nextMatchKey) ? findMatchByKey(matches, m.nextMatchKey) : null;
+    if (next) {
+      seen.add(m.nextMatchKey);
+      if (next.winner || next.state === "final") {
+        resetDownstream(matches, next, seen);
+        next.winner = null; next.state = "pending"; next.scoreA = null; next.scoreB = null;
+        delete next.setScores;
+      }
+      if (advanced) {
+        if (m.nextSlot === "A" && next.teamA === advanced) next.teamA = null;
+        if (m.nextSlot === "B" && next.teamB === advanced) next.teamB = null;
+      }
+    }
+    // 準決勝なら、3位決定戦に入っていた敗者も外す
+    if (!m.isLoserMatch && !m.isThirdPlace && loser && currentEvent) {
+      const tp = currentEvent.matches.find(x => x.isThirdPlace);
+      const maxR = Math.max(...currentEvent.matches.filter(x => !x.isThirdPlace).map(x => x.round));
+      if (tp && m.round === maxR - 1) {
+        if (tp.teamA === loser || tp.teamB === loser) {
+          tp.winner = null; tp.state = "pending"; tp.scoreA = null; tp.scoreB = null; delete tp.setScores;
+          if (tp.teamA === loser) tp.teamA = null;
+          if (tp.teamB === loser) tp.teamB = null;
+        }
+      }
+    }
+  }
+
   function finalizeMatchLocal(matches, m, winner, silent) {
     const prevWinner = m.winner;
-    const prevWinTeam = prevWinner ? (prevWinner === "A" ? m.teamA : m.teamB) : null;
 
-    // BUG-04修正: 循環参照による無限再帰を防ぐ訪問済みSetを追加
-    const _visitedKeys = new Set();
-    function clearOutcomeFrom(mk) {
-      if (_visitedKeys.has(mk)) return;
-      _visitedKeys.add(mk);
-      const mm = findMatchByKey(matches, mk);
-      if (!mm) return;
-      if (mm.winner) {
-        const oldTeam = mm.winner === "A" ? mm.teamA : mm.teamB;
-        mm.winner = null; mm.state = "pending";
-        mm.scoreA = null; mm.scoreB = null;
-        if (mm.nextMatchKey && oldTeam) {
-          const next = findMatchByKey(matches, mm.nextMatchKey);
-          if (mm.nextSlot === "A" && next.teamA === oldTeam) next.teamA = null;
-          if (mm.nextSlot === "B" && next.teamB === oldTeam) next.teamB = null;
-          clearOutcomeFrom(mm.nextMatchKey);
-        }
-      } else if (mm.nextMatchKey) clearOutcomeFrom(mm.nextMatchKey);
-    }
-
-    if (prevWinner && m.nextMatchKey) {
-      const next = findMatchByKey(matches, m.nextMatchKey);
-      if (prevWinTeam) {
-        if (m.nextSlot === "A" && next.teamA === prevWinTeam) next.teamA = null;
-        if (m.nextSlot === "B" && next.teamB === prevWinTeam) next.teamB = null;
-      }
-      clearOutcomeFrom(m.nextMatchKey);
-    }
+    // 勝者が変わる場合は、勝ち上がり先の結果を連鎖的に取り消してから付け替える
+    if (prevWinner) resetDownstream(matches, m);
 
     m.winner = winner;
     m.state = "final";
@@ -4205,36 +4230,7 @@
   }
 
   function clearFinalLocal(matches, m) {
-    function clearOutcomeFrom(mk) {
-      if (!mk) return;
-      const mm = findMatchByKey(matches, mk);
-      if (!mm) return;
-      if (mm.winner) {
-        const oldTeam = mm.winner === "A" ? mm.teamA : mm.teamB;
-        mm.winner = null; mm.state = "pending";
-        mm.scoreA = null; mm.scoreB = null;
-        delete mm.setScores;
-        if (mm.nextMatchKey && oldTeam) {
-          const next = findMatchByKey(matches, mm.nextMatchKey);
-          if (mm.nextSlot === "A" && next.teamA === oldTeam) next.teamA = null;
-          if (mm.nextSlot === "B" && next.teamB === oldTeam) next.teamB = null;
-          clearOutcomeFrom(mm.nextMatchKey);
-        }
-      } else {
-        mm.state = "pending";
-        mm.scoreA = null; mm.scoreB = null;
-        delete mm.setScores;
-        if (mm.nextMatchKey) clearOutcomeFrom(mm.nextMatchKey);
-      }
-    }
-
-    const prevWinTeam = m.winner === "A" ? m.teamA : m.winner === "B" ? m.teamB : null;
-    if (m.nextMatchKey && prevWinTeam) {
-      const next = findMatchByKey(matches, m.nextMatchKey);
-      if (m.nextSlot === "A" && next.teamA === prevWinTeam) next.teamA = null;
-      if (m.nextSlot === "B" && next.teamB === prevWinTeam) next.teamB = null;
-      clearOutcomeFrom(m.nextMatchKey);
-    }
+    resetDownstream(matches, m);
     m.winner = null; m.state = "pending"; m.scoreA = null; m.scoreB = null;
     delete m.setScores;
 
@@ -4487,23 +4483,20 @@
   updateLiveShareBanner();
 
   // ── Admin Panel Toggle ──
-  const btnToggleAdmin = el("btnToggleAdmin");
-  const adminPanel = el("adminPanel");
-  if (btnToggleAdmin && adminPanel) {
-    btnToggleAdmin.onclick = () => {
-      adminPanel.classList.toggle("collapsed");
-      const grid = adminPanel.closest(".grid2");
-      if (adminPanel.classList.contains("collapsed")) {
-        btnToggleAdmin.textContent = "\u25b6";
-        btnToggleAdmin.title = "展開";
-        if (grid) grid.classList.add("admin-collapsed");
-      } else {
-        btnToggleAdmin.textContent = "\u25c0 隠す";
-        btnToggleAdmin.title = "隠す";
-        if (grid) grid.classList.remove("admin-collapsed");
-      }
-    };
+  // 試合リスト（右パネル）の開閉。開閉後は表の幅が変わるので描き直す
+  var _panelUserChoice = false; // var: 初期化前に renderBracket から参照されても安全
+  function setAdminPanelCollapsed(collapsed) {
+    const panel = el("adminPanel"), btn = el("btnToggleAdmin");
+    if (!panel) return;
+    panel.classList.toggle("collapsed", collapsed);
+    panel.closest(".grid2")?.classList.toggle("admin-collapsed", collapsed);
+    if (btn) { btn.textContent = collapsed ? "◀ 試合一覧" : "隠す ▶"; btn.title = collapsed ? "試合一覧を開く" : "試合一覧を隠す"; }
   }
+  if (el("btnToggleAdmin")) el("btnToggleAdmin").onclick = () => {
+    _panelUserChoice = true;
+    setAdminPanelCollapsed(!el("adminPanel").classList.contains("collapsed"));
+    if (currentEvent) renderBracket();
+  };
 
   // ── Bracket Direction Toggle ──
   if (el("btnAutoFit")) el("btnAutoFit").onclick = () => {
@@ -4825,6 +4818,14 @@
     });
 
     event.matches.push(thirdMatch);
+    // 時刻: 3位決定戦を決勝の時間枠に入れ、決勝はその次の枠へ（3位決定戦 → 決勝 の順）
+    const finalM = event.matches.find(m => m.round === maxR && !m.isThirdPlace);
+    if (finalM && finalM.scheduledStart) {
+      const slotMin = (Number(event.settings?.matchMinutes) || 10) + (Number(event.settings?.turnoverMinutes) || 0);
+      thirdMatch.scheduledStart = finalM.scheduledStart;
+      thirdMatch.court = finalM.court || thirdMatch.court;
+      finalM.scheduledStart = new Date(new Date(finalM.scheduledStart).getTime() + slotMin * 60000).toISOString();
+    }
     assignMatchNumbers(event);
     saveState();
     toast('3位決定戦を追加しました', 'info');

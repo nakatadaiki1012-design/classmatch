@@ -665,3 +665,15 @@ details[open] > summary { margin-bottom: 6px; }
 .mlRow .statusBadge { font-size: 10px; padding: 2px 7px; }
 .mlEmpty { text-align: center; padding: 24px 8px; color: var(--muted); font-size: 13px; }
 .mlHint { text-align: center; margin-top: 8px; }
+
+/* 試合リストを畳んだ状態（表を広く使う） */
+.grid2.admin-collapsed { grid-template-columns: 1fr 52px; }
+#adminPanel.collapsed { padding: 8px 4px; }
+#adminPanel.collapsed #adminPanelContent,
+#adminPanel.collapsed h3,
+#adminPanel.collapsed #btnUndo { display: none !important; }
+#adminPanel.collapsed .row.between { justify-content: center; }
+#adminPanel.collapsed #btnToggleAdmin { writing-mode: vertical-rl; padding: 10px 4px; min-height: 120px; }
+@media (max-width: 820px) { .grid2.admin-collapsed { grid-template-columns: 1fr; } #adminPanel.collapsed #btnToggleAdmin { writing-mode: horizontal-tb; min-height: 0; } }
+/* タイムテーブル: 進行中の行 */
+.tbl tr.ongoing-row td { background: #fff1f2 !important; }

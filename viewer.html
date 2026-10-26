@@ -398,14 +398,15 @@ progress::-webkit-progress-value{background:var(--ok);border-radius:4px;transiti
       bracket.appendChild(buildLeagueHTML(ev));
     } else {
       const mainMs = (ev.matches||[]).filter(m=>!m.isExhibition);
-      if (mainMs.length) bracket.appendChild(window.BracketView.build(mainMs, { maxWidth: bracket.clientWidth }));
+      if (mainMs.length) bracket.appendChild(window.BracketView.build(mainMs, { maxWidth: bracket.clientWidth, maxHeight: Math.max(360, window.innerHeight - 180) }));
 
+      window.BracketView.addScrollHint(bracket);
       if (ev.loserMatches && ev.loserMatches.length > 0) {
         const lbl = document.createElement("div");
         lbl.className = "loserLabel";
         lbl.textContent = "▊ 裏トーナメント";
         bracket.appendChild(lbl);
-        bracket.appendChild(window.BracketView.build(ev.loserMatches, { maxWidth: bracket.clientWidth }));
+        bracket.appendChild(window.BracketView.build(ev.loserMatches, { maxWidth: bracket.clientWidth, maxHeight: Math.max(360, window.innerHeight - 180) }));
       }
     }
   }

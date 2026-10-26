@@ -99,20 +99,43 @@
     const cardW = Math.round(Math.max(84, Math.min(240, nameUnits * fs * 1.12 + scoreW + 22)));
     const rowH = Math.round(fs * 1.9);
     const cardH = rowH * 2;
-    const capH = 15;                                      // カード上の「第n試合 09:00 A」
     const gapV = 12;
-    const pitch = cardH + capH + gapV;
     const colGap = r1count >= 8 ? 22 : 30;            // 大きい大会ほど列間を詰める
     const colW = cardW + colGap;
     const headH = 30;
     const pad = 12;
-
-    // 8チーム以上(1回戦4試合以上)は両側型。ただし画面が狭くて収まらないときは片側型
-    const widthFor = (nCols) => pad * 2 + nCols * colW - colGap;
-    let mirrored = rounds >= 3 && r1count >= 4;
-    if (mirrored && opt.maxWidth && widthFor(2 * (rounds - 1) + 1) * 0.7 > opt.maxWidth
-        && widthFor(rounds) < widthFor(2 * (rounds - 1) + 1)) mirrored = false;
     const half = r1count / 2;
+    // スマホ幅では縮めすぎず（読めなくなるので）横スクロールを許す
+    const MIN_SCALE = (opt.maxWidth && opt.maxWidth < 600) ? 0.85 : 0.7, MAX_SCALE = 1.15;
+
+    // ── 配置の自動選択 ──────────────────────────────
+    // 両側型（左右から決勝へ）と片側型を比べ、画面に出る文字がいちばん大きく、
+    // かつ縦に収まる方を選ぶ。
+    const colsFor = (mir) => mir ? 2 * (rounds - 1) + 1 : rounds;
+    const rowsFor = (mir) => mir ? half : r1count;
+    const widthFor = (mir) => pad * 2 + colsFor(mir) * colW - colGap;
+    const heightFor = (mir, capH) => headH + rowsFor(mir) * (cardH + capH + gapV) + pad + (third ? cardH + capH + gapV + 10 : 0);
+    const scaleFor = (mir) => opt.maxWidth ? Math.max(MIN_SCALE, Math.min(MAX_SCALE, opt.maxWidth / widthFor(mir))) : 1;
+    const candidates = [false];
+    if (rounds >= 3 && r1count >= 4) candidates.push(true);
+    let mirrored = candidates[candidates.length - 1], best = -Infinity;
+    for (const mir of candidates) {
+      const sc = scaleFor(mir);
+      const screenH = heightFor(mir, 15) * sc;
+      let score = sc;
+      // 縦にはみ出す: 2画面以内なら少し減点、それ以上は大きく減点
+      if (opt.maxHeight && screenH > opt.maxHeight) score *= (screenH > opt.maxHeight * 2 ? 0.5 : 0.8);
+      // 横にはみ出す（横スクロール）は縦より使いにくいので減点
+      const over = opt.maxWidth ? (widthFor(mir) * sc) / opt.maxWidth : 1;
+      if (over > 1.02) score /= Math.sqrt(over);
+      score -= screenH / 1e5;                           // 同点なら背の低い方
+      if (score > best) { best = score; mirrored = mir; }
+    }
+    const expScale = scaleFor(mirrored);
+    // 「第n試合 09:00 A」は画面上で 9.5px 以上になるよう文字を大きくする
+    const capFs = Math.min(13, Math.max(10, 9.5 / expScale));
+    const capH = Math.round(capFs + 5);
+    const pitch = cardH + capH + gapV;
 
     // 各試合の「1回戦換算の位置」(縦方向) を求める: 1回戦 slot s → s、上位ラウンドは子の平均
     const span = (r) => Math.pow(2, r - 1);              // 1試合が覆う1回戦の枠数
@@ -137,14 +160,15 @@
       return sideOf(m) === "L" ? m.round - 1 : cols - m.round;
     };
 
-    const width = pad * 2 + cols * colW - colGap;
-    const height = headH + rows * pitch + pad + (third ? pitch + 10 : 0);
+    const width = widthFor(mirrored);
+    const height = heightFor(mirrored, capH);
     const svg = el("svg", { viewBox: `0 0 ${width} ${height}`, class: "bv" });
     svg.dataset.naturalWidth = width;
+    svg.dataset.expectedScale = expScale.toFixed(3);
     // 自動で縮尺: 基本は実寸、画面が狭ければ75%まで縮め、それ以上は横スクロール
     svg.style.width = "100%";
-    svg.style.maxWidth = Math.round(width * 1.15) + "px";
-    svg.style.minWidth = Math.round(width * 0.7) + "px";
+    svg.style.maxWidth = Math.round(width * MAX_SCALE) + "px";
+    svg.style.minWidth = Math.round(width * MIN_SCALE) + "px";
     svg.style.height = "auto";
     svg.style.display = "block";
     svg.style.margin = "0 auto";
@@ -165,7 +189,7 @@
       const isFinal = r === rounds;
       gCards.append(el("text", {
         x: pad + c * colW + cardW / 2, y: 18, "text-anchor": "middle",
-        class: "bvHead" + (isFinal ? " final" : ""),
+        class: "bvHead" + (isFinal ? " final" : ""), style: `font-size:${Math.max(12, 11 / expScale)}px`,
       }, roundName(r, rounds)));
     }
 
@@ -194,7 +218,7 @@
       const st = m.state || "pending";
       const live = opt.isLive ? opt.isLive(m) : false;
       const g = el("g", { class: `bvCard st-${st}` + (live ? " live" : "") + (opt.selectedKey === key ? " sel" : ""), "data-key": key });
-      g.append(el("text", { x, y: y - 4, class: "bvCap" }, caption));
+      g.append(el("text", { x, y: y - 4, class: "bvCap", style: `font-size:${capFs}px` }, caption));
       g.append(el("rect", { x, y, width: cardW, height: cardH, rx: 7, class: "bvBox" }));
       [["A", m.teamA, m.scoreA], ["B", m.teamB, m.scoreB]].forEach(([side, team, score], i) => {
         const ry = y + i * rowH;
@@ -222,7 +246,8 @@
       gCards.append(g);
     };
 
-    const captionOf = (m) => [m.matchNum ? `第${m.matchNum}試合` : "", fmtTime(m.scheduledStart), m.court || ""].filter(Boolean).join("  ");
+    const shortCap = capFs * 9 > cardW + colGap * 0.8;   // 文字を大きくした結果、幅が足りないとき
+    const captionOf = (m) => [m.matchNum ? (shortCap ? `第${m.matchNum}` : `第${m.matchNum}試合`) : "", fmtTime(m.scheduledStart), m.court || ""].filter(Boolean).join(" ");
 
     for (const m of matches) {
       if (m.isBye) continue; // 不戦勝は描かない（勝ち上がったチームが次の回戦に表示される）
@@ -248,5 +273,19 @@
     return svg;
   }
 
-  window.BracketView = { build, keyOf };
+  // 表が横にはみ出しているとき「→ 横にスクロール」の案内を表示する
+  function addScrollHint(container, target = container) {
+    if (!container) return;
+    container.querySelectorAll(".bvScrollHint").forEach(e => e.remove());
+    requestAnimationFrame(() => {
+      if (container.scrollWidth <= container.clientWidth + 4) return;
+      const h = document.createElement("div");
+      h.className = "bvScrollHint";
+      h.textContent = "← 横にスクロールして決勝まで見られます →";
+      h.style.cssText = "position:sticky;left:0;font-size:12px;color:#1d4ed8;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:6px 10px;margin:0 0 8px;text-align:center;width:max-content;max-width:100%;";
+      target.prepend(h);
+    });
+  }
+
+  window.BracketView = { build, keyOf, addScrollHint };
 })();
