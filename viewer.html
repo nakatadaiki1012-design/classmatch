@@ -217,6 +217,7 @@ progress::-webkit-progress-value{background:var(--ok);border-radius:4px;transiti
     </div>
   </main>
 
+<script src="bracket-render.js"></script>
 <script>
 (function() {
   // ── Utilities ──────────────────────────────
@@ -397,14 +398,14 @@ progress::-webkit-progress-value{background:var(--ok);border-radius:4px;transiti
       bracket.appendChild(buildLeagueHTML(ev));
     } else {
       const mainMs = (ev.matches||[]).filter(m=>!m.isExhibition);
-      if (mainMs.length) bracket.appendChild(buildBracketSVG(mainMs, ev));
+      if (mainMs.length) bracket.appendChild(window.BracketView.build(mainMs, { maxWidth: bracket.clientWidth }));
 
       if (ev.loserMatches && ev.loserMatches.length > 0) {
         const lbl = document.createElement("div");
         lbl.className = "loserLabel";
         lbl.textContent = "▊ 裏トーナメント";
         bracket.appendChild(lbl);
-        bracket.appendChild(buildBracketSVG(ev.loserMatches, ev));
+        bracket.appendChild(window.BracketView.build(ev.loserMatches, { maxWidth: bracket.clientWidth }));
       }
     }
   }
@@ -440,304 +441,6 @@ progress::-webkit-progress-value{background:var(--ok);border-radius:4px;transiti
     });
     const sorted=[...teams].sort((x,y)=>(res[y].pts-res[x].pts)||(res[y].gd-res[x].gd));
     return sorted[0] || null;
-  }
-
-  // ── Build bracket SVG (read-only, visual only) ──
-  function buildBracketSVG(matches, ev) {
-    matches = matches.filter(m=>!m.isExhibition);
-    const ui = {};
-    const fontSize = 13, totalW = 140, boxH = 32;
-    const gapX = 8, roundGapY = 110, midGap = 10;
-    const branchLen = 34, sideW = (totalW - midGap) / 2;
-
-    const allRounds = [...new Set(matches.map(m=>m.round))].sort((a,b)=>a-b);
-    const rounds = allRounds[allRounds.length-1] || 1;
-
-    const padX = 24, padTop = 50, padBottom = 30;
-
-    const yRound = {};
-    let currentY = padTop;
-    for (let r = rounds; r >= 1; r--) {
-      yRound[r] = currentY;
-      if (r > 1) {
-        const multiplier = (rounds - r) + 1;
-        currentY += roundGapY * multiplier * 0.7;
-      }
-    }
-
-    const xPos = {};
-    for (let r = 1; r <= rounds; r++) {
-      const step = (totalW + gapX) * Math.pow(2, r-1);
-      const startX = 28 + padX + (step/2 - totalW/2);
-      matches.filter(m=>m.round===r).forEach(m => {
-        xPos[matchKey(m)] = startX + m.slot * step;
-      });
-    }
-
-    let actualMaxX = 0;
-    for (const k in xPos) actualMaxX = Math.max(actualMaxX, xPos[k] + totalW);
-    let rootCX = 0;
-    const finalM = matches.find(m=>m.round===rounds);
-    if (finalM && xPos[matchKey(finalM)] !== undefined) {
-      rootCX = xPos[matchKey(finalM)] + totalW / 2;
-    }
-    const svgW = Math.max(actualMaxX + padX, rootCX * 2);
-    const svgH = currentY + boxH + padBottom;
-
-    const ns = "http://www.w3.org/2000/svg";
-    const svg = document.createElementNS(ns, "svg");
-    svg.setAttribute("width", svgW);
-    svg.setAttribute("height", svgH);
-    svg.setAttribute("viewBox", `0 0 ${svgW} ${svgH}`);
-    svg.style.display = "block";
-    svg.style.margin = "0 auto";
-
-    function matchKey(m) { return `${m.isLoserMatch?"L":"R"}${m.round}-${m.slot}`; }
-    const byKey = {};
-    matches.forEach(m => byKey[matchKey(m)] = m);
-
-    const leftX  = x => x;
-    const rightX = x => x + sideW + midGap;
-    const lCX    = x => x + sideW / 2;
-    const rCX    = x => x + sideW + midGap + sideW / 2;
-    const mCX    = x => x + totalW / 2;
-
-    const mkPath = (d, cls) => {
-      const p = document.createElementNS(ns, "path");
-      p.setAttribute("d", d);
-      p.setAttribute("class", cls);
-      svg.insertBefore(p, svg.firstChild);
-    };
-
-    // Round labels
-    for (let r = 1; r <= rounds; r++) {
-      const matchesInR = matches.filter(m=>m.round===r);
-      let minX = svgW;
-      matchesInR.forEach(m => { const mx = xPos[matchKey(m)]; if (mx !== undefined && mx < minX) minX = mx; });
-      if (minX === svgW) minX = 4;
-      const t = document.createElementNS(ns, "text");
-      t.setAttribute("x", minX + 2);
-      t.setAttribute("y", yRound[r] - 6);
-      t.setAttribute("class", "roundLabel");
-      t.setAttribute("font-size", "11");
-      const diff = rounds - r;
-      t.textContent = diff===0?"決勝":diff===1?"準決勝":diff===2?"準々決勝":`${r}回戦`;
-      svg.appendChild(t);
-    }
-
-    // Connectors
-    const innerBranch = Math.max(8, Math.round(branchLen * 0.42));
-    const junctionsByParent = {};
-    for (const m of matches) {
-      const r = m.round;
-      if (r >= Math.max(...allRounds)) continue;
-      const childKey = matchKey(m);
-      if (!m.nextMatchKey) continue;
-      const cx = xPos[childKey];
-      const cy = yRound[r];
-      const parentKey = m.nextMatchKey;
-      const parentRound = parseInt(parentKey.replace("R","").replace("L","").split("-")[0]);
-      const parentEndY = yRound[parentRound] + boxH;
-      const currentBranchLen = Math.min(branchLen, (cy - parentEndY) * 0.4);
-      const juncY1 = cy - innerBranch;
-      const juncY2 = cy - currentBranchLen;
-      const isFin = m?.state==="final" && m?.winner;
-      const winA = isFin && m.winner==="A";
-      const winB = isFin && m.winner==="B";
-      const isBye = m?.isBye;
-      if (isBye) {
-        mkPath(`M ${mCX(cx)} ${cy} V ${juncY2}`, "line win");
-      } else {
-        mkPath(`M ${lCX(cx)} ${cy} V ${juncY1}`, winA?"line win":"line");
-        mkPath(`M ${rCX(cx)} ${cy} V ${juncY1}`, winB?"line win":"line");
-        mkPath(`M ${lCX(cx)} ${juncY1} H ${mCX(cx)}`, winA?"line win":"line");
-        mkPath(`M ${mCX(cx)} ${juncY1} H ${rCX(cx)}`, winB?"line win":"line");
-        mkPath(`M ${mCX(cx)} ${juncY1} V ${juncY2}`, isFin?"line win":"line");
-      }
-      if (!junctionsByParent[parentKey]) junctionsByParent[parentKey] = [];
-      junctionsByParent[parentKey].push({ x: mCX(cx), juncY: juncY2, isFinal: isFin });
-    }
-    for (const [parentKey, children] of Object.entries(junctionsByParent)) {
-      children.sort((a,b)=>a.x-b.x);
-      const x0 = children[0].x, x1 = children[children.length-1].x;
-      const juncY = children[0].juncY;
-      const midX = (x0+x1)/2;
-      const parentRound = parseInt(parentKey.replace("R","").replace("L","").split("-")[0]);
-      const endY = yRound[parentRound] + boxH;
-      const leftWin = children[0]?.isFinal??false;
-      const rightWin = children[1]?.isFinal??false;
-      if (children.length >= 2) {
-        mkPath(`M ${x0} ${juncY} H ${midX}`, leftWin?"line win":"line");
-        mkPath(`M ${midX} ${juncY} H ${x1}`, rightWin?"line win":"line");
-      }
-      mkPath(`M ${midX} ${juncY} V ${endY}`, (leftWin||rightWin)?"line win":"line");
-    }
-
-    // Boxes
-    for (const m of matches) {
-      const r = m.round;
-      const key = matchKey(m);
-      const x = xPos[key];
-      const y = yRound[r];
-      if (x === undefined) continue;
-
-      const hasScore = m.scoreA != null && m.scoreB != null;
-      const isBye = m.isBye;
-      const isFinalResult = m.state==="final" && m.winner;
-      const isChampion = isFinalResult && r === rounds;
-
-      if (isBye) {
-        const winner = m.winner==="A"?m.teamA:m.teamB;
-        const boxW = totalW * 0.7;
-        const bx = x + (totalW - boxW) / 2;
-        const rect = document.createElementNS(ns,"rect");
-        rect.setAttribute("x",bx); rect.setAttribute("y",y);
-        rect.setAttribute("width",boxW); rect.setAttribute("height",boxH);
-        rect.setAttribute("rx",6); rect.setAttribute("fill","#f0fdf4");
-        rect.setAttribute("stroke","#86efac"); rect.setAttribute("stroke-width","1.5");
-        svg.appendChild(rect);
-        const bt = document.createElementNS(ns,"text");
-        bt.setAttribute("x",x+totalW/2); bt.setAttribute("y",y+boxH/2+1);
-        bt.setAttribute("text-anchor","middle"); bt.setAttribute("dominant-baseline","middle");
-        bt.setAttribute("font-size",String(fontSize)); bt.setAttribute("font-weight","700");
-        bt.setAttribute("fill","#15803d");
-        bt.textContent = formatTeamName(winner||"?").replace("\n"," ");
-        svg.appendChild(bt);
-        const bBg = document.createElementNS(ns,"rect");
-        bBg.setAttribute("x",bx+boxW-30); bBg.setAttribute("y",y-6);
-        bBg.setAttribute("width","26"); bBg.setAttribute("height","12");
-        bBg.setAttribute("rx","6"); bBg.setAttribute("fill","#22c55e");
-        svg.appendChild(bBg);
-        const bTxt = document.createElementNS(ns,"text");
-        bTxt.setAttribute("x",bx+boxW-17); bTxt.setAttribute("y",y);
-        bTxt.setAttribute("text-anchor","middle"); bTxt.setAttribute("dominant-baseline","middle");
-        bTxt.setAttribute("font-size","7.5"); bTxt.setAttribute("font-weight","800");
-        bTxt.setAttribute("fill","#fff"); bTxt.textContent="BYE";
-        svg.appendChild(bTxt);
-        continue;
-      }
-
-      // fill colors
-      const fillWin  = isChampion?"#bbf7d0":"#dcfce7";
-      const fillLoss = "#f1f5f9";
-      const fillN = m.state==="playing"?"#fff1f2":m.state==="calling"?"#fffbeb":"#f8fafc";
-      const fillA = isFinalResult?(m.winner==="A"?fillWin:fillLoss):fillN;
-      const fillB = isFinalResult?(m.winner==="B"?fillWin:fillLoss):fillN;
-      const strokeA = isFinalResult?(m.winner==="A"?"#16a34a":"#e2e8f0"):(m.state==="playing"?"#f43f5e":m.state==="calling"?"#f59e0b":"#cbd5e1");
-      const strokeB = isFinalResult?(m.winner==="B"?"#16a34a":"#e2e8f0"):strokeA;
-
-      let stClass = m.state==="calling"?"match-calling":m.state==="playing"?"match-playing":(m.state||"pending");
-
-      const matchG = document.createElementNS(ns,"g");
-
-      const rectA = document.createElementNS(ns,"rect");
-      rectA.setAttribute("x",leftX(x)); rectA.setAttribute("y",y);
-      rectA.setAttribute("width",sideW); rectA.setAttribute("height",boxH);
-      rectA.setAttribute("rx",6);
-      rectA.setAttribute("fill",fillA); rectA.setAttribute("stroke",strokeA);
-      rectA.setAttribute("stroke-width",isFinalResult&&m.winner==="A"?"2":"1");
-      rectA.setAttribute("class",`sideBox ${stClass}`);
-      matchG.appendChild(rectA);
-
-      const rectB = document.createElementNS(ns,"rect");
-      rectB.setAttribute("x",rightX(x)); rectB.setAttribute("y",y);
-      rectB.setAttribute("width",sideW); rectB.setAttribute("height",boxH);
-      rectB.setAttribute("rx",6);
-      rectB.setAttribute("fill",fillB); rectB.setAttribute("stroke",strokeB);
-      rectB.setAttribute("stroke-width",isFinalResult&&m.winner==="B"?"2":"1");
-      rectB.setAttribute("class",`sideBox ${stClass}`);
-      matchG.appendChild(rectB);
-
-      // center: score or vs
-      const centerTxt = document.createElementNS(ns,"text");
-      centerTxt.setAttribute("x",mCX(x)); centerTxt.setAttribute("y",y+boxH/2);
-      centerTxt.setAttribute("text-anchor","middle"); centerTxt.setAttribute("dominant-baseline","middle");
-      if (hasScore) {
-        centerTxt.setAttribute("font-size","9"); centerTxt.setAttribute("fill","#475569");
-        centerTxt.setAttribute("font-weight","700");
-        centerTxt.textContent = `${m.scoreA}-${m.scoreB}`;
-      } else {
-        centerTxt.setAttribute("class","vsTxt"); centerTxt.setAttribute("font-size","10");
-        centerTxt.textContent = "vs";
-      }
-      matchG.appendChild(centerTxt);
-
-      // team name helper
-      function mkTeamTxt(team, x0, anchor, isWin, isLoss) {
-        const t = document.createElementNS(ns,"text");
-        t.setAttribute("x",x0); t.setAttribute("y",y+boxH/2);
-        t.setAttribute("text-anchor",anchor); t.setAttribute("dominant-baseline","middle");
-        t.setAttribute("font-size",String(fontSize));
-        t.setAttribute("font-weight",isWin?"900":isLoss?"400":"600");
-        if (isWin) t.setAttribute("fill",isChampion?"#15803d":"#166534");
-        else if (isLoss) t.setAttribute("fill","#94a3b8");
-        t.setAttribute("class","teamTxtH"+(team?"":""+" subtle"));
-        const raw = formatTeamName(team||"?");
-        const maxLen = Math.max(4, Math.floor(sideW/(fontSize*0.63)));
-        const txt = raw.includes("\n") ? raw.split("\n")[0]+"…" :
-                    raw.length > maxLen ? raw.slice(0,maxLen-1)+"…" : raw;
-        t.textContent = txt + (isWin ? " ✓" : "");
-        return t;
-      }
-
-      matchG.appendChild(mkTeamTxt(
-        m.teamA,
-        m.winner==="A" ? leftX(x)+sideW-5 : leftX(x)+5,
-        m.winner==="A" ? "end" : "start",
-        m.winner==="A", isFinalResult && m.winner==="B"
-      ));
-      matchG.appendChild(mkTeamTxt(
-        m.teamB,
-        m.winner==="B" ? rightX(x)+5 : rightX(x)+sideW-5,
-        m.winner==="B" ? "start" : "end",
-        m.winner==="B", isFinalResult && m.winner==="A"
-      ));
-
-      // Champion badge
-      if (isChampion) {
-        const cW=36,cH=14;
-        const cX = (m.winner==="A" ? leftX(x)+sideW/2 : rightX(x)+sideW/2) - cW/2;
-        const cY = y - 8;
-        const cBg = document.createElementNS(ns,"rect");
-        cBg.setAttribute("x",cX); cBg.setAttribute("y",cY);
-        cBg.setAttribute("width",cW); cBg.setAttribute("height",cH);
-        cBg.setAttribute("rx",7); cBg.setAttribute("fill","#fbbf24");
-        matchG.appendChild(cBg);
-        const cTxt = document.createElementNS(ns,"text");
-        cTxt.setAttribute("x",cX+cW/2); cTxt.setAttribute("y",cY+cH/2+0.5);
-        cTxt.setAttribute("text-anchor","middle"); cTxt.setAttribute("dominant-baseline","middle");
-        cTxt.setAttribute("font-size","9"); cTxt.setAttribute("font-weight","800");
-        cTxt.setAttribute("fill","#78350f"); cTxt.textContent="🏆 優勝";
-        matchG.appendChild(cTxt);
-      }
-
-      // time badge
-      const time = fmtTime(m.scheduledStart);
-      if (time || m.matchNum) {
-        const numStr = m.matchNum ? `第${m.matchNum}試合` : "";
-        const label = `${numStr} ${time||""}${m.court?"·"+m.court:""}`.trim();
-        const tfz = 9;
-        const bW = label.length*tfz*0.62+10, bH = tfz+5;
-        const bX = x+totalW/2-bW/2, bY = y+boxH-bH-2;
-        const bg = document.createElementNS(ns,"rect");
-        bg.setAttribute("x",bX); bg.setAttribute("y",bY);
-        bg.setAttribute("width",bW); bg.setAttribute("height",bH);
-        bg.setAttribute("rx",bH/2); bg.setAttribute("fill","#eff6ff");
-        bg.setAttribute("stroke","#bfdbfe"); bg.setAttribute("stroke-width","1");
-        matchG.appendChild(bg);
-        const mt = document.createElementNS(ns,"text");
-        mt.setAttribute("x",x+totalW/2); mt.setAttribute("y",bY+bH/2+0.5);
-        mt.setAttribute("text-anchor","middle"); mt.setAttribute("dominant-baseline","middle");
-        mt.setAttribute("font-size",String(tfz));
-        mt.setAttribute("fill","#2563eb"); mt.setAttribute("font-weight","700");
-        mt.textContent = label;
-        matchG.appendChild(mt);
-      }
-
-      svg.appendChild(matchG);
-    }
-
-    return svg;
   }
 
   // ── League table ──────────────────────────
@@ -789,6 +492,9 @@ progress::-webkit-progress-value{background:var(--ok);border-radius:4px;transiti
       }
     } catch {}
   }, 5000);
+
+  let _rt = null;
+  window.addEventListener("resize", () => { clearTimeout(_rt); _rt = setTimeout(() => { if (state) renderCurrentEvent(); }, 200); });
 
   // ── Kick off ───────────────────────────────
   loadState();

@@ -2685,13 +2685,6 @@
     bindUiPanel();
     bindResultModal();
 
-    // 初回表示時に自動でブラケットを見やすく調整する（ユーザーが手動調整していない場合のみ）。
-    // レイアウト確定後に測る必要があるので次フレームで実行。
-    if (!state.tournament.bracketUI || state.tournament.bracketUI._userTuned !== true) {
-      requestAnimationFrame(() => {
-        if (currentEvent && currentEvent.id === eventId) autoFitCurrentBracket();
-      });
-    }
   }
 
   function renderEventDetail(eventId) {
@@ -2700,6 +2693,15 @@
     renderMatchButtons();
     renderDashboard();
   }
+
+  // 画面サイズが変わったらトーナメント表を描き直す（両側型/片側型の自動切替のため）
+  let _resizeTimer = null;
+  window.addEventListener("resize", () => {
+    clearTimeout(_resizeTimer);
+    _resizeTimer = setTimeout(() => {
+      if (currentEvent && !el("eventView")?.classList.contains("hidden") && !el("bracket")?.classList.contains("hidden")) renderBracket();
+    }, 200);
+  });
 
   // BUG-05修正: ブラウザ外でマウスを離した場合にもD&D変数をリセット
   document.addEventListener("mouseup", () => { window.__draggedTeam = null; });
@@ -3747,33 +3749,34 @@
     const mainMatches = (currentEvent.matches || []).filter(m => !m.isExhibition);
     const exhibitionMatches = (currentEvent.matches || []).filter(m => m.isExhibition);
 
-    // ブラケット方向: vertical / horizontal
-    const bracketDir = state.tournament?.bracketDir || "vertical";
-    const drawFn = bracketDir === "horizontal" ? buildHorizontalBracketSVG : buildBracketSVG;
-
-    bracket.appendChild(drawFn(mainMatches));
+    // 新しい表示（サイズ・配置は自動）。試合カードをクリックで結果入力
+    const durMin = (currentEvent.settings?.matchMinutes || 10) + (currentEvent.settings?.turnoverMinutes || 2);
+    const now = new Date();
+    const bvOpt = {
+      maxWidth: (bracket.closest(".bracketWrap") || bracket).clientWidth,
+      selectedKey: selectedMatchKey,
+      isLive: (m) => m.state !== "final" && isMatchOngoing(m, now, durMin),
+      onClick: (key) => {
+        const allM = currentEvent.loserMatches ? [...currentEvent.matches, ...currentEvent.loserMatches] : currentEvent.matches;
+        const m = findMatchByKey(allM, key);
+        selectedMatchKey = key;
+        if (m && ((m.teamA && m.teamB) || m.state === "final")) openResultModal(key);
+        else toast("対戦相手がまだ決まっていません", "info", 1800);
+        renderBracket(); renderMatchButtons();
+      },
+    };
+    bracket.appendChild(window.BracketView.build(mainMatches, bvOpt));
 
     // 裏トーナメント
     if (currentEvent.loserMatches && currentEvent.loserMatches.length > 0) {
       const loserSec = el("loserUiSection");
       if (loserSec) loserSec.style.display = "";
       if (el("btnEditLoserMatchups")) el("btnEditLoserMatchups").classList.remove("hidden");
-
       const lbl = document.createElement("div");
       lbl.className = "sectionLabel loser";
       lbl.textContent = "▊ 裏トーナメント";
       bracket.appendChild(lbl);
-
-      // 裏トーナメント用UI（別設定有効時は loserBracketUI を利用）
-      const loserUI = (state.tournament?.loserUiEnabled ? state.tournament.loserBracketUI : {}) || {};
-      // 裏トーナメントはデフォルトで枠を広め・高めにする（2行表示のため）
-      if (loserUI.totalW === undefined) loserUI.totalW = 180;
-      if (loserUI.boxH === undefined) {
-        // 通常が 28 なら 42 程度、38 なら 52 程度に
-        const baseH = state.tournament?.bracketUI?.boxH ?? 38;
-        loserUI.boxH = Number(baseH) + 14;
-      }
-      bracket.appendChild(drawFn(currentEvent.loserMatches, loserUI));
+      bracket.appendChild(window.BracketView.build(currentEvent.loserMatches, bvOpt));
     } else {
       const loserSec = el("loserUiSection");
       if (loserSec) loserSec.style.display = "none";

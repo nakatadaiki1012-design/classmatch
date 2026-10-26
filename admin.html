@@ -314,15 +314,11 @@
               <details style="display:inline-block; position:relative;">
                 <summary class="ghost small" style="cursor:pointer; list-style:none; padding:3px 8px; border:1px solid var(--border2); border-radius:4px; font-size:12px; background:var(--surface2);">▾ その他</summary>
                 <div style="position:absolute; right:0; top:100%; background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:6px; z-index:100; display:flex; flex-direction:column; gap:4px; min-width:160px; box-shadow:0 4px 12px rgba(0,0,0,.1);">
-                  <button id="btnAutoFit" class="ghost small" style="text-align:left;">🔧 表示を自動調整</button>
-                  <button id="btnFitBracket" class="ghost small" style="text-align:left;">↔ 画面に収める</button>
                   <button id="btnPrint" class="ghost small" style="text-align:left;">🖨️ 印刷</button>
                   <button id="btnOpenLoserModal" class="ghost small" style="text-align:left;">🏳 裏トーナメント設定</button>
                   <button id="btnEditLoserMatchups" class="ghost small hidden" style="text-align:left;">✏️ 裏組み合せ</button>
                   <button id="btnAddThirdPlace" class="ghost small" style="text-align:left;">🥉 3位決定戦</button>
                   <button id="btnAddExhibition" class="ghost small" style="text-align:left;">➕ エキシビション</button>
-                  <button id="btnBracketDir" class="ghost small" title="ブラケット方向切替" style="text-align:left;">↕ 縦型/横型切替</button>
-                  <button id="btnUi" class="ghost small" style="text-align:left;">🎛 表示調整</button>
                   <button id="btnCopyTable" class="ghost small" style="text-align:left;">📋 表コピー</button>
                   <button id="btnExportCSV" class="ghost small" style="text-align:left;">📄 CSV</button>
                   <button id="btnReshuffle" class="ghost small" style="text-align:left;">🔀 組み合わせを再抽選</button>
@@ -707,6 +703,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
   <script src="firebase-config.js"></script>
   <script src="firebase-sync.js"></script>
+  <script src="bracket-render.js"></script>
   <script src="admin.js"></script>
 </body>
 
