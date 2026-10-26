@@ -86,6 +86,7 @@
    *   fontSize    : 基本の文字サイズ（既定14）
    *   minFontPx   : 画面上でこれより小さくしない（足りなければスクロール）
    *   highlightTeam : このチーム名の段を黄色で強調（「自分のクラス」）
+   *   showChampion  : false で表の中の「🏆 優勝」表示を省く（別に最終順位を出すとき）
    * @returns {SVGElement}
    */
   function build(allMatches, opt = {}) {
@@ -294,7 +295,7 @@
     }
 
     const finalM = matches.find(m => m.round === rounds);
-    const champ = finalM && finalM.state === "final" && finalM.winner
+    const champ = opt.showChampion !== false && finalM && finalM.state === "final" && finalM.winner
       ? teamLabel(finalM.winner === "A" ? finalM.teamA : finalM.teamB) : null;
     const champFs = Math.max(13, fs * 0.95);
 
@@ -358,7 +359,8 @@
       h.className = "bvScrollHint";
       h.textContent = "← 横にスクロールして決勝まで見られます →";
       h.style.cssText = "position:sticky;left:0;font-size:12px;color:#1d4ed8;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:6px 10px;margin:0 0 8px;text-align:center;width:max-content;max-width:100%;";
-      target.prepend(h);
+      const svg = target.querySelector("svg.bv");
+      if (svg) svg.before(h); else target.prepend(h);
     });
   }
 

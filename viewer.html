@@ -226,6 +226,43 @@ body.fz-l .mcRow{font-size:21px;padding:12px 14px;} body.fz-l .mcRow .sc{font-si
 body.fz-l .tabBtn{font-size:17px;} body.fz-l .sectionHead h2{font-size:24px;}
 body.fz-s .tabBtn{font-size:14px;padding:6px 12px;min-height:42px;}
 .emptyNote{padding:16px;text-align:center;color:var(--muted);}
+.mcHead .rn{color:var(--navy);font-weight:800;}
+.mlRound{font-size:15px;font-weight:800;color:#475569;margin:12px 0 0;padding-top:10px;border-top:1px dashed var(--border2);}
+.mlRound small{font-size:12px;color:var(--muted);font-weight:600;margin-left:6px;}
+.mlRound.final{color:#b45309;}
+/* 終了した試合: 1行 */
+.rl{display:grid;grid-template-columns:auto 1fr auto 1fr;align-items:center;gap:8px;padding:9px 12px;background:#fff;
+  border:1px solid var(--border);border-radius:10px;font-size:16px;}
+.rl .rlNum{font-size:11px;color:var(--muted);font-weight:700;min-width:28px;}
+.rl .rlW{font-weight:800;color:#14532d;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.rl .rlW::after{content:" 勝";font-size:11px;color:#15803d;}
+.rl .rlL{color:#9ca3af;font-weight:600;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.rl .rlS{font-family:ui-monospace,monospace;font-weight:800;color:#334155;white-space:nowrap;}
+.rl .rlS i{font-style:normal;color:#cbd5e1;margin:0 3px;}
+.rl.mine{background:#fef9c3;border-color:#eab308;}
+body.fz-l .rl{font-size:19px;} body.fz-s .rl{font-size:14px;}
+/* 最終順位 */
+.podium{display:grid;gap:6px;margin-bottom:12px;}
+.podium>div{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:12px;font-size:15px;}
+.podium span{font-weight:800;min-width:76px;}
+.podium b{font-size:20px;}
+.pd1{background:linear-gradient(90deg,#fef9c3,#fde68a);border:2px solid #f59e0b;color:#78350f;}
+.pd1 b{font-size:24px;}
+.pd2{background:#f1f5f9;border:1px solid #cbd5e1;color:#334155;}
+.pd3{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;}
+/* 自分のクラスの状況 */
+.teamBox{border-radius:12px;padding:10px 14px;margin-bottom:12px;border:2px solid #eab308;background:#fef9c3;}
+.teamBox .tbHead{font-size:13px;font-weight:800;color:#a16207;}
+.teamBox .tbText{font-size:17px;font-weight:800;color:#422006;margin-top:2px;line-height:1.4;}
+.teamBox.k-live{border-color:#ef4444;background:#fee2e2;} .teamBox.k-live .tbText{color:#991b1b;}
+.teamBox.k-win{border-color:#f59e0b;background:#fde68a;}
+.teamBox.k-out,.teamBox.k-none{border-color:#cbd5e1;background:#f8fafc;} .teamBox.k-out .tbText,.teamBox.k-none .tbText{color:#475569;}
+body.fz-l .teamBox .tbText{font-size:20px;}
+/* いま試合中（表の上） */
+.nowStrip{display:flex;flex-direction:column;gap:6px;margin-bottom:12px;}
+.ns{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 12px;border:1.5px solid #fca5a5;background:#fff1f2;border-radius:10px;font-size:14px;}
+.ns b{font-size:16px;} .ns i{font-style:normal;color:#94a3b8;font-weight:500;margin:0 2px;}
+.ns .stTag{font-size:12px;padding:2px 9px;border-radius:999px;font-weight:800;}
 .autoNote{font-size:13px;color:var(--muted);margin:-2px 0 12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
 .autoNote button{border:1px solid #bfdbfe;background:#eff6ff;color:#1d4ed8;font-weight:700;border-radius:8px;padding:6px 10px;font-size:13px;font-family:inherit;}
 @media(max-width:600px){
@@ -440,7 +477,8 @@ body.fz-s .tabBtn{font-size:14px;padding:6px 12px;min-height:42px;}
   }
   function bracketOpts(bracket) {
     return Object.assign({ maxWidth: bracket.clientWidth, maxHeight: Math.max(360, window.innerHeight - 160),
-      orientation: currentOrient(), highlightTeam: prefs.team || null }, FONT[prefs.font] || FONT.m);
+      orientation: currentOrient(), highlightTeam: prefs.team || null,
+      showChampion: !bracket.querySelector(".podium") }, FONT[prefs.font] || FONT.m);
   }
 
   // 開いたときに見せる競技: 試合中 → 招集中 → 自分のクラスが残っている → 途中まで進行 → 未完了
@@ -478,7 +516,7 @@ body.fz-s .tabBtn{font-size:14px;padding:6px 12px;min-height:42px;}
       const hasPlaying = ms.some(m=>m.state==="playing");
       const btn = document.createElement("button");
       btn.className = "tabBtn" + (ev.id === currentEventId ? " active" : "");
-      btn.innerHTML = escapeHtml(evLabel(ev)) + `<span class="prog">${pct === 100 ? "終了" : pct + "%"}</span>` + (hasPlaying ? `<span class="live" title="試合中"></span>` : "");
+      btn.innerHTML = escapeHtml(evLabel(ev)) + `<span class="prog">${pct === 100 ? "終了" : d === 0 ? "これから" : pct + "%"}</span>` + (hasPlaying ? `<span class="live" title="試合中"></span>` : "");
       btn.onclick = () => { userPickedEvent = true; currentEventId = ev.id; renderTabs(); renderCurrentEvent(); };
       tabs.appendChild(btn);
     }
@@ -506,17 +544,23 @@ body.fz-s .tabBtn{font-size:14px;padding:6px 12px;min-height:42px;}
     const bracket = el("bracket");
     bracket.innerHTML = "";
 
+    const info = ev.format === "league" ? null : analyze(ev);
     const champ = getChampion(ev);
-    if (champ) {
+    // 1) 最終順位  2) 自分のクラスの状況 を一番上に
+    if (info && info.podium) bracket.appendChild(podiumBox(info.podium));
+    else if (champ) {
       const banner = document.createElement("div");
       banner.className = "championBanner";
       banner.innerHTML = `<span class="cbTrophy">🏆</span><div><div class="cbLabel">優勝</div><div class="cbName">${escapeHtml(champ)}</div></div>`;
       bracket.appendChild(banner);
     }
+    if (info && prefs.team) bracket.appendChild(teamBox(info.teamStatus(prefs.team)));
 
     if (ev.format === "league") { bracket.appendChild(buildLeagueHTML(ev)); return; }
 
-    if (prefs.view === "list") { bracket.appendChild(buildMatchList(ev)); return; }
+    if (prefs.view === "list") { bracket.appendChild(buildMatchList(ev, info)); return; }
+    // 表のときも「いま試合中」は表の上に出す
+    if (info.now.length) bracket.appendChild(nowStrip(info));
 
     const mainMs = (ev.matches||[]).filter(m=>!m.isExhibition);
     if (mainMs.length) bracket.appendChild(window.BracketView.build(mainMs, bracketOpts(bracket)));
@@ -529,25 +573,22 @@ body.fz-s .tabBtn{font-size:14px;padding:6px 12px;min-height:42px;}
     }
     // 「自動」で表が横にはみ出す（＝スマホで大きな大会）なら、読みやすい試合一覧に切り替える
     if (prefs.view === "auto" && bracket.scrollWidth > bracket.clientWidth + 4) {
-      bracket.querySelectorAll("svg.bv, .loserLabel").forEach(e => e.remove());
+      bracket.querySelectorAll("svg.bv, .loserLabel, .nowStrip").forEach(e => e.remove());
       const note = document.createElement("div");
       note.className = "autoNote";
-      note.innerHTML = `画面に収まらないため<b>一覧</b>で表示中。<button type="button">トーナメント表で見る</button>`;
+      note.innerHTML = `<span>一覧で表示中</span><button type="button">トーナメント表で見る</button>`;
       note.querySelector("button").onclick = () => { prefs.view = "tree"; savePrefs(); renderCurrentEvent(); };
       bracket.appendChild(note);
-      bracket.appendChild(buildMatchList(ev));
+      bracket.appendChild(buildMatchList(ev, info));
       return;
     }
     window.BracketView.addScrollHint(bracket);
   }
 
-  // ── 試合一覧（スマホ向け）────────────────────────
-  function buildMatchList(ev) {
-    const wrap = document.createElement("div");
-    wrap.className = "ml";
+  // ── 競技ごとの情報をまとめる（一覧・表の上の要約で共通）────────
+  function analyze(ev) {
     const all = [...(ev.matches||[]), ...(ev.loserMatches||[])].filter(m => !m.isExhibition);
     const key = (m) => `${m.isLoserMatch ? "L" : "R"}${m.round}-${m.slot}`;
-    const byKey = {}; all.forEach(m => byKey[key(m)] = m);
     const real = all.filter(m => !m.isBye);
     const mainRounds = Math.max(1, ...(ev.matches||[]).filter(m => !m.isThirdPlace && !m.isExhibition).map(m => m.round));
     const loserRounds = Math.max(1, ...(ev.loserMatches||[]).map(m => m.round));
@@ -557,57 +598,139 @@ body.fz-s .tabBtn{font-size:14px;padding:6px 12px;min-height:42px;}
       const base = d === 0 ? "決勝" : d === 1 ? "準決勝" : d === 2 ? "準々決勝" : `${m.round}回戦`;
       return (m.isLoserMatch ? "裏 " : "") + base;
     };
-    // 相手が未定のとき「第n試合の勝者」と出す
+    const label = (t) => t && t.startsWith("__L|") ? t.slice(4, -2).split("|").pop() + " の負け" : t;
     const placeholder = (m, slot) => {
       const f = all.find(x => x.nextMatchKey === key(m) && x.nextSlot === slot && !x.isBye);
       if (f) return f.matchNum ? `第${f.matchNum}試合の勝者` : "前の試合の勝者";
       if (m.isThirdPlace) return "準決勝の敗者";
       return "未定";
     };
-    const label = (t) => t && t.startsWith("__L|") ? t.slice(4, -2).split("|").pop() + " の負け" : t;
-    const card = (m) => {
-      const st = m.state === "final" ? "final" : m.state === "playing" ? "playing" : m.state === "calling" ? "calling" : "waiting";
-      const stTxt = { final: "終了", playing: "試合中", calling: "招集中", waiting: "これから" }[st];
-      const row = (side, team, score) => {
-        const won = m.winner === side, lost = m.winner && !won;
-        const cls = ["mcRow", won ? "win" : lost ? "lose" : "", team ? "" : "tbd", prefs.team && team === prefs.team ? "mine" : ""].join(" ");
-        const sc = (m.state === "final" || m.state === "playing") && score != null && score !== "" ? score : "";
-        return `<div class="${cls}"><span class="nm">${escapeHtml(team ? label(team) : placeholder(m, side))}</span><span class="sc">${sc}</span></div>`;
-      };
-      const d = document.createElement("div");
-      d.className = "mc st-" + st;
-      d.innerHTML = `<div class="mcHead">${m.matchNum ? `<span>第${m.matchNum}試合</span>` : ""}<span class="t">${fmtTime(m.scheduledStart) || ""}</span>${m.court ? `<span>${escapeHtml(m.court)}コート</span>` : ""}<span class="stTag ${st}">${stTxt}</span></div>`
-        + row("A", m.teamA, m.scoreA) + row("B", m.teamB, m.scoreB);
-      return d;
-    };
-    const sec = (title, sub, cls = "") => { const h = document.createElement("div"); h.className = "mlSec " + cls; h.innerHTML = escapeHtml(title) + (sub ? ` <small>${escapeHtml(sub)}</small>` : ""); wrap.appendChild(h); };
+    const nameOf = (m, side) => { const t = side === "A" ? m.teamA : m.teamB; return t ? label(t) : placeholder(m, side); };
     const byTime = (a, b) => (a.scheduledStart || "").localeCompare(b.scheduledStart || "") || (a.court || "").localeCompare(b.court || "");
-
-    // いま試合中・招集中
     const now = real.filter(m => m.state === "playing" || m.state === "calling").sort(byTime);
-    if (now.length) { sec("🔴 いま試合中・招集中"); now.forEach(m => wrap.appendChild(card(m))); }
+    const next = real.filter(m => m.state !== "final" && m.state !== "playing" && m.state !== "calling" && m.teamA && m.teamB).sort(byTime).slice(0, 3);
+    // 最終順位
+    const main = (ev.matches||[]).filter(m => !m.isExhibition && !m.isBye);
+    const fin = main.find(m => !m.isThirdPlace && m.round === mainRounds);
+    const tp = main.find(m => m.isThirdPlace);
+    let podium = null;
+    if (fin && fin.state === "final" && fin.winner) {
+      const w = (m) => m.winner === "A" ? m.teamA : m.teamB, l = (m) => m.winner === "A" ? m.teamB : m.teamA;
+      const thirds = tp ? (tp.state === "final" && tp.winner ? [w(tp)] : [])
+        : main.filter(m => !m.isThirdPlace && m.round === mainRounds - 1 && m.state === "final" && m.winner).map(l);
+      podium = { first: label(w(fin)), second: label(l(fin)), thirds: thirds.filter(Boolean).map(label) };
+    }
+    // 自分のクラスの状況
+    const teamStatus = (team) => {
+      if (!team) return null;
+      const mine = real.filter(m => m.teamA === team || m.teamB === team).sort(byTime);
+      if (!mine.length) return { kind: "none", text: "この競技には出場していません", matches: [] };
+      const opp = (m) => m.teamA === team ? nameOf(m, "B") : nameOf(m, "A");
+      const where = (m) => [m.matchNum ? `第${m.matchNum}試合` : "", fmtTime(m.scheduledStart), m.court ? m.court + "コート" : ""].filter(Boolean).join(" ");
+      if (podium && podium.first === team) return { kind: "win", text: "🏆 優勝！おめでとう！", matches: mine };
+      const live = mine.find(m => m.state === "playing" || m.state === "calling");
+      if (live) return { kind: "live", text: `${live.state === "calling" ? "📢 招集中" : "🔴 試合中"}：${where(live)} vs ${opp(live)}`, matches: mine };
+      const lostM = mine.find(m => m.state === "final" && m.winner && (m.winner === "A" ? m.teamB : m.teamA) === team && !m.isLoserMatch && !m.isThirdPlace);
+      const upcoming = mine.find(m => m.state !== "final");
+      if (upcoming) return { kind: "next", text: `次の試合：${where(upcoming)} vs ${opp(upcoming)}`, matches: mine };
+      // 勝ち上がり先がまだ決まっていない（相手待ち）
+      const lastWin = [...mine].reverse().find(m => m.state === "final" && (m.winner === "A" ? m.teamA : m.teamB) === team);
+      if (lostM) {
+        const sc = lostM.scoreA != null ? ` ${lostM.teamA === team ? lostM.scoreA : lostM.scoreB}-${lostM.teamA === team ? lostM.scoreB : lostM.scoreA}` : "";
+        const rank = podium && podium.second === team ? "準優勝" : podium && podium.thirds.includes(team) ? "3位" : "";
+        return { kind: "out", text: rank ? `🥈 ${rank}（${rName(lostM)} vs ${opp(lostM)}${sc}）` : `${rName(lostM)}で敗退（vs ${opp(lostM)}${sc}）`, matches: mine };
+      }
+      if (lastWin) return { kind: "next", text: `勝ち残り中：次の対戦相手を待っています`, matches: mine };
+      return { kind: "next", text: "試合予定を確認中", matches: mine };
+    };
+    return { all, real, key, rName, label, nameOf, placeholder, byTime, now, next, podium, teamStatus, mainRounds };
+  }
 
-    // 自分のクラスの試合
+  // 試合カード（一覧用）
+  function matchCard(info, m) {
+    const st = m.state === "final" ? "final" : m.state === "playing" ? "playing" : m.state === "calling" ? "calling" : "waiting";
+    const stTxt = { final: "終了", playing: "試合中", calling: "招集中", waiting: "これから" }[st];
+    const row = (side, team, score) => {
+      const won = m.winner === side, lost = m.winner && !won;
+      const cls = ["mcRow", won ? "win" : lost ? "lose" : "", team ? "" : "tbd", prefs.team && team === prefs.team ? "mine" : ""].join(" ");
+      const sc = (m.state === "final" || m.state === "playing") && score != null && score !== "" ? score : "";
+      return `<div class="${cls}"><span class="nm">${escapeHtml(info.nameOf(m, side))}</span><span class="sc">${sc}</span></div>`;
+    };
+    const d = document.createElement("div");
+    d.className = "mc st-" + st;
+    d.innerHTML = `<div class="mcHead"><span class="rn">${escapeHtml(info.rName(m))}</span>${m.matchNum ? `<span>第${m.matchNum}試合</span>` : ""}<span class="t">${fmtTime(m.scheduledStart) || ""}</span>${m.court ? `<span>${escapeHtml(m.court)}コート</span>` : ""}<span class="stTag ${st}">${stTxt}</span></div>`
+      + row("A", m.teamA, m.scoreA) + row("B", m.teamB, m.scoreB);
+    return d;
+  }
+  // 終了した試合（1行）
+  function resultLine(info, m) {
+    const d = document.createElement("div");
+    const w = m.winner === "A" ? "A" : "B", l = w === "A" ? "B" : "A";
+    const sw = w === "A" ? m.scoreA : m.scoreB, sl = w === "A" ? m.scoreB : m.scoreA;
+    const mineW = prefs.team && (w === "A" ? m.teamA : m.teamB) === prefs.team, mineL = prefs.team && (l === "A" ? m.teamA : m.teamB) === prefs.team;
+    d.className = "rl" + (mineW || mineL ? " mine" : "");
+    d.innerHTML = `<span class="rlNum">${m.matchNum ? "第" + m.matchNum : ""}</span><span class="rlW">${escapeHtml(info.nameOf(m, w))}</span>`
+      + `<span class="rlS">${sw ?? ""}<i>-</i>${sl ?? ""}</span><span class="rlL">${escapeHtml(info.nameOf(m, l))}</span>`;
+    return d;
+  }
+  // 最終順位
+  function podiumBox(p) {
+    const d = document.createElement("div");
+    d.className = "podium";
+    d.innerHTML = `<div class="pd1"><span>🏆 優勝</span><b>${escapeHtml(p.first)}</b></div>`
+      + `<div class="pd2"><span>🥈 準優勝</span><b>${escapeHtml(p.second || "-")}</b></div>`
+      + (p.thirds.length ? `<div class="pd3"><span>🥉 3位</span><b>${p.thirds.map(escapeHtml).join("・")}</b></div>` : "");
+    return d;
+  }
+  // 自分のクラスの要約
+  function teamBox(ts) {
+    const d = document.createElement("div");
+    d.className = "teamBox k-" + ts.kind;
+    d.innerHTML = `<div class="tbHead">👤 ${escapeHtml(prefs.team)}</div><div class="tbText">${escapeHtml(ts.text)}</div>`;
+    return d;
+  }
+  // 「いま試合中」の簡易表示（表のとき用）
+  function nowStrip(info) {
+    const d = document.createElement("div");
+    d.className = "nowStrip";
+    d.innerHTML = info.now.map(m => `<div class="ns"><span class="stTag ${m.state === "calling" ? "calling" : "playing"}">${m.state === "calling" ? "招集中" : "試合中"}</span>`
+      + `<span>${m.court ? escapeHtml(m.court) + "コート" : ""} ${m.matchNum ? "第" + m.matchNum + "試合" : ""}</span>`
+      + `<b>${escapeHtml(info.nameOf(m, "A"))} <i>vs</i> ${escapeHtml(info.nameOf(m, "B"))}</b></div>`).join("");
+    return d;
+  }
+
+  // ── 試合一覧（スマホ向け）────────────────────────
+  function buildMatchList(ev, info = analyze(ev)) {
+    const wrap = document.createElement("div");
+    wrap.className = "ml";
+    const sec = (title, sub, cls = "") => { const h = document.createElement("div"); h.className = "mlSec " + cls; h.innerHTML = escapeHtml(title) + (sub ? ` <small>${escapeHtml(sub)}</small>` : ""); wrap.appendChild(h); };
+
+    if (info.now.length) { sec("🔴 いま試合中・招集中"); info.now.forEach(m => wrap.appendChild(matchCard(info, m))); }
+    if (info.next.length) { sec("⏭ 次の試合", "時間順"); info.next.forEach(m => wrap.appendChild(matchCard(info, m))); }
     if (prefs.team) {
-      const mine = real.filter(m => m.teamA === prefs.team || m.teamB === prefs.team).sort(byTime);
-      sec(`👤 ${prefs.team} の試合`, mine.length ? "" : "この競技には出場していません");
-      mine.forEach(m => wrap.appendChild(card(m)));
+      const ts = info.teamStatus(prefs.team);
+      if (ts.matches.length) { sec(`👤 ${prefs.team} の試合`); ts.matches.forEach(m => wrap.appendChild(m.state === "final" ? resultLine(info, m) : matchCard(info, m))); }
     }
 
-    // 回戦ごと（決勝の前に3位決定戦）
+    // 回戦ごと。全試合終了の回戦は1行表示に縮める
+    sec("📋 全試合");
+    const order = (m) => (m.isLoserMatch ? 100 : 0) + (m.isThirdPlace ? info.mainRounds - 0.5 : m.round);
     const groups = [];
-    const order = (m) => (m.isLoserMatch ? 100 : 0) + (m.isThirdPlace ? mainRounds - 0.5 : m.round);
-    [...real].sort((a, b) => order(a) - order(b) || byTime(a, b)).forEach(m => {
-      const n = rName(m);
+    [...info.real].sort((a, b) => order(a) - order(b) || info.byTime(a, b)).forEach(m => {
+      const n = info.rName(m);
       if (!groups.length || groups[groups.length - 1].name !== n) groups.push({ name: n, list: [] });
       groups[groups.length - 1].list.push(m);
     });
     for (const g of groups) {
       const fin = g.list.filter(m => m.state === "final").length;
-      sec(g.name, `${fin}/${g.list.length} 終了`, g.name === "決勝" ? "final" : "");
-      g.list.forEach(m => wrap.appendChild(card(m)));
+      const allDone = fin === g.list.length;
+      const h = document.createElement("div");
+      h.className = "mlRound" + (g.name === "決勝" ? " final" : "");
+      h.innerHTML = `${escapeHtml(g.name)} <small>${allDone ? "すべて終了" : `${fin}/${g.list.length} 終了`}</small>`;
+      wrap.appendChild(h);
+      g.list.forEach(m => wrap.appendChild(m.state === "final" && m.winner ? resultLine(info, m) : matchCard(info, m)));
     }
-    if (!real.length) wrap.innerHTML = `<div class="emptyNote">試合がありません</div>`;
+    if (!info.real.length) wrap.innerHTML = `<div class="emptyNote">試合がありません</div>`;
     return wrap;
   }
 
