@@ -164,26 +164,70 @@ progress::-webkit-progress-value{background:var(--ok);border-radius:4px;transiti
 
 /* ── 見やすさ調整（生徒のスマホ・タブレット向け）── */
 body{font-size:15px;}
-header h1{font-size:18px;}
+header{padding:8px 14px;}
+header h1{font-size:17px;}
 #headerSub{font-size:12px;}
-#liveIndicator{font-size:13px;}
+#liveIndicator{font-size:12px;}
 #lastUpdated{font-size:11px;}
-.tabBtn{font-size:15px;padding:9px 16px;min-height:42px;}
+main{padding:10px 10px 40px;}
+.card{padding:14px;margin-bottom:10px;}
+/* 競技タブ: 1行で横スクロール */
+#eventTabs.tabStrip{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 10px;margin:0 -2px 4px;
+  border-bottom:none;flex-wrap:nowrap;scrollbar-width:none;-webkit-overflow-scrolling:touch;}
+#eventTabs.tabStrip::-webkit-scrollbar{display:none;}
+.tabBtn{flex:0 0 auto;font-size:15px;padding:8px 14px;min-height:42px;white-space:nowrap;}
 .tabBtn .prog{font-size:12px;}
-.progWrap{font-size:15px;}
-#legend{font-size:13px;gap:14px;}
-.legendBox{width:16px;height:16px;}
-.sectionHead h2{font-size:20px;}
-.badge{font-size:13px;padding:4px 12px;}
-.viewCtl{display:flex;gap:10px;flex-wrap:wrap;margin:-2px 0 12px;}
+.tabBtn .live{display:inline-block;width:8px;height:8px;border-radius:50%;background:#ef4444;margin-left:6px;vertical-align:middle;animation:liveDot .9s ease-in-out infinite;}
+.sectionHead{margin-bottom:10px;}
+.sectionHead h2{font-size:21px;}
+.badge{font-size:13px;padding:4px 11px;}
+.ctlRow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px;}
 .seg{display:inline-flex;align-items:center;gap:2px;background:#e2e8f0;border-radius:10px;padding:3px;}
-.segLbl{font-size:12px;color:var(--muted);font-weight:700;padding:0 6px 0 8px;}
 .seg button{border:none;background:transparent;color:#475569;font-weight:700;font-size:14px;
-  min-width:48px;min-height:36px;border-radius:8px;cursor:pointer;font-family:inherit;}
+  min-width:48px;min-height:42px;padding:0 12px;border-radius:8px;cursor:pointer;font-family:inherit;}
 .seg button.on{background:#fff;color:var(--navy);box-shadow:0 1px 3px rgba(0,0,0,.15);}
-body.fz-l{font-size:17px;}
-body.fz-l .tabBtn{font-size:17px;} body.fz-l .sectionHead h2{font-size:23px;}
-body.fz-s .tabBtn{font-size:13px;padding:6px 12px;min-height:34px;}
+#myTeam{flex:1;min-width:96px;max-width:220px;height:48px;border:1px solid var(--border2);border-radius:10px;
+  padding:0 10px;font-size:14px;font-weight:700;color:var(--navy);background:#fff;font-family:inherit;}
+#myTeam.on{background:#fef9c3;border-color:#eab308;}
+.iconBtn{width:48px;height:48px;border:1px solid var(--border2);border-radius:10px;background:#fff;font-size:18px;cursor:pointer;}
+.iconBtn[aria-expanded="true"]{background:#e2e8f0;}
+#settingsPanel{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:12px;display:flex;flex-direction:column;gap:8px;}
+#settingsPanel.hidden{display:none;}
+.setRow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.setLbl{font-size:13px;font-weight:700;color:var(--muted);min-width:64px;}
+
+/* ── 試合一覧（スマホで読みやすい縦並び） ── */
+.ml{display:flex;flex-direction:column;gap:10px;}
+.mlSec{font-size:15px;font-weight:800;color:var(--navy);margin:14px 0 2px;display:flex;align-items:center;gap:8px;}
+.mlSec:first-child{margin-top:0;}
+.mlSec small{font-size:12px;color:var(--muted);font-weight:600;}
+.mlSec.final{color:#b45309;}
+.mc{background:#fff;border:1.5px solid var(--border);border-radius:12px;overflow:hidden;}
+.mc.st-playing{border-color:#ef4444;box-shadow:0 0 0 2px rgba(239,68,68,.15);}
+.mc.st-calling{border-color:#f59e0b;}
+.mcHead{display:flex;align-items:center;gap:8px;padding:7px 12px;background:#f8fafc;border-bottom:1px solid var(--border);
+  font-size:13px;font-weight:700;color:#475569;}
+.mcHead .t{font-family:ui-monospace,monospace;color:var(--navy);}
+.mcHead .stTag{margin-left:auto;font-size:12px;padding:2px 9px;border-radius:999px;font-weight:800;}
+.stTag.playing{background:#ef4444;color:#fff;} .stTag.calling{background:#f59e0b;color:#fff;}
+.stTag.final{background:#dcfce7;color:#15803d;} .stTag.waiting{background:#e2e8f0;color:#64748b;}
+.mcRow{display:flex;align-items:center;gap:10px;padding:10px 14px;font-size:18px;font-weight:700;color:var(--text);}
+.mcRow + .mcRow{border-top:1px solid #eef2f7;}
+.mcRow .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.mcRow .sc{font-family:ui-monospace,monospace;font-size:20px;font-weight:800;min-width:28px;text-align:right;}
+.mcRow.win{background:#dcfce7;color:#14532d;}
+.mcRow.win .nm::after{content:" 勝";font-size:12px;font-weight:800;color:#15803d;margin-left:4px;}
+.mcRow.lose{color:#9ca3af;font-weight:600;}
+.mcRow.tbd .nm{color:#94a3b8;font-weight:500;font-size:15px;}
+.mcRow.mine{box-shadow:inset 5px 0 0 #ca8a04;background:#fef9c3;}
+.mcRow.mine.win{background:#fef08a;}
+body.fz-s .mcRow{font-size:16px;padding:8px 12px;} body.fz-s .mcRow .sc{font-size:17px;}
+body.fz-l .mcRow{font-size:21px;padding:12px 14px;} body.fz-l .mcRow .sc{font-size:23px;} body.fz-l .mcHead{font-size:15px;}
+body.fz-l .tabBtn{font-size:17px;} body.fz-l .sectionHead h2{font-size:24px;}
+body.fz-s .tabBtn{font-size:14px;padding:6px 12px;min-height:42px;}
+.emptyNote{padding:16px;text-align:center;color:var(--muted);}
+.autoNote{font-size:13px;color:var(--muted);margin:-2px 0 12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.autoNote button{border:1px solid #bfdbfe;background:#eff6ff;color:#1d4ed8;font-weight:700;border-radius:8px;padding:6px 10px;font-size:13px;font-family:inherit;}
 @media(max-width:600px){
   header h1{font-size:14px;}
   .card{padding:12px;}
@@ -210,39 +254,30 @@ body.fz-s .tabBtn{font-size:13px;padding:6px 12px;min-height:34px;}
     <div id="errorMsg" class="hidden">❌ ブラケットデータが見つかりません。<br/>先生から共有リンクを受け取ってください。</div>
 
     <div id="viewerContent" class="hidden">
-      <!-- Progress summary -->
-      <div class="card">
-        <div class="progWrap">
-          <span id="progText" style="font-weight:700;color:var(--navy);">0 / 0 試合完了</span>
-          <progress id="progBar" value="0" max="100"></progress>
-          <span id="progPct" style="font-size:12px;color:var(--muted);">0%</span>
-        </div>
-        <div id="legend">
-          <span class="legendItem"><span class="legendBox playing"></span>試合中</span>
-          <span class="legendItem"><span class="legendBox calling"></span>招集中</span>
-          <span class="legendItem"><span class="legendBox done"></span>終了</span>
-          <span class="legendItem"><span class="legendBox pending"></span>待機</span>
-        </div>
-      </div>
+      <!-- 競技タブ（1行・横スクロール） -->
+      <div id="eventTabs" class="tabStrip"></div>
 
-      <!-- Event tabs -->
-      <div id="eventTabs"></div>
-
-      <!-- Bracket area -->
       <div class="card" id="bracketCard">
         <div class="sectionHead">
           <h2 id="eventTitle">-</h2>
           <div id="eventStatusBadge"></div>
         </div>
-        <div class="viewCtl">
-          <div class="seg" id="segOrient" role="group" aria-label="表示の向き">
-            <span class="segLbl">表示</span>
-            <button data-v="auto">自動</button><button data-v="h">横型</button><button data-v="v">縦型</button>
+        <div class="ctlRow">
+          <div class="seg" id="segView" role="group" aria-label="表示">
+            <button data-v="auto">自動</button><button data-v="tree">表</button><button data-v="list">一覧</button>
           </div>
-          <div class="seg" id="segFont" role="group" aria-label="文字の大きさ">
-            <span class="segLbl">文字</span>
-            <button data-v="s">小</button><button data-v="m">中</button><button data-v="l">大</button>
-          </div>
+          <select id="myTeam" aria-label="自分のクラス"><option value="">👤 クラス</option></select>
+          <button id="btnSettings" class="iconBtn" aria-label="表示の設定" aria-expanded="false">⚙</button>
+        </div>
+        <div id="settingsPanel" class="hidden">
+          <div class="setRow"><span class="setLbl">表の向き</span>
+            <div class="seg" id="segOrient" role="group" aria-label="表の向き">
+              <button data-v="auto">自動</button><button data-v="h">横型</button><button data-v="v">縦型</button>
+            </div></div>
+          <div class="setRow"><span class="setLbl">文字</span>
+            <div class="seg" id="segFont" role="group" aria-label="文字の大きさ">
+              <button data-v="s">小</button><button data-v="m">中</button><button data-v="l">大</button>
+            </div></div>
         </div>
         <div class="bracketWrap" id="bracket"></div>
       </div>
@@ -352,7 +387,7 @@ body.fz-s .tabBtn{font-size:13px;padding:6px 12px;min-height:34px;}
       el("lastUpdated").textContent = d.toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit",second:"2-digit"}) + " 更新";
     }
 
-    // Progress summary
+    // 全体の進み具合は見出しの下に1行で
     const events = state.events || [];
     let total = 0, done = 0;
     for (const ev of events) {
@@ -360,12 +395,9 @@ body.fz-s .tabBtn{font-size:13px;padding:6px 12px;min-height:34px;}
       total += ms.length;
       done  += ms.filter(m=>m.state==="final"&&m.winner).length;
     }
-    const pct = total > 0 ? Math.round(done/total*100) : 0;
-    el("progText").textContent = `${done} / ${total} 試合完了`;
-    el("progBar").value = pct;
-    el("progPct").textContent = pct + "%";
+    el("headerSub").textContent = [t.date, t.place, total ? `全体 ${done}/${total} 試合終了` : ""].filter(Boolean).join(" ・ ");
 
-    // Tabs
+    fillTeamSelect();
     renderTabs();
     renderCurrentEvent();
   }
@@ -373,24 +405,64 @@ body.fz-s .tabBtn{font-size:13px;padding:6px 12px;min-height:34px;}
   const evLabel = (ev) => ev.sportName
     ? `${ev.sportName} ${ev.gender === "M" ? "男子" : ev.gender === "F" ? "女子" : ev.gender === "X" ? "混合" : ""}`.trim()
     : (ev.name || ev.id);
+  const evMatches = (ev) => [...(ev.matches||[]), ...(ev.loserMatches||[])].filter(m=>!m.isBye&&!m.isExhibition);
 
   // ── 表示設定（この端末に保存） ─────────────────
   const PREF_KEY = "cm_viewer_prefs";
   const FONT = { s: { fontSize: 14 }, m: { fontSize: 15, minFontPx: 13 }, l: { fontSize: 18, minFontPx: 16 } };
-  let prefs = { orient: null, font: "m" };
+  let prefs = { view: "auto", orient: null, font: "m", team: "" };
   try { Object.assign(prefs, JSON.parse(localStorage.getItem(PREF_KEY) || "{}")); } catch {}
   function savePrefs() { try { localStorage.setItem(PREF_KEY, JSON.stringify(prefs)); } catch {} }
   function currentOrient() { return prefs.orient || state?.tournament?.bracketOrient || "auto"; }
   function syncCtl() {
-    document.querySelectorAll("#segOrient button").forEach(b => b.classList.toggle("on", b.dataset.v === currentOrient()));
-    document.querySelectorAll("#segFont button").forEach(b => b.classList.toggle("on", b.dataset.v === prefs.font));
+    const on = (sel, v) => document.querySelectorAll(sel + " button").forEach(b => b.classList.toggle("on", b.dataset.v === v));
+    on("#segView", prefs.view); on("#segOrient", currentOrient()); on("#segFont", prefs.font);
     document.body.classList.remove("fz-s", "fz-m", "fz-l");
     document.body.classList.add("fz-" + prefs.font);
+    el("myTeam").value = prefs.team || "";
+    el("myTeam").classList.toggle("on", !!prefs.team);
   }
-  document.querySelectorAll("#segOrient button").forEach(b => b.onclick = () => { prefs.orient = b.dataset.v; savePrefs(); syncCtl(); if (state) renderCurrentEvent(); });
-  document.querySelectorAll("#segFont button").forEach(b => b.onclick = () => { prefs.font = b.dataset.v; savePrefs(); syncCtl(); if (state) renderCurrentEvent(); });
+  const bindSeg = (sel, key) => document.querySelectorAll(sel + " button").forEach(b => b.onclick = () => {
+    prefs[key] = b.dataset.v; savePrefs(); syncCtl(); if (state) renderCurrentEvent();
+  });
+  bindSeg("#segView", "view"); bindSeg("#segOrient", "orient"); bindSeg("#segFont", "font");
+  el("btnSettings").onclick = () => {
+    const p = el("settingsPanel"); const open = p.classList.toggle("hidden") === false;
+    el("btnSettings").setAttribute("aria-expanded", open ? "true" : "false");
+  };
+  el("myTeam").onchange = () => { prefs.team = el("myTeam").value; savePrefs(); syncCtl(); if (state) { userPickedEvent = false; pickDefaultEvent(); renderTabs(); renderCurrentEvent(); } };
+  function fillTeamSelect() {
+    const teams = new Set(state?.tournament?.classes || []);
+    (state.events||[]).forEach(ev => evMatches(ev).forEach(m => { [m.teamA, m.teamB].forEach(t => { if (t && !t.startsWith("__L|")) teams.add(t); }); }));
+    const sel = el("myTeam"), cur = prefs.team;
+    sel.innerHTML = `<option value="">👤 クラス</option>` + [...teams].map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join("");
+    sel.value = teams.has(cur) ? cur : "";
+  }
   function bracketOpts(bracket) {
-    return Object.assign({ maxWidth: bracket.clientWidth, maxHeight: Math.max(360, window.innerHeight - 160), orientation: currentOrient() }, FONT[prefs.font] || FONT.m);
+    return Object.assign({ maxWidth: bracket.clientWidth, maxHeight: Math.max(360, window.innerHeight - 160),
+      orientation: currentOrient(), highlightTeam: prefs.team || null }, FONT[prefs.font] || FONT.m);
+  }
+
+  // 開いたときに見せる競技: 試合中 → 招集中 → 自分のクラスが残っている → 途中まで進行 → 未完了
+  let userPickedEvent = false;
+  function pickDefaultEvent() {
+    const evs = state.events || [];
+    if (!evs.length) return;
+    if (userPickedEvent && evs.some(e => e.id === currentEventId)) return;
+    const score = (ev) => {
+      const ms = evMatches(ev);
+      const fin = ms.filter(m => m.state === "final").length;
+      let sc = 0;
+      if (ms.some(m => m.state === "playing")) sc += 1000;
+      if (ms.some(m => m.state === "calling")) sc += 500;
+      if (prefs.team && ms.some(m => m.state !== "final" && (m.teamA === prefs.team || m.teamB === prefs.team))) sc += 300;
+      if (fin > 0 && fin < ms.length) sc += 100;
+      if (fin < ms.length) sc += 10;
+      return sc;
+    };
+    let best = evs[0], bs = -1;
+    for (const ev of evs) { const s2 = score(ev); if (s2 > bs) { bs = s2; best = ev; } }
+    currentEventId = best.id;
   }
 
   function renderTabs() {
@@ -398,50 +470,42 @@ body.fz-s .tabBtn{font-size:13px;padding:6px 12px;min-height:34px;}
     tabs.innerHTML = "";
     const events = state.events || [];
     if (!events.length) return;
-    if (!currentEventId) currentEventId = events[0].id;
-
+    pickDefaultEvent();
     for (const ev of events) {
-      const ms = (ev.matches||[]).filter(m=>!m.isBye&&!m.isExhibition);
+      const ms = evMatches(ev);
       const d = ms.filter(m=>m.state==="final"&&m.winner).length;
       const pct = ms.length ? Math.round(d/ms.length*100) : 0;
       const hasPlaying = ms.some(m=>m.state==="playing");
       const btn = document.createElement("button");
       btn.className = "tabBtn" + (ev.id === currentEventId ? " active" : "");
-      btn.innerHTML = escapeHtml(evLabel(ev)) +
-        `<span class="prog">${pct}%${hasPlaying?" 🔴":""}</span>`;
-      btn.onclick = () => { currentEventId = ev.id; renderTabs(); renderCurrentEvent(); };
+      btn.innerHTML = escapeHtml(evLabel(ev)) + `<span class="prog">${pct === 100 ? "終了" : pct + "%"}</span>` + (hasPlaying ? `<span class="live" title="試合中"></span>` : "");
+      btn.onclick = () => { userPickedEvent = true; currentEventId = ev.id; renderTabs(); renderCurrentEvent(); };
       tabs.appendChild(btn);
     }
+    tabs.querySelector(".active")?.scrollIntoView({ block: "nearest", inline: "center" });
   }
 
   function renderCurrentEvent() {
     const ev = (state.events||[]).find(e=>e.id===currentEventId);
-    if (!ev) { el("bracket").innerHTML = "<div style='padding:20px;color:#94a3b8;'>イベントがありません</div>"; return; }
+    if (!ev) { el("bracket").innerHTML = "<div class='emptyNote'>競技がありません</div>"; return; }
 
     syncCtl();
     el("eventTitle").textContent = evLabel(ev);
 
-    // status badge
     const ms = (ev.matches||[]).filter(m=>!m.isBye&&!m.isExhibition);
     const done2 = ms.filter(m=>m.state==="final"&&m.winner).length;
     const playing = ms.filter(m=>m.state==="playing").length;
     const calling = ms.filter(m=>m.state==="calling").length;
-    let badge = "";
-    if (done2 === ms.length && ms.length > 0) {
-      badge = `<span class="badge green">✅ 終了</span>`;
-    } else if (playing > 0) {
-      badge = `<span class="badge red">🔴 試合中 ${playing}試合</span>`;
-    } else if (calling > 0) {
-      badge = `<span class="badge orange">📢 招集中 ${calling}試合</span>`;
-    } else {
-      badge = `<span class="badge blue">${done2}/${ms.length} 完了</span>`;
-    }
+    let badge;
+    if (done2 === ms.length && ms.length > 0) badge = `<span class="badge green">✅ 終了</span>`;
+    else if (playing > 0) badge = `<span class="badge red">🔴 試合中 ${playing}</span>`;
+    else if (calling > 0) badge = `<span class="badge orange">📢 招集中 ${calling}</span>`;
+    else badge = `<span class="badge blue">${done2}/${ms.length} 終了</span>`;
     el("eventStatusBadge").innerHTML = badge;
 
     const bracket = el("bracket");
     bracket.innerHTML = "";
 
-    // 優勝バナー: 決勝が確定していたら大きく表示
     const champ = getChampion(ev);
     if (champ) {
       const banner = document.createElement("div");
@@ -450,21 +514,101 @@ body.fz-s .tabBtn{font-size:13px;padding:6px 12px;min-height:34px;}
       bracket.appendChild(banner);
     }
 
-    if (ev.format === "league") {
-      bracket.appendChild(buildLeagueHTML(ev));
-    } else {
-      const mainMs = (ev.matches||[]).filter(m=>!m.isExhibition);
-      if (mainMs.length) bracket.appendChild(window.BracketView.build(mainMs, bracketOpts(bracket)));
+    if (ev.format === "league") { bracket.appendChild(buildLeagueHTML(ev)); return; }
 
-      window.BracketView.addScrollHint(bracket);
-      if (ev.loserMatches && ev.loserMatches.length > 0) {
-        const lbl = document.createElement("div");
-        lbl.className = "loserLabel";
-        lbl.textContent = "▊ 裏トーナメント";
-        bracket.appendChild(lbl);
-        bracket.appendChild(window.BracketView.build(ev.loserMatches, bracketOpts(bracket)));
-      }
+    if (prefs.view === "list") { bracket.appendChild(buildMatchList(ev)); return; }
+
+    const mainMs = (ev.matches||[]).filter(m=>!m.isExhibition);
+    if (mainMs.length) bracket.appendChild(window.BracketView.build(mainMs, bracketOpts(bracket)));
+    if (ev.loserMatches && ev.loserMatches.length > 0) {
+      const lbl = document.createElement("div");
+      lbl.className = "loserLabel";
+      lbl.textContent = "▊ 裏トーナメント";
+      bracket.appendChild(lbl);
+      bracket.appendChild(window.BracketView.build(ev.loserMatches, bracketOpts(bracket)));
     }
+    // 「自動」で表が横にはみ出す（＝スマホで大きな大会）なら、読みやすい試合一覧に切り替える
+    if (prefs.view === "auto" && bracket.scrollWidth > bracket.clientWidth + 4) {
+      bracket.querySelectorAll("svg.bv, .loserLabel").forEach(e => e.remove());
+      const note = document.createElement("div");
+      note.className = "autoNote";
+      note.innerHTML = `画面に収まらないため<b>一覧</b>で表示中。<button type="button">トーナメント表で見る</button>`;
+      note.querySelector("button").onclick = () => { prefs.view = "tree"; savePrefs(); renderCurrentEvent(); };
+      bracket.appendChild(note);
+      bracket.appendChild(buildMatchList(ev));
+      return;
+    }
+    window.BracketView.addScrollHint(bracket);
+  }
+
+  // ── 試合一覧（スマホ向け）────────────────────────
+  function buildMatchList(ev) {
+    const wrap = document.createElement("div");
+    wrap.className = "ml";
+    const all = [...(ev.matches||[]), ...(ev.loserMatches||[])].filter(m => !m.isExhibition);
+    const key = (m) => `${m.isLoserMatch ? "L" : "R"}${m.round}-${m.slot}`;
+    const byKey = {}; all.forEach(m => byKey[key(m)] = m);
+    const real = all.filter(m => !m.isBye);
+    const mainRounds = Math.max(1, ...(ev.matches||[]).filter(m => !m.isThirdPlace && !m.isExhibition).map(m => m.round));
+    const loserRounds = Math.max(1, ...(ev.loserMatches||[]).map(m => m.round));
+    const rName = (m) => {
+      if (m.isThirdPlace) return "3位決定戦";
+      const R = m.isLoserMatch ? loserRounds : mainRounds, d = R - m.round;
+      const base = d === 0 ? "決勝" : d === 1 ? "準決勝" : d === 2 ? "準々決勝" : `${m.round}回戦`;
+      return (m.isLoserMatch ? "裏 " : "") + base;
+    };
+    // 相手が未定のとき「第n試合の勝者」と出す
+    const placeholder = (m, slot) => {
+      const f = all.find(x => x.nextMatchKey === key(m) && x.nextSlot === slot && !x.isBye);
+      if (f) return f.matchNum ? `第${f.matchNum}試合の勝者` : "前の試合の勝者";
+      if (m.isThirdPlace) return "準決勝の敗者";
+      return "未定";
+    };
+    const label = (t) => t && t.startsWith("__L|") ? t.slice(4, -2).split("|").pop() + " の負け" : t;
+    const card = (m) => {
+      const st = m.state === "final" ? "final" : m.state === "playing" ? "playing" : m.state === "calling" ? "calling" : "waiting";
+      const stTxt = { final: "終了", playing: "試合中", calling: "招集中", waiting: "これから" }[st];
+      const row = (side, team, score) => {
+        const won = m.winner === side, lost = m.winner && !won;
+        const cls = ["mcRow", won ? "win" : lost ? "lose" : "", team ? "" : "tbd", prefs.team && team === prefs.team ? "mine" : ""].join(" ");
+        const sc = (m.state === "final" || m.state === "playing") && score != null && score !== "" ? score : "";
+        return `<div class="${cls}"><span class="nm">${escapeHtml(team ? label(team) : placeholder(m, side))}</span><span class="sc">${sc}</span></div>`;
+      };
+      const d = document.createElement("div");
+      d.className = "mc st-" + st;
+      d.innerHTML = `<div class="mcHead">${m.matchNum ? `<span>第${m.matchNum}試合</span>` : ""}<span class="t">${fmtTime(m.scheduledStart) || ""}</span>${m.court ? `<span>${escapeHtml(m.court)}コート</span>` : ""}<span class="stTag ${st}">${stTxt}</span></div>`
+        + row("A", m.teamA, m.scoreA) + row("B", m.teamB, m.scoreB);
+      return d;
+    };
+    const sec = (title, sub, cls = "") => { const h = document.createElement("div"); h.className = "mlSec " + cls; h.innerHTML = escapeHtml(title) + (sub ? ` <small>${escapeHtml(sub)}</small>` : ""); wrap.appendChild(h); };
+    const byTime = (a, b) => (a.scheduledStart || "").localeCompare(b.scheduledStart || "") || (a.court || "").localeCompare(b.court || "");
+
+    // いま試合中・招集中
+    const now = real.filter(m => m.state === "playing" || m.state === "calling").sort(byTime);
+    if (now.length) { sec("🔴 いま試合中・招集中"); now.forEach(m => wrap.appendChild(card(m))); }
+
+    // 自分のクラスの試合
+    if (prefs.team) {
+      const mine = real.filter(m => m.teamA === prefs.team || m.teamB === prefs.team).sort(byTime);
+      sec(`👤 ${prefs.team} の試合`, mine.length ? "" : "この競技には出場していません");
+      mine.forEach(m => wrap.appendChild(card(m)));
+    }
+
+    // 回戦ごと（決勝の前に3位決定戦）
+    const groups = [];
+    const order = (m) => (m.isLoserMatch ? 100 : 0) + (m.isThirdPlace ? mainRounds - 0.5 : m.round);
+    [...real].sort((a, b) => order(a) - order(b) || byTime(a, b)).forEach(m => {
+      const n = rName(m);
+      if (!groups.length || groups[groups.length - 1].name !== n) groups.push({ name: n, list: [] });
+      groups[groups.length - 1].list.push(m);
+    });
+    for (const g of groups) {
+      const fin = g.list.filter(m => m.state === "final").length;
+      sec(g.name, `${fin}/${g.list.length} 終了`, g.name === "決勝" ? "final" : "");
+      g.list.forEach(m => wrap.appendChild(card(m)));
+    }
+    if (!real.length) wrap.innerHTML = `<div class="emptyNote">試合がありません</div>`;
+    return wrap;
   }
 
   // 決勝（最終ラウンド）の勝者を返す。未確定なら null

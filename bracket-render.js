@@ -18,6 +18,8 @@
     .bvCard.st-calling .bvBox { stroke: #f59e0b; stroke-width: 2.2; }
     .bvSep { stroke: #e2e8f0; stroke-width: 1; }
     .bvWinBg { fill: #dcfce7; }
+    .bvMineBg { fill: #fef08a; }
+    .bvMineBar { fill: #ca8a04; }
     .bvName { fill: #1e293b; font-weight: 600; }
     .bvName.win { fill: #14532d; font-weight: 800; }
     .bvName.lose, .bvScore.lose { fill: #9ca3af; }
@@ -83,6 +85,7 @@
    *   orientation : "auto"(既定) | "h"(横型: 左→右) | "v"(縦型: 下→上、決勝が上)
    *   fontSize    : 基本の文字サイズ（既定14）
    *   minFontPx   : 画面上でこれより小さくしない（足りなければスクロール）
+   *   highlightTeam : このチーム名の段を黄色で強調（「自分のクラス」）
    * @returns {SVGElement}
    */
   function build(allMatches, opt = {}) {
@@ -250,7 +253,10 @@
         const ry = top + i * rowH;
         const won = m.winner === side;
         const cls = won ? "win" : (m.winner ? "lose" : "");
-        if (won) g.append(el("rect", { x: x + 1, y: ry + 1, width: cardW - 2, height: rowH - 2, rx: 6, class: "bvWinBg" }));
+        const mine = opt.highlightTeam && team === opt.highlightTeam;
+        if (mine) g.append(el("rect", { x: x + 1, y: ry + 1, width: cardW - 2, height: rowH - 2, rx: 6, class: "bvMineBg" }));
+        else if (won) g.append(el("rect", { x: x + 1, y: ry + 1, width: cardW - 2, height: rowH - 2, rx: 6, class: "bvWinBg" }));
+        if (mine) g.append(el("rect", { x: x + 1, y: ry + 3, width: 4, height: rowH - 6, rx: 2, class: "bvMineBar" }));
         const label = team ? fit(teamLabel(team), nameMax) : "未定";
         g.append(el("text", { x: x + 10, y: ry + rowH / 2, class: `bvName ${cls}` + (team ? "" : " tbd"), "font-size": fs }, label));
         if (score != null && score !== "") {
