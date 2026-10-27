@@ -5,8 +5,12 @@
   const NS = "http://www.w3.org/2000/svg";
 
   const STYLE = `
-    .bv text { font-family: 'Noto Sans JP','Hiragino Kaku Gothic ProN','Yu Gothic',sans-serif; dominant-baseline: middle; }
-    .bvHead { font-size: 12px; font-weight: 800; fill: #64748b; letter-spacing: .5px; }
+    .bv text { font-family: 'BIZ UDPGothic','Hiragino Kaku Gothic ProN','Yu Gothic UI','Meiryo','Noto Sans JP',sans-serif; dominant-baseline: middle; }
+    .bv .num { font-family: 'Roboto Mono','SF Mono','Consolas',ui-monospace,monospace; font-variant-numeric: tabular-nums; }
+    .bv .hn { font-weight: 800; fill: #1e3a5f; }
+    .bv .ht { font-weight: 600; fill: #2563eb; }
+    .bv .hc { font-weight: 800; fill: #047857; }
+    .bvHead { font-size: 12px; font-weight: 700; fill: #475569; letter-spacing: 1px; }
     .bvHead.final { fill: #b45309; }
     .bvLine { fill: none; stroke: #cbd5e1; stroke-width: 1.8; }
     .bvLine.win { stroke: #16a34a; stroke-width: 3; }
@@ -19,7 +23,7 @@
     .bvHdr { fill: #eef2f7; }
     .bvCard.st-playing .bvHdr, .bvCard.live .bvHdr { fill: #fee2e2; }
     .bvCard.st-calling .bvHdr { fill: #fef3c7; }
-    .bvHdrTxt { fill: #334155; font-weight: 700; }
+    .bvHdrTxt { fill: #334155; }
     .bvSep { stroke: #e2e8f0; stroke-width: 1.2; }
     .bvWinBg { fill: #f0fdf4; }
     .bvWinBar { fill: #16a34a; }
@@ -32,7 +36,7 @@
     .bvScBox { fill: #f1f5f9; stroke: #cbd5e1; stroke-width: 1; }
     .bvScBox.win { fill: #16a34a; stroke: #15803d; }
     .bvScBox.lose { fill: #f1f5f9; stroke: #e2e8f0; }
-    .bvScore { fill: #334155; font-weight: 800; font-family: ui-monospace, 'SF Mono', monospace; }
+    .bvScore { fill: #334155; font-weight: 800; }
     .bvScore.win { fill: #fff; }
     .bvScore.lose { fill: #9ca3af; }
     .bvTag.playing { fill: #ef4444; } .bvTag.calling { fill: #f59e0b; }
@@ -122,20 +126,22 @@
     matches.forEach(m => { if (m.teamA) names.push(teamLabel(m.teamA)); if (m.teamB) names.push(teamLabel(m.teamB)); });
     const longest = Math.max(3, ...names.map(textUnits));
     const nameUnits = Math.min(longest, 10);
-    const scoreW = Math.round(fs * 2.1);                   // 点数の箱
-    const hdrUnits = 8.8;                                  // 見出し「第15試合 10:24 A」が入る幅
-    const cardW = Math.round(Math.max(fs * 7, hdrUnits * fs * 0.8 + 16, Math.min(fs * 17, nameUnits * fs * 1.12 + scoreW + 26)));
-    const rowH = Math.round(fs * 2.1);
+    const nameFs = fs * 1.12;                              // クラス名はいちばん大きく
+    const scoreW = Math.round(fs * 1.9);                   // 点数の箱
+    const hdrUnits = 8.4;                                  // 見出し「第15試合 10:24 A」(コートまで)が入る幅
+    const capFsEst = Math.max(10.5, fs * 0.74);            // 見出しの文字（下の capFs と同じ基準）
+    const cardW = Math.round(Math.max(fs * 6.2, hdrUnits * capFsEst * 1.08 + 16, Math.min(fs * 17, nameUnits * nameFs * 1.08 + scoreW + 22)));
+    const rowH = Math.round(fs * 1.78);
     const cardH = rowH * 2;
-    const pad = 12;
-    const gapV = 14;
-    const colGap = r1count >= 8 ? 24 : 32;
+    const pad = 6;
+    const gapV = 8;
+    const colGap = r1count >= 8 ? 16 : 22;
     const colW = cardW + colGap;
-    const headH = Math.round(fs * 2.1);
-    const labelW = Math.round(fs * 4.6);
-    const gapX = r1count >= 8 ? 12 : 20;
+    const headH = Math.round(fs * 1.6);
+    const labelW = Math.round(fs * 4.6);                  // 縦型の回戦名（「準々決勝」が入る幅）
+    const gapX = r1count >= 8 ? 8 : 12;
     const pitchX = cardW + gapX;
-    const vGap = Math.round(fs * 2.4);
+    const vGap = Math.round(fs * 1.7);
 
     const MIN_SCALE = opt.minFontPx ? Math.min(1.6, Math.max(0.6, opt.minFontPx / fs)) : (narrow ? 0.85 : 0.7);
     const MAX_SCALE = Math.max(1.15, MIN_SCALE);
@@ -144,7 +150,7 @@
     const estW = V ? pad * 2 + labelW + spread * pitchX - gapX : pad * 2 + depth * colW - colGap;
     const expScale = opt.maxWidth ? Math.max(MIN_SCALE, Math.min(MAX_SCALE, opt.maxWidth / estW)) : 1;
     const capFs = Math.min(fs * 0.85, Math.max(10.5, fs * 0.74, 9.5 / expScale));
-    const capRow = Math.round(capFs + 11);                // カード内の見出し帯
+    const capRow = Math.round(capFs + 8);                 // カード内の見出し帯
     const boxH = capRow + cardH;
     const headFs = Math.max(12, fs * 0.86, 11 / expScale);
 
@@ -211,14 +217,21 @@
     }
 
     // ── カード ──────────────────────────────────────
-    const nameMax = (cardW - scoreW - 26) / (fs * 1.08);
+    const nameMax = (cardW - scoreW - 22) / (nameFs * 1.06);
     const tfs = Math.max(9.5, capFs * 0.9), tagW = tfs * 4.2, tagH = tfs + 6;
-    const headerFit = (m, prefix, avail) => {
-      const n = m.matchNum, t = fmtTime(m.scheduledStart), c = m.court || "";
-      // 幅が足りないときは コート → 時刻 の順に省く（試合番号は呼び出しに使うので最後まで残す）
-      const v = [[n && `第${n}試合`, t, c && c + "コート"], [n && `第${n}試合`, t, c], [n && `第${n}試合`, t], [n && `第${n}試合`], [t, c], [t]]
-        .map(x => (prefix ? prefix + " " : "") + x.filter(Boolean).join(" "));
-      return v.find(x => textUnits(x) * capFs * 1.05 <= avail) || v[v.length - 1];
+    // 見出し: [試合番号, 時刻, コート] を入る分だけ（コート → 時刻 の順に省く。試合番号は残す）
+    const headerParts = (m, prefix, avail) => {
+      const n = m.matchNum ? `第${m.matchNum}試合` : "", t = fmtTime(m.scheduledStart), c = m.court ? m.court + "コート" : "", c1 = m.court || "";
+      const P = prefix ? [["hn", prefix]] : [];
+      const v = [[["hn", n], ["ht", t], ["hc", c]], [["hn", n], ["ht", t], ["hc", c1]], [["hn", n], ["ht", t]], [["hn", n]], [["ht", t], ["hc", c1]], [["ht", t]]]
+        .map(parts => P.concat(parts.filter(x => x[1])));
+      const w = (parts) => textUnits(parts.map(x => x[1]).join(" ")) * capFs * 1.08;
+      return v.find(x => w(x) <= avail) || v[v.length - 1];
+    };
+    const headerText = (x, y, parts) => {
+      const t = el("text", { x, y, class: "bvHdrTxt", style: `font-size:${capFs}px` });
+      parts.forEach(([cls, str], i) => t.append(el("tspan", { class: cls + (cls === "ht" ? " num" : "") }, (i ? " " : "") + str)));
+      return t;
     };
     const drawCard = (m, x, y, prefix = "") => {
       const key = keyOf(m);
@@ -231,8 +244,8 @@
       // 見出し帯（試合番号・時刻・コート、右端に状態）
       g.append(el("path", { d: `M${x + 1} ${y + capRow} V${y + 8} Q${x + 1} ${y + 1} ${x + 8} ${y + 1} H${x + cardW - 8} Q${x + cardW - 1} ${y + 1} ${x + cardW - 1} ${y + 8} V${y + capRow} Z`, class: "bvHdr" }));
       g.append(el("line", { x1: x + 1, x2: x + cardW - 1, y1: y + capRow, y2: y + capRow, class: "bvSep" }));
-      const avail = cardW - 16 - (tagKind ? tagW + 6 : 0);
-      g.append(el("text", { x: x + 8, y: y + capRow / 2 + 1, class: "bvHdrTxt", style: `font-size:${capFs}px` }, headerFit(m, prefix, avail)));
+      const avail = cardW - 14 - (tagKind ? tagW + 6 : 0);
+      g.append(headerText(x + 7, y + capRow / 2 + 1, headerParts(m, prefix, avail)));
       if (tagKind) {
         const ty = y + (capRow - tagH) / 2;
         g.append(el("rect", { x: x + cardW - tagW - 6, y: ty, width: tagW, height: tagH, rx: tagH / 2, class: "bvTag " + tagKind }));
@@ -250,13 +263,13 @@
           : `M${x + 1} ${ry} H${x + cardW - 1} V${ry + rowH} H${x + 1} Z`, class: fill });
         if (mine) g.append(bgD("bvMineBg"));
         else if (won) g.append(bgD("bvWinBg"));
-        if (won || mine) g.append(el("rect", { x: x + 1, y: ry + 4, width: 5, height: rowH - 8, rx: 2.5, class: mine ? "bvMineBar" : "bvWinBar" }));
+        if (won || mine) g.append(el("rect", { x: x + 1, y: ry + 3, width: 5, height: rowH - 6, rx: 2.5, class: mine ? "bvMineBar" : "bvWinBar" }));
         const label = team ? fit(teamLabel(team), nameMax) : "未定";
-        g.append(el("text", { x: x + 12, y: ry + rowH / 2 + 1, class: `bvName ${cls}` + (team ? "" : " tbd"), "font-size": team ? fs : fs * 0.9 }, label));
+        g.append(el("text", { x: x + 11, y: ry + rowH / 2 + 1, class: `bvName ${cls}` + (team ? "" : " tbd"), "font-size": team ? nameFs : fs * 0.86 }, label));
         if (score != null && score !== "") {
-          const bx = x + cardW - scoreW - 6, bh = rowH - 10;
-          g.append(el("rect", { x: bx, y: ry + 5, width: scoreW, height: bh, rx: 5, class: `bvScBox ${cls}` }));
-          g.append(el("text", { x: bx + scoreW / 2, y: ry + rowH / 2 + 1, "text-anchor": "middle", class: `bvScore ${cls}`, "font-size": fs * 1.05 }, String(score)));
+          const bx = x + cardW - scoreW - 4, bh = rowH - 6;
+          g.append(el("rect", { x: bx, y: ry + 3, width: scoreW, height: bh, rx: 5, class: `bvScBox ${cls}` }));
+          g.append(el("text", { x: bx + scoreW / 2, y: ry + rowH / 2 + 1, "text-anchor": "middle", class: `bvScore num ${cls}`, "font-size": fs * 1.12 }, String(score)));
         }
       });
       g.append(el("line", { x1: x + 1, x2: x + cardW - 1, y1: top + rowH, y2: top + rowH, class: "bvSep" }));
@@ -296,16 +309,17 @@
 
     if (finalM) {
       const fx = cardX(finalM), fy = cardY(finalM);
+      let rx = fx + cardW + gapX + 6;                     // 決勝の右側に並べる
+      if (third) { drawCard(third, rx, fy, "3位決定戦"); rx += cardW + gapX + 6; }
       if (champ) {
         const txt = `🏆 優勝 ${champ}`;
         const w = textUnits(txt) * champFs + 28, h = champFs * 2.2;
-        const cx = fx + cardW + gapX + 6, cy = fy + boxH / 2 - h / 2;
-        gLines.append(el("path", { d: `M${fx + cardW} ${fy + boxH / 2} H${cx}`, class: "bvLine win" }));
-        gCards.append(el("rect", { x: cx, y: cy, width: w, height: h, rx: h / 2, class: "bvChampBg" }));
-        gCards.append(el("text", { x: cx + w / 2, y: cy + h / 2 + 1, "text-anchor": "middle", class: "bvChamp", style: `font-size:${champFs}px` }, txt));
-        bump(cx, cy, w, h);
+        const cy = fy + boxH / 2 - h / 2;
+        if (!third) gLines.append(el("path", { d: `M${fx + cardW} ${fy + boxH / 2} H${rx}`, class: "bvLine win" }));
+        gCards.append(el("rect", { x: rx, y: cy, width: w, height: h, rx: h / 2, class: "bvChampBg" }));
+        gCards.append(el("text", { x: rx + w / 2, y: cy + h / 2 + 1, "text-anchor": "middle", class: "bvChamp", style: `font-size:${champFs}px` }, txt));
+        bump(rx, cy, w, h);
       }
-      if (third) drawCard(third, fx - cardW - gapX * 2 - 6, fy, "3位決定戦");
     }
     return finish(svg, minX - pad, minY - pad, maxX - minX + pad * 2, maxY - minY + pad * 2);
 

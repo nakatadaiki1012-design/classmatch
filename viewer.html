@@ -3,6 +3,10 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <!-- 書体: クラス名などは読みやすいUDゴシック、数字は桁がそろう等幅（オフライン時は端末の書体で表示） -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&family=Roboto+Mono:wght@500;700&display=swap" rel="stylesheet" />
   <title>クラ���マッチ ライブ</title>
   <style>
 /* ── CSS Variables ────��────────────────────── */
@@ -10,7 +14,7 @@
   --primary:#2563eb; --navy:#1e3a5f; --ok:#16a34a;
   --surface:#fff; --surface2:#f8fafc; --border:#e2e8f0; --border2:#cbd5e1;
   --muted:#64748b; --subtle:#94a3b8; --text:#1e293b;
-  font-family:'Noto Sans JP','Hiragino Kaku Gothic ProN','Yu Gothic',sans-serif;
+  font-family:'BIZ UDPGothic','Hiragino Kaku Gothic ProN','Yu Gothic UI','Meiryo','Noto Sans JP',sans-serif;
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 body{background:#f1f5f9;color:var(--text);font-size:14px;line-height:1.5;min-height:100vh;}
@@ -116,7 +120,7 @@ progress::-webkit-progress-value{background:var(--ok);border-radius:4px;transiti
 .badge.orange{background:#fff7ed;color:#ea580c;border:1px solid #fed7aa;}
 .badge.gray {background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0;}
 
-.bracketWrap{overflow-x:auto;padding:6px 0;}
+.bracketWrap{overflow-x:auto;padding:0;}
 .championBanner{
   display:flex;align-items:center;gap:14px;
   padding:14px 20px;margin-bottom:14px;
@@ -169,19 +173,19 @@ header h1{font-size:17px;}
 #headerSub{font-size:12px;}
 #liveIndicator{font-size:12px;}
 #lastUpdated{font-size:11px;}
-main{padding:10px 10px 40px;}
-.card{padding:14px;margin-bottom:10px;}
+main{padding:6px 6px 32px;}
+.card{padding:10px 8px;margin-bottom:8px;border-radius:10px;}
 /* 競技タブ: 1行で横スクロール */
-#eventTabs.tabStrip{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 10px;margin:0 -2px 4px;
+#eventTabs.tabStrip{display:flex;gap:6px;overflow-x:auto;padding:2px 2px 6px;margin:0 -2px 2px;
   border-bottom:none;flex-wrap:nowrap;scrollbar-width:none;-webkit-overflow-scrolling:touch;}
 #eventTabs.tabStrip::-webkit-scrollbar{display:none;}
 .tabBtn{flex:0 0 auto;font-size:15px;padding:8px 14px;min-height:42px;white-space:nowrap;}
 .tabBtn .prog{font-size:12px;}
 .tabBtn .live{display:inline-block;width:8px;height:8px;border-radius:50%;background:#ef4444;margin-left:6px;vertical-align:middle;animation:liveDot .9s ease-in-out infinite;}
-.sectionHead{margin-bottom:10px;}
+.sectionHead{margin-bottom:6px;padding:0 4px;}
 .sectionHead h2{font-size:21px;}
 .badge{font-size:13px;padding:4px 11px;}
-.ctlRow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px;}
+.ctlRow{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:8px;padding:0 4px;}
 .seg{display:inline-flex;align-items:center;gap:2px;background:#e2e8f0;border-radius:10px;padding:3px;}
 .seg button{border:none;background:transparent;color:#475569;font-weight:700;font-size:14px;
   min-width:48px;min-height:42px;padding:0 12px;border-radius:8px;cursor:pointer;font-family:inherit;}
