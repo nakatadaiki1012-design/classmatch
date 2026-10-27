@@ -2446,193 +2446,258 @@
   };
 
   // ── タイムテーブル・順序編集モーダル ──────────────────────────────────
-  if (el("btnEditSchedule")) el("btnEditSchedule").onclick = () => {
+  // ── 試合の順番・時刻・コートの編集 ─────────────────────────────
+  // 並び（配列）を唯一の正として持ち、変更のたびに描き直す。
+  //  - 並びは「時間枠」ごとにまとめて表示（同じ枠に入るコート数ぶんの試合）
+  //  - 順番を変えると 時刻・第○試合 は 開始時刻/所要時間/コート数 から自動で振り直す
+  //  - 結果入力済みの試合は動かせない（固定）
+  let esState = null;
+  function esCourtsOf(str) { return String(str || "").split(",").map(x => x.trim()).filter(Boolean); }
+  function esHHMM(ms) { const d = new Date(ms); return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); }
+
+  function openEditSchedule() {
     if (!currentEvent || !currentEvent.matches) return;
     const allM = currentEvent.loserMatches ? [...currentEvent.matches, ...currentEvent.loserMatches] : currentEvent.matches;
-    const list = [...allM].sort((a, b) => {
-      const ta = a.scheduledStart || "", tb = b.scheduledStart || "";
-      return ta < tb ? -1 : ta > tb ? 1 : (a.court || "").localeCompare(b.court || "");
-    });
-
-    const esList = el("eschedList");
-    if (!esList) return;
-    esList.innerHTML = "";
-
-    list.forEach(m => {
-      if (m.isBye) return;
-      const row = document.createElement("div");
-      row.className = "row";
-      row.style.cssText = "gap:8px; align-items:center; padding:4px 6px; border-radius:6px; transition:background 0.15s; cursor:grab;";
-      row.dataset.matchKey = matchKey(m);
-
-      // ── ドラッグハンドル ──
-      const handle = document.createElement("span");
-      handle.textContent = "⠿";
-      handle.style.cssText = "cursor:grab; color:var(--muted); font-size:18px; padding:0 2px; flex-shrink:0; user-select:none;";
-      handle.title = "ドラッグして並び替え";
-
-      const label = document.createElement("span");
-      label.style.cssText = "width:68px; font-size:12px; flex-shrink:0;";
-      label.className = "mono esched-label";
-      label.textContent = currentEvent.format === "league"
-        ? `リーグG${m.slot + 1}`
-        : (m.matchNum ? `第${m.matchNum}試合` : `${m.isLoserMatch ? "裏" : ""}R${m.round}-${m.slot + 1}`);
-
-      const tInput = document.createElement("input");
-      tInput.type = "time";
-      tInput.value = fmtTime(m.scheduledStart) || "";
-      tInput.style.cssText = "width:90px; flex-shrink:0;";
-
-      const cInput = document.createElement("input");
-      cInput.type = "text";
-      cInput.value = m.court || "";
-      cInput.style.cssText = "width:54px; flex-shrink:0;";
-
-      const vsLbl = document.createElement("span");
-      vsLbl.className = "small";
-      vsLbl.style.cssText = "flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;";
-      vsLbl.textContent = `${displayTeam(allM, m, "A")} vs ${displayTeam(allM, m, "B")}`;
-
-      const btnUp = document.createElement("button");
-      btnUp.textContent = "↑";
-      btnUp.className = "ghost";
-      btnUp.style.cssText = "padding:3px 7px; font-size:12px; flex-shrink:0;";
-      // --- UIの並び（DOM要素順）をもとに時間とラベルを上から自動で振り直す関数 ---
-      const updateTimesAndLabels = () => {
-        const rows = [...esList.querySelectorAll("[data-match-key]")];
-        if (rows.length === 0) return;
-
-        const startStr = currentEvent.settings?.startTime || "09:00";
-        const parts = startStr.split(":");
-        const bD = new Date();
-        bD.setHours(parseInt(parts[0], 10) || 9, parseInt(parts[1], 10) || 0, 0, 0);
-        let currentMs = bD.getTime();
-
-        const slotMin = (Number(currentEvent.settings?.matchMinutes) || 10) + (Number(currentEvent.settings?.turnoverMinutes) || 0);
-        const courts = courtList(currentEvent.settings);
-        const courtsCount = Math.max(1, courts.length);
-
-        rows.forEach((r, idx) => {
-          // 試合番号ラベルの更新
-          const lbl = r.querySelector(".esched-label");
-          if (lbl) lbl.textContent = `第${idx + 1}試合`;
-
-          // 時間の更新 (コート数に応じて時間を進める)
-          const slotIdx = Math.floor(idx / courtsCount);
-          const tDate = new Date(currentMs + slotIdx * slotMin * 60000);
-          const tInputElem = r.querySelector("input[type=time]");
-          if (tInputElem) {
-            tInputElem.value = String(tDate.getHours()).padStart(2, "0") + ":" + String(tDate.getMinutes()).padStart(2, "0");
-          }
-        });
-      };
-
-      btnUp.onclick = () => {
-        const prev = row.previousElementSibling;
-        if (prev) {
-          esList.insertBefore(row, prev);
-          updateTimesAndLabels();
-        }
-      };
-      const btnDown = document.createElement("button");
-      btnDown.textContent = "↓";
-      btnDown.className = "ghost";
-      btnDown.style.cssText = "padding:3px 7px; font-size:12px; flex-shrink:0;";
-      btnDown.onclick = () => {
-        const next = row.nextElementSibling;
-        if (next) {
-          esList.insertBefore(next, row);
-          updateTimesAndLabels();
-        }
-      };
-
-      // ── DragDrop ──
-      row.draggable = true;
-      row.ondragstart = (e) => {
-        e.dataTransfer.effectAllowed = "move";
-        e.dataTransfer.setData("text/plain", matchKey(m));
-        setTimeout(() => row.style.opacity = "0.4", 0);
-      };
-      row.ondragend = () => { row.style.opacity = "1"; row.classList.remove("dnd-over"); };
-      row.ondragover = (e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; row.classList.add("dnd-over"); };
-      row.ondragleave = (e) => { if (!row.contains(e.relatedTarget)) row.classList.remove("dnd-over"); };
-      row.ondrop = (e) => {
-        e.preventDefault();
-        row.classList.remove("dnd-over");
-        const srcKey = e.dataTransfer.getData("text/plain");
-        if (!srcKey || srcKey === matchKey(m)) return;
-        const srcRow = esList.querySelector(`[data-match-key="${srcKey}"]`);
-        if (srcRow) {
-          // Swap the DOM nodes
-          const placeholder = document.createElement('div');
-          esList.insertBefore(placeholder, row);
-          esList.insertBefore(row, srcRow);
-          esList.insertBefore(srcRow, placeholder);
-          esList.removeChild(placeholder);
-          updateTimesAndLabels();
-        }
-      };
-
-      row.appendChild(handle);
-      row.appendChild(label);
-      row.appendChild(tInput);
-      row.appendChild(cInput);
-      row.appendChild(btnUp);
-      row.appendChild(btnDown);
-      row.appendChild(vsLbl);
-      esList.appendChild(row);
-    });
-
-    el("eschedTitle").textContent = `${currentEvent.sportName} ${currentEvent.gender === "M" ? "男子" : "女子"}`;
+    const real = allM.filter(m => !m.isBye && !m.isExhibition);
+    const sorted = [...real].sort((a, b) => (a.scheduledStart || "~").localeCompare(b.scheduledStart || "~") || (a.court || "").localeCompare(b.court || "") || (a.matchNum || 0) - (b.matchNum || 0));
+    const st = currentEvent.settings || {};
+    esState = {
+      all: allM,
+      order: sorted.map(m => matchKey(m)),
+      startTime: st.startTime || "09:00",
+      matchMin: Number(st.matchMinutes) || 10,
+      gapMin: Number(st.turnoverMinutes) || 0,
+      courts: esCourtsOf(st.courts || "A"),
+      manual: {},          // 手で時刻を変えた枠 {枠番号: "HH:MM"}
+      orig: sorted.map(m => matchKey(m)).join("|"),
+      sel: null,
+      showDone: false,
+    };
+    if (!esState.courts.length) esState.courts = ["A"];
+    el("esStart").value = esState.startTime;
+    el("esMin").value = esState.matchMin;
+    el("esGap").value = esState.gapMin;
+    el("esCourts").value = esState.courts.join(",");
+    el("eschedTitle").textContent = `${currentEvent.sportName} ${currentEvent.gender === "M" ? "男子" : currentEvent.gender === "F" ? "女子" : "混合"}`;
+    renderEsList();
     el("editScheduleModal").classList.remove("hidden");
-  };
+  }
 
-  if (el("eschedClose")) el("eschedClose").onclick = () => el("editScheduleModal").classList.add("hidden");
+  // 並び順から 各試合の 枠番号・時刻・コート を求める
+  function esCompute() {
+    const S = esState, n = S.courts.length;
+    const [hh, mm] = S.startTime.split(":").map(Number);
+    const base = new Date(); base.setHours(hh || 0, mm || 0, 0, 0);
+    const slotMs = (S.matchMin + S.gapMin) * 60000;
+    const info = {};
+    let cursor = base.getTime();
+    S.order.forEach((key, i) => {
+      const slot = Math.floor(i / n);
+      if (i % n === 0) {
+        if (S.manual[slot]) { const [h2, m2] = S.manual[slot].split(":").map(Number); const d = new Date(base); d.setHours(h2, m2, 0, 0); cursor = d.getTime(); }
+        else if (slot > 0) cursor = (S.slotTime[slot - 1] ?? cursor) + slotMs;
+        S.slotTime[slot] = cursor;
+      }
+      info[key] = { idx: i, slot, num: i + 1, time: esHHMM(S.slotTime[slot]), court: S.courts[i % n] };
+    });
+    return info;
+  }
+
+  function renderEsList() {
+    const S = esState; if (!S) return;
+    S.slotTime = {};
+    const info = esCompute();
+    const byKey = {}; S.all.forEach(m => byKey[matchKey(m)] = m);
+    const box = el("eschedList");
+    const scroll = box.scrollTop;
+    box.innerHTML = "";
+    const league = currentEvent.format === "league";
+    const mainRounds = Math.max(1, ...(currentEvent.matches || []).filter(m => !m.isThirdPlace && !m.isExhibition).map(m => m.round));
+    const loserRounds = Math.max(1, ...(currentEvent.loserMatches || []).map(m => m.round));
+    const rName = (m) => {
+      if (league) return `リーグ`;
+      if (m.isThirdPlace) return "3位決定戦";
+      const R = m.isLoserMatch ? loserRounds : mainRounds, d = R - m.round;
+      return (m.isLoserMatch ? "裏 " : "") + (d === 0 ? "決勝" : d === 1 ? "準決勝" : d === 2 ? "準々決勝" : `${m.round}回戦`);
+    };
+    const n = S.courts.length;
+    const isFixed = (k) => { const q = byKey[k]; return q.state === "final" || q.state === "playing"; };
+    // 全試合が終了済みの枠は畳む（動かす対象は「これからの試合」）
+    const slotDone = {};
+    S.order.forEach((k, i) => { const sl = info[k].slot; slotDone[sl] = (slotDone[sl] ?? true) && byKey[k].state === "final"; });
+    const doneSlots = Object.keys(slotDone).filter(x => slotDone[x]).map(Number);
+    let doneBox = null;
+    if (doneSlots.length && !S.showDone) {
+      doneBox = document.createElement("button");
+      doneBox.className = "esDoneBar";
+      doneBox.innerHTML = `✅ 終了した ${doneSlots.length} 枠（${doneSlots.reduce((a, sl) => a + S.order.filter(k => info[k].slot === sl).length, 0)}試合）は固定です <span>タップで表示</span>`;
+      doneBox.onclick = () => { S.showDone = true; renderEsList(); };
+      box.appendChild(doneBox);
+    }
+    let lastSlot = -1, slotBox = null;
+    S.order.forEach((key, i) => {
+      const m = byKey[key]; const f = info[key];
+      if (!S.showDone && slotDone[f.slot]) return;
+      if (f.slot !== lastSlot) {
+        lastSlot = f.slot;
+        slotBox = document.createElement("div");
+        slotBox.className = "esSlot";
+        const manual = S.manual[f.slot];
+        slotBox.innerHTML = `<div class="esSlotHead"><span class="esSlotNo">${f.slot + 1}つ目の時間枠</span>`
+          + `<input type="time" class="esSlotTime${manual ? " manual" : ""}" value="${f.time}" data-slot="${f.slot}" aria-label="${f.slot + 1}つ目の枠の開始時刻">`
+          + (manual ? `<button class="esAutoSlot" data-slot="${f.slot}" title="自動の時刻に戻す">自動に戻す</button>` : `<span class="esAuto">自動</span>`)
+          + `</div>`;
+        box.appendChild(slotBox);
+      }
+      const fixed = m.state === "final" || m.state === "playing";
+      const a = displayTeam(S.all, m, "A"), b = displayTeam(S.all, m, "B");
+      const row = document.createElement("div");
+      row.className = "esRow" + (fixed ? " fixed" : "") + (S.sel === key ? " sel" : "");
+      row.dataset.matchKey = key;
+      row.innerHTML = `
+        <span class="esGrip" title="つかんでドラッグ">${fixed ? "🔒" : "⠿"}</span>
+        <span class="esMeta"><span class="esNum">第${f.num}試合</span><span class="esCourt">${escapeHtml(f.court)}<small>コート</small></span><span class="esRound">${escapeHtml(rName(m))}${m.state === "final" ? ' <em class="done">終了</em>' : m.state === "playing" ? ' <em class="live">試合中</em>' : ""}</span></span>
+        <span class="esVs"><b>${escapeHtml(a)}</b><i>vs</i><b>${escapeHtml(b)}</b></span>
+        <span class="esBtns"><button class="esUp" aria-label="1つ前へ" ${i === 0 || fixed ? "disabled" : ""}>▲</button><button class="esDn" aria-label="1つ後へ" ${i === S.order.length - 1 || fixed ? "disabled" : ""}>▼</button></span>`;
+      slotBox.appendChild(row);
+    });
+    box.scrollTop = scroll;
+    // 集計・変更有無
+    const changed = S.order.join("|") !== S.orig || Object.keys(S.manual).length > 0
+      || S.startTime !== (currentEvent.settings?.startTime || "09:00") || S.courts.join(",") !== esCourtsOf(currentEvent.settings?.courts || "A").join(",")
+      || S.matchMin !== (Number(currentEvent.settings?.matchMinutes) || 10) || S.gapMin !== (Number(currentEvent.settings?.turnoverMinutes) || 0);
+    const last = S.order.length ? info[S.order[S.order.length - 1]] : null;
+    el("esStats").innerHTML = `全 <b>${S.order.length}</b> 試合・<b>${last ? last.slot + 1 : 0}</b> 枠` + (last ? `・終了 <b>${esHHMM(S.slotTime[last.slot] + S.matchMin * 60000)}</b> 頃` : "")
+      + (changed ? ` <span class="chg">● 変更あり</span>` : "");
+    el("eschedSave").disabled = !changed;
+    const sm = el("esSumm"); if (sm) sm.textContent = `${S.startTime}〜・${S.matchMin}分＋${S.gapMin}分・${S.courts.join("/")}コート`;
+    bindEsRows();
+  }
+
+  function esMove(key, delta) {
+    const S = esState, i = S.order.indexOf(key), j = i + delta;
+    if (i < 0 || j < 0 || j >= S.order.length) return;
+    const byKey = {}; S.all.forEach(m => byKey[matchKey(m)] = m);
+    const other = byKey[S.order[j]];
+    if (other && (other.state === "final" || other.state === "playing")) return; // 固定の試合は飛び越えない
+    [S.order[i], S.order[j]] = [S.order[j], S.order[i]];
+    S.sel = key;
+    renderEsList();
+    el("eschedList").querySelector(`[data-match-key="${key}"]`)?.scrollIntoView({ block: "nearest" });
+  }
+  function esMoveTo(key, toIdx) {
+    const S = esState, i = S.order.indexOf(key);
+    if (i < 0 || toIdx < 0 || toIdx >= S.order.length || toIdx === i) return;
+    S.order.splice(i, 1); S.order.splice(toIdx, 0, key);
+    S.sel = key; renderEsList();
+  }
+
+  function bindEsRows() {
+    const box = el("eschedList");
+    box.querySelectorAll(".esRow").forEach(row => {
+      const key = row.dataset.matchKey;
+      row.querySelector(".esUp").onclick = () => esMove(key, -1);
+      row.querySelector(".esDn").onclick = () => esMove(key, 1);
+      row.onclick = (e) => { if (e.target.closest("button") || row.classList.contains("fixed")) return; esState.sel = esState.sel === key ? null : key; renderEsList(); };
+      // ── つかんで動かす（マウス・指どちらも。ポインタイベント）
+      const grip = row.querySelector(".esGrip");
+      if (row.classList.contains("fixed")) return;
+      grip.style.touchAction = "none";
+      grip.onpointerdown = (e) => {
+        e.preventDefault();
+        grip.setPointerCapture(e.pointerId);
+        const rows = [...box.querySelectorAll(".esRow")];
+        const startIdx = rows.indexOf(row);
+        row.classList.add("dragging");
+        let target = startIdx;
+        const rects = rows.map(r => r.getBoundingClientRect());
+        const move = (ev) => {
+          const y = ev.clientY;
+          // 自動スクロール
+          const br = box.getBoundingClientRect();
+          if (y < br.top + 40) box.scrollTop -= 14; else if (y > br.bottom - 40) box.scrollTop += 14;
+          let t = rows.length - 1;
+          const cur = rows.map(r => r.getBoundingClientRect());
+          for (let k = 0; k < cur.length; k++) { if (y < cur[k].top + cur[k].height / 2) { t = k; break; } }
+          rows.forEach(r => r.classList.remove("dropBefore", "dropAfter"));
+          target = t;
+          if (t !== startIdx) rows[t].classList.add(t < startIdx ? "dropBefore" : "dropAfter");
+          row.style.transform = `translateY(${y - (rects[startIdx].top + rects[startIdx].height / 2)}px)`;
+        };
+        const up = () => {
+          grip.removeEventListener("pointermove", move); grip.removeEventListener("pointerup", up); grip.removeEventListener("pointercancel", up);
+          row.classList.remove("dragging"); row.style.transform = "";
+          const byKey = {}; esState.all.forEach(m => byKey[matchKey(m)] = m);
+          const tk = esState.order[target];
+          if (target !== startIdx && !(byKey[tk] && (byKey[tk].state === "final" || byKey[tk].state === "playing"))) esMoveTo(key, target);
+          else renderEsList();
+        };
+        grip.addEventListener("pointermove", move); grip.addEventListener("pointerup", up); grip.addEventListener("pointercancel", up);
+      };
+    });
+    box.querySelectorAll(".esSlotTime").forEach(inp => {
+      inp.onchange = () => {
+        const slot = Number(inp.dataset.slot);
+        if (inp.value) esState.manual[slot] = inp.value; else delete esState.manual[slot];
+        renderEsList();
+      };
+    });
+    box.querySelectorAll(".esAutoSlot").forEach(b => b.onclick = () => { delete esState.manual[Number(b.dataset.slot)]; renderEsList(); });
+  }
+
+  if (el("btnEditSchedule")) el("btnEditSchedule").onclick = openEditSchedule;
+  const closeSchedule = () => { el("editScheduleModal").classList.add("hidden"); esState = null; };
+  if (el("eschedClose")) el("eschedClose").onclick = closeSchedule;
+  if (el("esCancel")) el("esCancel").onclick = closeSchedule;
+
+  // 設定（開始・所要・コート）の変更
+  const bindEsInput = (id, fn) => { const e = el(id); if (e) e.onchange = () => { if (!esState) return; fn(e); renderEsList(); }; };
+  bindEsInput("esStart", e => { if (e.value) esState.startTime = e.value; });
+  bindEsInput("esMin", e => { esState.matchMin = Math.max(1, Number(e.value) || esState.matchMin); e.value = esState.matchMin; });
+  bindEsInput("esGap", e => { esState.gapMin = Math.max(0, Number(e.value) || 0); e.value = esState.gapMin; });
+  bindEsInput("esCourts", e => { const c = esCourtsOf(e.value); esState.courts = c.length ? c : ["A"]; e.value = esState.courts.join(","); esState.manual = {}; });
 
   if (el("eschedAuto")) el("eschedAuto").onclick = () => {
-    if (!confirm("手動で設定した時間はリセットされ、設定通りの間隔で再計算されます。よろしいですか？")) return;
-    recalcMatchTimes(currentEvent);
-    if (currentEvent.loserMatches) recalcLoserMatchTimes(currentEvent);
-    saveState();
-    el("editScheduleModal").classList.add("hidden");
-    renderEventDetail(currentEvent.id);
+    if (!esState) return;
+    const st = currentEvent.settings || {};
+    esState.manual = {};
+    esState.startTime = st.startTime || "09:00"; esState.matchMin = Number(st.matchMinutes) || 10; esState.gapMin = Number(st.turnoverMinutes) || 0;
+    esState.courts = esCourtsOf(st.courts || "A"); if (!esState.courts.length) esState.courts = ["A"];
+    // 回戦順（1回戦→決勝、メイン→裏）に並べ直す
+    const byKey = {}; esState.all.forEach(m => byKey[matchKey(m)] = m);
+    esState.order.sort((x, y) => { const a = byKey[x], b = byKey[y]; return (a.isLoserMatch ? 1 : 0) - (b.isLoserMatch ? 1 : 0) || (a.isThirdPlace ? 1 : 0) - (b.isThirdPlace ? 1 : 0) || a.round - b.round || a.slot - b.slot; });
+    el("esStart").value = esState.startTime; el("esMin").value = esState.matchMin; el("esGap").value = esState.gapMin; el("esCourts").value = esState.courts.join(",");
+    renderEsList();
+    toast("設定どおりの順番・時刻に戻しました（まだ決定していません）", "info", 2200);
   };
 
-  // タイムテーブル保存: DOM順をそのまま試合順として適用
+  // 決定: 並び・時刻・コートを試合に反映し、設定値も更新
   const eschedSave = el("eschedSave");
   if (eschedSave) eschedSave.onclick = () => {
-    if (!currentEvent || !currentEvent.matches) return;
+    if (!currentEvent || !esState) return;
     pushUndoState();
-    const allM = currentEvent.loserMatches ? [...currentEvent.matches, ...currentEvent.loserMatches] : currentEvent.matches;
+    const S = esState;
+    S.slotTime = {};
+    const info = esCompute();
     const dStr = state.tournament.date || new Date().toISOString().slice(0, 10);
-
-    const rows = el("eschedList").querySelectorAll("[data-match-key]");
-    let orderIdx = 0;
-    rows.forEach(row => {
-      const key = row.dataset.matchKey;
-      const m = allM.find(x => matchKey(x) === key);
-      if (!m || m.isBye) return;
-      const tInput = row.querySelector("input[type=time]");
-      const cInput = row.querySelector("input[type=text]");
-      if (tInput && cInput) {
-        if (tInput.value) {
-          const [hh, mm] = tInput.value.split(":").map(Number);
-          const d = new Date(dStr); d.setHours(hh, mm, 0, 0);
-          m.scheduledStart = d.toISOString();
-        } else {
-          const d = new Date(dStr); d.setHours(23, 59, 0, 0);
-          m.scheduledStart = d.toISOString();
-        }
-        m.court = cInput.value.trim() || undefined;
-      }
-      m.matchNum = ++orderIdx; // DOM順 = 試合番号順
+    const byKey = {}; S.all.forEach(m => byKey[matchKey(m)] = m);
+    S.order.forEach(key => {
+      const m = byKey[key], f = info[key];
+      const [hh, mm] = f.time.split(":").map(Number);
+      const d = new Date(dStr); d.setHours(hh, mm, 0, 0);
+      m.scheduledStart = d.toISOString();
+      m.court = f.court;
+      m.matchNum = f.num;
+    });
+    currentEvent.settings = Object.assign({}, currentEvent.settings, {
+      startTime: S.startTime, matchMinutes: S.matchMin, turnoverMinutes: S.gapMin, courts: S.courts.join(","),
     });
     saveState();
-    el("editScheduleModal").classList.add("hidden");
+    closeSchedule();
     renderEventDetail(currentEvent.id);
     updateOngoingMatches();
+    toast("順番と時刻を更新しました", "success");
   };
-
 
   function openEvent(eventId) {
     currentEvent = state.events.find(e => e.id === eventId) || null;

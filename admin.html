@@ -578,24 +578,30 @@
 
   <!-- ══════ EDIT SCHEDULE MODAL ══════ -->
   <div id="editScheduleModal" class="modal hidden">
-    <div class="modalCard" style="max-width:500px; width:95%;">
-      <div class="row between">
+    <div class="modalCard esCard">
+      <div class="emHead">
         <div>
-          <div class="small">タイムテーブル・順序編集</div>
+          <div class="small">試合の順番・時刻・コート</div>
           <h3 id="eschedTitle">-</h3>
         </div>
         <button id="eschedClose" class="ghost">× 閉じる</button>
       </div>
-
-      <div id="eschedList"
-        style="display:flex; flex-direction:column; margin-top:12px; gap:8px; max-height:60vh; overflow-y:auto; padding-right:4px;">
-        <!-- ここにJSで各試合の時刻入力ボックスを生成 -->
-      </div>
-      <div class="small" style="margin-top:6px; color:var(--muted);">※ 時間とコート順で「第○試合」が自動で割り当てられます。時間を空にすると末尾になります。</div>
-
-      <div class="row" style="margin-top:16px; gap:10px;">
-        <button id="eschedSave" class="primary" style="flex:1;">保存して反映</button>
-        <button id="eschedAuto" class="ghost" style="flex:1;">自動再スケジュール（初期化）</button>
+      <div class="emGuide" id="esGuide"><b>⠿ をつかんでドラッグ</b>、または <b>▲▼</b> で順番を変更。時刻と「第○試合」は自動で振り直されます。時刻は枠ごとに直接変えられます。</div>
+      <details class="esSettings">
+        <summary>⚙ 開始時刻・所要時間・コート <span id="esSumm"></span></summary>
+        <div class="esTools">
+          <label class="esField">開始 <input id="esStart" type="time" /></label>
+          <label class="esField">1試合 <input id="esMin" type="number" min="1" inputmode="numeric" />分</label>
+          <label class="esField">入替 <input id="esGap" type="number" min="0" inputmode="numeric" />分</label>
+          <label class="esField">コート <input id="esCourts" type="text" placeholder="A,B" /></label>
+          <button id="eschedAuto" class="ghost small">↺ 設定どおりに振り直す</button>
+        </div>
+      </details>
+      <div class="esStatsBar"><span id="esStats" class="emStats"></span></div>
+      <div id="eschedList" class="esList"></div>
+      <div class="emFoot">
+        <button id="esCancel" class="ghost">キャンセル</button>
+        <button id="eschedSave" class="primary">✅ この順番で決定</button>
       </div>
     </div>
   </div>
