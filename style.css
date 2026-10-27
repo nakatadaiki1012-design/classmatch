@@ -825,3 +825,29 @@ details[open] > summary { margin-bottom: 6px; }
 .scoreOpt .scoreSave:disabled { opacity: .45; }
 .modalActions { margin-top: 4px; }
 .modalActions .mClearBtn { flex: 1; }
+
+/* ── リアルタイム共有（Firebase） ───────────────────── */
+.liveBadge { font-size: 12px; font-weight: 700; padding: 4px 12px; border-radius: 999px; white-space: nowrap; cursor: pointer; border: 1px solid transparent; max-width: 46vw; overflow: hidden; text-overflow: ellipsis; }
+.liveBadge.ok { background: #dcfce7; color: #166534; border-color: #86efac; }
+.liveBadge.warn { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+.liveBadge.err { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
+.liveBadge.off { background: rgba(255,255,255,.18); color: #fff; }
+.liveBadge.hidden { display: none !important; }
+.lsCard { border: 2px solid #86efac; background: linear-gradient(180deg,#f0fdf4,#fff); border-radius: 14px; padding: 14px 16px; margin-bottom: 14px; }
+.lsHead { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 16px; margin-bottom: 8px; }
+.lsState { font-size: 12px; font-weight: 800; padding: 3px 11px; border-radius: 999px; background: #e2e8f0; color: #475569; }
+.lsState.ok { background: #dcfce7; color: #166534; } .lsState.warn { background: #fef3c7; color: #92400e; } .lsState.err { background: #fee2e2; color: #991b1b; }
+.lsLead { font-size: 14px; line-height: 1.7; margin-bottom: 10px; }
+.lsRow { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
+.lsRow input { flex: 1; min-width: 200px; font-size: 12px; background: #fff; }
+.lsRow button, .lsOpen { min-height: 44px; padding: 0 16px; }
+.lsOpen { display: inline-flex; align-items: center; background: #065f46; color: #fff; border-radius: 6px; font-weight: 700; font-size: 13px; text-decoration: none; }
+.lsMore { margin-top: 6px; } .lsMore > summary { cursor: pointer; font-size: 13px; color: var(--muted); font-weight: 700; padding: 6px 0; }
+.lsSteps { margin: 8px 0 12px 22px; padding: 0; font-size: 14px; line-height: 1.75; }
+.lsSteps li { margin-bottom: 10px; }
+.lsSteps code { background: #f1f5f9; padding: 1px 6px; border-radius: 4px; font-size: 12px; }
+.lsRules { margin-top: 6px; } .lsRules pre { background: #0f172a; color: #e2e8f0; padding: 10px 12px; border-radius: 8px; font-size: 11px; line-height: 1.5; overflow-x: auto; margin: 6px 0 0; white-space: pre; }
+#lsConfigText { margin-top: 6px; font-family: ui-monospace, monospace; font-size: 12px; }
+.lsMsg { margin-top: 8px; padding: 10px 12px; border-radius: 8px; background: #fee2e2; color: #991b1b; font-size: 13px; font-weight: 600; line-height: 1.6; }
+.lsMsg.ok { background: #dcfce7; color: #166534; } .lsMsg.hidden { display: none; }
+.lsSnap { margin-bottom: 6px; } .lsSnap > summary { cursor: pointer; font-size: 13px; color: var(--muted); font-weight: 700; padding: 8px 0; }

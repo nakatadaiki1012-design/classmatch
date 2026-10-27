@@ -19,6 +19,7 @@
       <div id="headerMeta">-</div>
       <div id="statusBar" style="display:none;"></div>
     </div>
+    <span id="liveBadge" class="liveBadge hidden" role="status"></span>
     <nav class="nav">
       <button id="navSetup">⚙ 設定・生成</button>
       <button id="navShare">🔗 共有</button>
@@ -202,25 +203,60 @@
     <section class="card hidden" id="shareView">
       <h2>🔗 共有</h2>
 
-      <!-- ライブ共有バナー -->
-      <div id="liveShareBanner" style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:12px 16px; margin-bottom:14px; background:linear-gradient(90deg,#ecfdf5,#d1fae5); border:1.5px solid #6ee7b7; border-radius:10px; font-size:13px;">
-        <span class="lsb-dot" style="width:10px;height:10px;border-radius:50%;background:#16a34a;animation:liveDot .9s ease-in-out infinite;flex-shrink:0;"></span>
-        <span style="font-weight:700; color:#065f46;">🟢 ライブ配信中</span>
-        <span id="liveShareTime" style="color:#6b7280; font-size:12px;">-</span>
-        <div style="flex:1; min-width:220px;">
-          <div style="font-size:11px; color:#6b7280; margin-bottom:3px;">生徒はこのリンクを開くと常に最新のブラケットが見られます</div>
-          <div style="display:flex; gap:6px; align-items:center;">
-            <input id="liveShareLink" readonly style="flex:1; font-size:11px; padding:4px 8px; background:#fff; border:1px solid #a7f3d0;" />
-            <button id="btnCopyLiveLink" style="padding:4px 10px; font-size:12px; background:#16a34a; border:none; white-space:nowrap;">📋 コピー</button>
+      <!-- リアルタイム共有（Firebase） -->
+      <div class="lsCard" id="lsCard">
+        <div class="lsHead"><b>📡 リアルタイム共有</b><span id="lsState" class="lsState">未設定</span></div>
+
+        <div id="lsReady" class="hidden">
+          <div class="lsLead">このリンクを<b>1回だけ</b>生徒に送れば、結果を確定するたびに生徒の画面が<b>自動で更新</b>されます。</div>
+          <div class="lsRow">
+            <input id="lsLink" readonly aria-label="生徒用リンク" />
+            <button id="lsCopy" class="primary">📋 コピー</button>
+            <a id="lsOpen" class="lsOpen" target="_blank" rel="noopener">▶ 開く</a>
           </div>
+          <div class="lsRow">
+            <button id="lsToggle" class="ghost"></button>
+            <button id="lsRepublish" class="ghost">今すぐ送信</button>
+          </div>
+          <details class="lsMore">
+            <summary>設定の変更・削除</summary>
+            <div class="lsRow">
+              <button id="lsReconfig" class="ghost small">Firebase設定を貼り直す</button>
+              <button id="lsNewCode" class="ghost small">共有コードを作り直す</button>
+              <button id="lsRemove" class="ghost danger small">設定を削除</button>
+            </div>
+            <div class="small">「共有コードを作り直す」と、これまでのリンクには更新が届かなくなります（新しいリンクを配り直します）。</div>
+          </details>
         </div>
-        <a id="btnOpenViewer" href="#" target="_blank" style="padding:6px 14px; background:#065f46; color:#fff; border-radius:6px; font-size:12px; font-weight:700; text-decoration:none; white-space:nowrap;">▶ 開く</a>
+
+        <div id="lsSetup">
+          <div class="lsLead">無料の <b>Firebase</b> を使って、生徒のスマホにリアルタイムで結果を届けます。<b>最初に1回だけ</b>設定します（約5分）。</div>
+          <ol class="lsSteps">
+            <li><a href="https://console.firebase.google.com/" target="_blank" rel="noopener">Firebaseコンソール</a>で<b>プロジェクトを追加</b>（名前は自由。Googleアナリティクスはオフでよい）</li>
+            <li>左メニュー「構築」→ <b>Realtime Database</b> → 「データベースを作成」。場所はどこでもよく、セキュリティルールは<b>「ロックモード」</b>を選ぶ</li>
+            <li>データベースの<b>「ルール」タブ</b>に、下のルールを貼り付けて<b>「公開」</b>
+              <div class="lsRules"><button id="lsCopyRules" class="ghost small">📋 ルールをコピー</button><pre id="lsRulesText"></pre></div>
+            </li>
+            <li>プロジェクトの設定（⚙）→「全般」→「マイアプリ」で<b>Webアプリ（&lt;/&gt;）を登録</b>し、表示される <code>firebaseConfig</code> を<b>コピーして下に貼り付け</b>
+              <textarea id="lsConfigText" rows="6" placeholder='const firebaseConfig = {
+  apiKey: "...",
+  authDomain: "...",
+  databaseURL: "...",
+  projectId: "...",
+  ...
+};'></textarea>
+            </li>
+          </ol>
+          <div class="lsRow"><button id="lsConnect" class="primary">✅ 接続して共有を開始</button></div>
+          <div id="lsMsg" class="lsMsg hidden" role="alert"></div>
+        </div>
       </div>
 
-      <div class="small" style="margin-bottom:10px;">
-        ⚠️ 上の<b>ライブリンク</b>は試合結果を確定するたびに自動更新されます。生徒にこのリンクをLINEなどで送ってください。<br/>
-        （同一デバイスで開いている viewer.html は<b>即時</b>更新されます。別端末の場合はページリロードで反映）
-      </div>
+      <details class="lsSnap">
+        <summary>Firebaseを使わない共有（スナップショットのリンク）</summary>
+        <div class="small" style="margin:8px 0;">⚠ このリンクは<b>作った時点の結果</b>を埋め込んだもので、あとから自動では更新されません（結果が変わったら作り直して送り直します）。<span id="liveShareTime"></span></div>
+        <div class="row"><input id="liveShareLink" readonly style="flex:1;" /><button id="btnCopyLiveLink" class="ghost">📋 コピー</button><a id="btnOpenViewer" href="#" target="_blank" class="ghost" style="padding:8px 12px;">▶ 開く</a></div>
+      </details>
 
       <hr />
 
@@ -243,15 +279,12 @@
 
       <hr />
 
-      <h3>📱 スマホでスコアを入力する</h3>
+      <h3>📱 スマホで結果を入力する</h3>
       <div class="small" style="margin-bottom:8px; line-height:1.8;">
-        この管理画面はスマホでもそのまま使えます。生徒審判に入力を任せる場合は：<br />
-        ① この端末（またはコード取込した端末）でブラケットを開く<br />
-        ② 試合の枠を<b>ダブルタップ</b>すると結果入力パネルが開きます<br />
-        ③ 数字を入力して<b>Enter</b>（または「勝敗確定」）で確定 → 全画面に即反映
-      </div>
-      <div class="small" style="padding:8px 10px; background:#eff6ff; border:1px solid #bfdbfe; border-radius:6px; color:#1d4ed8;">
-        💡 入力欄はスマホで数字キーパッドが自動で開き、Enterひとつで確定できます。
+        この管理画面はスマホ・タブレットでもそのまま使えます。生徒審判に入力を任せる場合は：<br />
+        ① 管理画面を開き、トーナメント表の<b>試合の枠をタップ</b><br />
+        ② <b>勝ったクラスの「勝ち」ボタンを1回押す</b>だけで確定（点数は任意）<br />
+        ③ リアルタイム共有をオンにしていれば、生徒の画面にも自動で反映されます
       </div>
 
       <hr />
@@ -684,10 +717,6 @@
     </div>
   </div>
 
-  <!-- Firebase SDK (compat) + 同期モジュール -->
-  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
-  <script src="firebase-config.js"></script>
   <script src="firebase-sync.js"></script>
   <script src="bracket-render.js"></script>
   <script src="admin.js"></script>

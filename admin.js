@@ -350,29 +350,142 @@
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     // 同一オリジン他タブへブロードキャスト
     try { _liveCh?.postMessage({ type: "state-update", state }); } catch {}
-    // Firebase にも同期（有効な場合のみ）
-    if (window.FirebaseSync?.enabled) {
-      window.FirebaseSync.save(state).catch(e => console.error("Firebase save error:", e));
-    }
-    statusBar.textContent = `status: saved / events=${state.events.length}${window.FirebaseSync?.enabled ? ' / 🔥 Firebase同期中' : ''}`;
+    scheduleLivePublish();          // Firebase でリアルタイム共有中なら送信
+    statusBar.textContent = `status: saved / events=${state.events.length}`;
     renderSetupChecklist();
-    updateLiveShareBanner();
   }
 
+  // スナップショット共有リンク（Firebaseを使わない場合）。共有画面を開いたときだけ作る
   function updateLiveShareBanner() {
-    const banner = el("liveShareBanner");
-    if (!banner) return;
-    const ts = state.tournament?.updatedAt;
-    const timeStr = ts ? new Date(ts).toLocaleTimeString("ja-JP", {hour:"2-digit", minute:"2-digit", second:"2-digit"}) : "-";
     const lsLink = el("liveShareLink");
-    if (lsLink) {
-      const base = location.href.replace(/admin\.html.*$/, "");
-      const code = encodeShare(state);
-      lsLink.value = `${base}viewer.html#share=${code}`;
-    }
+    if (lsLink) lsLink.value = location.href.replace(/admin\.html.*$/, "") + "viewer.html#share=" + encodeShare(state);
     const tsEl = el("liveShareTime");
-    if (tsEl) tsEl.textContent = `最終更新: ${timeStr}`;
+    const ts = state.tournament?.updatedAt;
+    if (tsEl) tsEl.textContent = ts ? "作成時点: " + new Date(ts).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }) : "";
   }
+
+  // ── リアルタイム共有（Firebase）──────────────────────────────
+  // 結果を確定（saveState）するたびに、生徒に見せてよい内容だけを Firebase へ送る。
+  // 生徒用画面は購読していて、送信と同時に自動で更新される。
+  var _live = { timer: null, status: "off", msg: "", lastOk: null, connected: null, inited: false };
+  var FS = window.FirebaseSync;   // var / function: 起動の早い段階で saveState が呼ばれても参照できるように
+  function liveCfg() { return state.tournament.liveShare || null; }
+  function liveActive() { return !!(FS && liveCfg()?.enabled && liveCfg()?.code && liveCfg()?.secret && FS.getConfig()); }
+  const hhmm = (t) => new Date(t).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" });
+
+  function setLiveStatus(status, msg) { _live.status = status; _live.msg = msg || ""; renderLiveUI(); }
+  function scheduleLivePublish(delay = 500) {
+    if (!liveActive()) return;
+    clearTimeout(_live.timer);
+    _live.timer = setTimeout(doLivePublish, delay);
+    if (_live.status !== "error") setLiveStatus("sending");
+  }
+  async function ensureLiveConn() {
+    if (_live.inited) return;
+    await FS.init();
+    FS.onConnection(c => { _live.connected = c; renderLiveUI(); });
+    _live.inited = true;
+  }
+  async function doLivePublish() {
+    if (!liveActive()) return;
+    const l = liveCfg();
+    try {
+      await ensureLiveConn();
+      await FS.publish(l.code, l.secret, state);
+      _live.lastOk = Date.now();
+      setLiveStatus("ok");
+    } catch (e) { setLiveStatus("error", FS.explain(e)); }
+  }
+  function liveLink() {
+    const l = liveCfg(), cfg = FS?.getConfig();
+    if (!l?.code || !cfg) return "";
+    return location.href.replace(/admin\.html.*$/, "") + "viewer.html?t=" + l.code + "#fb=" + FS.encodeConfig(cfg);
+  }
+  function renderLiveUI() {
+    if (!FS) return;
+    const hasCfg = !!FS.getConfig(), l = liveCfg(), on = liveActive();
+    const badge = el("liveBadge"), st = el("lsState");
+    let text = "未設定", cls = "off";
+    if (!hasCfg) { text = "未設定"; }
+    else if (!on) { text = "停止中"; cls = "off"; }
+    else if (_live.status === "error") { text = "⚠ 送信失敗"; cls = "err"; }
+    else if (_live.connected === false) { text = "● オフライン（つながると自動で送信）"; cls = "warn"; }
+    else if (_live.status === "sending") { text = "送信中…"; cls = "warn"; }
+    else if (_live.status === "ok") { text = `共有中（${hhmm(_live.lastOk)} 送信）`; cls = "ok"; }
+    else { text = "接続中…"; cls = "warn"; }
+    if (st) { st.textContent = text; st.className = "lsState " + cls; st.title = _live.msg; }
+    if (badge) {
+      const show = hasCfg && on;
+      badge.classList.toggle("hidden", !show);
+      badge.className = "liveBadge " + cls + (show ? "" : " hidden");
+      badge.textContent = "📡 " + text; badge.title = _live.msg || "リアルタイム共有の状態（クリックで共有画面）";
+    }
+    el("lsReady")?.classList.toggle("hidden", !hasCfg);
+    el("lsSetup")?.classList.toggle("hidden", hasCfg);
+    if (hasCfg) {
+      const link = liveLink();
+      if (el("lsLink") && el("lsLink").value !== link) el("lsLink").value = link;
+      if (el("lsOpen")) el("lsOpen").href = link || "#";
+      if (el("lsToggle")) el("lsToggle").textContent = on ? "⏸ 共有を停止" : "▶ 共有を再開";
+      if (el("lsRepublish")) el("lsRepublish").disabled = !on;
+    }
+    const msg = el("lsMsg");
+    if (msg && _live.status === "error" && on) { msg.textContent = _live.msg; msg.classList.remove("hidden"); }
+  }
+  function lsShowMsg(text, ok) {
+    const m = el("lsMsg"); if (!m) return;
+    m.textContent = text; m.classList.toggle("hidden", !text); m.classList.toggle("ok", !!ok);
+  }
+  if (FS && el("lsRulesText")) el("lsRulesText").textContent = FS.RULES;
+  const copyText = async (txt, okMsg) => { try { await navigator.clipboard.writeText(txt); toast(okMsg, "success", 2200); } catch { toast("コピーに失敗しました。手動でコピーしてください", "warn"); } };
+  if (el("lsCopyRules")) el("lsCopyRules").onclick = () => copyText(FS.RULES, "ルールをコピーしました");
+  if (el("lsCopy")) el("lsCopy").onclick = () => copyText(liveLink(), "リンクをコピーしました。LINEなどで生徒に送ってください");
+  if (el("lsLink")) el("lsLink").onclick = () => el("lsLink").select();
+
+  // 設定を貼って接続 → 共有コード作成 → 送信テスト → 共有開始
+  async function connectLive() {
+    if (!requirePin()) return;
+    const cfg = FS.parseConfigText(el("lsConfigText").value);
+    const err = FS.validate(cfg);
+    if (err) return lsShowMsg((cfg ? "設定が足りません（" + err + "）。" : "設定を読み取れませんでした。") + "コンソールの firebaseConfig を { } ごとコピーして貼り付けてください。");
+    const btn = el("lsConnect"); btn.disabled = true; btn.textContent = "接続中…"; lsShowMsg("");
+    try {
+      FS.setConfig(cfg); _live.inited = false;
+      const l = state.tournament.liveShare = Object.assign({ code: FS.makeCode(), secret: FS.makeSecret() }, state.tournament.liveShare, { enabled: true });
+      await ensureLiveConn();
+      await Promise.race([FS.publish(l.code, l.secret, state), new Promise((_, rej) => setTimeout(() => rej(new Error("応答がありません。databaseURL（Realtime Databaseの作成）とネットワークを確認してください")), 12000))]);
+      _live.lastOk = Date.now(); _live.status = "ok";
+      el("lsConfigText").value = "";
+      saveState(); renderLiveUI();
+      toast("共有を開始しました。下のリンクを生徒に送ってください", "success", 3500);
+    } catch (e) {
+      if (state.tournament.liveShare) state.tournament.liveShare.enabled = false;
+      FS.clearConfig(); _live.inited = false;
+      lsShowMsg("接続できませんでした：" + FS.explain(e));
+      renderLiveUI();
+    } finally { btn.disabled = false; btn.textContent = "✅ 接続して共有を開始"; }
+  }
+  if (el("lsConnect")) el("lsConnect").onclick = connectLive;
+  if (el("lsToggle")) el("lsToggle").onclick = () => {
+    const l = state.tournament.liveShare; if (!l) return;
+    l.enabled = !l.enabled; saveState();
+    if (l.enabled) scheduleLivePublish(100); renderLiveUI();
+    toast(l.enabled ? "共有を再開しました" : "共有を停止しました（生徒の画面は最後の状態のまま）", "info", 2500);
+  };
+  if (el("lsRepublish")) el("lsRepublish").onclick = () => { scheduleLivePublish(0); toast("送信しました", "info", 1500); };
+  if (el("lsReconfig")) el("lsReconfig").onclick = () => { if (!requirePin()) return; FS.clearConfig(); _live.inited = false; renderLiveUI(); };
+  if (el("lsNewCode")) el("lsNewCode").onclick = () => {
+    if (!requirePin()) return;
+    if (!confirm("共有コードを作り直します。これまでのリンクには更新が届かなくなります（新しいリンクを配り直します）。よろしいですか？")) return;
+    state.tournament.liveShare = { enabled: true, code: FS.makeCode(), secret: FS.makeSecret() };
+    saveState(); scheduleLivePublish(0); renderLiveUI();
+  };
+  if (el("lsRemove")) el("lsRemove").onclick = () => {
+    if (!requirePin()) return;
+    if (!confirm("Firebaseの設定を削除して共有をやめます。よろしいですか？（Firebase上のデータは残ります）")) return;
+    FS.clearConfig(); if (state.tournament.liveShare) state.tournament.liveShare.enabled = false; _live.inited = false; saveState(); renderLiveUI();
+  };
+  if (el("liveBadge")) el("liveBadge").onclick = () => { show("shareView"); };
 
   // ── Match helpers ────────────────────────────────────────────
   function matchKey(m) { return `${m.isLoserMatch ? "L" : "R"}${m.round}-${m.slot}`; }
@@ -4479,30 +4592,6 @@
   }
 
   // ── Boot ──────────────────────────────────────────────────
-  // Firebase 初期化（設定未記入の場合は no-op）
-  if (window.FirebaseSync) {
-    const fbEnabled = window.FirebaseSync.init();
-    if (fbEnabled) {
-      // Firebaseから最新データを読み込んで初期化
-      window.FirebaseSync.load().then(fbState => {
-        if (fbState && fbState.events) {
-          const localRaw = localStorage.getItem(STORAGE_KEY);
-          const localState = localRaw ? JSON.parse(localRaw) : null;
-          // Firebaseのデータがローカルより新しい場合は上書き
-          const fbUpdated = fbState.tournament?.updatedAt || "";
-          const localUpdated = localState?.tournament?.updatedAt || "";
-          if (fbUpdated > localUpdated) {
-            state = fbState;
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-            syncFormFromState();
-            renderEvents();
-            statusBar.textContent = `status: Firebaseからロード完了 🔥`;
-          }
-        }
-      }).catch(e => console.error("Firebase load error:", e));
-    }
-  }
-
   bindClassPicker("cpGradesS", "cpPerGradeS", "cpFormatS", "cpPreviewS", "cpApplyS", "classList", "setupClassCount");
 
   syncFormFromState();
@@ -4511,7 +4600,8 @@
   show("setupView");
   showWizStep(state.events.length ? 4 : 1);
   updateHeaderMeta();
-  updateLiveShareBanner();
+  renderLiveUI();
+  if (liveActive()) scheduleLivePublish(1200);
 
   // ── Admin Panel Toggle ──
   // 試合リスト（右パネル）の開閉。開閉後は表の幅が変わるので描き直す

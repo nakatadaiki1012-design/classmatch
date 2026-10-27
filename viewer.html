@@ -325,6 +325,7 @@ body.fz-l .teamBox .tbText{font-size:20px;}
     </div>
   </main>
 
+<script src="firebase-sync.js"></script>
 <script src="bracket-render.js"></script>
 <script>
 (function() {
@@ -351,7 +352,9 @@ body.fz-l .teamBox .tbText{font-size:20px;}
   }
 
   // ── Decode share ───────────────────────────
-  function decodeShare(b64) {
+  function decodeShare(code) {
+    // 管理画面は URL セーフな base64（- と _ 、= なし）で作るので、元に戻してから読む
+    const b64 = code.replace(/-/g, "+").replace(/_/g, "/");
     const pad = "=".repeat((4 - b64.length % 4) % 4);
     return JSON.parse(decodeURIComponent(escape(atob(b64 + pad))));
   }
@@ -365,6 +368,7 @@ body.fz-l .teamBox .tbText{font-size:20px;}
   if (typeof BroadcastChannel !== "undefined") {
     const ch = new BroadcastChannel("classmatch-live");
     ch.addEventListener("message", e => {
+      if (mode === "fb") return;                       // Firebaseで受信中は、そちらを正とする
       if (e.data?.type === "state-update" && e.data.state) {
         state = e.data.state;
         renderAll();
@@ -376,6 +380,13 @@ body.fz-l .teamBox .tbText{font-size:20px;}
 
   // ── Load state ─────────────────────────────
   function loadState() {
+    // 0) Firebase（?t=共有コード）… リアルタイム受信
+    const code = new URLSearchParams(location.search).get("t");
+    if (code && window.FirebaseSync) {
+      const m = /(?:^|[#&])fb=([^&]+)/.exec(location.hash);
+      const cfg = (m && FirebaseSync.decodeConfig(m[1])) || FirebaseSync.getConfig();
+      if (cfg) { startFirebase(code, cfg); return; }
+    }
     // 1) URL hash #share=...
     const hash = location.hash.replace(/^#/, "");
     if (hash.startsWith("share=")) {
@@ -404,6 +415,53 @@ body.fz-l .teamBox .tbText{font-size:20px;}
     showError();
   }
 
+  // ── Firebase リアルタイム受信 ──────────────────
+  var mode = "local";                                  // "fb" | "local" | "snapshot"
+  const fbInfo = { connected: null, pubAt: null, offset: 0, hasData: false, failed: false, code: "" };
+  const toArr = (v) => Array.isArray(v) ? v : (v && typeof v === "object" ? Object.values(v) : []);
+  // Firebase は空の配列を保存しない／まばらな配列をオブジェクトで返すので、配列に整える
+  function fromFirebase(data) {
+    const events = toArr(data.events).map(ev => Object.assign({}, ev, { matches: toArr(ev.matches), loserMatches: ev.loserMatches ? toArr(ev.loserMatches) : undefined }));
+    const t = Object.assign({}, data.tournament || {}); t.classes = toArr(t.classes);
+    return { tournament: t, events };
+  }
+  const ago = (ms) => { const s = Math.max(0, Math.round(ms / 1000)); return s < 10 ? "たった今" : s < 60 ? s + "秒前" : s < 3600 ? Math.floor(s / 60) + "分前" : Math.floor(s / 3600) + "時間前"; };
+  const clock = (ms) => new Date(ms).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" });
+  function paintLive() {
+    if (mode !== "fb") return;
+    const dot = el("liveDot"), st = el("liveStatus"), lu = el("lastUpdated");
+    const age = fbInfo.pubAt ? (Date.now() + fbInfo.offset) - fbInfo.pubAt : null;
+    let color = "#4ade80", anim = "", label = "ライブ";
+    if (fbInfo.failed && !fbInfo.hasData) { color = "#f87171"; anim = "none"; label = "接続できません"; }
+    else if (fbInfo.failed || fbInfo.connected === false) { color = "#f87171"; anim = "none"; label = "オフライン"; }
+    else if (fbInfo.connected === null) { color = "#fbbf24"; label = "接続中…"; }
+    dot.style.background = color; dot.style.animation = anim; st.textContent = label;
+    lu.textContent = fbInfo.pubAt ? `最終更新 ${clock(fbInfo.pubAt)}（${ago(age)}）` + ((fbInfo.failed || fbInfo.connected === false) ? " ※通信が戻ると自動で更新" : "") : "";
+    lu.style.color = age != null && age > 15 * 60 * 1000 && fbInfo.connected !== false ? "#fde68a" : "";
+  }
+  async function startFirebase(code, cfg) {
+    mode = "fb"; fbInfo.code = code;
+    const CK = "cm_viewer_cache_" + code;
+    // 直前のデータがあれば先に表示（回線が遅くても空白にしない）
+    try { const c = JSON.parse(localStorage.getItem(CK) || "null"); if (c && c.state) { state = c.state; fbInfo.pubAt = c.pubAt; fbInfo.hasData = true; renderAll(); } } catch {}
+    paintLive();
+    try { await FirebaseSync.init(cfg); }
+    catch (e) { fbInfo.failed = true; paintLive(); if (!fbInfo.hasData) showError(); return; }
+    FirebaseSync.onServerOffset(o => { fbInfo.offset = o; paintLive(); });
+    FirebaseSync.onConnection(c => { fbInfo.connected = c; paintLive(); });
+    FirebaseSync.subscribe(code, data => {
+      if (!data || !data.tournament) {
+        if (!fbInfo.hasData) { el("loadingMsg").classList.add("hidden"); el("errorMsg").innerHTML = "❌ この大会はまだ共有されていません。<br/>先生にリンクを確認してください。"; el("errorMsg").classList.remove("hidden"); }
+        return;
+      }
+      fbInfo.failed = false; fbInfo.hasData = true; fbInfo.pubAt = data.pubAt || fbInfo.pubAt;
+      state = fromFirebase(data);
+      try { localStorage.setItem(CK, JSON.stringify({ state, pubAt: fbInfo.pubAt })); } catch {}
+      renderAll(); paintLive();
+    }, err => { fbInfo.failed = true; paintLive(); if (!fbInfo.hasData) showError(); });
+    setInterval(paintLive, 10000);                    // 「3分前」の表示を進める
+  }
+
   function showError() {
     el("loadingMsg").classList.add("hidden");
     el("errorMsg").classList.remove("hidden");
@@ -423,7 +481,7 @@ body.fz-l .teamBox .tbText{font-size:20px;}
     el("viewerTitle").innerHTML = `🏆 ${escapeHtml(t.name || "クラスマッチ")} <span>ライブ</span>`;
     el("headerSub").textContent = [t.date, t.place].filter(Boolean).join(" / ");
 
-    if (t.updatedAt) {
+    if (t.updatedAt && mode !== "fb") {
       const d = new Date(t.updatedAt);
       el("lastUpdated").textContent = d.toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit",second:"2-digit"}) + " 更新";
     }
@@ -811,6 +869,7 @@ body.fz-l .teamBox .tbText{font-size:20px;}
 
   // ── Auto-refresh every 15s from localStorage (same device) ──
   setInterval(() => {
+    if (mode === "fb") return;
     try {
       const raw = localStorage.getItem("classmatch_local_v2_state");
       if (!raw) return;
