@@ -677,8 +677,9 @@ body.fz-l .teamBox .tbText{font-size:20px;}
     const sw = w === "A" ? m.scoreA : m.scoreB, sl = w === "A" ? m.scoreB : m.scoreA;
     const mineW = prefs.team && (w === "A" ? m.teamA : m.teamB) === prefs.team, mineL = prefs.team && (l === "A" ? m.teamA : m.teamB) === prefs.team;
     d.className = "rl" + (mineW || mineL ? " mine" : "");
+    const hasSc = sw != null && sw !== "" && sl != null && sl !== "";
     d.innerHTML = `<span class="rlNum">${m.matchNum ? "第" + m.matchNum : ""}</span><span class="rlW">${escapeHtml(info.nameOf(m, w))}</span>`
-      + `<span class="rlS">${sw ?? ""}<i>-</i>${sl ?? ""}</span><span class="rlL">${escapeHtml(info.nameOf(m, l))}</span>`;
+      + `<span class="rlS">${hasSc ? `${sw}<i>-</i>${sl}` : `<i>○-×</i>`}</span><span class="rlL">${escapeHtml(info.nameOf(m, l))}</span>`;
     return d;
   }
   // 最終順位
@@ -742,6 +743,18 @@ body.fz-l .teamBox .tbText{font-size:20px;}
     return wrap;
   }
 
+  // リーグ戦: 点数が空欄の試合を 0-0 の引き分けとして数えない（空欄なら勝敗 winner で数える）
+  function addLeagueResult(res, m) {
+    if (!m.teamA || !m.teamB || m.state !== "final") return;
+    const A = res[m.teamA], B = res[m.teamB]; if (!A || !B) return;
+    const has = (v) => v !== "" && v != null && Number.isFinite(Number(v));
+    let a = null, b = null; if (has(m.scoreA) && has(m.scoreB)) { a = Number(m.scoreA); b = Number(m.scoreB); }
+    if (a != null) { A.gf += a; A.ga += b; B.gf += b; B.ga += a; A.gd = (A.gd||0) + a - b; B.gd = (B.gd||0) + b - a; }
+    const w = a != null && a !== b ? (a > b ? "A" : "B") : (m.winner || null);
+    if (w === "A") { A.pts += 3; A.w++; B.l++; } else if (w === "B") { B.pts += 3; B.w++; A.l++; }
+    else if (a != null) { A.pts++; A.d++; B.pts++; B.d++; }
+  }
+
   // 決勝（最終ラウンド）の勝者を返す。未確定なら null
   function getChampion(ev) {
     if (!ev || ev.format === "league") {
@@ -764,13 +777,8 @@ body.fz-l .teamBox .tbText{font-size:20px;}
   function leagueLeader(ev) {
     const teams = new Set();
     ev.matches.forEach(m=>{ if(m.teamA)teams.add(m.teamA); if(m.teamB)teams.add(m.teamB); });
-    const res = {}; [...teams].forEach(t=>res[t]={pts:0,gd:0});
-    ev.matches.forEach(m=>{
-      if(!m.teamA||!m.teamB||m.state!=="final")return;
-      const a=Number(m.scoreA),b=Number(m.scoreB); if(isNaN(a)||isNaN(b))return;
-      if(a>b)res[m.teamA].pts+=3; else if(b>a)res[m.teamB].pts+=3; else {res[m.teamA].pts++;res[m.teamB].pts++;}
-      res[m.teamA].gd+=a-b; res[m.teamB].gd+=b-a;
-    });
+    const res = {}; [...teams].forEach(t=>res[t]={pts:0,gd:0,gf:0,ga:0,w:0,d:0,l:0});
+    ev.matches.forEach(m => addLeagueResult(res, m));
     const sorted=[...teams].sort((x,y)=>(res[y].pts-res[x].pts)||(res[y].gd-res[x].gd));
     return sorted[0] || null;
   }
@@ -783,17 +791,8 @@ body.fz-l .teamBox .tbText{font-size:20px;}
     ev.matches.forEach(m => { if(m.teamA)teams.add(m.teamA); if(m.teamB)teams.add(m.teamB); });
     const arr = [...teams].sort();
     const results = {};
-    arr.forEach(t => results[t] = {pts:0,w:0,d:0,l:0,gf:0,ga:0});
-    ev.matches.forEach(m => {
-      if (!m.teamA||!m.teamB||m.state!=="final") return;
-      const a = Number(m.scoreA), b = Number(m.scoreB);
-      if (isNaN(a)||isNaN(b)) return;
-      if (a>b) { results[m.teamA].pts+=3;results[m.teamA].w++;results[m.teamB].l++; }
-      else if (a<b) { results[m.teamB].pts+=3;results[m.teamB].w++;results[m.teamA].l++; }
-      else { results[m.teamA].pts+=1;results[m.teamA].d++;results[m.teamB].pts+=1;results[m.teamB].d++; }
-      results[m.teamA].gf+=a;results[m.teamA].ga+=b;
-      results[m.teamB].gf+=b;results[m.teamB].ga+=a;
-    });
+    arr.forEach(t => results[t] = {pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0});
+    ev.matches.forEach(m => addLeagueResult(results, m));
     const ranked = arr.slice().sort((a,b)=>(results[b].pts-results[a].pts)||(results[b].gf-results[b].ga-(results[a].gf-results[a].ga)));
     const tbl = document.createElement("table");
     tbl.className = "league-table";

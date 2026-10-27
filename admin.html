@@ -45,12 +45,6 @@
           <label>大会名 <input id="tName" placeholder="例：クラスマッチ2026" style="width:180px" /></label>
           <label>日付 <input id="tDate" type="date" /></label>
           <label>場所 <input id="tPlace" placeholder="例：体育館" style="width:120px" /></label>
-          <label>入力方式
-            <select id="tInputMode">
-              <option value="score">得点（Score）</option>
-              <option value="winlose">勝敗のみ</option>
-            </select>
-          </label>
           <button id="btnSaveMeta" class="secondary small">✓ 保存（自動）</button>
         </div>
       </div>
@@ -617,28 +611,32 @@
         <button id="mClose" class="ghost">× 閉じる</button>
       </div>
 
-      <div id="mScore" class="resultTeams">
-        <div class="box">
-          <div class="teamName" id="mTeamA">-</div>
-          <div id="mScoreAWrap">
-            <input id="mScoreA" class="scoreInput" type="number" inputmode="numeric" pattern="[0-9]*" min="0" placeholder="0" />
-          </div>
-        </div>
-        <div class="box">
-          <div class="teamName" id="mTeamB">-</div>
-          <div id="mScoreBWrap">
-            <input id="mScoreB" class="scoreInput" type="number" inputmode="numeric" pattern="[0-9]*" min="0" placeholder="0" />
-          </div>
-        </div>
+      <div class="winPick" id="mWinPick">
+        <button id="mWinA" class="winBtn">
+          <span class="wbName" id="mTeamA">-</span>
+          <span class="wbAct">🏆 勝ち</span>
+        </button>
+        <div class="winVs">vs</div>
+        <button id="mWinB" class="winBtn">
+          <span class="wbName" id="mTeamB">-</span>
+          <span class="wbAct">🏆 勝ち</span>
+        </button>
       </div>
-      <div id="mScoreSets" class="hidden"
-        style="margin-top:12px; display:flex; flex-direction:column; gap:8px; background:var(--surface2); padding:10px; border-radius:6px;">
-      </div>
+      <div class="winHint" id="mWinHint">勝ったクラスをタップすると確定します</div>
 
-      <div id="mWinLose" class="winLoseRow hidden">
-        <button id="mWinA" class="primary">⬆ 上・左(A)の勝ち</button>
-        <button id="mWinB" class="primary">⬇ 下・右(B)の勝ち</button>
-      </div>
+      <details class="scoreOpt" id="mScoreOpt">
+        <summary>＋ 点数も入れる <small>（任意）</small></summary>
+        <div id="mScore" class="scoreRow">
+          <label><span class="so-name" id="mScoreNameA">-</span>
+            <input id="mScoreA" class="scoreInput" type="number" inputmode="numeric" pattern="[0-9]*" min="0" placeholder="0" /></label>
+          <span class="so-dash">-</span>
+          <label><span class="so-name" id="mScoreNameB">-</span>
+            <input id="mScoreB" class="scoreInput" type="number" inputmode="numeric" pattern="[0-9]*" min="0" placeholder="0" /></label>
+        </div>
+        <div id="mScoreSets" class="hidden setsBox"></div>
+        <div class="scoreNote" id="mHint">点数を入れて勝ったクラスを押すと、点数も一緒に記録されます</div>
+        <button id="mSave" class="primary scoreSave" disabled>この点数で確定</button>
+      </details>
 
       <!-- 新しいステータスボタン群 -->
       <div class="modalStatusRow">
@@ -647,10 +645,8 @@
       </div>
 
       <div class="modalActions">
-        <button id="mSave" class="primary mSaveBtn">🏆 勝敗確定 / 保存</button>
-        <button id="mClear" class="ghost danger mClearBtn">↩️ クリア</button>
+        <button id="mClear" class="ghost danger mClearBtn">↩️ この試合の結果を取り消す</button>
       </div>
-      <div class="modalHint" id="mHint">-</div>
     </div>
   </div>
 

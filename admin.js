@@ -940,7 +940,6 @@
     el("tName").value = t.name || "";
     el("tDate").value = t.date || "";
     el("tPlace").value = t.place || "";
-    if (el("tInputMode")) el("tInputMode").value = t.inputMode || "score";
     el("adminPin").value = t.adminPin || "";
     el("classList").value = (t.classes || []).join("\n");
     updateSetupClassCount();
@@ -1069,7 +1068,6 @@
     state.tournament.name = (el("tName").value || "クラスマッチ").trim();
     state.tournament.date = el("tDate").value || state.tournament.date;
     state.tournament.place = (el("tPlace").value || "").trim();
-    if (el("tInputMode")) state.tournament.inputMode = el("tInputMode").value;
     const pin = (el("adminPin").value || "").trim();
     if (pin.length < 3) return alert("PINは3文字以上にしてください");
     state.tournament.adminPin = pin;
@@ -1260,7 +1258,6 @@
     t.name = (el("tName")?.value || "クラスマッチ").trim();
     t.date = el("tDate")?.value || t.date;
     t.place = (el("tPlace")?.value || "").trim();
-    if (el("tInputMode")) t.inputMode = el("tInputMode").value;
     const pin = (el("adminPin")?.value || "").trim();
     if (pin) t.adminPin = pin;
     saveState();
@@ -1278,7 +1275,7 @@
     saveState();
   }
   // メタ情報
-  ["tName", "tDate", "tPlace", "tInputMode", "adminPin"].forEach(id => {
+  ["tName", "tDate", "tPlace", "adminPin"].forEach(id => {
     const e = el(id);
     if (e) e.addEventListener("change", autoSaveMeta);
   });
@@ -1709,23 +1706,7 @@
       const teamArray = Array.from(teams).sort();
       teamArray.forEach(t => results[t] = { pts: 0, gd: 0, gf: 0, ga: 0, w: 0, d: 0, l: 0 });
 
-      event.matches.forEach(m => {
-        if (!m.teamA || !m.teamB || m.state !== "final") return;
-        const sA = Number(m.scoreA), sB = Number(m.scoreB);
-        if (isNaN(sA) || isNaN(sB)) return;
-
-        results[m.teamA].gf += sA; results[m.teamA].ga += sB; results[m.teamA].gd += (sA - sB);
-        results[m.teamB].gf += sB; results[m.teamB].ga += sA; results[m.teamB].gd += (sB - sA);
-
-        if (sA > sB) {
-          results[m.teamA].pts += 3; results[m.teamA].w += 1; results[m.teamB].l += 1;
-        } else if (sA < sB) {
-          results[m.teamB].pts += 3; results[m.teamB].w += 1; results[m.teamA].l += 1;
-        } else {
-          results[m.teamA].pts += 1; results[m.teamA].d += 1;
-          results[m.teamB].pts += 1; results[m.teamB].d += 1;
-        }
-      });
+      event.matches.forEach(m => addLeagueResult(results, m));
 
       const sortedTeams = [...teamArray].sort((a, b) => {
         if (results[b].pts !== results[a].pts) return results[b].pts - results[a].pts;
@@ -3905,6 +3886,22 @@
     }
   }
 
+  // リーグ戦の1試合を results に加算する。点数があれば得失点も、無ければ勝敗(winner)だけで数える。
+  // （点数が空欄の試合を 0-0 の引き分けと数えてしまわないよう、空欄は NaN 扱いにする）
+  function addLeagueResult(results, m) {
+    if (!m.teamA || !m.teamB || m.state !== "final") return;
+    const A = results[m.teamA], B = results[m.teamB];
+    if (!A || !B) return;
+    const has = (v) => v !== "" && v != null && Number.isFinite(Number(v));
+    let sA = null, sB = null;
+    if (has(m.scoreA) && has(m.scoreB)) { sA = Number(m.scoreA); sB = Number(m.scoreB); }
+    if (sA != null) { A.gf += sA; A.ga += sB; A.gd += sA - sB; B.gf += sB; B.ga += sA; B.gd += sB - sA; }
+    const w = sA != null && sA !== sB ? (sA > sB ? "A" : "B") : (m.winner || null);
+    if (w === "A") { A.pts += 3; A.w += 1; B.l += 1; }
+    else if (w === "B") { B.pts += 3; B.w += 1; A.l += 1; }
+    else if (sA != null) { A.pts += 1; A.d += 1; B.pts += 1; B.d += 1; }
+  }
+
   function buildLeagueTableHTML(event) {
     const tableContainer = document.createElement("div");
     tableContainer.style.cssText = "overflow-x: auto; padding: 10px; background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);";
@@ -3929,31 +3926,7 @@
       matchLookup[`${m.teamA}|${m.teamB}`] = { m, isHome: true };
       matchLookup[`${m.teamB}|${m.teamA}`] = { m, isHome: false };
 
-      if (m.state === "final") {
-        const scoreA = Number(m.scoreA);
-        const scoreB = Number(m.scoreB);
-        if (!isNaN(scoreA) && !isNaN(scoreB)) {
-          // A stats
-          results[m.teamA].gf += scoreA;
-          results[m.teamA].ga += scoreB;
-          results[m.teamA].gd += (scoreA - scoreB);
-          // B stats
-          results[m.teamB].gf += scoreB;
-          results[m.teamB].ga += scoreA;
-          results[m.teamB].gd += (scoreB - scoreA);
-
-          if (scoreA > scoreB) {
-            results[m.teamA].pts += 3; results[m.teamA].w += 1;
-            results[m.teamB].l += 1;
-          } else if (scoreA < scoreB) {
-            results[m.teamB].pts += 3; results[m.teamB].w += 1;
-            results[m.teamA].l += 1;
-          } else {
-            results[m.teamA].pts += 1; results[m.teamA].d += 1;
-            results[m.teamB].pts += 1; results[m.teamB].d += 1;
-          }
-        }
-      }
+      addLeagueResult(results, m);
     });
 
     // Sort array by pts -> gd -> gf
@@ -4000,13 +3973,17 @@
             let cursor = "cursor: pointer;";
 
             if (m.state === "final") {
+              const has = (v) => v !== "" && v != null && Number.isFinite(Number(v));
               const myScore = matchData.isHome ? m.scoreA : m.scoreB;
               const oppScore = matchData.isHome ? m.scoreB : m.scoreA;
-              if (myScore > oppScore) bg = "background: #f0fdf4; color: #16a34a;"; // Win green
-              else if (myScore < oppScore) bg = "background: #fef2f2; color: #dc2626;"; // Loss red
+              const scored = has(myScore) && has(oppScore);
+              const meWin = scored && Number(myScore) !== Number(oppScore) ? Number(myScore) > Number(oppScore) : (m.winner ? (m.winner === "A") === matchData.isHome : null);
+              if (meWin === true) bg = "background: #f0fdf4; color: #16a34a;"; // Win green
+              else if (meWin === false) bg = "background: #fef2f2; color: #dc2626;"; // Loss red
               else bg = "background: #fdfaf5; color: #d97706;"; // Draw orange
 
-              cellContent = `<b>${myScore}</b> - ${oppScore}`;
+              // 点数があれば「3 - 1」、勝敗のみなら ○ / ×
+              cellContent = scored ? `<b>${myScore}</b> - ${oppScore}` : (meWin === true ? "<b>○</b>" : meWin === false ? "<b>×</b>" : "△");
             } else if (m.state === "playing" || m.state === "calling") {
               bg = "background: #fffbeb; color: #d97706;";
               cellContent = `試合中`;
@@ -4103,15 +4080,6 @@
     el("sB").value = m.scoreB ?? "";
     el("timeInfo").textContent = `状態: ${m.state} / winner=${m.winner ?? "-"}`;
 
-    const mode = state.tournament?.inputMode || "score";
-    const sp = el("scorePanel"), wp = el("winlosePanel");
-    if (sp && wp) {
-      if (mode === "winlose") {
-        sp.classList.add("hidden"); wp.classList.remove("hidden");
-      } else {
-        sp.classList.remove("hidden"); wp.classList.add("hidden");
-      }
-    }
     renderBracket();
   }
 
@@ -4124,8 +4092,6 @@
     if (m.teamA && !m.teamB) winner = "A";
     else if (!m.teamA && m.teamB) winner = "B";
     else {
-      const mode = state.tournament?.inputMode || "score";
-      if (mode === "winlose") return alert("勝敗のみモード：右の「Aの勝ち / Bの勝ち」ボタンで確定してください");
       const sA = Number(el("sA").value), sB = Number(el("sB").value);
       if (Number.isNaN(sA) || Number.isNaN(sB)) return alert("スコアを入れてください");
       if (sA === sB) return alert("同点は不可");
@@ -4291,7 +4257,8 @@
 
     // Webhook Notification for Match End
     if (currentEvent) {
-      notifyWebhook(`【試合終了】${currentEvent.sportName} 第${m.matchNum || '?'}試合: ${m.teamA || '—'} ${m.scoreA || 0} - ${m.scoreB || 0} ${m.teamB || '—'} (${winner === 'A' ? m.teamA : m.teamB} の勝利)`);
+      const hasSc = m.scoreA != null && m.scoreB != null;
+      notifyWebhook(`【試合終了】${currentEvent.sportName} 第${m.matchNum || '?'}試合: ${m.teamA || '—'}${hasSc ? ` ${m.scoreA} - ${m.scoreB} ` : ' vs '}${m.teamB || '—'} (${winner === 'A' ? m.teamA : m.teamB} の勝利)`);
     }
   }
 
@@ -4337,68 +4304,86 @@
   // ── Result Modal ─────────────────────────────────────────────
   let modalMatchKey = null;
 
+  // ── 結果入力 ─────────────────────────────────────────────
+  // 基本は「勝ったクラスのボタンを1回押す」だけ。点数は任意（入れた場合だけ記録）。
+  const hasNum = (v) => v !== "" && v != null && Number.isFinite(Number(v));
+
   function openResultModal(matchKey) {
     if (!currentEvent) return;
     modalMatchKey = matchKey;
     const allM = currentEvent.loserMatches ? [...currentEvent.matches, ...currentEvent.loserMatches] : currentEvent.matches;
     const m = findMatchByKey(allM, matchKey);
     if (!m) return;
-    const mode = state.tournament?.inputMode || "score";
     const overlay = el("resultModal");
     if (!overlay) return;
 
-    el("mTitle").textContent = m.matchNum ? `第${m.matchNum}試合` : `${m.isLoserMatch ? "裏" : ""}R${m.round}-${m.slot + 1}`;
-    el("mTeamA").textContent = formatTeamName(m.teamA) ?? "—";
-    el("mTeamB").textContent = formatTeamName(m.teamB) ?? "—";
+    el("mTitle").textContent = (m.matchNum ? `第${m.matchNum}試合` : `${m.isLoserMatch ? "裏" : ""}R${m.round}-${m.slot + 1}`)
+      + (m.court ? `　${m.court}コート` : "") + (fmtTime(m.scheduledStart) ? `　${fmtTime(m.scheduledStart)}` : "");
+    const nameA = formatTeamName(m.teamA) ?? "", nameB = formatTeamName(m.teamB) ?? "";
+    const tbd = (t, side) => t || displayTeam(allM, m, side);
+    for (const [id, name] of [["mTeamA", tbd(nameA, "A")], ["mTeamB", tbd(nameB, "B")], ["mScoreNameA", tbd(nameA, "A")], ["mScoreNameB", tbd(nameB, "B")]]) {
+      const e = el(id); if (e) e.textContent = String(name).replace("\n", " ");
+    }
+    // 勝ちボタン: 相手が未定なら押せない。確定済みなら勝者を強調
+    const ready = !!(m.teamA && m.teamB);
+    for (const [side, id] of [["A", "mWinA"], ["B", "mWinB"]]) {
+      const b = el(id);
+      b.disabled = !ready;
+      b.classList.toggle("won", m.winner === side);
+      b.classList.toggle("lost", !!m.winner && m.winner !== side);
+    }
+    el("mWinHint").textContent = !ready ? "対戦相手がまだ決まっていません"
+      : m.winner ? `現在: ${formatTeamName(m.winner === "A" ? m.teamA : m.teamB)} の勝ち（押し直すと勝者を変更）` : "勝ったクラスをタップすると確定します";
 
-    const mScore = el("mScore"), mWL = el("mWinLose"), hint = el("mHint");
-    const wrapA = el("mScoreAWrap"), wrapB = el("mScoreBWrap"), setsBox = el("mScoreSets");
+    // 点数（任意）
     const setsC = currentEvent.settings?.sets || 1;
-
-    if (mode === "winlose") {
-      mScore.classList.add("hidden"); mWL.classList.remove("hidden");
-      if (setsBox) setsBox.classList.add("hidden");
-      if (hint) hint.textContent = "勝敗のみ：ボタンで確定";
-    } else {
-      mScore.classList.remove("hidden"); mWL.classList.add("hidden");
-      if (setsC > 1 && setsBox && wrapA && wrapB) {
-        wrapA.classList.add("hidden");
-        wrapB.classList.add("hidden");
-        setsBox.classList.remove("hidden");
-        setsBox.innerHTML = "";
-        const mSets = m.setScores || [];
-        for (let i = 0; i < setsC; i++) {
-          const sA = mSets[i]?.scoreA ?? "";
-          const sB = mSets[i]?.scoreB ?? "";
-          const row = document.createElement("div");
-          row.className = "row between";
-          row.style.alignItems = "center";
-          row.innerHTML = `
-            <span class="small" style="font-weight:bold; width:40px;">Set ${i + 1}</span>
-            <input type="number" inputmode="numeric" pattern="[0-9]*" id="mS_${i}_A" style="width:70px" min="0" value="${sA}">
-            <span>-</span>
-            <input type="number" inputmode="numeric" pattern="[0-9]*" id="mS_${i}_B" style="width:70px" min="0" value="${sB}">
-          `;
-          setsBox.appendChild(row);
-        }
-        if (hint) hint.textContent = `各セットのScoreを入力 → 保存 (${setsC}セットマッチ)`;
-      } else {
-        if (wrapA) wrapA.classList.remove("hidden");
-        if (wrapB) wrapB.classList.remove("hidden");
-        if (setsBox) setsBox.classList.add("hidden");
-        el("mScoreA").value = m.scoreA ?? "";
-        el("mScoreB").value = m.scoreB ?? "";
-        if (hint) hint.textContent = "Score入力 → Enterで確定";
+    const setsBox = el("mScoreSets"), scoreRow = el("mScore");
+    if (setsC > 1) {
+      scoreRow.classList.add("hidden"); setsBox.classList.remove("hidden"); setsBox.innerHTML = "";
+      const mSets = m.setScores || [];
+      for (let i = 0; i < setsC; i++) {
+        const row = document.createElement("div");
+        row.className = "setRowIn";
+        row.innerHTML = `<span>第${i + 1}セット</span>
+          <input type="number" inputmode="numeric" pattern="[0-9]*" id="mS_${i}_A" min="0" value="${mSets[i]?.scoreA ?? ""}">
+          <span>-</span>
+          <input type="number" inputmode="numeric" pattern="[0-9]*" id="mS_${i}_B" min="0" value="${mSets[i]?.scoreB ?? ""}">`;
+        setsBox.appendChild(row);
       }
+    } else {
+      scoreRow.classList.remove("hidden"); setsBox.classList.add("hidden");
+      el("mScoreA").value = m.scoreA ?? ""; el("mScoreB").value = m.scoreB ?? "";
     }
+    const hadScore = (setsC > 1 ? (m.setScores || []).length > 0 : (m.scoreA != null && m.scoreB != null));
+    el("mScoreOpt").open = !!hadScore;       // 点数が入っているときだけ開いて見せる
+    updateScoreHint();
     overlay.classList.remove("hidden");
-    // スコア入力モードなら最初の入力欄に自動フォーカス（生徒審判がすぐ打てる）
-    if (mode !== "winlose") {
-      requestAnimationFrame(() => {
-        const first = el("mS_0_A") || el("mScoreA");
-        if (first) { first.focus(); first.select?.(); }
-      });
+  }
+
+  // 点数欄から「いまの入力」を読む。 {ok, a, b, sets, winner, msg}
+  function readScoreInput() {
+    const setsC = currentEvent?.settings?.sets || 1;
+    if (setsC > 1) {
+      const sets = []; let wa = 0, wb = 0, partial = false;
+      for (let i = 0; i < setsC; i++) {
+        const va = el(`mS_${i}_A`)?.value, vb = el(`mS_${i}_B`)?.value;
+        if (hasNum(va) && hasNum(vb)) { sets.push({ scoreA: Number(va), scoreB: Number(vb) }); if (Number(va) > Number(vb)) wa++; else if (Number(vb) > Number(va)) wb++; }
+        else if (hasNum(va) || hasNum(vb)) partial = true;
+      }
+      if (!sets.length) return { ok: false, empty: !partial, msg: partial ? "各セットは両方の点数を入れてください" : "" };
+      return { ok: true, a: wa, b: wb, sets, winner: wa > wb ? "A" : wb > wa ? "B" : null };
     }
+    const va = el("mScoreA")?.value, vb = el("mScoreB")?.value;
+    if (hasNum(va) && hasNum(vb)) { const a = Number(va), b = Number(vb); return { ok: true, a, b, sets: null, winner: a > b ? "A" : b > a ? "B" : null }; }
+    if (hasNum(va) || hasNum(vb)) return { ok: false, empty: false, msg: "点数は両方のクラス分を入れてください" };
+    return { ok: false, empty: true, msg: "" };
+  }
+  function updateScoreHint() {
+    const r = readScoreInput(), save = el("mSave"), hint = el("mHint");
+    if (!save || !hint) return;
+    save.disabled = !(r.ok && r.winner);
+    save.textContent = r.ok && r.winner ? `この点数で確定（${formatTeamName(r.winner === "A" ? el("mTeamA").textContent : el("mTeamB").textContent)} の勝ち）` : "この点数で確定";
+    hint.textContent = r.msg || (r.ok && !r.winner ? "同点です。勝ったクラスのボタンを押してください" : "点数を入れて勝ったクラスを押すと、点数も一緒に記録されます");
   }
 
   function closeResultModal() {
@@ -4406,7 +4391,8 @@
     modalMatchKey = null;
   }
 
-  function modalFinalize(winner) {
+  // winner: "A" | "B"。点数が入っていれば一緒に記録（勝敗と食い違うときは確定しない）
+  function modalFinalize(winner, fromScore = false) {
     if (!currentEvent || !modalMatchKey) return;
     const allM = currentEvent.loserMatches ? [...currentEvent.matches, ...currentEvent.loserMatches] : currentEvent.matches;
     const m = findMatchByKey(allM, modalMatchKey);
@@ -4414,10 +4400,20 @@
     if (m.teamA && !m.teamB) winner = "A";
     if (!m.teamA && m.teamB) winner = "B";
     if (!m.teamA && !m.teamB) return;
+    const r = readScoreInput();
+    if (r.ok) {
+      if (r.winner && r.winner !== winner) {
+        toast("点数と勝ち負けが食い違っています（点数の多いクラスを勝ちにしてください）", "warn", 3500);
+        el("mScoreOpt").open = true; return;
+      }
+    } else if (!r.empty && r.msg) { toast(r.msg, "warn", 3000); el("mScoreOpt").open = true; return; }
     pushUndoState();
     const targetArr = m.isLoserMatch ? currentEvent.loserMatches : currentEvent.matches;
+    if (r.ok) { m.scoreA = r.a; m.scoreB = r.b; if (r.sets) m.setScores = r.sets; else delete m.setScores; }
+    else { m.scoreA = null; m.scoreB = null; delete m.setScores; }
     finalizeMatchLocal(targetArr, m, winner, true);
     saveState(); renderEventDetail(currentEvent.id); closeResultModal();
+    toast(`${formatTeamName(winner === "A" ? m.teamA : m.teamB)} の勝ちで確定しました`, "success", 1800);
   }
 
   function updateMatchStatus(newStatus) {
@@ -4451,12 +4447,15 @@
     el("mClose").onclick = closeResultModal;
     overlay.addEventListener("click", e => { if (e.target === overlay) closeResultModal(); });
 
-    // スコア入力欄でEnterを押したら保存（生徒審判の高速入力）。Escで閉じる。
+    // 点数欄: 入力のたびに「確定」ボタンを更新。Enterで確定。Escで閉じる。
+    overlay.addEventListener("input", (e) => { if (e.target.matches("#mScoreOpt input")) updateScoreHint(); });
     overlay.addEventListener("keydown", e => {
       if (overlay.classList.contains("hidden")) return;
-      if (e.key === "Enter") {
-        const mode = state.tournament?.inputMode || "score";
-        if (mode !== "winlose") { e.preventDefault(); el("mSave")?.click(); }
+      if (e.key === "Enter" && e.target.matches("#mScoreOpt input")) {
+        e.preventDefault();
+        const r = readScoreInput();
+        if (r.ok && r.winner) modalFinalize(r.winner, true);
+        else updateScoreHint();
       } else if (e.key === "Escape") {
         e.preventDefault(); closeResultModal();
       }
@@ -4467,55 +4466,7 @@
 
     el("mWinA").onclick = () => modalFinalize("A");
     el("mWinB").onclick = () => modalFinalize("B");
-    el("mSave").onclick = () => {
-      if (!currentEvent || !modalMatchKey) return;
-      const allM = currentEvent.loserMatches ? [...currentEvent.matches, ...currentEvent.loserMatches] : currentEvent.matches;
-      const m = findMatchByKey(allM, modalMatchKey);
-      const mode = state.tournament?.inputMode || "score";
-      if (mode === "winlose") return;
-
-      const setsC = currentEvent.settings?.sets || 1;
-      let winner = null;
-      let a = 0, b = 0;
-
-      if (setsC > 1) {
-        const mSets = [];
-        let winA = 0, winB = 0;
-        for (let i = 0; i < setsC; i++) {
-          const valA = el(`mS_${i}_A`)?.value;
-          const valB = el(`mS_${i}_B`)?.value;
-          if (valA !== "" && valB !== "") {
-            const sA = Number(valA);
-            const sB = Number(valB);
-            if (Number.isFinite(sA) && Number.isFinite(sB)) {
-              mSets.push({ scoreA: sA, scoreB: sB });
-              if (sA > sB) winA++;
-              if (sB > sA) winB++;
-            }
-          }
-        }
-        if (mSets.length === 0) return alert("少なくとも1セットのスコアを入力してください");
-        m.setScores = mSets;
-        a = winA;
-        b = winB;
-        if (winA === winB) return alert(`セット同点（${winA}-${winB}）は不可です`);
-        winner = winA > winB ? "A" : "B";
-        m.scoreA = a;
-        m.scoreB = b;
-      } else {
-        a = Number(el("mScoreA")?.value);
-        b = Number(el("mScoreB")?.value);
-        if (!Number.isFinite(a) || !Number.isFinite(b)) return alert("Scoreを入力してください");
-        m.scoreA = a; m.scoreB = b;
-        winner = a > b ? "A" : b > a ? "B" : null;
-        if (!winner) return alert("同点は不可");
-      }
-
-      pushUndoState();
-      const targetArr = m.isLoserMatch ? currentEvent.loserMatches : currentEvent.matches;
-      finalizeMatchLocal(targetArr, m, winner, true);
-      saveState(); renderEventDetail(currentEvent.id); closeResultModal();
-    };
+    el("mSave").onclick = () => { const r = readScoreInput(); if (r.ok && r.winner) modalFinalize(r.winner, true); };
     el("mClear").onclick = () => {
       if (!currentEvent || !modalMatchKey) return;
       const allM = currentEvent.loserMatches ? [...currentEvent.matches, ...currentEvent.loserMatches] : currentEvent.matches;

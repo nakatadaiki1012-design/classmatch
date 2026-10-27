@@ -793,3 +793,35 @@ details[open] > summary { margin-bottom: 6px; }
 .esStatsBar { text-align: right; margin: 2px 2px 6px; }
 .esStatsBar .emStats { margin-left: 0; }
 .emGuide { margin: 8px 0; padding: 8px 12px; font-size: 13px; }
+
+/* ── 結果入力: 勝ちボタン1回で確定、点数は任意 ───────── */
+.winPick { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: stretch; margin-top: 14px; }
+.winVs { align-self: center; font-size: 13px; font-weight: 800; color: #94a3b8; }
+.winBtn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; min-height: 118px; padding: 12px 8px;
+  background: #fff; color: #0f172a; border: 2.5px solid #94a3b8; border-radius: 14px; cursor: pointer; font-family: inherit; white-space: normal; }
+.winBtn:hover:not(:disabled) { border-color: #16a34a; background: #f0fdf4; }
+.winBtn:active:not(:disabled) { background: #dcfce7; transform: scale(.98); }
+.winBtn .wbName { font-size: 22px; font-weight: 900; line-height: 1.25; text-align: center; word-break: break-all; }
+.winBtn .wbAct { font-size: 15px; font-weight: 800; color: #fff; background: #16a34a; border-radius: 999px; padding: 7px 20px; min-height: 36px; display: inline-flex; align-items: center; }
+.winBtn:disabled { opacity: .45; cursor: not-allowed; border-style: dashed; }
+.winBtn:disabled .wbAct { background: #94a3b8; }
+.winBtn.won { border-color: #16a34a; background: #dcfce7; box-shadow: 0 0 0 3px rgba(22,163,74,.25); }
+.winBtn.lost { opacity: .6; }
+.winHint { text-align: center; font-size: 13px; color: var(--muted); margin: 8px 0 12px; min-height: 18px; }
+.scoreOpt { border: 1px solid var(--border); border-radius: 12px; background: var(--surface2); margin-bottom: 12px; }
+.scoreOpt > summary { cursor: pointer; padding: 10px 14px; min-height: 44px; display: flex; align-items: center; font-weight: 700; font-size: 14px; color: #475569; list-style: none; }
+.scoreOpt > summary small { font-weight: 500; color: var(--muted); margin-left: 4px; }
+.scoreOpt[open] > summary { border-bottom: 1px solid var(--border); }
+.scoreOpt .scoreRow { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: end; padding: 12px 14px 4px; }
+.scoreOpt .scoreRow label { display: flex; flex-direction: column; gap: 4px; align-items: stretch; }
+.scoreOpt .so-name { font-size: 13px; font-weight: 700; color: #334155; text-align: center; }
+.scoreOpt .scoreInput { width: 100% !important; max-width: none; height: 52px; font-size: 24px !important; }
+.scoreOpt .so-dash { font-size: 22px; color: #94a3b8; padding-bottom: 12px; }
+.scoreOpt .setsBox { padding: 10px 14px 0; display: flex; flex-direction: column; gap: 8px; }
+.scoreOpt .setRowIn { display: grid; grid-template-columns: 78px 1fr auto 1fr; gap: 8px; align-items: center; font-size: 13px; font-weight: 700; color: #475569; }
+.scoreOpt .setRowIn input { height: 46px; font-size: 20px; text-align: center; }
+.scoreOpt .scoreNote { font-size: 12px; color: var(--muted); padding: 8px 14px 0; }
+.scoreOpt .scoreSave { margin: 10px 14px 14px; width: calc(100% - 28px); min-height: 46px; }
+.scoreOpt .scoreSave:disabled { opacity: .45; }
+.modalActions { margin-top: 4px; }
+.modalActions .mClearBtn { flex: 1; }
