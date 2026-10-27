@@ -1884,177 +1884,175 @@
   // ── 組み合わせ編集モーダル (ドラッグ＆ドロップ対応) ──────────────────────────────────
   let editingLoserMatchups = false;
 
+  // ── 1回戦の組み合わせ編集 ───────────────────────────────────
+  // 操作: クラスをタップ → 入れ替え先（別のクラス／空き枠／出場しない欄）をタップ。
+  //       パソコンではドラッグ＆ドロップでも同じことができる。
   function openEditMatchupsModal(isLoser) {
     if (!currentEvent) return;
     const targetMatches = isLoser ? currentEvent.loserMatches : currentEvent.matches;
     if (!targetMatches) return;
-    
+
     editingLoserMatchups = isLoser;
-    const r1matches = targetMatches.filter(m => m.round === 1);
+    const r1matches = targetMatches.filter(m => m.round === 1).sort((a, b) => a.slot - b.slot);
     const emList = el("emList");
     const emPool = el("emPool");
     if (!emList || !emPool) return;
     emList.innerHTML = "";
     emPool.innerHTML = "";
 
-    // 選択肢のための全参加チーム（設定クラス or R1に出現するチーム）
-    const allClasses = new Set(state.tournament.classes || []);
+    // 参加クラス（設定クラス＋1回戦に出ているクラス）
+    const allClasses = new Set(isLoser ? [] : (state.tournament.classes || []));
     const placedTeams = new Set();
     r1matches.forEach(m => {
-      if (m.teamA) { allClasses.add(m.teamA); placedTeams.add(m.teamA); }
-      if (m.teamB) { allClasses.add(m.teamB); placedTeams.add(m.teamB); }
+      [m.teamA, m.teamB].forEach(t => { if (t) { allClasses.add(t); placedTeams.add(t); } });
     });
     const poolTeams = Array.from(allClasses).filter(c => !placedTeams.has(c)).sort();
 
-    let draggedItem = null;
+    let selected = null;   // タップで選んでいるクラスの要素
+    let dragged = null;    // ドラッグ中の要素
+    const guide = el("emGuide");
+
+    const setGuide = () => {
+      if (!guide) return;
+      guide.classList.toggle("active", !!selected);
+      guide.innerHTML = selected
+        ? `<b>「${escapeHtml(formatTeamName(selected.dataset.team))}」を選択中</b> → 入れ替えたいクラス、または空き枠をタップ（もう一度タップで解除）`
+        : `① 動かしたいクラスを<b>タップ</b> → ② 入れ替え先をタップ　<span>（パソコンはドラッグでもOK）</span>`;
+    };
+    const select = (chip) => {
+      if (selected) selected.classList.remove("sel");
+      selected = chip;
+      if (chip) chip.classList.add("sel");
+      setGuide();
+    };
+
+    // chip を zone（試合の枠 or 出場しない欄）へ。枠にクラスがいれば入れ替える
+    const moveTo = (chip, zone) => {
+      if (!chip || !zone || chip.parentNode === zone) return;
+      const from = chip.parentNode;
+      if (zone.classList.contains("dd-slot")) {
+        const existing = zone.querySelector(".dd-item");
+        if (existing) from.appendChild(existing);
+      }
+      zone.appendChild(chip);
+      refreshSlots();
+    };
 
     const makeTeamItem = (teamName) => {
       if (!teamName) return null;
       const d = document.createElement("div");
-      d.className = "dd-item";
+      d.className = "dd-item emChip";
       d.draggable = true;
       d.dataset.team = teamName;
       d.textContent = formatTeamName(teamName);
-      d.style.cssText = "padding:6px 14px; background:#fff; border:1px solid #cbd5e1; border-radius:16px; cursor:grab; font-weight:bold; box-shadow:0 1px 2px rgba(0,0,0,0.05); user-select:none; font-size:13px;";
-      d.ondragstart = (e) => {
-        draggedItem = d;
-        setTimeout(() => d.style.opacity = "0.4", 0);
+      d.onclick = (e) => {
+        e.stopPropagation();
+        if (!selected) return select(d);
+        if (selected === d) return select(null);
+        // 選択中のクラスと入れ替え
+        const a = selected, aParent = a.parentNode, bParent = d.parentNode;
+        if (aParent.classList.contains("dd-slot") || bParent.classList.contains("dd-slot")) {
+          const marker = document.createElement("span");
+          aParent.replaceChild(marker, a);
+          bParent.replaceChild(a, d);
+          marker.replaceWith(d);
+          refreshSlots();
+        }
+        select(null);
       };
-      d.ondragend = () => {
-        draggedItem = null;
-        d.style.opacity = "1";
-      };
+      d.ondragstart = (e) => { dragged = d; select(null); e.dataTransfer.setData("text/plain", teamName); setTimeout(() => d.classList.add("dragging"), 0); };
+      d.ondragend = () => { dragged = null; d.classList.remove("dragging"); };
       return d;
     };
 
     const setupZone = (zone) => {
-      zone.ondragover = (e) => { e.preventDefault(); zone.style.background = "#eef2ff"; zone.style.borderColor = "#818cf8"; };
-      zone.ondragleave = (e) => { zone.style.background = ""; zone.style.borderColor = ""; };
-      zone.ondrop = (e) => {
-        e.preventDefault();
-        zone.style.background = "";
-        zone.style.borderColor = "";
-        if (!draggedItem) return;
-
-        if (draggedItem.parentNode === zone) return;
-
-        if (zone.classList.contains("dd-slot")) {
-          const existing = zone.querySelector(".dd-item");
-          if (existing) {
-            draggedItem.parentNode.appendChild(existing); // スワップ
-          }
-          zone.appendChild(draggedItem);
-        } else {
-          zone.appendChild(draggedItem);
-        }
-      };
+      zone.onclick = () => { if (selected) { moveTo(selected, zone); select(null); } };
+      zone.ondragover = (e) => { e.preventDefault(); zone.classList.add("over"); };
+      zone.ondragleave = () => zone.classList.remove("over");
+      zone.ondrop = (e) => { e.preventDefault(); zone.classList.remove("over"); if (dragged) moveTo(dragged, zone); };
     };
 
     setupZone(emPool);
-    poolTeams.forEach(t => {
-      const item = makeTeamItem(t);
-      if (item) emPool.appendChild(item);
-    });
+    poolTeams.forEach(t => emPool.appendChild(makeTeamItem(t)));
+
+    // 空き枠の表示更新と集計
+    const refreshSlots = () => {
+      let bye = 0, empty2 = 0, playing = 0;
+      emList.querySelectorAll(".emMatch").forEach(card => {
+        const slots = card.querySelectorAll(".dd-slot");
+        const n = [...slots].filter(sl => sl.querySelector(".dd-item")).length;
+        slots.forEach(sl => sl.classList.toggle("empty", !sl.querySelector(".dd-item")));
+        card.classList.toggle("bye", n === 1);
+        card.classList.toggle("none", n === 0);
+        if (n === 2) playing++; else if (n === 1) bye++; else empty2++;
+      });
+      const pooled = emPool.querySelectorAll(".dd-item").length;
+      emPool.classList.toggle("empty", pooled === 0);
+      const st = el("emStats");
+      if (st) st.innerHTML = `試合 <b>${playing}</b>・不戦勝 <b>${bye}</b>` + (pooled ? `・出場しない <b>${pooled}</b>` : "")
+        + (empty2 ? `　<span class="warn">⚠ 両方空きの枠が${empty2}つ</span>` : "");
+    };
 
     const emShuffle = el("emShuffle");
-    if (emShuffle) {
-      emShuffle.onclick = () => {
-        const slots = el("emList").querySelectorAll(".dd-slot");
-        const currentTeams = [];
-        slots.forEach(s => {
-          const item = s.querySelector(".dd-item");
-          if (item && item.dataset.team) {
-            currentTeams.push(item.dataset.team);
-            item.remove();
-          }
-        });
+    if (emShuffle) emShuffle.onclick = () => {
+      select(null);
+      const slots = [...emList.querySelectorAll(".dd-slot")].filter(sl => sl.querySelector(".dd-item"));
+      const chips = slots.map(sl => sl.querySelector(".dd-item"));
+      for (let i = chips.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [chips[i], chips[j]] = [chips[j], chips[i]]; }
+      slots.forEach((sl, i) => sl.appendChild(chips[i]));
+      refreshSlots();
+      toast("クラスを再抽選しました（まだ保存されていません）", "info", 2000);
+    };
+    if (el("emReset")) el("emReset").onclick = () => openEditMatchupsModal(isLoser);
 
-        // Fisher-Yates Shuffle
-        for (let i = currentTeams.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [currentTeams[i], currentTeams[j]] = [currentTeams[j], currentTeams[i]];
-        }
-
-        // 空きではなかったスロットに順番に詰め直す
-        let teamIdx = 0;
-        slots.forEach(s => {
-          if (!s.dataset.wasEmpty) { // シャッフルボタン押下前に空だったかどうかを判定（後述の構築時に付与）
-            const team = currentTeams[teamIdx++];
-            if (team) {
-              const item = makeTeamItem(team);
-              s.appendChild(item);
-            }
-          }
-        });
-      };
-    }
-
+    // 試合カード（第n試合 時刻 コート）
     r1matches.forEach(m => {
-      const matchCard = document.createElement("div");
-      matchCard.style.cssText = "background:#fff; border:1px solid #cbd5e1; border-radius:8px; padding:12px; display:flex; flex-direction:column; gap:6px; align-items:center; box-shadow:0 1px 3px rgba(0,0,0,0.05); width:200px; position:relative;";
-
-      const title = document.createElement("div");
-      title.className = "mono small";
-      title.style.color = "var(--navy)";
-      title.style.fontWeight = "bold";
-      title.textContent = `Match ${m.slot + 1}`;
-      title.style.marginBottom = "4px";
-      matchCard.appendChild(title);
-
-      const makeSlot = (key, team) => {
+      const card = document.createElement("div");
+      card.className = "emMatch";
+      const head = document.createElement("div");
+      head.className = "emMatchHead";
+      const t = fmtTime(m.scheduledStart);
+      head.innerHTML = m.matchNum
+        ? `<b>第${m.matchNum}試合</b>${t ? `<span class="t">${t}</span>` : ""}${m.court ? `<span class="c">${escapeHtml(m.court)}コート</span>` : ""}`
+        : `<b>${m.slot + 1}番目の枠</b><span class="t">シード枠</span>`;
+      if (m.state === "final" && !m.isBye) head.innerHTML += `<span class="done">結果あり</span>`;
+      card.appendChild(head);
+      ["A", "B"].forEach(side => {
         const slot = document.createElement("div");
-        slot.className = "dd-slot";
-        slot.dataset.key = key;
-        slot.dataset.wasEmpty = team ? "" : "true"; // 再抽選時の判定用
-        slot.style.cssText = "width:100%; height:34px; background:#f8fafc; border:1.5px dashed #94a3b8; border-radius:4px; display:flex; align-items:center; justify-content:center; transition:all 0.2s;";
+        slot.className = "dd-slot emSlot";
+        slot.dataset.key = `em${side}_${m.slot}`;
+        const team = side === "A" ? m.teamA : m.teamB;
+        slot.dataset.wasEmpty = team ? "" : "true";
         setupZone(slot);
         const item = makeTeamItem(team);
         if (item) slot.appendChild(item);
-        return slot;
-      };
-
-      const slotA = makeSlot(`emA_${m.slot}`, m.teamA);
-      const slotB = makeSlot(`emB_${m.slot}`, m.teamB);
-
-      matchCard.appendChild(slotA);
-
-      const vsLine = document.createElement("div");
-      vsLine.style.cssText = "width:1px; height:12px; background:#cbd5e1; margin:2px 0;";
-      matchCard.appendChild(vsLine);
-
-      matchCard.appendChild(slotB);
-
-      // 横に繋がるような装飾（ツリー感の演出）
-      const connector = document.createElement("div");
-      connector.style.cssText = "position:absolute; right:-20px; top:50%; width:20px; height:1px; background:#cbd5e1; z-index:0;";
-      matchCard.appendChild(connector);
-
-      emList.appendChild(matchCard);
+        card.appendChild(slot);
+        if (side === "A") { const vs = document.createElement("div"); vs.className = "emVs"; vs.textContent = "vs"; card.appendChild(vs); }
+      });
+      emList.appendChild(card);
     });
 
-    // emList自体のCSSをツリーっぽくオーバーライド
-    emList.style.display = "flex";
-    emList.style.flexDirection = "column";
-    emList.style.gap = "16px";
-    emList.style.alignItems = "flex-start"; // 左寄せで並べる
-    emList.style.paddingLeft = "20px";
-
-    el("emTitle").textContent = `${currentEvent.sportName} ${currentEvent.gender === "M" ? "男子" : "女子"} ${isLoser ? "（裏）" : ""}`;
+    select(null);
+    refreshSlots();
+    el("emTitle").textContent = `${currentEvent.sportName} ${currentEvent.gender === "M" ? "男子" : currentEvent.gender === "F" ? "女子" : "混合"}${isLoser ? "（裏トーナメント）" : ""}`;
     el("editMatchupsModal").classList.remove("hidden");
   }
 
   if (el("btnEditMatchups")) el("btnEditMatchups").onclick = () => openEditMatchupsModal(false);
   if (el("btnEditLoserMatchups")) el("btnEditLoserMatchups").onclick = () => openEditMatchupsModal(true);
 
-  if (el("emClose")) el("emClose").onclick = () => {
-    el("editMatchupsModal").classList.add("hidden");
-  };
+  const closeMatchups = () => el("editMatchupsModal").classList.add("hidden");
+  if (el("emClose")) el("emClose").onclick = closeMatchups;
+  if (el("emCancel")) el("emCancel").onclick = closeMatchups;
 
   if (el("emSave")) el("emSave").onclick = () => {
     if (!currentEvent) return;
     const targetMatches = editingLoserMatchups ? currentEvent.loserMatches : currentEvent.matches;
     if (!targetMatches) return;
     const r1matches = targetMatches.filter(m => m.round === 1);
+    const played = r1matches.filter(m => m.state === "final" && !m.isBye).length;
+    if (played && !confirm(`1回戦の結果（${played}試合分）が取り消され、組み合わせが作り直されます。よろしいですか？`)) return;
+    pushUndoState();
 
     r1matches.forEach(m => {
       const getTeam = (key) => {
@@ -2172,6 +2170,7 @@
     el("editMatchupsModal").classList.add("hidden");
     renderEventDetail(currentEvent.id);
     updateOngoingMatches();
+    toast("組み合わせを決定しました（時刻・試合番号も更新）", "success");
   };
 
   if (el("btnOpenLoserModal")) el("btnOpenLoserModal").onclick = () => {

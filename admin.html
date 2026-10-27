@@ -550,49 +550,28 @@
 
   <!-- ══════ EDIT MATCHUPS MODAL ══════ -->
   <div id="editMatchupsModal" class="modal hidden">
-    <div class="modalCard" style="max-width:600px; width:95%;">
-      <div class="row between" style="margin-bottom: 12px;">
+    <div class="modalCard emCard">
+      <div class="emHead">
         <div>
-          <div class="small">ドラッグ＆ドロップで枠移動</div>
-          <h3 id="emTitle" style="margin:4px 0 0 0;">-</h3>
+          <div class="small">1回戦の組み合わせ</div>
+          <h3 id="emTitle">-</h3>
         </div>
         <button id="emClose" class="ghost">× 閉じる</button>
       </div>
-
-      <div class="small"
-        style="margin-bottom:12px; line-height:1.5; color:var(--navy); background:var(--surface2); padding:8px; border-radius:4px;">
-        💡 <strong>操作方法:</strong> チームを直接ドラッグ＆ドロップして入れ替えます。<br>
-        ※ <strong>空の枠（グレー）</strong> は自動的に<strong>「不戦勝（シード枠）」</strong>になります。<br>
-        ※ シード枠の場所を変えたい場合は、チームを別の枠に移動させてください。
+      <div class="emGuide" id="emGuide"></div>
+      <div class="emTools">
+        <button id="emShuffle" class="ghost small">🎲 クラスを再抽選（シード枠の位置はそのまま）</button>
+        <button id="emReset" class="ghost small">↩ 開いた時に戻す</button>
+        <span id="emStats" class="emStats"></span>
       </div>
-
-      <!-- 操作ボタン -->
-      <div class="row" style="margin-bottom: 12px;">
-        <button id="emShuffle" class="secondary small"
-          style="width:100%; border:1px solid #cbd5e1; background:#f8fafc; color:#334155;">🎲
-          現在のシード（空枠）位置を維持してチームのみ再抽選</button>
+      <div class="emPoolBox">
+        <div class="emPoolLbl">📥 出場しないクラス <span>（ここに置いたクラスは試合に出ません）</span></div>
+        <div id="emPool" class="dd-zone emPool"></div>
       </div>
-
-      <!-- プール領域: 外されたチームを一旦置く場所 -->
-      <div
-        style="margin-bottom: 16px; border: 1.5px dashed var(--border); padding: 8px; border-radius: var(--radius); min-height: 50px; background:#f8fafc;">
-        <div class="small" style="color:var(--muted); margin-bottom:4px; font-weight:bold;">📥 未割り当てプルーフ（出場させない、または一時退避）
-        </div>
-        <div id="emPool" class="dd-zone" style="display:flex; flex-wrap:wrap; gap:6px; min-height: 36px;"></div>
-      </div>
-
-      <!-- ツリー表示領域 -->
-      <div style="background:#f1f5f9; padding:12px; border-radius:8px; border:1px solid #e2e8f0; margin-bottom:16px;">
-        <div class="small" style="text-align:center; color:var(--muted); font-weight:bold; margin-bottom:8px;">🏆
-          トーナメントツリー 1回戦</div>
-        <div id="emList"
-          style="display:flex; flex-wrap:wrap; gap:8px; justify-content:center; max-height:45vh; overflow-y:auto; padding:4px;">
-          <!-- ここにJSでツリー状のD&Dスロットを生成 -->
-        </div>
-      </div>
-
-      <div class="row">
-        <button id="emSave" class="primary" style="width:100%; font-size:15px; padding:12px;">以上の組み合わせで保存する</button>
+      <div id="emList" class="emGrid"></div>
+      <div class="emFoot">
+        <button id="emCancel" class="ghost">キャンセル</button>
+        <button id="emSave" class="primary">✅ この組み合わせで決定</button>
       </div>
     </div>
   </div>

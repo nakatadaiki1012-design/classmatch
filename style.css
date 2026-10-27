@@ -683,3 +683,54 @@ details[open] > summary { margin-bottom: 6px; }
 #eventView .grid2 { gap: 10px; }
 #eventView .evHeader { margin-bottom: 6px; }
 #eventView .bracketToolbar { margin: 0; }
+
+/* ── 組み合わせ編集（タップで入れ替え） ───────────────── */
+.modalCard.emCard { max-width: 1000px; width: 96vw; max-height: 94vh; padding: 16px 18px 0; display: flex; flex-direction: column; overflow: hidden; }
+.emHead { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.emHead h3 { margin: 2px 0 0; font-size: 19px; }
+.emGuide { margin: 10px 0 8px; padding: 10px 12px; border-radius: 10px; background: #eff6ff; border: 1px solid #bfdbfe; color: #1e3a8a; font-size: 14px; }
+.emGuide span { color: var(--muted); font-size: 12px; }
+.emGuide.active { background: #fef9c3; border-color: #eab308; color: #713f12; }
+.emTools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+.emTools button { min-height: 38px; }
+.emStats { margin-left: auto; font-size: 13px; color: var(--muted); }
+.emStats b { color: var(--navy); font-size: 15px; }
+.emStats .warn { color: #b45309; font-weight: 700; }
+.emPoolBox { border: 1.5px dashed var(--border2); border-radius: 10px; padding: 6px 10px; margin-bottom: 10px; background: #f8fafc; }
+.emPoolLbl { font-size: 12px; font-weight: 700; color: var(--muted); margin-bottom: 4px; }
+.emPoolLbl span { font-weight: 400; }
+.emPool { display: flex; flex-wrap: wrap; gap: 6px; min-height: 40px; border: none !important; padding: 0 !important; background: transparent !important; }
+.emPool.empty::after { content: "（なし。ここにクラスを移すと試合に出なくなります）"; color: var(--subtle); font-size: 12px; align-self: center; }
+.emPool.over { background: #eef2ff !important; }
+.emGrid { flex: 1; min-height: 0; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; padding: 2px 2px 12px; align-content: start; }
+.emMatch { background: #fff; border: 1.5px solid #94a3b8; border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; }
+.emMatch.bye { border-color: #cbd5e1; }
+.emMatch.none { border-style: dashed; opacity: .75; }
+.emMatchHead { display: flex; gap: 8px; align-items: baseline; padding: 6px 10px; background: #eef2f7; font-size: 13px; }
+.emMatchHead b { color: #1e3a5f; }
+.emMatchHead .t { color: #2563eb; font-family: 'Roboto Mono', ui-monospace, monospace; font-weight: 600; }
+.emMatchHead .c { color: #047857; font-weight: 800; }
+.emMatchHead .done { margin-left: auto; font-size: 11px; color: #b45309; font-weight: 800; }
+.emSlot.dd-slot { margin: 6px 8px 0; min-height: 46px; border: 1.5px dashed transparent; border-radius: 8px; padding: 0; display: flex; align-items: stretch; background: transparent; cursor: pointer; }
+.emSlot.dd-slot:last-child { margin-bottom: 8px; }
+.emSlot.empty { border-color: #cbd5e1; background: #f8fafc; }
+.emSlot.empty::after { content: "空き（相手は不戦勝）"; margin: auto; font-size: 13px; color: #94a3b8; }
+.emSlot.over, .emPool.over { border-color: #6366f1 !important; background: #eef2ff !important; }
+.emVs { text-align: center; font-size: 11px; color: #94a3b8; font-weight: 700; margin: 2px 0 -4px; }
+.dd-item.emChip { flex: 1; display: flex; align-items: center; justify-content: center; margin: 0; padding: 8px 12px; min-height: 44px;
+  font-size: 17px; font-weight: 700; color: #0f172a; background: #fff; border: 1.5px solid #cbd5e1; border-radius: 8px; cursor: pointer;
+  user-select: none; -webkit-user-select: none; touch-action: manipulation; transition: box-shadow .12s, border-color .12s, background .12s; }
+.emPool .dd-item.emChip { flex: 0 0 auto; min-height: 40px; font-size: 15px; }
+.dd-item.emChip:hover { border-color: #2563eb; }
+.dd-item.emChip.sel { background: #fef9c3; border-color: #ca8a04; box-shadow: 0 0 0 3px rgba(234,179,8,.35); }
+.dd-item.emChip.dragging { opacity: .4; }
+.emFoot { position: sticky; bottom: 0; display: flex; gap: 10px; justify-content: flex-end; padding: 10px 0 14px; background: #fff; border-top: 1px solid var(--border); }
+.emFoot button { min-height: 46px; padding: 0 22px; font-size: 15px; }
+.emFoot #emSave { font-weight: 800; }
+@media (max-width: 600px) { .emGrid { grid-template-columns: 1fr 1fr; } .emStats { margin-left: 0; width: 100%; } .dd-item.emChip { font-size: 15px; } }
+/* 組み合わせ編集: カードを押し縮めない（はみ出す分は縦スクロール）・タップ時の青い光を出さない */
+.emGrid { grid-auto-rows: max-content; }
+.emMatch { flex-shrink: 0; }
+.emSlot.dd-slot, .dd-item.emChip, .emPool { -webkit-tap-highlight-color: transparent; }
+.emPoolBox { padding: 4px 10px; }
+.emPool { min-height: 34px; }
