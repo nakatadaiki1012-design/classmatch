@@ -57,16 +57,32 @@
   // Firebase コンソールの「const firebaseConfig = { ... };」や JSON を読み取る（evalは使わない）
   function parseConfigText(text) {
     const src = String(text || "");
-    const start = src.indexOf("{"), end = src.lastIndexOf("}");
-    if (start < 0 || end <= start) return null;
-    // 1文字ずつ読み、文字列の外だけを整える（"https://..." の // をコメントと誤認しない）
+    // 設定の { } を探す。コンソールの完全版には import { initializeApp } などの { } も含まれるので、
+    // 「apiKey」を含む { } を起点にする
+    let start = -1;
+    const k = src.search(/["']?apiKey["']?\s*:/);
+    if (k >= 0) start = src.lastIndexOf("{", k);
+    else start = src.indexOf("{");
+    if (start < 0) return null;
+    // 対応する } まで（文字列の中の { } は数えない）
+    let depth = 0, end = -1, q = null;
+    for (let i = start; i < src.length; i++) {
+      const c = src[i];
+      if (q) { if (c === "\\") i++; else if (c === q) q = null; continue; }
+      if (c === '"' || c === "'") { q = c; continue; }
+      if (c === "/" && src[i + 1] === "/") { while (i < src.length && src[i] !== "\n") i++; continue; }
+      if (c === "{") depth++;
+      else if (c === "}") { depth--; if (depth === 0) { end = i; break; } }
+    }
+    if (end < 0) return null;
     const body = src.slice(start, end + 1);
+    // 1文字ずつ読み、文字列の外だけを整える（"https://..." の // をコメントと誤認しない）
     let out = "", i = 0;
     while (i < body.length) {
       const ch = body[i];
       if (ch === '"' || ch === "'") {                       // 文字列はそのまま（ダブルクォートに統一）
-        const q = ch; let j = i + 1, str = "";
-        while (j < body.length && body[j] !== q) { if (body[j] === "\\") { str += body[j] + (body[j + 1] || ""); j += 2; } else { str += body[j]; j++; } }
+        const qq = ch; let j = i + 1, str = "";
+        while (j < body.length && body[j] !== qq) { if (body[j] === "\\") { str += body[j] + (body[j + 1] || ""); j += 2; } else { str += body[j]; j++; } }
         out += '"' + str.replace(/"/g, '\\"') + '"'; i = j + 1; continue;
       }
       if (ch === "/" && body[i + 1] === "/") { while (i < body.length && body[i] !== "\n") i++; continue; }          // 行コメント

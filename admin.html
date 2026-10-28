@@ -247,6 +247,12 @@
 };'></textarea>
             </li>
           </ol>
+          <div class="lsRow lsDb">
+            <label class="lsDbLbl">データベースのURL <small>（設定に <code>databaseURL</code> が無いときだけ入力）</small>
+              <input id="lsDbUrl" type="url" inputmode="url" placeholder="https://（プロジェクト名）-default-rtdb.firebaseio.com" />
+            </label>
+            <div class="small">Realtime Database の画面の一番上に表示されているURLです。空欄なら <code>https://（projectId）-default-rtdb.firebaseio.com</code> を使います。</div>
+          </div>
           <div class="lsRow"><button id="lsConnect" class="primary">✅ 接続して共有を開始</button></div>
           <div id="lsMsg" class="lsMsg hidden" role="alert"></div>
         </div>

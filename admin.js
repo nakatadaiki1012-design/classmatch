@@ -448,12 +448,17 @@
     const cfg = FS.parseConfigText(el("lsConfigText").value);
     const err = FS.validate(cfg);
     if (err) return lsShowMsg((cfg ? "設定が足りません（" + err + "）。" : "設定を読み取れませんでした。") + "コンソールの firebaseConfig を { } ごとコピーして貼り付けてください。");
+    const dbUrl = (el("lsDbUrl")?.value || "").trim();
+    if (dbUrl) {
+      if (!/^https:\/\/[^/\s]+\.(firebaseio\.com|firebasedatabase\.app)\/?$/.test(dbUrl)) return lsShowMsg("データベースのURLの形式が違います（例: https://xxxx-default-rtdb.firebaseio.com）。Realtime Database の画面の一番上のURLをコピーしてください。");
+      cfg.databaseURL = dbUrl.replace(/\/$/, "");
+    }
     const btn = el("lsConnect"); btn.disabled = true; btn.textContent = "接続中…"; lsShowMsg("");
     try {
       FS.setConfig(cfg); _live.inited = false;
       const l = state.tournament.liveShare = Object.assign({ code: FS.makeCode(), secret: FS.makeSecret() }, state.tournament.liveShare, { enabled: true });
       await ensureLiveConn();
-      await Promise.race([FS.publish(l.code, l.secret, state), new Promise((_, rej) => setTimeout(() => rej(new Error("応答がありません。databaseURL（Realtime Databaseの作成）とネットワークを確認してください")), 12000))]);
+      await Promise.race([FS.publish(l.code, l.secret, state), new Promise((_, rej) => setTimeout(() => rej(new Error("応答がありません。Realtime Database を作成済みか、「データベースのURL」が正しい（場所が米国以外ならURLが異なります）か、ネットワークを確認してください")), 12000))]);
       _live.lastOk = Date.now(); _live.status = "ok";
       el("lsConfigText").value = "";
       saveState(); renderLiveUI();
