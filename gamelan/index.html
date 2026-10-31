@@ -376,15 +376,27 @@
   #page-stage3d .s3top select{flex:1; min-width:0;}
   .s3menuBtn{display:flex; flex-direction:column; align-items:center; justify-content:center; padding:2px 10px; font-size:1.05rem; line-height:1;}
   .s3menuBtn small{font-size:.55rem; font-weight:700;}
-  .s3box{height:calc(100vh - 210px); height:calc(100svh - 210px); min-height:340px; max-height:680px;}
-  #page-stage3d.joining .s3box{height:44vh; height:44svh; min-height:250px;}
+  .s3box{aspect-ratio:16/10; height:auto; min-height:0; max-height:72vh;}
+  /* 一緒に演奏するとき：舞台と自分の楽器が1画面に入るように、舞台を横長にして、ほかの操作はしまう */
+  body.s3joining h1, body.s3joining .s3top, body.s3joining .s3bar, body.s3joining .s3roles, body.s3joining .s3hint, body.s3joining #about, body.s3joining .s3sheet{display:none !important;}
+  body.s3joining .s3box{aspect-ratio:16/7.5; max-height:38vh; max-height:38svh;}
+  body.s3joining .s3me{margin-top:6px; padding:8px;}
+  body.s3joining .s3mehead{margin-bottom:4px;}
+  body.s3joining .s3me .prac > .row:first-child{margin:0; flex-wrap:nowrap; gap:6px;}
+  body.s3joining .s3me .prac > .row:first-child button{padding:7px 10px; font-size:.78rem; white-space:nowrap;}
+  body.s3joining .s3mehead b{font-size:.9rem;} body.s3joining #s3meQuit{padding:4px 10px;}
+  body.s3joining .s3dial{width:56px !important;}
+  body.s3joining .s3me .pmsg{font-size:.72rem; padding:4px 8px; margin:4px 0;}
+  body.s3joining .s3me .hwy{margin:4px 0;} body.s3joining .s3me .hwyc{height:72px;}
+  body.s3joining .s3me .pkb svg.inst{max-height:26vh; max-height:26svh; width:auto; max-width:100%;}
+  body.s3joining .s3me .pstats{margin:2px 0; font-size:.75rem;}
   .s3st{position:absolute; left:8px; top:8px; background:rgba(27,18,12,.72); color:#f6ead8; border-radius:999px; padding:3px 10px; font-size:.72rem; font-weight:700; pointer-events:none; max-width:calc(100% - 210px); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
-  @media (max-width:520px){ .s3dial{width:96px;} .s3st{font-size:.66rem;} }
+  @media (max-width:520px){ #page-stage3d .s3dial{width:64px; padding:2px; border-radius:10px;} .s3st{font-size:.62rem; padding:2px 8px; top:6px; left:6px; max-width:44%;}
+    #page-stage3d .s3cam{top:6px; right:6px; gap:3px;} #page-stage3d .s3cam button{padding:2px 6px; font-size:.6rem;} }
   .s3cam{top:8px; right:8px;} .s3cam button{padding:3px 8px; font-size:.68rem;}
   .s3dial{position:absolute; left:6px; bottom:6px; width:118px; background:rgba(27,18,12,.78); border-radius:14px; padding:4px; pointer-events:none;}
   .s3dial .gstrip{display:none;} .s3dial svg{display:block; width:100%; height:auto;}
-  #page-stage3d.joining .s3dial{width:84px;}
-  .s3sheet{position:absolute; left:8px; right:8px; bottom:8px; max-height:72%; overflow:auto; background:rgba(255,250,240,.97); color:#2a1c13; border-radius:16px; padding:12px 14px; box-shadow:0 8px 30px rgba(0,0,0,.35); border-top:5px solid var(--g, #c9a24a); z-index:5;}
+  .s3sheet{position:relative; margin-top:8px; background:rgba(255,250,240,.97); color:#2a1c13; border-radius:16px; padding:12px 14px; box-shadow:0 8px 30px rgba(0,0,0,.35); border-top:5px solid var(--g, #c9a24a); z-index:5;}
   .s3sheet h3{margin:0; font-size:1.1rem; display:flex; align-items:center; gap:8px;}
   .s3sheet .pill{font-size:.66rem; font-weight:800; background:var(--g); color:#1b120c; border-radius:999px; padding:1px 8px;}
   .s3sheet .x{position:absolute; right:8px; top:8px; background:#efe4d0; color:#2a1c13; border:none; border-radius:50%; width:30px; height:30px; padding:0;}
@@ -539,9 +551,9 @@
     <div class="s3st" id="s3st">▶ を押すと合奏が始まります</div>
     <div class="s3cam" id="s3cam"><button data-cam="front" class="on">正面</button><button data-cam="top">真上</button><button data-cam="near">近く</button><button data-names="1" class="on" aria-label="名前の表示">名前</button></div>
     <div id="s3cycle" class="s3dial" aria-label="ゴングの周期"></div>
-    <div class="s3sheet" id="s3sheet" hidden></div>
     <div class="s3load" id="s3load" hidden>3Dの舞台を準備中…</div>
   </div>
+  <div class="s3sheet" id="s3sheet" hidden></div>
   <div class="s3bar">
     <button id="s3play" class="s3big" aria-label="合奏をはじめる">▶</button>
     <button class="sec s3sm" id="s3suwuk">終わる</button>
@@ -2447,8 +2459,8 @@ function hwyNextPanel(g, H, lab, beats){
   if (!lab){ g.fillStyle = '#6d5a45'; g.font = '800 22px system-ui, sans-serif'; g.fillText('—', (HWY_X0-12)/2, H/2 + 8); return; }
   g.fillStyle = '#ffe7a0'; g.font = `900 ${lab.txt.length > 2 ? 17 : 30}px system-ui, sans-serif`; g.fillText(lab.txt, (HWY_X0-12)/2, H/2 + 9);
   if (lab.o){ g.beginPath(); g.arc((HWY_X0-12)/2, lab.o > 0 ? H/2 - 22 : H/2 + 18, 3, 0, 7); g.fill(); }
-  if (lab.both){ g.font = '700 9.5px system-ui, sans-serif'; g.fillText('オクターブ', (HWY_X0-12)/2, H/2 - 22); }
-  if (beats != null){ g.fillStyle = '#c9b294'; g.font = '600 10.5px system-ui, sans-serif'; g.fillText(beats < .25 ? 'いま！' : `あと ${beats < 1 ? beats.toFixed(1) : Math.round(beats*2)/2} 拍`, (HWY_X0-12)/2, H - 9); }
+  if (lab.both){ g.font = '700 9px system-ui, sans-serif'; g.fillText('オクターブ', (HWY_X0-12)/2, H/2 + 22); }
+  if (beats != null && !lab.both){ g.fillStyle = '#c9b294'; g.font = '600 10.5px system-ui, sans-serif'; g.fillText(beats < .25 ? 'いま！' : `あと ${beats < 1 ? beats.toFixed(1) : Math.round(beats*2)/2} 拍`, (HWY_X0-12)/2, H - 9); }
 }
 // 次に叩く音（まだ判定されていない一番近い音）を、拍の予定から先に求める
 function hwyNextCalc(w){
@@ -4129,9 +4141,7 @@ function init3D(){
   let lastAsp = 0;
   function resize(){ const w = boxEl.clientWidth, h = boxEl.clientHeight; if (!w || !h) return; renderer.setSize(w, h, true); camera.aspect = w/h;
     camera.fov = w/h < .9 ? 46 : 34; camera.updateProjectionMatrix();
-    const tall = w/h < .9;
-    if (G3.ready && tall !== TALL){ TALL = tall; curKey = ''; G3.rebuild(); }
-    else if (Math.abs(w/h - lastAsp) > .02 && PERF.length) setCam(curCam, true);
+    if (Math.abs(w/h - lastAsp) > .02 && PERF.length) setCam(curCam, true);
     lastAsp = w/h; }
   window.addEventListener('resize', resize);
   if (window.ResizeObserver) new ResizeObserver(() => resize()).observe(boxEl);
@@ -4192,7 +4202,6 @@ function init3D(){
   G3.resize = resize; G3.setCam = setCam; G3.info = renderer.info; G3.look = (p, t) => { camAnim = null; camera.position.set(...p); controls.target.set(...t); controls.update(); };
   G3.sync = () => { G3.rebuild(); syncMute(); };
   G3.ready = true; G3.lastNote = LASTNOTE;
-  { const w = boxEl.clientWidth, h = boxEl.clientHeight; TALL = !!(w && h && w/h < .9); }
   resize(); G3.rebuild(); setCam('front', true); requestAnimationFrame(frame);
 }
 
@@ -4259,7 +4268,7 @@ G3.onPick = insts => s3Open(insts);
 function s3Join(id){
   stopAll(); s3Close(); S3_ME = id;
   const idx = +$('#pieceSel').value, p = PIECES[idx], name = (s3Groups().flatMap(g => g.insts).find(x => x[0] === id) || [,id])[1];
-  $('#page-stage3d').classList.add('joining'); $('#s3me').hidden = false; $('#s3meName').textContent = `🥢 あなた：${name}`;
+  $('#page-stage3d').classList.add('joining'); document.body.classList.add('s3joining'); $('#s3me').hidden = false; $('#s3meName').textContent = `🥢 あなた：${name}`;
   mountPractice($('#s3prac'), {piece:idx, user:id, bpm:Math.min(p.tempo, JAM_DENSE.has(id) ? (p.form==='bali' ? 40 : 48) : 66), backing:'all', passRatio:.75,
     iramaToggle: p.form !== 'bali' && ['peking','bonang','panerus','kendhang'].includes(id),
     intro:'「一緒に弾く」を押すと、舞台の奏者と一緒に合奏が始まります。流れてくる音が線に重なったら叩こう。'});
@@ -4268,8 +4277,9 @@ function s3Join(id){
   [rows[0], '.pmsg', '.hwy', '.pkb', '.pstats'].forEach(x => pr.appendChild(typeof x === 'string' ? pr.querySelector(x) : x));
   [rows[1], '.pcount', '.pcalbox', '.pscore'].forEach(x => { const el = typeof x === 'string' ? pr.querySelector(x) : x; if (el) more.appendChild(el); });
   pr.appendChild(more);
-  setTimeout(() => { if (G3.ready) G3.resize(); $('#s3box').scrollIntoView({behavior:'smooth', block:'start'}); }, 50); }
-function s3Quit(){ stopAll(); S3_ME = null; $('#s3me').hidden = true; $('#s3prac').innerHTML = ''; $('#page-stage3d').classList.remove('joining'); setTimeout(() => G3.ready && G3.resize(), 50); }
+  setTimeout(() => { if (G3.ready){ G3.resize(); G3.setCam('front', true); } window.scrollTo({top:0, behavior:'smooth'}); }, 60);
+  pr.querySelector('.pgo').addEventListener('click', () => window.scrollTo({top:0, behavior:'smooth'})); }
+function s3Quit(){ stopAll(); S3_ME = null; $('#s3me').hidden = true; $('#s3prac').innerHTML = ''; $('#page-stage3d').classList.remove('joining'); document.body.classList.remove('s3joining'); setTimeout(() => { if (G3.ready){ G3.resize(); G3.setCam('front', true); } }, 60); }
 $('#s3meQuit').onclick = s3Quit;
 function s3Tempo(d){ const v = Math.max(30, Math.min(160, Math.round(+$('#tempo').value + d))); $('#tempo').value = v; $('#tempo').oninput({target:$('#tempo')}); $('#s3bpm').textContent = '♩=' + v; }
 $('#s3slow').onclick = () => s3Tempo(-4); $('#s3fast').onclick = () => s3Tempo(4);
