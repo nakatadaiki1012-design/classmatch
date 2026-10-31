@@ -243,8 +243,8 @@
   const DEFAULT_CLASSES = generateClassNames(3, 8, "num"); // 24クラス
 
   const DEFAULT_SPORTS = [
-    { name: "バレー", matchMinutes: 10, turnoverMinutes: 2, courts: "A,B", startTime: "09:00", participants: 24 },
-    { name: "ドッジ", matchMinutes: 8, turnoverMinutes: 2, courts: "A,B", startTime: "09:00", participants: 24 }
+    { name: "バレー", matchMinutes: 10, turnoverMinutes: 2, courts: "体育館A,体育館B", startTime: "09:00" },
+    { name: "ドッジ", matchMinutes: 8, turnoverMinutes: 2, courts: "校庭A,校庭B", startTime: "09:00" }
   ];
 
   function makeNewState() {
@@ -459,13 +459,28 @@
         const rmap = {}; [...re.matches, ...(re.loserMatches || [])].forEach(m => { rmap[mKey(m)] = m; });
         ["matches", "loserMatches"].forEach(k => (e[k] || []).forEach((m, i) => {
           const r = rmap[mKey(m)]; if (!r) return;
-          if ((r.ts || 0) > (m.ts || 0)) { e[k][i] = r; changed = true; patchUndo(e.id, r); }
-          else if ((m.ts || 0) > (r.ts || 0)) localNewer = true;
+          // 確定した結果は「招集中・試合中」への変更より優先（自動の呼び出しで他の先生の結果を消さない）
+          const live = (x) => x.state === "calling" || x.state === "playing";
+          const takeRemote = (r.state === "final" && live(m)) ? true : (m.state === "final" && live(r)) ? false : (r.ts || 0) > (m.ts || 0);
+          if (takeRemote) { if (strip(r) !== strip(m)) { e[k][i] = r; changed = true; patchUndo(e.id, r); } }
+          else if (strip(r) !== strip(m)) localNewer = true;
         }));
       });
     }
     if (changed) {
       takeSnap();
+      // 2人がそれぞれ同じ次の試合へ勝ち上がりを入れた場合、片方が抜けないよう勝者を入れ直す
+      let fixed = false;
+      state.events.forEach(e => {
+        const all = [...e.matches, ...(e.loserMatches || [])];
+        all.forEach(m => {
+          if (m.state !== "final" || !m.winner || !m.nextMatchKey || !m.nextSlot) return;
+          const w = m.winner === "A" ? m.teamA : m.teamB, nx = findMatchByKey(all, m.nextMatchKey);
+          const f = m.nextSlot === "A" ? "teamA" : "teamB";
+          if (w && nx && !nx[f]) { nx[f] = w; fixed = true; }
+        });
+      });
+      if (fixed) { saveState(); localNewer = false; }
       state.tournament.updatedAt = new Date().toISOString();
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
       try { _liveCh?.postMessage({ type: "state-update", state }); } catch {}
@@ -1045,7 +1060,7 @@
       if (!s.name) probs.push(`競技${idx + 1}: 名前が空`);
       if (!s.matchMinutes || s.matchMinutes < 1) probs.push(`競技${idx + 1}: 試合分が不正`);
       if (s.turnoverMinutes == null || s.turnoverMinutes < 0) probs.push(`競技${idx + 1}: 入替分が不正`);
-      const n = Number(s.participants ?? t.classes?.length ?? 2);
+      const n = Number(s.participants) || (t.classes?.length ?? 2);
       if (!Number.isFinite(n) || n < 2) probs.push(`競技${idx + 1}: 参加数が2以上でない`);
     });
     return probs;
@@ -1101,6 +1116,14 @@
     if (!(el("tName")?.value || "").trim()) warns.push("大会名が未入力");
     if (same(t.classes || [], DEFAULT_CLASSES)) warns.push("クラスが見本のまま（1-1〜3-8）");
     if (same((t.sports || []).map(x => x.name), DEFAULT_SPORTS.map(x => x.name))) warns.push("競技が見本のまま（バレー・ドッジ）");
+    (t.sports || []).forEach(x => { const pn = Number(x.participants); if (pn && pn < (t.classes || []).length) warns.push(`${x.name}は ${pn} クラスだけ参加（全 ${(t.classes || []).length} クラス中）`); });
+    // 別の競技が同じコート名・重なる時間帯を使っていないか（同じ場所なら試合がぶつかる）
+    const sp = t.sports || [];
+    for (let i = 0; i < sp.length; i++) for (let j = i + 1; j < sp.length; j++) {
+      const shared = courtList(sp[i]).filter(c => courtList(sp[j]).includes(c));
+      if (shared.length && (sp[i].startTime || "09:00") === (sp[j].startTime || "09:00"))
+        warns.push(`${sp[i].name}と${sp[j].name}が同じ時刻に同じコート名（${shared.join(",")}）を使っています。別の場所なら「体育館A」「校庭A」のように名前を分けてください`);
+    }
     if (!probs.length && warns.length) {
       box.textContent = "確認してください： " + warns.join(" / ") + "（このままでも生成はできます）";
       box.style.color = "#b45309";
@@ -1140,13 +1163,16 @@
         <label>入替(分) <input class="turnMin"  type="number" min="0" value="${Number(v.turnoverMinutes ?? 2)}" style="width:75px"/></label>
         <label>コート名 <input class="courts" value="${escapeHtml(v.courts ?? "A,B")}" placeholder="例：A,B" style="width:90px"/></label>
         <label>開始 <input class="startTime" type="time" value="${escapeHtml(v.startTime ?? "09:00")}"/></label>
-        <label>参加クラス数 <input class="participants" type="number" min="2" max="128" value="${Number(v.participants ?? 24)}" style="width:70px"/></label>
+
       <div style="display:flex; gap:6px; background:var(--surface2); padding:2px 8px; border-radius:4px; border:1px solid var(--border2); align-items:center;">
         <b style="font-size:11px; color:var(--muted); margin-right:4px;">生成</b>
         <label style="display:flex;align-items:center;gap:2px;"><input type="checkbox" class="genM" ${v.m !== false ? "checked" : ""}>男子</label>
         <label style="display:flex;align-items:center;gap:2px;"><input type="checkbox" class="genF" ${v.f !== false ? "checked" : ""}>女子</label>
         <label style="display:flex;align-items:center;gap:2px;"><input type="checkbox" class="genX" ${v.x === true ? "checked" : ""}>混合</label>
       </div>
+      <details class="sportMore"><summary>⚙️ 詳細（セット数・参加クラス数など。普段は不要）</summary>
+      <div class="row" style="gap:8px; flex-wrap:wrap; margin-top:6px;">
+        <label>参加クラス数 <input class="participants" type="number" min="2" max="128" value="${v.participants ? Number(v.participants) : ""}" placeholder="全クラス" style="width:90px"/></label>
       <label>セット数 
           <select class="sets">
             <option value="1" ${v.sets === 1 ? "selected" : ""}>1 セット</option>
@@ -1154,9 +1180,10 @@
             <option value="5" ${v.sets === 5 ? "selected" : ""}>5 セット (3勝)</option>
           </select>
         </label>
-        <label style="position:relative;">ブラケット枠数
+        <label style="position:relative;">トーナメント表の大きさ
           <select class="bracketSlots">${bSlotOpts.join("")}</select>
         </label>
+      </div></details>
         <button class="btnRemove ghost" style="align-self:flex-end;">削除</button>
       </div>
     `;
@@ -1182,7 +1209,7 @@
     });
     // 初期トールチップ
     if (bSlots === "auto") {
-      const pn = Number(v.participants ?? 24);
+      const pn = (Number(v.participants) || (state.tournament.classes || []).length);
       if (pn >= 2) bSelect.title = `自動: ${bracketSize(pn)}枠 (${bracketSize(pn) - pn} BYE)`;
     }
     wrap.querySelector(".btnRemove").onclick = () => wrap.remove();
@@ -1202,7 +1229,7 @@
         turnoverMinutes: Number(card.querySelector(".turnMin").value),
         courts: (card.querySelector(".courts").value || "A").trim(),
         startTime: card.querySelector(".startTime").value || "09:00",
-        participants: Number(card.querySelector(".participants")?.value ?? 24),
+        participants: Number(card.querySelector(".participants")?.value) || null,   // 空欄 = 全クラス
         bracketSlots: bSlotVal === "auto" ? "auto" : Number(bSlotVal),
         sets: Number(card.querySelector(".sets")?.value ?? 1)
       };
@@ -1336,7 +1363,7 @@
 
   // ── Setup handlers ───────────────────────────────────────────
   // BUG-08修正: nullチェックを追加
-  if (el("btnAddSport")) el("btnAddSport").onclick = () => addSportRow({ name: "新競技", matchMinutes: 10, turnoverMinutes: 2, courts: "A,B", startTime: "09:00", participants: 24 });
+  if (el("btnAddSport")) el("btnAddSport").onclick = () => addSportRow({ name: "新競技", matchMinutes: 10, turnoverMinutes: 2, courts: "A,B", startTime: "09:00" });
 
   if (el("btnSaveMeta")) el("btnSaveMeta").onclick = () => {
     state.tournament.name = (el("tName").value || "クラスマッチ").trim();
@@ -1574,6 +1601,12 @@
       renderSetupChecklist();
       return;
     }
+    if (state.events.length) {
+      const hasResult = state.events.some(e => e.matches.some(m => m.state === "final" && !m.isBye));
+      if (!confirm("抽選からやり直して、組み合わせを作り直します。" + (hasResult ? "\n入力済みの結果もすべて消えます。" : "") +
+        "\n\n時間やコートを変えただけなら「時間だけ作り直す」を使ってください（組み合わせはそのまま）。\n\n作り直しますか？")) return;
+      pushUndoState?.();
+    }
     generateEvents();
     saveState();
     toast("ブラケットを生成しました", "info");
@@ -1582,6 +1615,13 @@
     showWizStep(4);
   };
 
+  if (el("btnReschedule")) el("btnReschedule").onclick = () => {
+    autoSaveSports();
+    if (!state.events.length) return toast("まだ生成されていません", "info");
+    const n = rescheduleAll();
+    saveState(); renderEvents();
+    toast(`${n} 種目の時間とコートを作り直しました（組み合わせ・結果はそのまま）`, "success", 3000);
+  };
   if (el("btnGoEvents")) el("btnGoEvents").onclick = () => { renderEvents(); show("setupView"); };
 
   if (el("btnReset")) el("btnReset").onclick = () => {
@@ -1664,11 +1704,48 @@
           if (gender === "X" && sport.x !== true) continue;
           state.events.push(makeEvent(`${sport.name}-${gender}`, sport, gender, t.classes));
         }
+        // 男子・女子などが同じコートを使うので、まとめて時間を割り当てる（同じ時刻に同じコートが重ならない）
+        scheduleSport(sport, state.events.filter(e => e.settings === sport));
       }
     } catch (err) {
       alert("イベント生成中にエラーが発生しました: " + err.message);
       console.error(err);
     }
+  }
+
+  // 1つの競技（男子・女子・混合）の試合に、コートと時刻をまとめて割り当てる。
+  // 回戦ごとに 男子・女子・混合 を1試合ずつ交互に入れるので、どの種目も同じペースで進む。組み合わせと結果は変えない。
+  function scheduleSport(sport, events) {
+    if (!events.length) return;
+    const start = parseStartTimeToDate(sport.startTime);
+    const slotMin = (Number(sport.matchMinutes) || 10) + (Number(sport.turnoverMinutes) || 0);
+    const courts = courtList(sport), cc = Math.max(1, courts.length);
+    const maxR = Math.max(1, ...events.flatMap(e => e.matches.map(m => m.round || 1)));
+    const queue = [];
+    for (let r = 1; r <= maxR; r++) {
+      const lists = events.map(e => e.matches.filter(m => (m.round || 1) === r && !m.isExhibition)
+        .sort((a, b) => (a.isThirdPlace ? 1 : 0) - (b.isThirdPlace ? 1 : 0) || a.slot - b.slot)
+        .filter(m => { if (m.isBye) { m.scheduledStart = null; m.court = null; return false; } return true; }));
+      // 男子1試合 → 女子1試合 → … と1試合ずつ交互に並べる
+      for (let i = 0; lists.some(l => i < l.length); i++) lists.forEach(l => { if (i < l.length) queue.push(l[i]); });
+    }
+    queue.forEach((m, k) => {
+      m.scheduledStart = new Date(start.getTime() + Math.floor(k / cc) * slotMin * 60000).toISOString();
+      m.court = courts[k % cc] || "A";
+    });
+    events.forEach(e => assignMatchNumbers(e));
+  }
+  // 組み合わせ・結果はそのままで、競技設定（開始・試合時間・コート）から時間だけ作り直す
+  function rescheduleAll() {
+    const sports = state.tournament.sports || [];
+    let n = 0;
+    for (const sport of sports) {
+      const evs = state.events.filter(e => e.sportName === sport.name);
+      if (!evs.length) continue;
+      evs.forEach(e => { e.settings = Object.assign({}, e.settings, sport); });
+      scheduleSport(sport, evs); n += evs.length;
+    }
+    return n;
   }
 
   function parseStartTimeToDate(hhmm) {
@@ -1717,15 +1794,10 @@
       if (r === 3) return "準々決勝";
       return r + " ラウンド";
     };
-    banner.innerHTML = `
-      <span>📊 ブラケット情報</span>
-      <span class="biBadge">🏆 ${n} チーム</span>
-      <span class="biBadge">⬛ ${size} 枠</span>
-      <span class="biBadge ${byes > 0 ? 'bye' : 'rounds'}">${byes > 0 ? `🎫 不戦勝（シード）: ${byes} チーム` : '✅ 全チーム対戦あり'}</span>
-      <span class="biBadge rounds">🔄 ${rounds} ラウンド（${roundLabel(rounds)} まで）</span>
-      ${byes > 0 ? `<span class="biBadge" style="color:var(--muted);">R1実試合: ${r1matches}試合 / 不戦勝: ${byes}試合</span>` : ''}
-      ${n < 4 ? '<span class="biBadge warn">⚠ チームが少ない</span>' : ''}
-    `;
+    // 専門用語を使わずに1行で
+    banner.innerHTML = `<span>🏆 ${n} クラスで <b>${rounds} 回勝つと優勝</b>。`
+      + (byes > 0 ? `${byes} クラスは1回戦がお休み（抽選で決まります）。` : "全クラスが1回戦から出ます。")
+      + `1回戦は ${r1matches} 試合。</span>` + (n < 4 ? ' <span class="biBadge warn">⚠ クラスが少ない</span>' : "");
     banner.classList.remove("hidden");
   }
 
@@ -1794,7 +1866,7 @@
     assignDefaultClassColors(classes);
 
     const classCount = state.tournament.classes?.length || classes.length;
-    const n = Math.max(2, Math.min(classCount, Number(sport.participants ?? classCount)));
+    const n = Math.max(2, Math.min(classCount, Number(sport.participants) || classCount));
     const classesCopy = [...classes].slice(0, n);
 
     if (sport.format === "league") {
@@ -2042,9 +2114,7 @@
       return;
     }
     hint.textContent = "";
-    const docs = [...state.events].sort((a, b) =>
-      (a.sportName || "").localeCompare(b.sportName || "") || (a.gender || "").localeCompare(b.gender || "")
-    );
+    const docs = [...state.events];   // 競技を入力した順（男子→女子→混合）
     for (const e of docs) {
       const card = document.createElement("div");
       card.className = "eventCard";
@@ -2972,12 +3042,10 @@
     const chipsBox = el("eventNavChips");
     if (chipsBox) {
       chipsBox.innerHTML = "";
-      const docs = [...state.events].sort((a, b) =>
-        (a.sportName || "").localeCompare(b.sportName || "") || (a.gender || "").localeCompare(b.gender || "")
-      );
+      const docs = [...state.events];
       docs.forEach(e => {
         const btn = document.createElement("button");
-        btn.textContent = `${e.sportName} ${e.gender === "M" ? "男子" : "女子"}`;
+        btn.textContent = `${e.sportName} ${e.gender === "M" ? "男子" : e.gender === "F" ? "女子" : "混合"}`;
         if (e.id === eventId) btn.classList.add("active");
         btn.onclick = () => openEvent(e.id);
         chipsBox.appendChild(btn);
@@ -3551,7 +3619,7 @@
     }
     const classes = state.tournament.classes;
     const sport = currentEvent.settings;
-    const n = Math.max(2, Math.min(classes.length, Number(sport.participants ?? classes.length)));
+    const n = Math.max(2, Math.min(classes.length, Number(sport.participants) || classes.length));
     const bSize = bracketSize(n);
     const picked = shuffle(classes).slice(0, n);
     const seeds = picked.concat(Array(bSize - picked.length).fill(null));

@@ -908,3 +908,4 @@ details[open] > summary { margin-bottom: 6px; }
 .cbIdle { color:var(--muted); font-size:13px; align-self:center; padding:6px; }
 .cbItem b { color:var(--text, #0f172a); } .cbItem small { color:var(--muted); font-weight:600; }
 .cbItem:hover, .cbItem:focus { background:#eef2ff; color:inherit; } .cbItem.playing:hover { background:#fee2e2; } .cbItem.calling:hover { background:#ffedd5; }
+.sportMore { width:100%; margin-top:4px; } .sportMore > summary { cursor:pointer; font-size:13px; color:var(--muted); font-weight:700; padding:4px 0; } .biBadge.warn{color:#b45309;}

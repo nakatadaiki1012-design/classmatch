@@ -107,14 +107,12 @@
         <textarea id="classList" rows="5"></textarea>
         <div class="small" id="setupClassCount">-</div>
         <div id="bracketInfoBanner" class="hidden" style="display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-top:6px; padding:8px 10px; background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius); font-size:13px;"></div>
-        <div class="row" style="margin-top:8px;">
-          <button id="btnSaveClasses" class="secondary small">✓ クラス保存（自動）</button>
-          <button id="btnAdvancedSeeding" class="ghost small">🎯 詳細シード配置（手動）</button>
-        </div>
+        <button id="btnSaveClasses" class="hidden">保存</button>
         <!-- シードオプション（折りたたみ） -->
         <details style="margin-top:8px;">
-          <summary style="cursor:pointer; font-size:13px; color:var(--muted); font-weight:600;">🎯 シード設定（不戦勝チームの指定）</summary>
+          <summary style="cursor:pointer; font-size:13px; color:var(--muted); font-weight:600;">⚙️ 詳細：シード（1回戦をお休みにするクラス）の指定 <small>— 普段は不要（抽選で自動）</small></summary>
           <div class="seedOptionsPanel" id="seedOptionsPanel" style="margin-top:8px;">
+            <button id="btnAdvancedSeeding" class="ghost small" style="margin-bottom:8px;">🎯 配置を手で決める</button>
             <div class="row" style="gap:14px; flex-wrap:wrap; align-items:flex-start;">
               <label style="flex-direction:row; align-items:center; gap:6px; cursor:pointer;">
                 <input type="radio" name="seedMode" id="seedNone" value="none" checked /> シードなし（完全ランダム）
@@ -138,7 +136,7 @@
       <!-- 競技設定 -->
       <div class="wInputSection">
         <h3><span class="sectionAccent"></span>③ 競技設定</h3>
-        <div class="small" style="margin-bottom:8px;">※ コート名は「A,B,C」のようにカンマ区切り。参加クラス数はブラケットのサイズに直結します。</div>
+        <div class="small" style="margin-bottom:8px;">※ コート名は「A,B」のようにカンマ区切り。男子・女子は同じコートを交互に使うように時間が組まれます。</div>
         <div id="sportsArea"></div>
         <div class="row" style="margin-top:10px;">
           <button id="btnAddSport">＋競技を追加</button>
@@ -165,7 +163,8 @@
         <div class="wizGenerate">
           <button id="btnGenerateAll">⚡ ブラケット生成</button>
           <button id="btnGoEvents" class="hidden">一覧</button>
-          <span class="small">作り直すと結果は消えます</span>
+          <button id="btnReschedule" class="ghost">🕒 時間だけ作り直す</button>
+          <span class="small">「生成」は抽選からやり直し（組み合わせ・結果が変わる）／「時間だけ」は組み合わせと結果をそのままに、時刻とコートを競技設定どおりに直します</span>
         </div>
       <!-- イベント一覧（旧homeView） -->
       <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:8px;">
