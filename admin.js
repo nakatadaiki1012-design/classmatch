@@ -1161,7 +1161,7 @@
           </select></label>
         <label>試合(分) <input class="matchMin" type="number" min="1" value="${Number(v.matchMinutes ?? 10)}" style="width:75px"/></label>
         <label>入替(分) <input class="turnMin"  type="number" min="0" value="${Number(v.turnoverMinutes ?? 2)}" style="width:75px"/></label>
-        <label>コート名 <input class="courts" value="${escapeHtml(v.courts ?? "A,B")}" placeholder="例：A,B" style="width:90px"/></label>
+        <label>コート名 <input class="courts" value="${escapeHtml(v.courts ?? "A,B")}" placeholder="例：A,B" style="width:170px"/></label>
         <label>開始 <input class="startTime" type="time" value="${escapeHtml(v.startTime ?? "09:00")}"/></label>
 
       <div style="display:flex; gap:6px; background:var(--surface2); padding:2px 8px; border-radius:4px; border:1px solid var(--border2); align-items:center;">
