@@ -580,6 +580,13 @@ input.genM, input.genF, input.genX { width: auto; }
   .print-hide { display: none !important; }
   .top { position: static; background: #fff; color: #000; box-shadow: none; }
   .card { box-shadow: none; border: 1px solid #ccc; }
+  .nav, .wizTabs, #adminPanel, #toastContainer, .overlay, button, .liveBadge, .scrollHint { display: none !important; }
+  .grid2 { display: block !important; }
+  #bracket { overflow: visible !important; max-height: none !important; }
+  svg.bv { width: 100% !important; height: auto !important; max-width: 100% !important; }
+  .bvCard { break-inside: avoid; }
+  body { background: #fff !important; }
+  @page { size: A4 landscape; margin: 10mm; }
 }
 
 /* ── Misc ────────────────────────────────────────── */
@@ -856,3 +863,25 @@ details[open] > summary { margin-bottom: 6px; }
 .lsDbLbl small { font-weight: 500; color: var(--muted); }
 .lsDbLbl code, .lsDb code { background: #f1f5f9; padding: 1px 5px; border-radius: 4px; font-size: 11px; }
 .lsDb input { font-size: 13px; }
+
+/* 引き分け・通知内ボタン */
+.drawBtn { display:block; width:100%; margin:8px 0 0; min-height:44px; font-size:16px; font-weight:800; }
+.drawBtn.won { background:#fef9c3; border-color:#eab308; color:#854d0e; }
+.toast.hasAct { pointer-events:auto; flex-wrap:wrap; }
+.toastAct { margin-left:6px; padding:6px 10px; min-height:36px; border-radius:8px; border:1px solid currentColor; background:#fff; color:inherit; font-weight:800; cursor:pointer; }
+
+/* 管理画面をスマホで操作しやすく（押しやすいボタン・表のはみ出し防止） */
+@media (max-width: 640px) {
+  button, .btn, select, input[type="text"], input[type="number"], input[type="time"] { min-height: 44px; font-size: 16px; }
+  .modal .card, .overlay > .card { width: 96vw !important; max-width: 96vw !important; padding: 14px !important; }
+  .top { flex-wrap: wrap; }
+  #toastContainer { left: 10px; right: 10px; bottom: 10px; }
+  .toast { max-width: none; }
+}
+
+.seedSlot { min-height:30px; border:2px dashed var(--border); border-radius:4px; padding:4px; display:flex; align-items:center; justify-content:center; background:var(--surface); }
+.seedChip { background:var(--primary); color:#fff; padding:4px 8px; border-radius:4px; font-weight:bold; cursor:grab; width:100%; text-align:center; }
+.seedItem { display:flex; align-items:center; gap:6px; background:var(--surface); padding:4px 8px; border-radius:4px; border:1px solid var(--border2); }
+.loserSeedChip { display:inline-flex; align-items:center; gap:5px; background:#f5f3ff; border:1.5px solid #e9d5ff; border-radius:6px; padding:5px 10px; cursor:pointer; font-size:12px; font-weight:600; color:#5b21b6; transition:border-color .15s; }
+.loserSeedCb { width:13px; height:13px; accent-color:#7c3aed; cursor:pointer; }
+.leagueBox { overflow-x:auto; padding:10px; background:#fff; border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,.1); }

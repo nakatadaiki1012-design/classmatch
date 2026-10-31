@@ -492,7 +492,7 @@ body.fz-l .teamBox .tbText{font-size:20px;}
     for (const ev of events) {
       const ms = [...(ev.matches||[]), ...(ev.loserMatches||[])].filter(m=>!m.isBye&&!m.isExhibition);
       total += ms.length;
-      done  += ms.filter(m=>m.state==="final"&&m.winner).length;
+      done  += ms.filter(m=>m.state==="final"&&(m.winner||m.draw)).length;
     }
     el("headerSub").textContent = [t.date, t.place, total ? `全体 ${done}/${total} 試合終了` : ""].filter(Boolean).join(" ・ ");
 
@@ -577,7 +577,7 @@ body.fz-l .teamBox .tbText{font-size:20px;}
     pickDefaultEvent();
     for (const ev of events) {
       const ms = evMatches(ev);
-      const d = ms.filter(m=>m.state==="final"&&m.winner).length;
+      const d = ms.filter(m=>m.state==="final"&&(m.winner||m.draw)).length;
       const pct = ms.length ? Math.round(d/ms.length*100) : 0;
       const hasPlaying = ms.some(m=>m.state==="playing");
       const btn = document.createElement("button");
@@ -597,7 +597,7 @@ body.fz-l .teamBox .tbText{font-size:20px;}
     el("eventTitle").textContent = evLabel(ev);
 
     const ms = (ev.matches||[]).filter(m=>!m.isBye&&!m.isExhibition);
-    const done2 = ms.filter(m=>m.state==="final"&&m.winner).length;
+    const done2 = ms.filter(m=>m.state==="final"&&(m.winner||m.draw)).length;
     const playing = ms.filter(m=>m.state==="playing").length;
     const calling = ms.filter(m=>m.state==="calling").length;
     let badge;
@@ -808,9 +808,9 @@ body.fz-l .teamBox .tbText{font-size:20px;}
     const has = (v) => v !== "" && v != null && Number.isFinite(Number(v));
     let a = null, b = null; if (has(m.scoreA) && has(m.scoreB)) { a = Number(m.scoreA); b = Number(m.scoreB); }
     if (a != null) { A.gf += a; A.ga += b; B.gf += b; B.ga += a; A.gd = (A.gd||0) + a - b; B.gd = (B.gd||0) + b - a; }
-    const w = a != null && a !== b ? (a > b ? "A" : "B") : (m.winner || null);
+    const w = m.draw ? null : a != null && a !== b ? (a > b ? "A" : "B") : (m.winner || null);
     if (w === "A") { A.pts += 3; A.w++; B.l++; } else if (w === "B") { B.pts += 3; B.w++; A.l++; }
-    else if (a != null) { A.pts++; A.d++; B.pts++; B.d++; }
+    else if (a != null || m.draw) { A.pts++; A.d++; B.pts++; B.d++; }
   }
 
   // 決勝（最終ラウンド）の勝者を返す。未確定なら null

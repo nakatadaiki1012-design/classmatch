@@ -225,11 +225,15 @@
       const P = prefix ? [["hn", prefix]] : [];
       const v = [[["hn", n], ["ht", t], ["hc", c]], [["hn", n], ["ht", t], ["hc", c1]], [["hn", n], ["ht", t]], [["hn", n]], [["ht", t], ["hc", c1]], [["ht", t]]]
         .map(parts => P.concat(parts.filter(x => x[1])));
-      const w = (parts) => textUnits(parts.map(x => x[1]).join(" ")) * capFs * 1.08;
-      return v.find(x => w(x) <= avail) || v[v.length - 1];
+      const w = (parts) => textUnits(parts.map(x => x[1]).join(" ")) * capFs * 1.15;
+      const hit = v.find(x => w(x) <= avail) || v[v.length - 1];
+      hit.fit = w(hit) > avail ? avail : 0;   // 入りきらない時は文字幅を詰めて必ず枠内に収める
+      return hit;
     };
     const headerText = (x, y, parts) => {
-      const t = el("text", { x, y, class: "bvHdrTxt", style: `font-size:${capFs}px` });
+      const a = { x, y, class: "bvHdrTxt", style: `font-size:${capFs}px` };
+      if (parts.fit) { a.textLength = parts.fit; a.lengthAdjust = "spacingAndGlyphs"; }
+      const t = el("text", a);
       parts.forEach(([cls, str], i) => t.append(el("tspan", { class: cls + (cls === "ht" ? " num" : "") }, (i ? " " : "") + str)));
       return t;
     };

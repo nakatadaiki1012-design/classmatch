@@ -13,11 +13,18 @@
     document.body.appendChild(_toastContainer);
   }
 
-  function toast(message, type = 'success', durationMs = 3000) {
+  // actions: [{label, fn}] … 通知の中にボタンを出す（元に戻す・次の試合など）
+  function toast(message, type = 'success', durationMs = 3000, actions = []) {
     const icons = { success: '✅', info: 'ℹ️', warn: '⚠️', error: '❌' };
     const t = document.createElement('div');
-    t.className = `toast ${type}`;
+    t.className = `toast ${type}` + (actions.length ? ' hasAct' : '');
     t.innerHTML = `<span>${icons[type] || ''}</span><span>${escapeHtml(message)}</span>`;
+    actions.forEach(a => {
+      const b = document.createElement('button');
+      b.className = 'toastAct'; b.textContent = a.label;
+      b.onclick = (e) => { e.stopPropagation(); t.remove(); a.fn(); };
+      t.appendChild(b);
+    });
     _toastContainer.appendChild(t);
     setTimeout(() => {
       t.classList.add('removing');
@@ -611,8 +618,8 @@
       const isBWin = m.winner === "B";
       const A = displayTeam(allM, m, "A");
       const B = displayTeam(allM, m, "B");
-      const aStr = (m.state === "final" && isAWin) ? `○ ${A}` : (m.state === "final" ? `× ${A}` : A);
-      const bStr = (m.state === "final" && isBWin) ? `○ ${B}` : (m.state === "final" ? `× ${B}` : B);
+      const aStr = (m.state === "final" && m.draw) ? `△ ${A}` : (m.state === "final" && isAWin) ? `○ ${A}` : (m.state === "final" ? `× ${A}` : A);
+      const bStr = (m.state === "final" && m.draw) ? `△ ${B}` : (m.state === "final" && isBWin) ? `○ ${B}` : (m.state === "final" ? `× ${B}` : B);
       return showCourt ? `${t} | (${m.court || "A"}) ${aStr} vs ${bStr}` : `${t} | ${aStr} vs ${bStr}`;
     }).join("\n");
   }
@@ -702,8 +709,8 @@
       const isBWin = m.winner === "B";
       const A = escapeHtml(displayTeam(allM, m, "A"));
       const B = escapeHtml(displayTeam(allM, m, "B"));
-      const aHtml = fin ? (isAWin ? `<span class="team-win">○ ${A}</span>` : `<span class="team-lose">× ${A}</span>`) : A;
-      const bHtml = fin ? (isBWin ? `<span class="team-win">○ ${B}</span>` : `<span class="team-lose">× ${B}</span>`) : B;
+      const aHtml = fin && m.draw ? `△ ${A}` : fin ? (isAWin ? `<span class="team-win">○ ${A}</span>` : `<span class="team-lose">× ${A}</span>`) : A;
+      const bHtml = fin && m.draw ? `△ ${B}` : fin ? (isBWin ? `<span class="team-win">○ ${B}</span>` : `<span class="team-lose">× ${B}</span>`) : B;
 
       const row = [];
       if (showTime) row.push(`<td class="mono">${fmtTime(m.scheduledStart) || "--:--"}</td>`);
@@ -791,7 +798,7 @@
     allMatches.forEach(m => {
       if (m.isBye) return;
       total++;
-      if (m.state === "final" && m.winner) {
+      if (m.state === "final" && (m.winner || m.draw)) {
         completed++;
       } else if (m.state === "playing" && m.scheduledStart) {
         const sch = new Date(m.scheduledStart);
@@ -1229,7 +1236,7 @@
       for (let i = 0; i < maxSlots; i++) {
         const slotEl = document.createElement("div");
         slotEl.className = "seed-slot";
-        slotEl.style.cssText = "min-height:30px; border:2px dashed var(--border); border-radius:4px; padding:4px; display:flex; align-items:center; justify-content:center; background:var(--surface);";
+        slotEl.classList.add("seedSlot");
         slotEl.dataset.slot = i;
         slotEl.innerHTML = `<span style="color:var(--muted); font-size:12px;">スロット ${i + 1}</span>`;
 
@@ -1256,7 +1263,7 @@
       function createTeamCard(team) {
         const d = document.createElement("div");
         d.className = "seed-team";
-        d.style.cssText = "background:var(--primary); color:white; padding:4px 8px; border-radius:4px; font-weight:bold; cursor:grab; width:100%; text-align:center;";
+        d.classList.add("seedChip");
         d.draggable = true;
         d.dataset.team = team;
         d.textContent = escapeHtml(team);
@@ -1346,7 +1353,7 @@
 
     classes.forEach((className, i) => {
       const item = document.createElement("div");
-      item.style.cssText = "display:flex; align-items:center; gap:6px; background:var(--surface); padding:4px 8px; border-radius:4px; border:1px solid var(--border2);";
+      item.classList.add("seedItem");
 
       const defaultColor = defaultColors[i % defaultColors.length];
       const val = colors[className] || defaultColor;
@@ -2320,17 +2327,12 @@
           ? "準決勝" : `${m.round}回戦`;
 
         const chip = document.createElement("label");
-        chip.style.cssText = `
-          display:inline-flex; align-items:center; gap:5px;
-          background:#f5f3ff; border:1.5px solid ${savedSeedLoser.has(key) ? '#7c3aed' : '#e9d5ff'};
-          border-radius:6px; padding:5px 10px; cursor:pointer; font-size:12px;
-          font-weight:600; color:#5b21b6; transition:border-color .15s;
-        `;
+        chip.className = "loserSeedChip"; chip.style.borderColor = savedSeedLoser.has(key) ? "#7c3aed" : "#e9d5ff";
         const cb = document.createElement("input");
         cb.type = "checkbox";
         cb.value = key;
         cb.checked = savedSeedLoser.has(key);
-        cb.style.cssText = "width:13px; height:13px; accent-color:#7c3aed; cursor:pointer;";
+        cb.className = "loserSeedCb";
         cb.onchange = () => {
           chip.style.borderColor = cb.checked ? "#7c3aed" : "#e9d5ff";
         };
@@ -2892,868 +2894,6 @@
   // BUG-05修正: ブラウザ外でマウスを離した場合にもD&D変数をリセット
   document.addEventListener("mouseup", () => { window.__draggedTeam = null; });
 
-  // ── Bracket SVG ──────────────────────────────────────────────
-  // コネクター構造（1試合につき4要素）:
-  //   armA  : Aチーム枠中心 → 上へ juncY まで
-  //   armB  : Bチーム枠中心 → 上へ juncY まで
-  //   hbar  : juncY でAとBを横に繋ぐ
-  //   trunk : hbar中心 → 水平移動 → 親マッチ下端
-  function buildBracketSVG(matches, uiOverride) {
-    // エキシビション試合を除外（round>=99）
-    matches = matches.filter(m => !m.isExhibition);
-    const ui = uiOverride || state.tournament?.bracketUI || {};
-    const fontSize = Number(ui.fontSize ?? 13);
-    const totalW = Number(ui.totalW ?? 130);
-    const boxH = Number(ui.boxH ?? 38);  // 時間表示のため高さを増やす
-    const gapX = Number(ui.gapX ?? 8);
-    const roundGapY = Number(ui.roundGapY ?? 130);
-    const midGap = Number(ui.midGap ?? 12);
-    const branchLen = Math.min(Number(ui.branchLen ?? 36), roundGapY - boxH - 4);
-
-    const allRounds = [...new Set(matches.map(m => m.round))].sort((a, b) => a - b);
-    const rounds = allRounds[allRounds.length - 1] || 5;
-    const roundMatchCount = {};
-    for (const r of allRounds) roundMatchCount[r] = matches.filter(m => m.round === r).length;
-
-    const padX = 28;
-    const padTop = 50;
-    const padBottom = 30;
-    const sideW = (totalW - midGap) / 2;
-    const labelW = 28;
-
-    // Y: R1 が下、最終ラウンドが上
-    // 上のラウンドから下へ降りながらY座標を計算する。各段の手動間隔が設定されていればそれを使用。
-    const yRound = {};
-    let currentY = padTop;
-    for (let r = rounds; r >= 1; r--) {
-      yRound[r] = currentY;
-      if (r > 1) {
-        // r から r-1 への間隔（つまり R(r-1) と R(r) の間隔）
-        const idx = r - 1;
-        let custom = 0;
-        if (idx === 1) custom = Number(ui.gapY1 ?? 0);
-        else if (idx === 2) custom = Number(ui.gapY2 ?? 0);
-        else if (idx === 3) custom = Number(ui.gapY3 ?? 0);
-        else if (idx >= 4) custom = Number(ui.gapY4 ?? 0);
-
-        if (custom > 0) {
-          currentY += custom;
-        } else {
-          // 手動設定がない場合は自動（階層が下がるほど広く）
-          const multiplier = (rounds - r) + 1;
-          currentY += roundGapY * multiplier * 0.7;
-        }
-      }
-    }
-
-    // X: 子の中心が親の中心の真下（完全なピラミッドを作るため、m.slotベースで絶対配置）
-    const xPos = {};
-    for (let r = 1; r <= rounds; r++) {
-      const step = (totalW + gapX) * Math.pow(2, r - 1);
-      const startX = labelW + padX + (step / 2 - totalW / 2);
-      const matchesInR = matches.filter(m => m.round === r);
-      matchesInR.forEach(m => {
-        xPos[matchKey(m)] = startX + m.slot * step;
-      });
-    }
-
-    // ピラミッド全体をSVGの左右中央にキレイに配置するため、決勝戦（ルート）の中心座標を基準にする
-    let actualMaxX = 0;
-    for (const k in xPos) actualMaxX = Math.max(actualMaxX, xPos[k] + totalW);
-
-    let rootCX = 0;
-    const finalM = matches.find(m => m.round === rounds);
-    if (finalM && xPos[matchKey(finalM)] !== undefined) {
-      rootCX = xPos[matchKey(finalM)] + totalW / 2;
-    }
-
-    // rootCX の2倍を横幅にすることでルートが完全にSVGの中央になる
-    const svgW = Math.max(actualMaxX + padX, rootCX * 2);
-    const svgH = currentY + boxH + padBottom;
-
-    const ns = "http://www.w3.org/2000/svg";
-    const svg = document.createElementNS(ns, "svg");
-    svg.setAttribute("width", svgW);
-    svg.setAttribute("height", svgH);
-    svg.setAttribute("viewBox", `0 0 ${svgW} ${svgH}`);
-    svg.style.display = "block";
-    svg.style.margin = "0 auto";
-
-    const byKey = {};
-    matches.forEach(m => byKey[matchKey(m)] = m);
-
-    const shorten = (s, hasCheck = false) => {
-      s = formatTeamName(s);
-      if (!s) return "—";
-      
-      // Checkmarkや「の負け」があればそのまま表示（はみ出しを許容）
-      if (hasCheck || s.includes("の負け")) {
-        return s + (hasCheck ? " ✓" : "");
-      }
-      
-      const max = Math.max(4, Math.floor(sideW / (fontSize * 0.63)));
-      return s.length > max ? s.slice(0, Math.max(1, max - 1)) + "…" : s;
-    };
-
-    // 位置ヘルパ
-    const leftX = (x) => x;
-    const rightX = (x) => x + sideW + midGap;
-    const lCX = (x) => x + sideW / 2;            // Aサブ枠中心X
-    const rCX = (x) => x + sideW + midGap + sideW / 2; // Bサブ枠中心X
-    const mCX = (x) => x + totalW / 2;           // マッチ全体中心X
-
-    // SVGパス（ボックスの背面に挿入）
-    const mkPath = (d, cls) => {
-      const p = document.createElementNS(ns, "path");
-      p.setAttribute("d", d);
-      p.setAttribute("class", cls);
-      svg.insertBefore(p, svg.firstChild);
-    };
-
-    // ── ラウンドラベル（視認性のため薄い背景ピルを敷く）──────────────
-    for (let r = 1; r <= rounds; r++) {
-      let minX = svgW;
-      const matchesInR = matches.filter(m => m.round === r);
-      matchesInR.forEach(m => {
-        const mx = xPos[matchKey(m)];
-        if (mx !== undefined && mx < minX) minX = mx;
-      });
-      if (minX === svgW) minX = 4;
-
-      const diff = rounds - r;
-      const labelTxt = diff === 0 ? "決勝" : diff === 1 ? "準決勝" : diff === 2 ? "準々決勝" : `${r}回戦`;
-      const isFinalLabel = diff === 0;
-      const labelH = 18;
-      const labelW2 = labelTxt.length * 12 + 14;
-      const labelY = yRound[r] - labelH - 4;
-
-      // 背景ピル
-      const pill = document.createElementNS(ns, "rect");
-      pill.setAttribute("x", minX);
-      pill.setAttribute("y", labelY);
-      pill.setAttribute("width", labelW2);
-      pill.setAttribute("height", labelH);
-      pill.setAttribute("rx", labelH / 2);
-      pill.setAttribute("fill", isFinalLabel ? "#fef3c7" : "#eef2f7");
-      pill.setAttribute("stroke", isFinalLabel ? "#fcd34d" : "#e2e8f0");
-      svg.appendChild(pill);
-
-      const t = document.createElementNS(ns, "text");
-      t.setAttribute("x", minX + labelW2 / 2);
-      t.setAttribute("y", labelY + labelH / 2 + 1);
-      t.setAttribute("text-anchor", "middle");
-      t.setAttribute("dominant-baseline", "middle");
-      t.setAttribute("class", "roundLabel");
-      t.setAttribute("font-size", "12");
-      t.setAttribute("fill", isFinalLabel ? "#b45309" : "#475569");
-      t.setAttribute("font-weight", "800");
-      t.textContent = labelTxt;
-      svg.appendChild(t);
-    }
-
-    // ── コネクター（win ライン完全追跡） ─────────────────────────
-    const innerBranch = Math.max(8, Math.round(branchLen * 0.42));
-    const junctionsByParent = {};
-
-    for (const m of matches) {
-      const r = m.round;
-      if (r >= Math.max(...allRounds)) continue; // 決勝は親へ繋ぐ線がない
-      const childKey = matchKey(m);
-      const parentKey = m.nextMatchKey;
-      if (!parentKey) continue;
-
-      const cx = xPos[childKey];
-      const cy = yRound[r];
-
-      const parentRound = parseInt(parentKey.replace("R", "").replace("L", "").split("-")[0]);
-      const parentEndY = yRound[parentRound] + boxH;
-      const actualGap = cy - parentEndY;
-
-      const currentBranchLen = Math.min(branchLen, Math.max(0, actualGap - 4));
-      const currentInnerBranch = Math.max(4, Math.round(currentBranchLen * 0.42));
-
-      const juncY1 = cy - currentInnerBranch;
-      const juncY2 = cy - currentBranchLen;
-      const isFinal = m?.state === "final" && m?.winner;
-      const winA = isFinal && m.winner === "A";
-      const winB = isFinal && m.winner === "B";
-      const isBye = m?.isBye === true;
-
-      if (isBye) {
-        // BYEの場合は、中央から真っ直ぐ上に線を引く（T字の交差点や分岐を描画しない）
-        // 勝者は確定しているものとして緑線
-        mkPath(`M ${mCX(cx)} ${cy} V ${juncY2}`, "line win");
-        if (!junctionsByParent[parentKey]) junctionsByParent[parentKey] = [];
-        junctionsByParent[parentKey].push({ x: mCX(cx), juncY: juncY2, isFinal: true });
-      } else {
-        // armA / armB
-        mkPath(`M ${lCX(cx)} ${cy} V ${juncY1}`, winA ? "line win" : "line");
-        mkPath(`M ${rCX(cx)} ${cy} V ${juncY1}`, winB ? "line win" : "line");
-
-        // hbar を中央(mCX)で2分割 → 勝者側だけ緑
-        mkPath(`M ${lCX(cx)} ${juncY1} H ${mCX(cx)}`, winA ? "line win" : "line");
-        mkPath(`M ${mCX(cx)} ${juncY1} H ${rCX(cx)}`, winB ? "line win" : "line");
-
-        // stem（勝者確定なら緑）
-        mkPath(`M ${mCX(cx)} ${juncY1} V ${juncY2}`, isFinal ? "line win" : "line");
-
-        if (!junctionsByParent[parentKey]) junctionsByParent[parentKey] = [];
-        junctionsByParent[parentKey].push({ x: mCX(cx), juncY: juncY2, isFinal });
-      }
-    }
-
-    for (const [parentKey, children] of Object.entries(junctionsByParent)) {
-      children.sort((a, b) => a.x - b.x);
-      const x0 = children[0].x;
-      const x1 = children[children.length - 1].x;
-      const juncY = children[0].juncY;
-      const midX = (x0 + x1) / 2;
-      const parentRound = parseInt(parentKey.replace("R", "").replace("L", "").split("-")[0]);
-      const endY = yRound[parentRound] + boxH;
-      const leftWin = children[0]?.isFinal ?? false;
-      const rightWin = children[1]?.isFinal ?? false;
-
-      if (children.length >= 2) {
-        // bridge を midX で2分割 → 勝者側だけ緑
-        mkPath(`M ${x0} ${juncY} H ${midX}`, leftWin ? "line win" : "line");
-        mkPath(`M ${midX} ${juncY} H ${x1}`, rightWin ? "line win" : "line");
-      }
-      mkPath(`M ${midX} ${juncY} V ${endY}`, (leftWin || rightWin) ? "line win" : "line");
-    }
-
-
-    // ── ボックス + テキスト ────────────────────────────────────
-    for (const m of matches) {
-      const r = m.round;
-      const key = matchKey(m);
-      const x = xPos[key];
-      const y = yRound[r];
-      if (x === undefined) continue;
-      const hasScore = (m.scoreA != null && m.scoreB != null);
-
-      const isBye = m.isBye === true;
-      if (isBye) {
-        // BYEの場合は1チーム分の枠だけを中央に描画する
-        const winner = m.winner === "A" ? m.teamA : m.teamB;
-        const boxW = totalW * 0.7; // 少し狭めの単一ボックス
-        const bx = x + (totalW - boxW) / 2;
-
-        const rect = document.createElementNS(ns, "rect");
-        rect.setAttribute("x", bx); rect.setAttribute("y", y);
-        rect.setAttribute("width", boxW); rect.setAttribute("height", boxH);
-        rect.setAttribute("rx", 6);
-        rect.setAttribute("fill", "#ffffff");
-        rect.setAttribute("stroke", "rgba(22,163,74,.4)");
-        rect.setAttribute("stroke-width", "1.5");
-        svg.appendChild(rect);
-
-        // チーム名
-        const bt = document.createElementNS(ns, "text");
-        bt.setAttribute("x", x + totalW / 2);
-        bt.setAttribute("y", y + boxH / 2 + 1);
-        bt.setAttribute("text-anchor", "middle");
-        bt.setAttribute("dominant-baseline", "middle");
-        bt.setAttribute("font-size", String(fontSize));
-        bt.setAttribute("font-weight", "700");
-        bt.setAttribute("fill", "#111827");
-        bt.textContent = shorten(winner || "?");
-        svg.appendChild(bt);
-
-        // 右上に小さな「シード」バッジ
-        const badgeW2 = 26, badgeH2 = 12;
-        const bBadgeX = bx + boxW - badgeW2 + 4;
-        const bBadgeY = y - 6;
-        const bBadgeBg = document.createElementNS(ns, "rect");
-        bBadgeBg.setAttribute("x", bBadgeX); bBadgeBg.setAttribute("y", bBadgeY);
-        bBadgeBg.setAttribute("width", badgeW2); bBadgeBg.setAttribute("height", badgeH2);
-        bBadgeBg.setAttribute("rx", 6);
-        bBadgeBg.setAttribute("fill", "#22c55e");
-        svg.appendChild(bBadgeBg);
-        const bBadgeTxt = document.createElementNS(ns, "text");
-        bBadgeTxt.setAttribute("x", bBadgeX + badgeW2 / 2);
-        bBadgeTxt.setAttribute("y", bBadgeY + badgeH2 / 2 + 0.5);
-        bBadgeTxt.setAttribute("text-anchor", "middle");
-        bBadgeTxt.setAttribute("dominant-baseline", "middle");
-        bBadgeTxt.setAttribute("font-size", "7.5");
-        bBadgeTxt.setAttribute("font-weight", "800");
-        bBadgeTxt.setAttribute("fill", "#ffffff");
-        bBadgeTxt.textContent = "BYE";
-        svg.appendChild(bBadgeTxt);
-        continue;
-      }
-
-      // 全体クリック（selectMatch）+ ダブルクリック（結果入力）
-      const hlBox = document.createElementNS(ns, "rect");
-      hlBox.id = `match-hl-${key}`;
-      hlBox.setAttribute("x", x - 2); hlBox.setAttribute("y", y - 2);
-      hlBox.setAttribute("width", totalW + 4); hlBox.setAttribute("height", boxH + 4);
-      hlBox.setAttribute("rx", 8);
-      hlBox.setAttribute("fill", "none");
-      hlBox.setAttribute("class", "hlBox hidden");
-      hlBox.style.pointerEvents = "none";
-      svg.appendChild(hlBox);
-
-      const matchG = document.createElementNS(ns, "g");
-      matchG.style.cursor = "pointer";
-
-      const hit = document.createElementNS(ns, "rect");
-      hit.id = `match-hit-${key}`;
-      hit.setAttribute("x", x); hit.setAttribute("y", y);
-      hit.setAttribute("width", totalW); hit.setAttribute("height", boxH);
-      hit.setAttribute("fill", "transparent");
-      matchG.appendChild(hit);
-
-      matchG.addEventListener("click", () => selectMatch(key));
-      matchG.addEventListener("dblclick", ev => { ev.stopPropagation(); openResultModal(key); });
-
-      // Match time reordering drag and drop
-      if (ui.showTime !== false) {
-        matchG.addEventListener("mousedown", (e) => {
-          window.__draggedTeam = { matchKey: key, type: "match" };
-        });
-        matchG.addEventListener("mouseup", (e) => {
-          if (window.__draggedTeam && window.__draggedTeam.type === "match") {
-            handleDropSwap(window.__draggedTeam, { matchKey: key, type: "match" });
-          }
-        });
-      }
-
-      svg.appendChild(matchG);
-
-      // --- Drag & Drop 処理開始 ---
-      // R1であり、かつ試合が開始・確定していない場合のみチーム名単位ではなく試合枠単位でのスワップを検知するための処理
-      // ただしA/B個別の枠（sideBox）に対してイベントを張る
-
-      const isOvertime = typeof isMatchOvertime === 'function' ? isMatchOvertime(m, new Date(), (currentEvent.settings?.matchMinutes || 10) + (currentEvent.settings?.turnoverMinutes || 2)) : false;
-      let stClass = m.state === "calling" ? "match-calling" : m.state === "playing" ? "match-playing" : (m.state || "pending");
-      if (isOvertime) stClass += " overtime-pulse";
-
-      const isFinalResult = m.state === "final" && m.winner;
-      const isChampion = isFinalResult && m.round === rounds;
-
-      // 勝者/敗者ボックスの色（CSS classに加えてfillも直接指定して確実に反映）
-      const fillWin  = isChampion ? "#bbf7d0" : "#dcfce7";
-      const fillLoss = "#f1f5f9";
-      const fillNeutral = m.state === "playing" ? "#fff1f2" : m.state === "calling" ? "#fffbeb" : "#f8fafc";
-
-      const fillA = isFinalResult ? (m.winner === "A" ? fillWin : fillLoss) : fillNeutral;
-      const fillB = isFinalResult ? (m.winner === "B" ? fillWin : fillLoss) : fillNeutral;
-      const strokeA = isFinalResult ? (m.winner === "A" ? "#16a34a" : "#e2e8f0") : (m.state === "playing" ? "#f43f5e" : m.state === "calling" ? "#f59e0b" : "#cbd5e1");
-      const strokeB = isFinalResult ? (m.winner === "B" ? "#16a34a" : "#e2e8f0") : strokeA;
-
-      // Aボックス
-      const rectA = document.createElementNS(ns, "rect");
-      rectA.setAttribute("x", leftX(x)); rectA.setAttribute("y", y);
-      rectA.setAttribute("width", sideW); rectA.setAttribute("height", boxH);
-      rectA.setAttribute("rx", 6);
-      rectA.setAttribute("fill", fillA);
-      rectA.setAttribute("stroke", strokeA);
-      rectA.setAttribute("stroke-width", isFinalResult && m.winner === "A" ? "2" : "1");
-      rectA.setAttribute("class", `sideBox ${stClass} ${selectedMatchKey === key ? "selected" : ""}`);
-      // Drag events for A
-      if (r === 1 && m.state === "pending") {
-        rectA.style.cursor = "grab";
-        let tAtext = m.teamA;
-        rectA.addEventListener("mousedown", (e) => {
-          e.stopPropagation();
-          window.__draggedTeam = { matchKey: key, slot: "A", teamName: tAtext, type: "team" };
-        });
-        rectA.addEventListener("mouseup", (e) => {
-          e.stopPropagation();
-          if (window.__draggedTeam && window.__draggedTeam.type === "team") {
-            handleDropSwap(window.__draggedTeam, { matchKey: key, slot: "A", teamName: tAtext, type: "team" });
-          }
-        });
-      }
-      matchG.appendChild(rectA);
-
-      // Bボックス
-      const rectB = document.createElementNS(ns, "rect");
-      rectB.setAttribute("x", rightX(x)); rectB.setAttribute("y", y);
-      rectB.setAttribute("width", sideW); rectB.setAttribute("height", boxH);
-      rectB.setAttribute("rx", 6);
-      rectB.setAttribute("fill", fillB);
-      rectB.setAttribute("stroke", strokeB);
-      rectB.setAttribute("stroke-width", isFinalResult && m.winner === "B" ? "2" : "1");
-      rectB.setAttribute("class", `sideBox ${stClass} ${selectedMatchKey === key ? "selected" : ""}`);
-      // Drag events for B
-      if (r === 1 && m.state === "pending") {
-        rectB.style.cursor = "grab";
-        let tBtext = m.teamB;
-        rectB.addEventListener("mousedown", (e) => {
-          e.stopPropagation();
-          window.__draggedTeam = { matchKey: key, slot: "B", teamName: tBtext, type: "team" };
-        });
-        rectB.addEventListener("mouseup", (e) => {
-          e.stopPropagation();
-          if (window.__draggedTeam && window.__draggedTeam.type === "team") {
-            handleDropSwap(window.__draggedTeam, { matchKey: key, slot: "B", teamName: tBtext, type: "team" });
-          }
-        });
-      }
-      matchG.appendChild(rectB);
-
-      // スコアがあれば中央に表示（"vs"と入れ替え）
-      const time = fmtTime(m.scheduledStart);
-      const upperMid = time ? y + (boxH - 13) / 2 : y + boxH / 2;
-      const centerTxt = document.createElementNS(ns, "text");
-      centerTxt.setAttribute("x", mCX(x));
-      centerTxt.setAttribute("y", upperMid);
-      centerTxt.setAttribute("text-anchor", "middle");
-      centerTxt.setAttribute("dominant-baseline", "middle");
-      if (hasScore) {
-        centerTxt.setAttribute("font-size", "9");
-        centerTxt.setAttribute("fill", "#475569");
-        centerTxt.setAttribute("font-weight", "700");
-        centerTxt.textContent = `${m.scoreA}-${m.scoreB}`;
-      } else {
-        centerTxt.setAttribute("class", "vsTxt");
-        centerTxt.setAttribute("font-size", "10");
-        centerTxt.textContent = "vs";
-      }
-      matchG.appendChild(centerTxt);
-
-      // チームA名（ ✓ がある場合は左へはみ出すように右寄せ配置）
-      const nameY = hasScore ? y + (boxH - (time ? 13 : 0)) * 0.34 : upperMid;
-      const tA = document.createElementNS(ns, "text");
-      const hasCheckA = m.winner === "A";
-      if (hasCheckA) {
-        tA.setAttribute("x", leftX(x) + sideW - 5);
-        tA.setAttribute("text-anchor", "end");
-      } else {
-        tA.setAttribute("x", leftX(x) + 5);
-        tA.setAttribute("text-anchor", "start");
-      }
-      tA.setAttribute("y", nameY);
-      tA.setAttribute("dominant-baseline", "middle");
-      tA.setAttribute("class", "teamTxtH" + (m.teamA ? "" : " subtle"));
-      tA.setAttribute("font-size", String(fontSize));
-      tA.setAttribute("font-weight", hasCheckA ? "900" : isFinalResult && m.winner === "B" ? "400" : "600");
-      if (hasCheckA) tA.setAttribute("fill", isChampion ? "#15803d" : "#166534");
-      else if (isFinalResult) tA.setAttribute("fill", "#94a3b8");
-      
-      const textA = shorten(m.teamA, hasCheckA);
-      if (textA.includes("\n")) {
-        const parts = textA.split("\n");
-        parts.forEach((p, idx) => {
-          const tspan = document.createElementNS(ns, "tspan");
-          tspan.textContent = p;
-          tspan.setAttribute("x", tA.getAttribute("x"));
-          tspan.setAttribute("dy", idx === 0 ? `-${fontSize * 0.45}` : `${fontSize * 1.1}`);
-          tA.appendChild(tspan);
-        });
-      } else {
-        tA.textContent = textA;
-      }
-      matchG.appendChild(tA);
-
-      // チームB名（ ✓ がある場合は右へはみ出すように左寄せ配置）
-      const tB = document.createElementNS(ns, "text");
-      const hasCheckB = m.winner === "B";
-      if (hasCheckB) {
-        tB.setAttribute("x", rightX(x) + 5);
-        tB.setAttribute("text-anchor", "start");
-      } else {
-        tB.setAttribute("x", rightX(x) + sideW - 5);
-        tB.setAttribute("text-anchor", "end");
-      }
-      tB.setAttribute("y", nameY);
-      tB.setAttribute("dominant-baseline", "middle");
-      tB.setAttribute("class", "teamTxtH" + (m.teamB ? "" : " subtle"));
-      tB.setAttribute("font-size", String(fontSize));
-      tB.setAttribute("font-weight", hasCheckB ? "900" : isFinalResult && m.winner === "A" ? "400" : "600");
-      if (hasCheckB) tB.setAttribute("fill", isChampion ? "#15803d" : "#166534");
-      else if (isFinalResult) tB.setAttribute("fill", "#94a3b8");
-      
-      const textB = shorten(m.teamB, hasCheckB);
-      if (textB.includes("\n")) {
-        const parts = textB.split("\n");
-        parts.forEach((p, idx) => {
-          const tspan = document.createElementNS(ns, "tspan");
-          tspan.textContent = p;
-          tspan.setAttribute("x", tB.getAttribute("x"));
-          tspan.setAttribute("dy", idx === 0 ? `-${fontSize * 0.45}` : `${fontSize * 1.1}`);
-          tB.appendChild(tspan);
-        });
-      } else {
-        tB.textContent = textB;
-      }
-      matchG.appendChild(tB);
-
-      // 優勝バッジ（決勝勝者）
-      if (isChampion) {
-        const champW = 36, champH = 14;
-        const champX = m.winner === "A" ? leftX(x) + sideW / 2 - champW / 2 : rightX(x) + sideW / 2 - champW / 2;
-        const champY = y - 8;
-        const champBg = document.createElementNS(ns, "rect");
-        champBg.setAttribute("x", champX); champBg.setAttribute("y", champY);
-        champBg.setAttribute("width", champW); champBg.setAttribute("height", champH);
-        champBg.setAttribute("rx", 7); champBg.setAttribute("fill", "#fbbf24");
-        matchG.appendChild(champBg);
-        const champTxt = document.createElementNS(ns, "text");
-        champTxt.setAttribute("x", champX + champW / 2);
-        champTxt.setAttribute("y", champY + champH / 2 + 0.5);
-        champTxt.setAttribute("text-anchor", "middle");
-        champTxt.setAttribute("dominant-baseline", "middle");
-        champTxt.setAttribute("font-size", "9");
-        champTxt.setAttribute("font-weight", "800");
-        champTxt.setAttribute("fill", "#78350f");
-        champTxt.textContent = "🏆 優勝";
-        matchG.appendChild(champTxt);
-      }
-
-      // 時刻ラベル（バッジスタイル）
-      if ((time || m.matchNum) && ui.showTime !== false) {
-        const numStr = m.matchNum ? `第${m.matchNum}試合` : "";
-        const timeLabel = `${numStr} ${time || ""}${m.court ? "·" + m.court : ""}`.trim();
-        const timeFontSz = Number(ui.timeFontSize ?? 9);
-        const badgeW = timeLabel.length * timeFontSz * 0.62 + 10;
-        const badgeH = timeFontSz + 5;
-        const badgeX = x + totalW / 2 - badgeW / 2;
-        const badgeY = y + boxH - badgeH - 2 + (ui.timeY || 0);
-        const bg = document.createElementNS(ns, "rect");
-        bg.setAttribute("x", badgeX); bg.setAttribute("y", badgeY);
-        bg.setAttribute("width", badgeW); bg.setAttribute("height", badgeH);
-        bg.setAttribute("rx", badgeH / 2);
-        bg.setAttribute("fill", "#eff6ff");
-        bg.setAttribute("stroke", "#bfdbfe");
-        bg.setAttribute("stroke-width", "1");
-        matchG.appendChild(bg);
-        const meta = document.createElementNS(ns, "text");
-        meta.setAttribute("x", x + totalW / 2);
-        meta.setAttribute("y", badgeY + badgeH / 2 + 0.5);
-        meta.setAttribute("text-anchor", "middle");
-        meta.setAttribute("dominant-baseline", "middle");
-        meta.setAttribute("font-size", String(timeFontSz));
-        meta.setAttribute("fill", "#2563eb");
-        meta.setAttribute("font-family", "ui-monospace, monospace");
-        meta.setAttribute("font-weight", "700");
-        meta.textContent = timeLabel;
-        matchG.appendChild(meta);
-      }
-    }
-
-    return svg;
-  }
-
-  // ── 横向きブラケット（R1が左・決勝が右） ─────────────────────
-  function buildHorizontalBracketSVG(matches, uiOverride) {
-    matches = matches.filter(m => !m.isExhibition);
-    const ui = uiOverride || state.tournament?.bracketUI || {};
-    const fontSize = Number(ui.fontSize ?? 13);
-    const boxW = Number(ui.totalW ?? 140);
-    const boxH = Number(ui.boxH ?? 28);
-    const gapX = Number(ui.roundGapY ?? 90);
-    const gapY = Number(ui.gapX ?? 8);
-    const branchLen = Number(ui.branchLen ?? 30);
-
-    const allRounds = [...new Set(matches.map(m => m.round))].sort((a, b) => a - b);
-    const maxRound = allRounds[allRounds.length - 1] || 1;
-    const isLoser = matches.length > 0 && matches[0].isLoserMatch;
-    const prefix = isLoser ? "L" : "R";
-    const roundMatchCount = {};
-    for (const r of allRounds) roundMatchCount[r] = matches.filter(m => m.round === r).length;
-
-    const pad = 20;
-    const matchH = boxH * 2 + gapY;
-
-    const yOfMatch = {};
-    // R1 → 決勝の順に処理: R1は等間隔配置、以降のラウンドは子試合のY中心に配置
-    for (const r of allRounds) {
-      const matchesInR = matches.filter(m => m.round === r).sort((a, b) => a.slot - b.slot);
-      for (let i = 0; i < matchesInR.length; i++) {
-        const m = matchesInR[i];
-        const key = matchKey(m);
-        if (r === allRounds[0]) {
-          yOfMatch[key] = pad + i * (matchH + gapY * 2);
-        } else {
-          const children = matches.filter(cm => cm.nextMatchKey === key);
-          if (children.length === 2) {
-            const yA = yOfMatch[matchKey(children[0])];
-            const yB = yOfMatch[matchKey(children[1])];
-            yOfMatch[key] = (yA !== undefined && yB !== undefined) ? (yA + yB) / 2 : (yA ?? yB ?? (pad + i * (matchH + gapY * 2)));
-          } else if (children.length === 1) {
-            yOfMatch[key] = yOfMatch[matchKey(children[0])] ?? (pad + i * (matchH + gapY * 2));
-          } else {
-            yOfMatch[key] = pad + i * (matchH + gapY * 2);
-          }
-        }
-      }
-    }
-
-    const xOfRound = {};
-    let curX = pad;
-    for (let i = 0; i < allRounds.length; i++) {
-      const r = allRounds[i];
-      xOfRound[r] = curX;
-      if (i < allRounds.length - 1) {
-        const idx = r; // r から r+1 への間隔は gapX{r} で指定
-        let customGap = 0;
-        if (idx === 1) customGap = Number(ui.gapX1 ?? 0);
-        else if (idx === 2) customGap = Number(ui.gapX2 ?? 0);
-        else if (idx === 3) customGap = Number(ui.gapX3 ?? 0);
-        else if (idx >= 4) customGap = Number(ui.gapX4 ?? 0);
-        curX += boxW + (customGap > 0 ? customGap : gapX);
-      }
-    }
-
-    const r1Count = roundMatchCount[allRounds[0]] || 0;
-    const totalH = Math.max(200, pad * 2 + r1Count * (matchH + gapY * 2));
-    const lastRound = allRounds[allRounds.length - 1];
-    const totalW = (xOfRound[lastRound] ?? 0) + boxW + pad;
-
-    const ns = "http://www.w3.org/2000/svg";
-    const svg = document.createElementNS(ns, "svg");
-    svg.setAttribute("width", totalW); svg.setAttribute("height", totalH);
-    svg.setAttribute("viewBox", `0 0 ${totalW} ${totalH}`);
-    svg.style.display = "block";
-
-    const byKey = {};
-    matches.forEach(m => { byKey[matchKey(m)] = m; });
-
-    const shn = (s, txt) => {
-      let name = formatTeamName(s);
-      if (!name) {
-        txt.textContent = "—";
-        return;
-      }
-      // 「の負け」があれば改行表示
-      if (name.includes("\n")) {
-        const parts = name.split("\n");
-        parts.forEach((p, idx) => {
-          const tspan = document.createElementNS(ns, "tspan");
-          tspan.textContent = p;
-          tspan.setAttribute("x", txt.getAttribute("x"));
-          tspan.setAttribute("dy", idx === 0 ? `-${fontSize * 0.45}` : `${fontSize * 1.1}`);
-          txt.appendChild(tspan);
-        });
-      } else {
-        const max = Math.max(4, Math.floor(boxW / (fontSize * 0.68)));
-        txt.textContent = name.length > max ? name.slice(0, Math.max(1, max - 1)) + "…" : name;
-      }
-    };
-
-    // ラウンドラベル
-    for (const r of allRounds) {
-      const lStr = r === maxRound ? "決勝" : r === maxRound - 1 ? "準決勝" : `R${r}`;
-      const lbl = document.createElementNS(ns, "text");
-      lbl.setAttribute("x", xOfRound[r] + boxW / 2); lbl.setAttribute("y", pad / 2 + 4);
-      lbl.setAttribute("text-anchor", "middle"); lbl.setAttribute("dominant-baseline", "middle");
-      lbl.setAttribute("font-size", "10"); lbl.setAttribute("class", "roundLabel");
-      lbl.textContent = lStr;
-      svg.appendChild(lbl);
-    }
-
-    for (const r of allRounds) {
-      const matchesInR = matches.filter(m => m.round === r).sort((a, b) => a.slot - b.slot);
-      for (let s = 0; s < matchesInR.length; s++) {
-        const m = matchesInR[s];
-        const key = matchKey(m);
-        const x = xOfRound[r];
-        const y = yOfMatch[key] ?? (pad + s * (matchH + gapY * 2));
-        const isFinal = m.state === "final";
-        const isSelected = selectedMatchKey === matchKey(m);
-
-        const mkR = (yy, isWin, single) => {
-          const rr = document.createElementNS(ns, "rect");
-          rr.setAttribute("x", x); rr.setAttribute("y", yy);
-          rr.setAttribute("width", boxW); rr.setAttribute("height", single ? matchH : boxH);
-          rr.setAttribute("rx", 6);
-          rr.setAttribute("class", single ? "sideBox byeBox" : `sideBox${isWin ? " final" : ""}${isSelected ? " selected" : ""}`);
-          if (single) {
-            rr.setAttribute("fill", "#ffffff");
-            rr.setAttribute("stroke", "rgba(22,163,74,.4)");
-            rr.setAttribute("stroke-width", "1.5");
-          } else {
-            // Drag events for team swapping in R1
-            if (r === 1 && m.state === "pending") {
-              rr.style.cursor = "grab";
-              const teamKey = yy === y ? "A" : "B";
-              const teamText = yy === y ? m.teamA : m.teamB;
-              rr.addEventListener("mousedown", (e) => {
-                e.stopPropagation();
-                window.__draggedTeam = { matchKey: key, slot: teamKey, teamName: teamText, type: "team" };
-              });
-              rr.addEventListener("mouseup", (e) => {
-                e.stopPropagation();
-                if (window.__draggedTeam && window.__draggedTeam.type === "team") {
-                  handleDropSwap(window.__draggedTeam, { matchKey: key, slot: teamKey, teamName: teamText, type: "team" });
-                }
-              });
-            }
-          }
-          return rr;
-        };
-        const mkT = (yy, txt, fw, single) => {
-          const t = document.createElementNS(ns, "text");
-          t.setAttribute("x", x + boxW / 2); t.setAttribute("y", yy + (single ? matchH : boxH) / 2);
-          t.setAttribute("text-anchor", "middle"); t.setAttribute("dominant-baseline", "middle");
-          t.setAttribute("font-size", fontSize); t.setAttribute("font-weight", fw || "500");
-          t.setAttribute("font-family", "'Noto Sans JP', sans-serif");
-          t.setAttribute("class", `teamTxtH${!txt || txt === "—" ? " subtle" : ""}`);
-          shn(txt, t);
-          return t;
-        };
-
-        const matchG = document.createElementNS(ns, "g");
-        matchG.style.cursor = "pointer";
-        matchG.dataset.matchKey = key;
-
-        const hit = document.createElementNS(ns, "rect");
-        hit.setAttribute("x", x); hit.setAttribute("y", y);
-        hit.setAttribute("width", boxW); hit.setAttribute("height", boxH * 2 + gapY);
-        hit.setAttribute("fill", "transparent");
-        matchG.appendChild(hit);
-
-        matchG.onclick = () => selectMatch(matchKey(m));
-        matchG.ondblclick = () => openResultModal(matchKey(m));
-
-        if (ui.showTime !== false) {
-          matchG.addEventListener("mousedown", (e) => {
-            window.__draggedTeam = { matchKey: key, type: "match" };
-          });
-          matchG.addEventListener("mouseup", (e) => {
-            if (window.__draggedTeam && window.__draggedTeam.type === "match") {
-              handleDropSwap(window.__draggedTeam, { matchKey: key, type: "match" });
-            }
-          });
-        }
-
-        svg.appendChild(matchG);
-
-        if (m.isBye) {
-          const winner = m.winner === "A" ? m.teamA : m.teamB;
-          matchG.appendChild(mkR(y, false, true));
-          matchG.appendChild(mkT(y, shn(winner || "?"), "700", true));
-
-          const bBadgeW = 26, bBadgeH = 12;
-          const bBadgeX = x + boxW - bBadgeW + 4;
-          const bBadgeY = y - 6;
-          const bBadgeBg = document.createElementNS(ns, "rect");
-          bBadgeBg.setAttribute("x", bBadgeX); bBadgeBg.setAttribute("y", bBadgeY);
-          bBadgeBg.setAttribute("width", bBadgeW); bBadgeBg.setAttribute("height", bBadgeH);
-          bBadgeBg.setAttribute("rx", 6);
-          bBadgeBg.setAttribute("fill", "#22c55e");
-          matchG.appendChild(bBadgeBg);
-          const bBadgeTxt = document.createElementNS(ns, "text");
-          bBadgeTxt.setAttribute("x", bBadgeX + bBadgeW / 2);
-          bBadgeTxt.setAttribute("y", bBadgeY + bBadgeH / 2 + 0.5);
-          bBadgeTxt.setAttribute("text-anchor", "middle");
-          bBadgeTxt.setAttribute("dominant-baseline", "middle");
-          bBadgeTxt.setAttribute("font-size", "7.5");
-          bBadgeTxt.setAttribute("font-weight", "800");
-          bBadgeTxt.setAttribute("fill", "#ffffff");
-          bBadgeTxt.textContent = "BYE";
-          matchG.appendChild(bBadgeTxt);
-        } else {
-          matchG.appendChild(mkR(y, isFinal && m.winner === "A"));
-          matchG.appendChild(mkT(y, shn(m.teamA), m.winner === "A" ? "900" : "500"));
-          matchG.appendChild(mkR(y + boxH + gapY, isFinal && m.winner === "B"));
-          matchG.appendChild(mkT(y + boxH + gapY, shn(m.teamB), m.winner === "B" ? "900" : "500"));
-        }
-
-        // 進行中ハイライト
-        const hl = document.createElementNS(ns, "rect");
-        hl.setAttribute("id", `match-hl-${matchKey(m)}`);
-        hl.setAttribute("x", x); hl.setAttribute("y", y);
-        hl.setAttribute("width", boxW); hl.setAttribute("height", boxH * 2 + gapY);
-        hl.setAttribute("rx", 4); hl.setAttribute("fill", "none");
-        hl.setAttribute("class", "hidden");
-        matchG.appendChild(hl);
-
-        // コネクタ（勝者が右へ進む）
-        if (r < maxRound && m.nextMatchKey) {
-          const hasWinner = m.state === "final" && m.winner;
-          const yA_out = y + boxH / 2;
-          const yB_out = y + boxH + gapY + boxH / 2;
-          const yMid = y + boxH + gapY / 2;
-
-          let winY = yMid;
-          if (hasWinner) winY = m.winner === "A" ? yA_out : yB_out;
-          if (m.isBye) winY = y + matchH / 2;
-
-          const startX = x + boxW;
-          const endX = xOfRound[r + 1];
-          // ラウンド間のちょうど中間に縦線を引く
-          const midX = startX + (endX - startX) / 2;
-
-          const nextM = byKey[m.nextMatchKey];
-          let targetY = winY;
-          if (nextM) {
-            const nY = yOfMatch[matchKey(nextM)] ?? 0;
-            if (nextM.isBye) {
-              targetY = nY + matchH / 2;
-            } else {
-              targetY = m.nextSlot === "A" ? nY + boxH / 2 : nY + boxH + gapY + boxH / 2;
-            }
-          }
-
-          const path = document.createElementNS(ns, "path");
-          const rad = 4;
-          let d = "";
-
-          if (hasWinner || m.isBye) {
-            path.setAttribute("class", hasWinner ? "line win" : "line");
-            if (Math.abs(targetY - winY) < rad * 2) {
-              d = `M ${startX} ${winY} H ${midX} V ${targetY} H ${endX}`;
-            } else {
-              const dir = targetY > winY ? 1 : -1;
-              d = `M ${startX} ${winY} H ${midX - rad} Q ${midX} ${winY} ${midX} ${winY + rad * dir} V ${targetY - rad * dir} Q ${midX} ${targetY} ${midX + rad} ${targetY} H ${endX}`;
-            }
-          } else {
-            // 未確定（コ線＋破線）
-            path.setAttribute("class", "line");
-            path.setAttribute("stroke-dasharray", "4 3"); // 点線
-
-            // コの字
-            d = `M ${startX} ${yA_out} H ${midX - rad} Q ${midX} ${yA_out} ${midX} ${yA_out + rad} V ${yB_out - rad} Q ${midX} ${yB_out} ${midX - rad} ${yB_out} H ${startX}`;
-
-            // 次ラウンドへの線
-            if (Math.abs(targetY - yMid) < rad * 2) {
-              d += ` M ${midX} ${yMid} V ${targetY} H ${endX}`;
-            } else {
-              const dirC = targetY > yMid ? 1 : -1;
-              d += ` M ${midX} ${yMid} V ${targetY - rad * dirC} Q ${midX} ${targetY} ${midX + rad} ${targetY} H ${endX}`;
-            }
-          }
-          path.setAttribute("d", d);
-          svg.insertBefore(path, svg.firstChild);
-        }
-
-        // 時刻ラベル（バッジスタイル）
-        const time = fmtTime(m.scheduledStart);
-        if ((time || m.matchNum) && ui.showTime !== false) {
-          const numStr = m.matchNum ? `第${m.matchNum}試合` : "";
-          const timeLabel = `${numStr} ${time || ""}${m.court ? "·" + m.court : ""}`.trim();
-          const timeFontSz = Number(ui.timeFontSize ?? 9);
-          const badgeW = timeLabel.length * timeFontSz * 0.62 + 10;
-          const badgeH = timeFontSz + 5;
-          const badgeX = x + boxW / 2 - badgeW / 2;
-          const badgeY = y + boxH * 2 + gapY - badgeH - 2 + (ui.timeY || 0);
-          const bg = document.createElementNS(ns, "rect");
-          bg.setAttribute("x", badgeX); bg.setAttribute("y", badgeY);
-          bg.setAttribute("width", badgeW); bg.setAttribute("height", badgeH);
-          bg.setAttribute("rx", badgeH / 2);
-          bg.setAttribute("fill", "#eff6ff");
-          bg.setAttribute("stroke", "#bfdbfe");
-          bg.setAttribute("stroke-width", "1");
-          matchG.appendChild(bg);
-          const meta = document.createElementNS(ns, "text");
-          meta.setAttribute("x", x + boxW / 2);
-          meta.setAttribute("y", badgeY + badgeH / 2 + 0.5);
-          meta.setAttribute("text-anchor", "middle");
-          meta.setAttribute("dominant-baseline", "middle");
-          meta.setAttribute("font-size", String(timeFontSz));
-          meta.setAttribute("fill", "#2563eb");
-          meta.setAttribute("font-family", "ui-monospace, monospace");
-          meta.setAttribute("font-weight", "700");
-          meta.textContent = timeLabel;
-          matchG.appendChild(meta);
-        }
-      }
-    }
-    return svg;
-  }
 
   // ブラケットをコンテナ幅にぴったり収まるよう寸法を計算する。
   // teamCount: 参加チーム数 / opts.containerWidth: 実測した表示領域の幅 / opts.dir: "vertical"|"horizontal"
@@ -4014,15 +3154,15 @@
     let sA = null, sB = null;
     if (has(m.scoreA) && has(m.scoreB)) { sA = Number(m.scoreA); sB = Number(m.scoreB); }
     if (sA != null) { A.gf += sA; A.ga += sB; A.gd += sA - sB; B.gf += sB; B.ga += sA; B.gd += sB - sA; }
-    const w = sA != null && sA !== sB ? (sA > sB ? "A" : "B") : (m.winner || null);
+    const w = m.draw ? null : sA != null && sA !== sB ? (sA > sB ? "A" : "B") : (m.winner || null);
     if (w === "A") { A.pts += 3; A.w += 1; B.l += 1; }
     else if (w === "B") { B.pts += 3; B.w += 1; A.l += 1; }
-    else if (sA != null) { A.pts += 1; A.d += 1; B.pts += 1; B.d += 1; }
+    else if (sA != null || m.draw) { A.pts += 1; A.d += 1; B.pts += 1; B.d += 1; }
   }
 
   function buildLeagueTableHTML(event) {
     const tableContainer = document.createElement("div");
-    tableContainer.style.cssText = "overflow-x: auto; padding: 10px; background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);";
+    tableContainer.className = "leagueBox";
 
     // 1. Collect all unique teams
     const teams = new Set();
@@ -4450,7 +3590,11 @@
       b.classList.toggle("won", m.winner === side);
       b.classList.toggle("lost", !!m.winner && m.winner !== side);
     }
-    el("mWinHint").textContent = !ready ? "対戦相手がまだ決まっていません"
+    const league = currentEvent.format === "league";
+    el("mDraw").classList.toggle("hidden", !league);
+    el("mDraw").disabled = !ready;
+    el("mDraw").classList.toggle("won", !!m.draw);
+    el("mWinHint").textContent = m.draw ? "現在: 引き分け（押し直すと変更）" : !ready ? "対戦相手がまだ決まっていません"
       : m.winner ? `現在: ${formatTeamName(m.winner === "A" ? m.teamA : m.teamB)} の勝ち（押し直すと勝者を変更）` : "勝ったクラスをタップすると確定します";
 
     // 点数（任意）
@@ -4519,6 +3663,15 @@
     if (!m.teamA && m.teamB) winner = "B";
     if (!m.teamA && !m.teamB) return;
     const r = readScoreInput();
+    if (winner === "D") {                       // 引き分け（リーグ戦のみ）
+      if (r.ok && r.winner) { toast("点数が同点ではありません", "warn", 3000); el("mScoreOpt").open = true; return; }
+      pushUndoState();
+      if (r.ok) { m.scoreA = r.a; m.scoreB = r.b; if (r.sets) m.setScores = r.sets; else delete m.setScores; }
+      else { m.scoreA = null; m.scoreB = null; delete m.setScores; }
+      m.winner = null; m.draw = true; m.state = "final";
+      afterFinalize(m, "引き分けで確定しました");
+      return;
+    }
     if (r.ok) {
       if (r.winner && r.winner !== winner) {
         toast("点数と勝ち負けが食い違っています（点数の多いクラスを勝ちにしてください）", "warn", 3500);
@@ -4529,9 +3682,27 @@
     const targetArr = m.isLoserMatch ? currentEvent.loserMatches : currentEvent.matches;
     if (r.ok) { m.scoreA = r.a; m.scoreB = r.b; if (r.sets) m.setScores = r.sets; else delete m.setScores; }
     else { m.scoreA = null; m.scoreB = null; delete m.setScores; }
+    delete m.draw;
     finalizeMatchLocal(targetArr, m, winner, true);
+    afterFinalize(m, `${formatTeamName(winner === "A" ? m.teamA : m.teamB)} の勝ちで確定しました`);
+  }
+
+  // 確定後: 保存して閉じ、「元に戻す」「次の試合」を通知に出す（続けて入力しやすく）
+  function afterFinalize(m, msg) {
     saveState(); renderEventDetail(currentEvent.id); closeResultModal();
-    toast(`${formatTeamName(winner === "A" ? m.teamA : m.teamB)} の勝ちで確定しました`, "success", 1800);
+    const next = findNextMatch(m);
+    const acts = [{ label: "↩ 元に戻す", fn: () => { performUndo(); toast("確定を取り消しました", "info", 1500); } }];
+    if (next) acts.push({ label: `次: 第${next.matchNum || "?"}試合 ▶`, fn: () => openResultModal(matchKey(next)) });
+    toast(msg, "success", 6000, acts);
+  }
+  // 次に入力する試合: 両チームが決まっていて未確定のもの（試合番号順、今の試合より後を優先）
+  function findNextMatch(cur) {
+    if (!currentEvent) return null;
+    const all = [...currentEvent.matches, ...(currentEvent.loserMatches || [])]
+      .filter(x => x !== cur && x.teamA && x.teamB && x.state !== "final");
+    const num = x => Number(x.matchNum) || 9999;
+    all.sort((a, b) => num(a) - num(b));
+    return all.find(x => num(x) > num(cur)) || all[0] || null;
   }
 
   function updateMatchStatus(newStatus) {
@@ -4584,6 +3755,7 @@
 
     el("mWinA").onclick = () => modalFinalize("A");
     el("mWinB").onclick = () => modalFinalize("B");
+    el("mDraw").onclick = () => modalFinalize("D");
     el("mSave").onclick = () => { const r = readScoreInput(); if (r.ok && r.winner) modalFinalize(r.winner, true); };
     el("mClear").onclick = () => {
       if (!currentEvent || !modalMatchKey) return;
@@ -4591,8 +3763,9 @@
       const m = findMatchByKey(allM, modalMatchKey);
       pushUndoState();
       const targetArr = m.isLoserMatch ? currentEvent.loserMatches : currentEvent.matches;
-      clearFinalLocal(targetArr, m);
+      clearFinalLocal(targetArr, m); delete m.draw;
       saveState(); renderEventDetail(currentEvent.id); closeResultModal();
+      toast("結果を取り消しました", "info", 5000, [{ label: "↩ 元に戻す", fn: performUndo }]);
     };
   }
 
