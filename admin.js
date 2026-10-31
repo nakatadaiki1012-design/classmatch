@@ -433,6 +433,17 @@
       const link = liveLink();
       if (el("lsLink") && el("lsLink").value !== link) el("lsLink").value = link;
       if (el("lsOpen")) el("lsOpen").href = link || "#";
+      const cl = el("lsClassLinks");
+      if (cl && link) {
+        const classes = (state.tournament.classes || []).filter(Boolean);
+        const sig = link + "|" + classes.join(",");
+        if (cl.dataset.sig !== sig) {
+          cl.dataset.sig = sig;
+          const withClass = (c) => link.replace(/(\?t=[^#&]*)/, `$1&class=${encodeURIComponent(c)}`);
+          cl.innerHTML = classes.length ? classes.map(c => `<button class="ghost lsClassBtn" data-c="${escapeHtml(c)}">📋 ${escapeHtml(c)}</button>`).join("") : `<div class="small">クラスを登録すると表示されます</div>`;
+          cl.querySelectorAll(".lsClassBtn").forEach(b => b.onclick = () => copyText(withClass(b.dataset.c), `${b.dataset.c} 用のリンクをコピーしました`));
+        }
+      }
       if (el("lsToggle")) el("lsToggle").textContent = on ? "⏸ 共有を停止" : "▶ 共有を再開";
       if (el("lsRepublish")) el("lsRepublish").disabled = !on;
     }

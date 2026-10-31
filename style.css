@@ -885,3 +885,6 @@ details[open] > summary { margin-bottom: 6px; }
 .loserSeedChip { display:inline-flex; align-items:center; gap:5px; background:#f5f3ff; border:1.5px solid #e9d5ff; border-radius:6px; padding:5px 10px; cursor:pointer; font-size:12px; font-weight:600; color:#5b21b6; transition:border-color .15s; }
 .loserSeedCb { width:13px; height:13px; accent-color:#7c3aed; cursor:pointer; }
 .leagueBox { overflow-x:auto; padding:10px; background:#fff; border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,.1); }
+
+.lsClassLinks { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+.lsClassBtn { min-height:40px; font-weight:800; }
