@@ -874,6 +874,36 @@
 
     // 進行状況の更新と同時にダッシュボードも更新する
     renderDashboard();
+    renderCourtBoard();
+  }
+
+  // コートごとの進行: いま（試合中・招集中）と次の試合。タップで結果入力を開く
+  function renderCourtBoard() {
+    const box = el("courtBoard"); if (!box) return;
+    if (!currentEvent) { box.innerHTML = ""; return; }
+    const sport = currentEvent.sportName || "";
+    const byCourt = {};
+    state.events.forEach(e => { if ((e.sportName || "") !== sport) return; [...e.matches, ...(e.loserMatches || [])].forEach(x => {
+      if (x.isBye || x.state === "final" || !x.court) return; (byCourt[x.court] = byCourt[x.court] || []).push({ e, x }); }); });
+    const courts = Object.keys(byCourt).sort();
+    if (!courts.length) { box.innerHTML = ""; return; }
+    const ord = (a, b) => (a.x.scheduledStart || "").localeCompare(b.x.scheduledStart || "") || ((+a.x.matchNum || 0) - (+b.x.matchNum || 0));
+    const nm = (o, s) => escapeHtml(formatTeamName(s === "A" ? o.x.teamA : o.x.teamB) || "未定");
+    const lab = (o) => (o.e.id !== currentEvent.id ? `<i>${escapeHtml(o.e.gender === "M" ? "男子" : o.e.gender === "F" ? "女子" : "混合")}</i>` : "") + `第${o.x.matchNum || "?"}試合`;
+    box.innerHTML = `<div class="cbTitle">🏟 ${escapeHtml(sport)} のコート</div>` + courts.map(c => {
+      const list = byCourt[c].sort(ord);
+      const now = list.find(o => o.x.state === "playing") || list.find(o => o.x.state === "calling");
+      const nx = list.find(o => o !== now);
+      const item = (o, kind) => !o ? "" : `<button class="cbItem ${kind}" data-ev="${escapeHtml(o.e.id)}" data-k="${matchKey(o.x)}">`
+        + `<span class="cbSt">${kind === "playing" ? "🔴 試合中" : kind === "calling" ? "📢 招集中" : "次"}</span><span class="cbNo">${lab(o)} ${escapeHtml(fmtTime(o.x.scheduledStart) || "")}</span>`
+        + `<b>${nm(o, "A")} <small>vs</small> ${nm(o, "B")}</b></button>`;
+      return `<div class="cbCourt"><div class="cbName">${escapeHtml(c)}<small>コート</small></div>${now ? item(now, now.x.state) : `<div class="cbIdle">空き</div>`}${item(nx, "next")}</div>`;
+    }).join("");
+    box.querySelectorAll(".cbItem").forEach(b => b.onclick = () => {
+      if (b.dataset.ev !== currentEvent.id) renderEventDetail(b.dataset.ev);
+      const m = findMatchByKey([...currentEvent.matches, ...(currentEvent.loserMatches || [])], b.dataset.k);
+      if (m && m.teamA && m.teamB) openResultModal(b.dataset.k); else toast("対戦相手がまだ決まっていません", "info", 1800);
+    });
   }
 
   function renderDashboard() {
@@ -2976,6 +3006,7 @@
     renderBracket();
     renderMatchButtons();
     renderDashboard();
+    renderCourtBoard();
   }
 
   // 表の向き（自動 → 横型 → 縦型）。生徒用画面の初期設定にも使われる
@@ -3709,6 +3740,7 @@
       b.classList.toggle("won", m.winner === side);
       b.classList.toggle("lost", !!m.winner && m.winner !== side);
     }
+    el("mAutoCall").checked = state.tournament.autoCall !== false;
     const league = currentEvent.format === "league";
     el("mDraw").classList.toggle("hidden", !league);
     el("mDraw").disabled = !ready;
@@ -3808,11 +3840,27 @@
 
   // 確定後: 保存して閉じ、「元に戻す」「次の試合」を通知に出す（続けて入力しやすく）
   function afterFinalize(m, msg) {
+    const called = state.tournament.autoCall !== false ? autoCallNext(m) : null;
+    if (called) msg += `／第${called.matchNum || "?"}試合を招集中にしました`;
     saveState(); renderEventDetail(currentEvent.id); closeResultModal();
     const next = findNextMatch(m);
     const acts = [{ label: "↩ 元に戻す", fn: () => { performUndo(); toast("確定を取り消しました", "info", 1500); } }];
     if (next) acts.push({ label: `次: 第${next.matchNum || "?"}試合 ▶`, fn: () => openResultModal(matchKey(next)) });
     toast(msg, "success", 6000, acts);
+  }
+  // 同じ競技・同じコートで次に行う試合を「招集中」にする（そのコートで既に試合中・招集中があれば何もしない）
+  function autoCallNext(done) {
+    if (!done.court) return null;
+    const sport = currentEvent.sportName || "";
+    const line = [];
+    state.events.forEach(e => { if ((e.sportName || "") !== sport) return; [...e.matches, ...(e.loserMatches || [])].forEach(x => { if (x !== done && x.court === done.court && !x.isBye && x.state !== "final") line.push({ e, x }); }); });
+    if (line.some(o => o.x.state === "calling" || o.x.state === "playing")) return null;
+    line.sort((a, b) => (a.x.scheduledStart || "").localeCompare(b.x.scheduledStart || "") || ((+a.x.matchNum || 0) - (+b.x.matchNum || 0)));
+    const nx = line.find(o => o.x.teamA && o.x.teamB);
+    if (!nx || line.indexOf(nx) !== 0) return null;            // 先頭の試合の相手が未定なら待つ
+    nx.x.state = "calling";
+    notifyWebhook(`【招集】${nx.e.sportName} 第${nx.x.matchNum || '?'}試合(${nx.x.court}) : ${nx.x.teamA} vs ${nx.x.teamB} は間もなく開始します。`);
+    return nx.x;
   }
   // 次に入力する試合: 両チームが決まっていて未確定のもの（試合番号順、今の試合より後を優先）
   function findNextMatch(cur) {
@@ -3875,6 +3923,7 @@
     el("mWinA").onclick = () => modalFinalize("A");
     el("mWinB").onclick = () => modalFinalize("B");
     el("mDraw").onclick = () => modalFinalize("D");
+    el("mAutoCall").onchange = (e) => { state.tournament.autoCall = e.target.checked; saveState(); };
     el("mSave").onclick = () => { const r = readScoreInput(); if (r.ok && r.winner) modalFinalize(r.winner, true); };
     el("mClear").onclick = () => {
       if (!currentEvent || !modalMatchKey) return;

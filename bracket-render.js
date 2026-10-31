@@ -221,9 +221,9 @@
     const tfs = Math.max(9.5, capFs * 0.9), tagW = tfs * 4.2, tagH = tfs + 6;
     // 見出し: [試合番号, 時刻, コート] を入る分だけ（コート → 時刻 の順に省く。試合番号は残す）
     const headerParts = (m, prefix, avail) => {
-      const n = m.matchNum ? `第${m.matchNum}試合` : "", t = fmtTime(m.scheduledStart), c = m.court ? m.court + "コート" : "", c1 = m.court || "";
+      const n = m.matchNum ? `第${m.matchNum}試合` : "", ns = m.matchNum ? `第${m.matchNum}` : "", t = fmtTime(m.scheduledStart), c = m.court ? m.court + "コート" : "", c1 = m.court || "";
       const P = prefix ? [["hn", prefix]] : [];
-      const v = [[["hn", n], ["ht", t], ["hc", c]], [["hn", n], ["ht", t], ["hc", c1]], [["hn", n], ["ht", t]], [["hn", n]], [["ht", t], ["hc", c1]], [["ht", t]]]
+      const v = [[["hn", n], ["ht", t], ["hc", c]], [["hn", n], ["ht", t], ["hc", c1]], [["hn", n], ["ht", t]], [["hn", ns], ["ht", t], ["hc", c1]], [["hn", ns], ["ht", t]], [["ht", t]], [["hn", n]]]
         .map(parts => P.concat(parts.filter(x => x[1])));
       const w = (parts) => textUnits(parts.map(x => x[1]).join(" ")) * capFs * 1.15;
       const hit = v.find(x => w(x) <= avail) || v[v.length - 1];
@@ -268,7 +268,9 @@
         if (mine) g.append(bgD("bvMineBg"));
         else if (won) g.append(bgD("bvWinBg"));
         if (won || mine) g.append(el("rect", { x: x + 1, y: ry + 3, width: 5, height: rowH - 6, rx: 2.5, class: mine ? "bvMineBar" : "bvWinBar" }));
-        const label = team ? fit(teamLabel(team), nameMax) : "未定";
+        // 相手が未定なら「第○試合の勝者」（どの試合の勝ち上がりかを示す）
+        const feeder = !team && matches.find(x => x.nextMatchKey === key && x.nextSlot === side && !x.isBye && x.matchNum);
+        const label = team ? fit(teamLabel(team), nameMax) : feeder ? fit(textUnits(`第${feeder.matchNum}試合の勝者`) <= nameMax / 0.86 ? `第${feeder.matchNum}試合の勝者` : `第${feeder.matchNum}勝者`, nameMax / 0.86) : "未定";
         g.append(el("text", { x: x + 11, y: ry + rowH / 2 + 1, class: `bvName ${cls}` + (team ? "" : " tbd"), "font-size": team ? nameFs : fs * 0.86 }, label));
         if (score != null && score !== "") {
           const bx = x + cardW - scoreW - 4, bh = rowH - 6;

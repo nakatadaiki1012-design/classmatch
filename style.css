@@ -888,3 +888,23 @@ details[open] > summary { margin-bottom: 6px; }
 
 .lsClassLinks { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
 .lsClassBtn { min-height:40px; font-weight:800; }
+.autoCallOpt { display:flex; gap:8px; align-items:center; margin-top:10px; font-size:13px; color:var(--muted); }
+.autoCallOpt input { width:20px; height:20px; min-height:0; }
+/* コートごとの進行 */
+.courtBoard { display:flex; gap:8px; flex-wrap:wrap; align-items:stretch; margin:6px 0 10px; }
+.courtBoard:empty { display:none; }
+.cbTitle { width:100%; font-weight:800; font-size:13px; color:var(--muted); }
+.cbCourt { flex:1 1 260px; display:grid; grid-template-columns:auto 1fr; gap:4px 8px; background:#fff; border:1.5px solid var(--border); border-radius:12px; padding:8px; }
+.cbName { grid-row:span 2; font-size:24px; font-weight:900; color:var(--navy); align-self:center; text-align:center; min-width:44px; }
+.cbName small { display:block; font-size:10px; color:var(--muted); }
+.cbItem { display:grid; grid-template-columns:auto 1fr; gap:0 8px; text-align:left; padding:6px 8px; border-radius:8px; border:1px solid var(--border); background:#f8fafc; min-height:44px; cursor:pointer; }
+.cbItem b { grid-column:1 / -1; font-size:16px; }
+.cbItem .cbSt { font-weight:800; font-size:12px; }
+.cbItem .cbNo { font-size:12px; color:var(--muted); font-family:'Roboto Mono',ui-monospace,monospace; }
+.cbItem .cbNo i { font-style:normal; margin-right:4px; font-family:inherit; }
+.cbItem.playing { background:#fef2f2; border-color:#fca5a5; } .cbItem.playing .cbSt { color:#b91c1c; }
+.cbItem.calling { background:#fff7ed; border-color:#fdba74; } .cbItem.calling .cbSt { color:#c2410c; }
+.cbItem.next .cbSt { color:var(--muted); }
+.cbIdle { color:var(--muted); font-size:13px; align-self:center; padding:6px; }
+.cbItem b { color:var(--text, #0f172a); } .cbItem small { color:var(--muted); font-weight:600; }
+.cbItem:hover, .cbItem:focus { background:#eef2ff; color:inherit; } .cbItem.playing:hover { background:#fee2e2; } .cbItem.calling:hover { background:#ffedd5; }
