@@ -456,11 +456,11 @@
 </div>
 
 <h1>🎶 はじめてのガムラン教室</h1>
-<p class="lead">好きな楽器をえらんで、すぐ合奏に参加。ほかの楽器は自動で演奏します。レッスンで、インドネシアの青銅の合奏音楽「ガムラン」のしくみも順番に学べます。</p>
+<p class="lead">ガムラン隊の演奏を3Dで見て、聴いて、自分も叩いて参加できます。レッスンで、インドネシアの青銅の合奏音楽「ガムラン」のしくみも順番に学べます。</p>
 
 <nav class="tabs">
-  <button data-tab="jam" class="active">🥢<br>合奏</button>
-  <button data-tab="stage3d">🎭<br>3D合奏</button>
+  <button data-tab="stage3d" class="active">🎭<br>3D合奏</button>
+  <button data-tab="jam">🥢<br>合奏</button>
   <button data-tab="lesson">🎓<br>レッスン</button>
   <button data-tab="theory">🎼<br>セオリー</button>
   <button data-tab="play">🎹<br>自由演奏</button>
@@ -468,7 +468,7 @@
 </nav>
 
 <!-- ============ 合奏（最初のページ）：担当を選ぶと、ほかの楽器は自動で演奏 ============ -->
-<section id="page-jam" class="page active">
+<section id="page-jam" class="page">
   <div class="panel">
     <div class="jstep">① 演奏したい楽器をえらぶ</div>
     <div class="jhint" id="jamInstHint"></div>
@@ -485,7 +485,7 @@
 </section>
 
 <!-- ============ 3D合奏：奏者たちが演奏するようす ============ -->
-<section id="page-stage3d" class="page">
+<section id="page-stage3d" class="page active">
   <div class="panel s3panel">
     <div class="s3head"><select id="s3piece" aria-label="曲をえらぶ"></select></div>
     <div class="s3box" id="s3box"><canvas id="s3gl"></canvas><div id="s3labels"></div>
@@ -4155,6 +4155,7 @@ $('#s3insts').onclick = e => {
 function s3Tempo(d){ const v = Math.max(30, Math.min(160, Math.round(+$('#tempo').value + d))); $('#tempo').value = v; $('#tempo').oninput({target:$('#tempo')}); $('#s3bpm').textContent = '♩=' + v; }
 $('#s3slow').onclick = () => s3Tempo(-4); $('#s3fast').onclick = () => s3Tempo(4);
 let s3Cycle = null;
+setTimeout(() => { if ($('#page-stage3d').classList.contains('active')){ s3Sync(); open3D(); } }, 0);
 function s3Sync(){
   const sel = $('#s3piece'); if (!sel) return;
   if (!s3Cycle) s3Cycle = new CycleView($('#s3cycle')); else s3Cycle.build();
