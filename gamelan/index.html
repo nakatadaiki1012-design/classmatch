@@ -381,6 +381,30 @@
   .s3cam button.on{background:var(--accent); color:var(--onaccent);}
   .s3load{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; text-align:center; padding:20px; color:#2a1c13; font-weight:700; background:rgba(231,220,203,.92);}
   .s3st{font-size:.85rem; font-weight:700;}
+  .s3head select{width:100%;}
+  .s3dock{display:flex; gap:12px; align-items:center; margin-top:10px; flex-wrap:wrap;}
+  .s3cyc{flex:0 0 190px; max-width:190px; margin:0;} .s3cyc .gstrip{display:none;}
+  @media (max-width:520px){ .s3cyc{flex:0 0 150px; max-width:150px;} }
+  .s3right{flex:1 1 240px; display:flex; flex-direction:column; gap:6px; min-width:0;}
+  .s3ctl{gap:6px; align-items:center;}
+  .s3big{width:52px; height:52px; border-radius:50%; font-size:1.3rem; padding:0;}
+  .s3tempo{gap:4px; align-items:center;} .s3tempo button{width:34px; padding:6px 0;} .s3tempo b{font-size:.85rem; min-width:56px; text-align:center;}
+  .s3legend{display:flex; flex-wrap:wrap; gap:4px 10px; font-size:.72rem; color:var(--sub);} .s3legend i{display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:4px; vertical-align:-1px;}
+  .s3insts{display:flex; flex-wrap:wrap; gap:8px 16px; margin-top:12px; align-items:flex-start;}
+  .s3grp{display:flex; flex-wrap:wrap; align-items:center; gap:5px;}
+  .s3grp .gl{background:none; border:none; color:var(--g); font-weight:900; font-size:.9rem; padding:4px 4px 4px 0; display:inline-flex; align-items:baseline; gap:4px;}
+  .s3grp .gl small{font-size:.62rem; font-weight:700; border:1px solid var(--g); border-radius:6px; padding:0 4px; opacity:.85;}
+  .s3grp .gl.act small{background:var(--g); color:#1b120c;}
+  .s3ic{display:inline-flex; border:1.5px solid var(--g); border-radius:10px; overflow:hidden; background:color-mix(in srgb, var(--g) 14%, var(--panel2));}
+  .s3ic .t{background:none; border:none; color:var(--text); padding:4px 8px; text-align:left; line-height:1.15; font-size:.8rem;}
+  .s3ic .t small{display:block; font-size:.6rem; color:var(--sub); font-weight:400;}
+  .s3ic .i{background:none; border:none; border-left:1px solid color-mix(in srgb, var(--g) 50%, transparent); color:var(--sub); width:24px; padding:0; font-weight:800; font-size:.75rem;}
+  .s3ic.off{background:var(--panel); border-color:var(--line); opacity:.55;} .s3ic.off .t b{text-decoration:line-through;}
+  .s3ic.hot{box-shadow:0 0 0 2px var(--g);}
+  .s3all{padding:6px 12px; font-size:.8rem;}
+  .s3tag{border-left:4px solid var(--g, #c9a24a);}
+  .s3tag .nt{position:absolute; left:50%; top:-1.35em; transform:translateX(-50%); background:var(--g, #ffd36a); color:#1b120c; border-radius:999px; padding:0 6px; font-size:.72rem; font-weight:900; opacity:0; transition:opacity .12s;}
+  .s3tag .nt.on{opacity:1;}
   @media (max-width:520px){ .s3tag{font-size:.6rem; padding:1px 5px;} .s3tag small{display:none;} } .hwyc{display:block; width:100%; height:100px; border-radius:10px; background:#1a120c; border:1px solid var(--line);}
   .inst .key.target .ring,.inst .key.hintk .ring{opacity:1; animation:ringp .6s infinite alternate;}
   .inst .key.target, .inst .key.hintk{outline:none;}
@@ -463,16 +487,25 @@
 <!-- ============ 3D合奏：奏者たちが演奏するようす ============ -->
 <section id="page-stage3d" class="page">
   <div class="panel s3panel">
-    <div class="row s3ctl">
-      <select id="s3piece" aria-label="曲をえらぶ"></select>
-      <button id="s3play">▶ 合奏</button><button class="sec" id="s3stop">■ 止める</button><button class="sec" id="s3suwuk">終わりへ</button>
-      <span class="row" id="s3ir" style="gap:4px"><button class="sec on" data-ir="1">イラマ I</button><button class="sec" data-ir="2">イラマ II</button></span>
-    </div>
+    <div class="s3head"><select id="s3piece" aria-label="曲をえらぶ"></select></div>
     <div class="s3box" id="s3box"><canvas id="s3gl"></canvas><div id="s3labels"></div>
       <div class="s3cam" id="s3cam"><button data-cam="front" class="on">正面</button><button data-cam="top">真上</button><button data-cam="side">横</button><button data-cam="near">近く</button></div>
       <div class="s3load" id="s3load" hidden>3Dの舞台を準備中…</div></div>
-    <div class="row" style="justify-content:space-between;margin-top:6px"><span class="s3st" id="s3st">▶ を押すと合奏が始まります</span><label class="chk"><input type="checkbox" id="s3names" checked>名前を出す</label></div>
-    <p class="muted" style="margin:4px 0 0">奏者や名前をタップすると、その楽器を休ませたり戻したりできます。指でドラッグすると回せます（2本指で拡大）。</p>
+    <div class="s3dock">
+      <div id="s3cycle" class="cycwrap s3cyc"></div>
+      <div class="s3right">
+        <div class="row s3ctl">
+          <button id="s3play" class="s3big" aria-label="合奏をはじめる">▶</button><button class="sec" id="s3stop">■ 止める</button><button class="sec" id="s3suwuk">終わりへ</button>
+          <span class="row s3tempo"><button class="sec" id="s3slow" aria-label="遅く">−</button><b id="s3bpm">♩=72</b><button class="sec" id="s3fast" aria-label="速く">＋</button></span>
+          <span class="row" id="s3ir" style="gap:4px"><button class="sec on" data-ir="1">イラマ I</button><button class="sec" data-ir="2">イラマ II</button></span>
+        </div>
+        <div class="s3st" id="s3st">▶ を押すと合奏が始まります</div>
+        <div class="s3legend" id="s3legend"></div>
+        <label class="chk"><input type="checkbox" id="s3names" checked>名前を出す</label>
+      </div>
+    </div>
+    <section class="s3insts" id="s3insts" aria-label="楽器のオン・オフ"></section>
+    <p class="muted" style="margin:6px 0 0;text-align:center">舞台の奏者か、下の楽器名をタップすると、休ませたり戻したりできます。「だけ」でその役割だけを聴けます。指で回す・2本指で拡大。</p>
   </div>
   <div class="panel">
     <div class="jstep">🥢 自分も合奏に入る</div>
@@ -3363,7 +3396,7 @@ function init3D(){
   const gold = M(0xd4a645, {metalness:1, roughness:.28}), lacRed = M(0x7d1a12, {roughness:.38, metalness:.05}), lacBlack = M(0x1d1410, {roughness:.35});
   const woodM = new THREE.MeshStandardMaterial({color:col(0x6e3f1e), roughness:.55, map:grain}), woodDark = new THREE.MeshStandardMaterial({color:col(0x3e2412), roughness:.5, map:grain});
   const bamboo = M(0xcdb072, {roughness:.55}), cordM = M(0xe8d6ad, {roughness:.9}), skinHead = M(0xe9dcc0, {roughness:.85});
-  const ring0 = new THREE.RingGeometry(.52, .6, 40);
+  const ring0 = new THREE.RingGeometry(.48, .6, 40);
 
   // ---- 地面と建物 ----
   const world = new THREE.Group(); scene.add(world);
@@ -3634,7 +3667,7 @@ function init3D(){
   // 奏者 P.inst = 担当する楽器（複数可）。P.kind で動かし方を決める
   function perf(bali, k, x, z, rotY, insts, kind, opt={}){
     const P = figure(bali, k); P.g.position.set(x, 0, z); P.g.rotation.y = rotY; ens.add(P.g);
-    P.insts = insts; P.kind = kind; Object.assign(P, opt); PERF.push(P); return P; }
+    P.insts = insts; P.kind = kind; Object.assign(P, opt); P.group = groupOf(insts[0]); PERF.push(P); return P; }
   function buildEnsemble(form, laras){
     while (ens.children.length) ens.remove(ens.children[0]);
     PERF = []; INSTS = {}; KEYFLASH.length = 0; LABELS.forEach(l => l.el.remove()); LABELS = [];
@@ -3645,56 +3678,56 @@ function init3D(){
       const bonNs = LARAS[laras].notes;
       // 後列：ゴング類
       hangingGongs('gong', 4.35, -2.55, [{key:'G', R:.46, x:.5, y:.72, big:true}, ...LARAS[laras].notes.filter(d => [5,6,1,2,3].includes(d)).slice(0,2).map((d, i) => ({key:'P'+d, R:.19, x:-.22 - i*.4, y:.6}))], -Math.PI/2);
-      kenongInst('kenong', 1.35, -3.05, bonNs.filter(d => [6,1,2,3,5].includes(d)).slice(0,5));
-      smallKettles('kethuk', -.75, -2.85, [['t', .1, -.15], ['p', .075, .17]]);
-      // 中列：サロン類
-      genderInst('slenthem', -3.15, -1.15, bk, 1.4);
-      saronInst('demung', -1.75, -1.25, bk, 1.5); saronInst('demung2', -.55, -1.25, bk, 1.5);
-      saronInst('saron', .65, -1.25, bk, 1); saronInst('saron2', 1.8, -1.25, bk, 1);
-      saronInst('peking', 2.95, -1.2, bk, .55);
-      // 前列：ボナン・クンダン・柔らかい楽器
-      bonangInst('bonang', -2.75, .55, bonNs, 1); bonangInst('panerus', -2.75, 1.75, bonNs, .3);
-      kendhangInst('kendhang', .05, .9, false);
-      genderInst('gender', 2.35, .55, [...bonNs.map(d => [d,0]), ...bonNs.map(d => [d,1])], .9);
-      rebabInst('rebab', 1.1, 1.75); sulingInst('suling', 3.55, 1.75);
+      kenongInst('kenong', 1.2, -3.15, bonNs.filter(d => [6,1,2,3,5].includes(d)).slice(0,5));
+      smallKettles('kethuk', -.9, -2.85, [['t', .1, -.15], ['p', .075, .17]]);
+      // 中列：骨組み（サロン類）を一列に
+      genderInst('slenthem', -3.55, -1.15, bk, 1.4);
+      saronInst('demung', -2.15, -1.15, bk, 1.5); saronInst('demung2', -.75, -1.15, bk, 1.5);
+      saronInst('saron', .65, -1.15, bk, 1); saronInst('saron2', 2.0, -1.15, bk, 1);
+      saronInst('peking', 3.35, -1.15, bk, .55);
+      // 前列：飾りと指揮と柔らかい楽器を一列に
+      bonangInst('bonang', -3.2, .75, bonNs, 1); bonangInst('panerus', -1.65, .75, bonNs, .3);
+      kendhangInst('kendhang', 0, .95, false);
+      genderInst('gender', 1.6, .75, [...bonNs.map(d => [d,0]), ...bonNs.map(d => [d,1])], .9);
+      rebabInst('rebab', 2.85, .75); sulingInst('suling', 3.75, .75);
       const S0 = 0, behind = I => I.g.position.z - (I.depth||.4)/2 - .33;
       perf(false, k++, 3.72, -2.5, Math.PI/2, ['gong','kempul'], 'gong');
-      perf(false, k++, 1.35, -3.12, 0, ['kenong'], 'kenong');
-      perf(false, k++, -.75, -2.47, 0, ['kethuk','kempyang'], 'kethuk');
-      perf(false, k++, -3.15, behind(INSTS.slenthem), 0, ['slenthem'], 'bars', {iid:'slenthem', head:'disc', len:.24});
-      perf(false, k++, -1.75, behind(INSTS.demung), 0, ['demung'], 'bars', {iid:'demung', head:'hammer', len:.26});
-      perf(false, k++, -.55, behind(INSTS.demung2), 0, ['demung'], 'bars', {iid:'demung2', head:'hammer', len:.26});
+      perf(false, k++, 1.2, -3.22, 0, ['kenong'], 'kenong');
+      perf(false, k++, -.9, -2.47, 0, ['kethuk','kempyang'], 'kethuk');
+      perf(false, k++, -3.55, behind(INSTS.slenthem), 0, ['slenthem'], 'bars', {iid:'slenthem', head:'disc', len:.24});
+      perf(false, k++, -2.15, behind(INSTS.demung), 0, ['demung'], 'bars', {iid:'demung', head:'hammer', len:.26});
+      perf(false, k++, -.75, behind(INSTS.demung2), 0, ['demung'], 'bars', {iid:'demung2', head:'hammer', len:.26});
       perf(false, k++, .65, behind(INSTS.saron), 0, ['saron'], 'bars', {iid:'saron', head:'hammer', len:.22});
-      perf(false, k++, 1.8, behind(INSTS.saron2), 0, ['saron'], 'bars', {iid:'saron2', head:'hammer', len:.22});
-      perf(false, k++, 2.95, behind(INSTS.peking), 0, ['peking'], 'bars', {iid:'peking', head:'horn', len:.2});
-      perf(false, k++, -2.75, behind(INSTS.bonang), 0, ['bonang'], 'kettles', {iid:'bonang', head:'pad', len:.24});
-      perf(false, k++, -2.75, behind(INSTS.panerus), 0, ['panerus'], 'kettles', {iid:'panerus', head:'pad', len:.22});
-      perf(false, k++, .05, .5, 0, ['kendhang'], 'drum');
-      perf(false, k++, 2.35, behind(INSTS.gender), 0, ['gender'], 'kettles', {iid:'gender', head:'disc', len:.2});
-      perf(false, k++, 1.1, 1.75, 0, ['rebab'], 'rebab');
-      perf(false, k++, 3.55, 1.75, 0, ['suling'], 'suling');
+      perf(false, k++, 2.0, behind(INSTS.saron2), 0, ['saron'], 'bars', {iid:'saron2', head:'hammer', len:.22});
+      perf(false, k++, 3.35, behind(INSTS.peking), 0, ['peking'], 'bars', {iid:'peking', head:'horn', len:.2});
+      perf(false, k++, -3.2, behind(INSTS.bonang), 0, ['bonang'], 'kettles', {iid:'bonang', head:'pad', len:.24});
+      perf(false, k++, -1.65, behind(INSTS.panerus), 0, ['panerus'], 'kettles', {iid:'panerus', head:'pad', len:.22});
+      perf(false, k++, 0, .55, 0, ['kendhang'], 'drum');
+      perf(false, k++, 1.6, behind(INSTS.gender), 0, ['gender'], 'kettles', {iid:'gender', head:'disc', len:.2});
+      perf(false, k++, 2.85, .75, 0, ['rebab'], 'rebab');
+      perf(false, k++, 3.75, .75, 0, ['suling'], 'suling');
     } else {
       const gk = gangsaKeys(), ck = calungKeys();
       hangingGongs('gong', 4.3, -2.4, [{key:'G', R:.46, x:.5, y:.72, big:true}, {key:'P', R:.27, x:-.28, y:.64}, {key:'N', R:.16, x:-.76, y:.58}], -Math.PI/2);
       smallKettles('kajar', 1.55, -2.55, [['j', .1, 0]]);
       cengInst('ceng', -.1, -2.5);
-      baliBars('jegogan', -3.0, -1.35, ck, 1.6, 5); baliBars('jegogan2', -1.45, -1.35, ck, 1.6, 5);
-      baliBars('calung', .15, -1.35, ck, 1.15, 5); baliBars('calung2', 1.65, -1.35, ck, 1.15, 5);
-      baliBars('polos', -2.6, .5, gk, .65); baliBars('polos2', -.95, .5, gk, .65);
-      baliBars('sangsih', .95, .5, gk, .65); baliBars('sangsih2', 2.6, .5, gk, .65);
+      baliBars('jegogan', -2.7, -1.25, ck, 1.6, 5); baliBars('jegogan2', -1.25, -1.25, ck, 1.6, 5);
+      baliBars('calung', .2, -1.25, ck, 1.15, 5); baliBars('calung2', 1.6, -1.25, ck, 1.15, 5);
+      baliBars('polos', -2.4, .55, gk, .65); baliBars('polos2', -.8, .55, gk, .65);
+      baliBars('sangsih', .8, .55, gk, .65); baliBars('sangsih2', 2.4, .55, gk, .65);
       kendhangInst('kendhang', 0, 1.9, true);
       const behind = I => I.g.position.z - (I.depth||.4)/2 - .33;
       perf(true, k++, 3.67, -2.45, Math.PI/2, ['gong','kempul','kenong'], 'gong');
       perf(true, k++, 1.55, -2.17, 0, ['kajar'], 'kenong', {iid:'kajar'});
       perf(true, k++, -.1, -2.0, 0, ['ceng'], 'ceng');
-      perf(true, k++, -3.0, behind(INSTS.jegogan), 0, ['jegogan'], 'bars', {iid:'jegogan', head:'pad', len:.28});
-      perf(true, k++, -1.45, behind(INSTS.jegogan2), 0, ['jegogan'], 'bars', {iid:'jegogan2', head:'pad', len:.28});
-      perf(true, k++, .15, behind(INSTS.calung), 0, ['calung'], 'bars', {iid:'calung', head:'hammer', len:.24});
-      perf(true, k++, 1.65, behind(INSTS.calung2), 0, ['calung'], 'bars', {iid:'calung2', head:'hammer', len:.24});
-      perf(true, k++, -2.6, behind(INSTS.polos), 0, ['polos'], 'bars', {iid:'polos', head:'hammer', len:.22});
-      perf(true, k++, -.95, behind(INSTS.polos2), 0, ['polos'], 'bars', {iid:'polos2', head:'hammer', len:.22});
-      perf(true, k++, .95, behind(INSTS.sangsih), 0, ['sangsih'], 'bars', {iid:'sangsih', head:'hammer', len:.22});
-      perf(true, k++, 2.6, behind(INSTS.sangsih2), 0, ['sangsih'], 'bars', {iid:'sangsih2', head:'hammer', len:.22});
+      perf(true, k++, -2.7, behind(INSTS.jegogan), 0, ['jegogan'], 'bars', {iid:'jegogan', head:'pad', len:.28});
+      perf(true, k++, -1.25, behind(INSTS.jegogan2), 0, ['jegogan'], 'bars', {iid:'jegogan2', head:'pad', len:.28});
+      perf(true, k++, .2, behind(INSTS.calung), 0, ['calung'], 'bars', {iid:'calung', head:'hammer', len:.24});
+      perf(true, k++, 1.6, behind(INSTS.calung2), 0, ['calung'], 'bars', {iid:'calung2', head:'hammer', len:.24});
+      perf(true, k++, -2.4, behind(INSTS.polos), 0, ['polos'], 'bars', {iid:'polos', head:'hammer', len:.22});
+      perf(true, k++, -.8, behind(INSTS.polos2), 0, ['polos'], 'bars', {iid:'polos2', head:'hammer', len:.22});
+      perf(true, k++, .8, behind(INSTS.sangsih), 0, ['sangsih'], 'bars', {iid:'sangsih', head:'hammer', len:.22});
+      perf(true, k++, 2.4, behind(INSTS.sangsih2), 0, ['sangsih'], 'bars', {iid:'sangsih2', head:'hammer', len:.22});
       perf(true, k++, 0, 1.5, 0, ['kendhang'], 'drum');
     }
     // バチを持たせる
@@ -3724,7 +3757,8 @@ function init3D(){
       if (iid === 'demung') c.x = (INSTS.demung.g.position.x + INSTS.demung2.g.position.x)/2;
       if (iid === 'saron') c.x = (INSTS.saron.g.position.x + INSTS.saron2.g.position.x)/2;
       if (iid === 'jegogan' || iid === 'calung' || iid === 'polos' || iid === 'sangsih') c.x = (INSTS[iid].g.position.x + INSTS[iid + '2'].g.position.x)/2;
-      const el = document.createElement('button'); el.className = 's3tag'; el.innerHTML = `${name}<small>${role}</small>`; el.dataset.insts = insts.join(' ');
+      const el = document.createElement('button'); el.className = 's3tag'; el.innerHTML = `<span class="nt"></span>${name}<small>${role}</small>`; el.dataset.insts = insts.join(' ');
+      el.style.setProperty('--g', '#' + (GCOL[groupOf(insts[0])] || 0xc9a24a).toString(16).padStart(6, '0'));
       el.onclick = () => toggleMute(insts); layer.appendChild(el);
       LABELS.push({el, at:c, insts}); }
     syncMute();
@@ -3747,9 +3781,17 @@ function init3D(){
       const mm = new THREE.Mesh(mg, mat); mm.castShadow = shadow; mm.receiveShadow = true; root.add(mm); }
   }
 
+  // ---- 役割の色（骨組み＝緑、飾り＝紫、区切り＝金、指揮＝桃、柔らかい楽器＝灰） ----
+  const GCOL = {bal:0x7fd3a0, elab:0xc59bff, colo:0xe9b44c, drum:0xff7b9c, soft:0x9fb6c8};
+  const groupOf = inst => (S3_GROUPS[S.form === 'bali' ? 'bali' : 'java'].find(g => g.insts.some(i => S3_KEYS(i[0]).includes(inst))) || {id:'colo'}).id;
+  // 波紋：叩いた瞬間に、奏者の足もとから役割の色の輪が広がる
+  const ripples = [], rgeo = new THREE.RingGeometry(.44, .56, 48), RIPQ = [];
+  function ripple(P){ let r = ripples.find(q => !q.on); if (!r){ r = {m:new THREE.Mesh(rgeo, new THREE.MeshBasicMaterial({transparent:true, opacity:0, depthWrite:false}))}; r.m.rotation.x = -Math.PI/2; scene.add(r.m); ripples.push(r); }
+    r.on = true; r.t = 0; const wp = P.g.localToWorld(V(0, .015, .25)); r.m.position.copy(wp); r.m.material.color.set(GCOL[P.group] || 0xffd36a); }
+
   // ---- 休ませる・戻す ----
   function toggleMute(insts){ const on = !insts.every(i => S.mutedInst[i]); insts.forEach(i => S.mutedInst[i] = on); syncMute(); }
-  function syncMute(){ for (const L of LABELS) L.el.classList.toggle('off', L.insts.every(i => S.mutedInst[i])); }
+  function syncMute(){ for (const L of LABELS) L.el.classList.toggle('off', L.insts.every(i => S.mutedInst[i])); s3Chips(); }
   G3.syncMute = syncMute;
 
   // ---- 音が鳴った（鳴る予定）ときに、奏者の打つ動きを予約する ----
@@ -3759,7 +3801,8 @@ function init3D(){
     const loc = toLocal(P, w), dir = opt.dir ? opt.dir.clone().applyQuaternion(P.g.quaternion.clone().invert()) : UPV;
     const s = {t, head:loc, dir, H:opt.H ?? .13, mesh:opt.mesh};
     const q = P.q[side]; q.push(s); if (q.length > 1 && q[q.length-2].t > t) q.sort((a,b) => a.t - b.t);
-    if (opt.mesh) KEYFLASH.push({m:opt.mesh, t}); P.last = t; }
+    if (opt.mesh) KEYFLASH.push({m:opt.mesh, t}); P.last = t;
+    if (!(P.ripT > t - .2)){ P.ripT = t; RIPQ.push({P, t}); } }
   const sideOf = (P, w) => toLocal(P, w).x >= 0 ? 'L' : 'R';
   G3.hit = (inst, ev, t) => {
     for (const P of PERF){ if (!P.insts.includes(inst)) continue;
@@ -3791,10 +3834,14 @@ function init3D(){
       } else if (P.kind === 'ceng'){
         const w = I.keys.c; [-1,1].forEach(s => { const ww = w.clone(); ww.x += s*.07; strike(P, s < 0 ? 'R' : 'L', t, ww, {H:.12}); });
       } else if (P.kind === 'rebab'){
-        P.bow = {t, dur: ev.durSec || .8, dir: (P.bow ? -P.bow.dir : 1)}; P.last = t;
-      } else if (P.kind === 'suling'){ P.blow = {t, dur: ev.durSec || 1}; P.last = t; }
+        P.bow = {t, dur: ev.durSec || .8, dir: (P.bow ? -P.bow.dir : 1)}; P.last = t; RIPQ.push({P, t});
+      } else if (P.kind === 'suling'){ P.blow = {t, dur: ev.durSec || 1}; P.last = t; RIPQ.push({P, t}); }
     }
+    // 名札に、いま鳴らした音（数字や「ゴン」など）を出す
+    const txt = inst === 'kendhang' ? (HWY_DR[ev.k] || '') : ev.gemb ? `${ev.d}+${ev.d}` : ({gong:'ゴン', kempul:'プル', kenong:S.form === 'bali' ? 'モン' : 'ノン', kethuk:'トゥッ', kempyang:'ピャン', kajar:'ジャ', ceng:'チェン'}[inst] || (ev.d ? String(ev.d) : ''));
+    LASTNOTE[inst] = {txt, t};
   };
+  const LASTNOTE = {};
 
   // ---- 毎フレーム：手・腕・バチを動かす ----
   const tA = V(0,0,0), tB = V(0,0,0), tC = V(0,0,0), ZAX = V(0,0,1);
@@ -3817,8 +3864,8 @@ function init3D(){
     const muted = P.insts.every(i => S.mutedInst[i]);
     const age = P.last != null ? now - P.last : 99;
     P.lv += ((age >= 0 && age < .35 ? 1 - age/.35 : 0) - P.lv) * Math.min(1, dt*20);
-    P.halo.material.opacity = muted ? .0 : P.lv*.75 + (playing ? .08 : 0);
-    P.halo.material.color.set(muted ? 0x888888 : 0xffd36a);
+    P.halo.material.opacity = muted ? .15 : Math.min(1, P.lv*.6 + (playing ? .45 : .3));
+    P.halo.material.color.set(muted ? 0x777777 : (GCOL[P.group] || 0xffd36a));
     const breath = Math.sin(now*1.6 + P.bob)*.004;
     // 遠い鍵盤には上半身を傾け・ひねって手をのばす
     let wantLean = 0, wantTwist = 0;
@@ -3907,6 +3954,9 @@ function init3D(){
     const now = ctx ? ctx.currentTime - outLat() : ms/1000;
     const playing = S.playing || !!PW;
     for (const P of PERF) updatePerformer(P, now, dt, playing);
+    for (let i = RIPQ.length - 1; i >= 0; i--){ if (RIPQ[i].t <= now){ if (now - RIPQ[i].t < .3 && !RIPQ[i].P.insts.every(x => S.mutedInst[x])) ripple(RIPQ[i].P); RIPQ.splice(i, 1); } }
+    for (const r of ripples){ if (!r.on) continue; r.t += dt; const u = r.t/.7; if (u >= 1){ r.on = false; r.m.material.opacity = 0; continue; }
+      r.m.scale.setScalar(.75 + u*1.3); r.m.material.opacity = (1 - u)*.95; }
     for (let i = KEYFLASH.length - 1; i >= 0; i--){ const f = KEYFLASH[i], a = now - f.t;
       if (a < 0) continue; if (a > .5){ f.m.material.emissiveIntensity = 0; KEYFLASH.splice(i, 1); continue; }
       f.m.material.emissiveIntensity = (1 - a/.5) * .9; }
@@ -3916,7 +3966,10 @@ function init3D(){
     for (const L of LABELS){ const p = L.at.clone().applyMatrix4(ens.matrixWorld).project(camera);
       const vis = show && p.z < 1 && Math.abs(p.x) < 1.1 && Math.abs(p.y) < 1.1;
       L.el.style.display = vis ? '' : 'none'; if (vis) L.el.style.transform = `translate(${((p.x + 1)/2*w).toFixed(1)}px, ${((1 - p.y)/2*h).toFixed(1)}px) translate(-50%, -100%)`;
-      const act = L.insts.some(i => PERF.some(P => P.insts.includes(i) && P.lv > .3)); L.el.classList.toggle('act', act); }
+      const act = L.insts.some(i => PERF.some(P => P.insts.includes(i) && P.lv > .3)); L.el.classList.toggle('act', act);
+      let ln = null; for (const i of L.insts){ const x = LASTNOTE[i]; if (x && x.t <= now && now - x.t < .45 && (!ln || x.t > ln.t)) ln = x; }
+      const nt = L.el.firstChild; if (ln){ if (nt.textContent !== ln.txt) nt.textContent = ln.txt; nt.classList.add('on'); } else nt.classList.remove('on'); }
+    s3Hot(now);
     s3Status();
   }
   G3.rebuild = () => { const key = S.form + '|' + S.laras; if (key === curKey) return; curKey = key; buildEnsemble(S.form, S.laras); };
@@ -3928,13 +3981,60 @@ function init3D(){
       out[(P.iid||P.insts[0]) + '@' + P.g.position.x.toFixed(1)] = bad + ' / ' + Object.keys(P.inst.keys).length + ' (max ' + worst.toFixed(2) + ')'; } return out; };
   G3.resize = resize; G3.setCam = setCam; G3.info = renderer.info; G3.look = (p, t) => { camAnim = null; camera.position.set(...p); controls.target.set(...t); controls.update(); };
   G3.sync = () => { G3.rebuild(); syncMute(); };
-  G3.ready = true;
+  G3.ready = true; G3.lastNote = LASTNOTE;
   G3.rebuild(); resize(); requestAnimationFrame(frame);
 }
 
 // ---- 3D合奏ページの操作 ----
+// 役割のまとまり（雅楽シミュレーターの「吹物・弾物・打物」のように）
+const S3_GROUPS = {
+  java:[{id:'bal', k:'骨組み', c:'#7fd3a0', insts:[['saron','サロン','旋律の骨組み'],['demung','デムン','低い骨組み'],['slenthem','スレンテム','いちばん低い']]},
+        {id:'elab', k:'飾り', c:'#c59bff', insts:[['peking','ペキン','先取り'],['bonang','ボナン','飾る'],['panerus','パネルス','細かく飾る']]},
+        {id:'colo', k:'区切り', c:'#e9b44c', insts:[['gong','ゴング','1周の終わり'],['kempul','クンプル','区切りの間'],['kenong','クノン','大きな区切り'],['kethuk','クトゥッ','細かい区切り']]},
+        {id:'drum', k:'指揮', c:'#ff7b9c', insts:[['kendhang','クンダン','テンポを決める']]},
+        {id:'soft', k:'柔らかい', c:'#9fb6c8', insts:[['gender','グンデル','やさしく飾る'],['rebab','ルバブ','旋律を歌う'],['suling','スリン','笛']]}],
+  bali:[{id:'bal', k:'骨組み', c:'#7fd3a0', insts:[['calung','チャルン','旋律の骨組み'],['jegogan','ジェゴガン','低い骨組み']]},
+        {id:'elab', k:'コテカン', c:'#c59bff', insts:[['polos','ポロス','かみ合わせの表'],['sangsih','サンシ','かみ合わせの裏']]},
+        {id:'colo', k:'区切り', c:'#e9b44c', insts:[['gong','ゴング','1周の終わり'],['kempul','クンプール','半分の区切り'],['kenong','クモン','区切り'],['kajar','カジャール','拍を刻む'],['ceng','チェンチェン','シンバル']]},
+        {id:'drum', k:'指揮', c:'#ff7b9c', insts:[['kendhang','クンダン','リーダー']]}],
+};
+const S3_KEYS = id => id === 'kethuk' ? ['kethuk','kempyang'] : [id];
+const S3_THEORY = {gender:'soft', rebab:'soft', suling:'soft', jegogan:'calung'};
+function s3AllInsts(){ return S3_GROUPS[S.form === 'bali' ? 'bali' : 'java'].flatMap(g => g.insts.flatMap(i => S3_KEYS(i[0]))); }
+function s3Set(list){ const on = new Set(list); for (const i of s3AllInsts()){ S.mutedInst[i] = !on.has(i); if (on.has(i)) S.muted[laneOf(i)] = false; } renderLanes(); G3.syncMute ? G3.syncMute() : s3Chips(); }
+function s3BuildInsts(){
+  const box = $('#s3insts'); if (!box) return; const gs = S3_GROUPS[S.form === 'bali' ? 'bali' : 'java'];
+  box.innerHTML = gs.map(g => `<div class="s3grp" style="--g:${g.c}"><button class="gl" data-solo="${g.id}" aria-label="${g.k}だけ聴く">${g.k}<small>だけ</small></button>${
+    g.insts.map(([id, n, r]) => `<span class="s3ic" data-ic="${id}"><button class="t" aria-label="${n}をオン・オフ"><b>${n}</b><small>${r}</small></button>${THEORY.some(t => t.id === (S3_THEORY[id]||id)) ? `<button class="i" aria-label="${n}のしくみ">i</button>` : ''}</span>`).join('')}</div>`).join('')
+    + '<button class="sec s3all" data-all="1">全員</button>';
+  $('#s3legend').innerHTML = gs.map(g => `<span><i style="background:${g.c}"></i>${g.k}</span>`).join('');
+  s3Chips(); }
+function s3Chips(){
+  const gs = S3_GROUPS[S.form === 'bali' ? 'bali' : 'java'], off = id => S3_KEYS(id).every(i => S.mutedInst[i] || S.muted[laneOf(i)]);
+  document.querySelectorAll('#s3insts [data-ic]').forEach(c => c.classList.toggle('off', off(c.dataset.ic)));
+  for (const g of gs){ const b = document.querySelector(`#s3insts [data-solo="${g.id}"]`); if (!b) continue;
+    const mine = new Set(g.insts.flatMap(i => S3_KEYS(i[0]))); b.classList.toggle('act', s3AllInsts().every(i => (S.mutedInst[i] || S.muted[laneOf(i)]) === !mine.has(i))); }
+}
+let s3HotT = 0;
+function s3Hot(now){ // いま鳴らしている楽器のボタンを光らせる
+  if (performance.now() - s3HotT < 80) return; s3HotT = performance.now();
+  document.querySelectorAll('#s3insts [data-ic]').forEach(c => { const hot = S3_KEYS(c.dataset.ic).some(i => { const x = G3.lastNote && G3.lastNote[i]; return x && x.t <= now && now - x.t < .3; }); c.classList.toggle('hot', hot); }); }
+$('#s3insts').onclick = e => {
+  const all = e.target.closest('[data-all]'); if (all){ s3Set(s3AllInsts()); return; }
+  const solo = e.target.closest('[data-solo]'); if (solo){ const g = S3_GROUPS[S.form === 'bali' ? 'bali' : 'java'].find(x => x.id === solo.dataset.solo);
+    s3Set(solo.classList.contains('act') ? s3AllInsts() : g.insts.flatMap(i => S3_KEYS(i[0]))); return; }
+  const ic = e.target.closest('[data-ic]'); if (!ic) return; const id = ic.dataset.ic;
+  if (e.target.closest('.i')){ curTheory = S3_THEORY[id] || id; document.querySelector('.tabs [data-tab="theory"]').click(); renderTheoryGroups(); renderTheory(); window.scrollTo({top:0, behavior:'smooth'}); return; }
+  const keys = S3_KEYS(id), turnOn = keys.every(i => S.mutedInst[i] || S.muted[laneOf(i)]);
+  keys.forEach(i => { S.mutedInst[i] = !turnOn; if (turnOn) S.muted[laneOf(i)] = false; }); renderLanes(); G3.syncMute ? G3.syncMute() : s3Chips(); };
+function s3Tempo(d){ const v = Math.max(30, Math.min(160, Math.round(+$('#tempo').value + d))); $('#tempo').value = v; $('#tempo').oninput({target:$('#tempo')}); $('#s3bpm').textContent = '♩=' + v; }
+$('#s3slow').onclick = () => s3Tempo(-4); $('#s3fast').onclick = () => s3Tempo(4);
+let s3Cycle = null;
 function s3Sync(){
   const sel = $('#s3piece'); if (!sel) return;
+  if (!s3Cycle) s3Cycle = new CycleView($('#s3cycle')); else s3Cycle.build();
+  $('#s3bpm').textContent = '♩=' + $('#tempo').value;
+  s3BuildInsts();
   sel.innerHTML = $('#pieceSel').innerHTML; sel.value = $('#pieceSel').value;
   const bali = S.form === 'bali';
   $('#s3ir').style.display = bali ? 'none' : '';
