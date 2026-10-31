@@ -909,3 +909,39 @@ details[open] > summary { margin-bottom: 6px; }
 .cbItem b { color:var(--text, #0f172a); } .cbItem small { color:var(--muted); font-weight:600; }
 .cbItem:hover, .cbItem:focus { background:#eef2ff; color:inherit; } .cbItem.playing:hover { background:#fee2e2; } .cbItem.calling:hover { background:#ffedd5; }
 .sportMore { width:100%; margin-top:4px; } .sportMore > summary { cursor:pointer; font-size:13px; color:var(--muted); font-weight:700; padding:4px 0; } .biBadge.warn{color:#b45309;}
+
+/* ── スマホ: スクロールを減らす（試合の一覧を上に、表は下に。コートは2列で小さく）── */
+@media (max-width: 640px) {
+  #eventView .grid2 { display: flex; flex-direction: column; gap: 10px; }
+  #eventView #adminPanel { order: -1; align-self: stretch; width: auto !important; position: static !important; padding: 8px; }
+  #dashboardText { display: none; }
+  #matchList { max-height: 46vh; }
+  #eventView .mlRow { padding-top: 6px; padding-bottom: 6px; }
+  .courtBoard { gap: 6px; margin: 4px 0 8px; }
+  .cbTitle { display: none; }
+  .cbCourt { flex: 1 1 calc(50% - 6px); min-width: 0; grid-template-columns: 1fr; padding: 6px; gap: 4px; }
+  .cbName { grid-row: auto; font-size: 14px; text-align: left; min-width: 0; }
+  .cbName small { display: inline; margin-left: 2px; }
+  .cbItem { padding: 4px 6px; min-height: 40px; }
+  .cbItem b { font-size: 14px; }
+  .cbItem .cbNo { font-size: 11px; }
+  .cbItem + .cbItem.next { display: none; }    /* スマホでは試合中・招集中があればそれだけ表示 */
+  .cbIdle { padding: 2px; font-size: 12px; }
+  .evHeader { margin: 2px 0 6px; }
+  .evHeader h2 { font-size: 20px; }
+  #btnToggleAdmin { display: none; }
+}
+@media (max-width: 640px) {
+  .sportCard { padding: 10px !important; }
+  .sportCard > .row { display: grid !important; grid-template-columns: 1fr 1fr; gap: 6px 8px !important; align-items: end; }
+  .sportCard > .row > label { min-width: 0; font-size: 12px; }
+  .sportCard > .row input, .sportCard > .row select { width: 100% !important; min-width: 0; }
+  .sportCard > .row > label:has(.courts) { grid-column: 1 / -1; }
+  .sportCard > .row > div { min-height: 44px; }
+  .sportCard > .row > div label { white-space: nowrap; font-size: 12px; }
+  .sportCard > .row > div { gap: 4px !important; padding: 2px 6px !important; }
+  .sportCard .sportMore { grid-column: 1; align-self: center; }
+  .sportCard .sportMore[open] { grid-column: 1 / -1; }
+  .sportCard .btnRemove { grid-column: 2; justify-self: end; min-height: 36px; padding: 4px 12px; }
+  .sportLabel { display: none; }
+}
