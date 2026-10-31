@@ -161,7 +161,7 @@
 
       <div class="wizPane" data-pane="4">
         <div class="wizGenerate">
-          <button id="btnGenerateAll">⚡ ブラケット生成</button>
+          <button id="btnGenerateAll">⚡ トーナメントツリーを作成</button>
           <button id="btnGoEvents" class="hidden">一覧</button>
           <button id="btnReschedule" class="ghost">🕒 時間だけ作り直す</button>
           <span class="small">「生成」は抽選からやり直し（組み合わせ・結果が変わる）／「時間だけ」は組み合わせと結果をそのままに、時刻とコートを競技設定どおりに直します</span>
@@ -296,7 +296,7 @@
       <h3>📱 スマホで結果を入力する</h3>
       <div class="small" style="margin-bottom:8px; line-height:1.8;">
         この管理画面はスマホ・タブレットでもそのまま使えます。生徒審判に入力を任せる場合は：<br />
-        ① 管理画面を開き、トーナメント表の<b>試合の枠をタップ</b><br />
+        ① 管理画面を開き、トーナメントツリーの<b>試合の枠をタップ</b><br />
         ② <b>勝ったクラスの「勝ち」ボタンを1回押す</b>だけで確定（点数は任意）<br />
         ③ リアルタイム共有をオンにしていれば、生徒の画面にも自動で反映されます
       </div>
@@ -341,7 +341,7 @@
           <div class="row between" style="margin-bottom:8px; flex-wrap:wrap; gap:8px;">
             <div class="row" style="align-items:center;">
               <div class="print-hide">
-                <button id="tabBracket" data-active="1">ブラケット</button>
+                <button id="tabBracket" data-active="1">トーナメントツリー</button>
                 <button id="tabTable">タイムテーブル</button>
               </div>
               <div style="margin-left:12px; display:flex; gap:8px; align-items:center;"
@@ -377,12 +377,12 @@
           <!-- 表示調整パネル -->
           <div id="uiPanel" class="hidden">
             <div class="uiPanelHeader">
-              <span>🎛️ ブラケット表示調整</span>
+              <span>🎛️ トーナメントツリー表示調整</span>
               <button id="btnUiClose" class="ghost small">✕ 閉じる</button>
             </div>
-            <!-- メインブラケット用 -->
+            <!-- メイントーナメントツリー用 -->
             <div class="uiPanelSection">
-              <div class="uiPanelSectionLabel">◼ メインブラケット</div>
+              <div class="uiPanelSectionLabel">◼ メイントーナメントツリー</div>
               <div class="uiSliderGrid">
                 <div class="uiSliderRow"><label>テキスト<input id="uiFont" type="range" min="10" max="22"
                       value="13" /></label><span class="uiVal" id="uiFontV">13</span></div>
@@ -549,7 +549,7 @@
 
       <!-- ① 対象チーム数・スケジュール -->
       <div style="background:var(--surface2); padding:10px; border-radius:4px; margin-bottom:12px;">
-        <div style="font-size:11px; font-weight:700; color:var(--muted); margin-bottom:8px; text-transform:uppercase; letter-spacing:.5px;">① ブラケット規模・スケジュール</div>
+        <div style="font-size:11px; font-weight:700; color:var(--muted); margin-bottom:8px; text-transform:uppercase; letter-spacing:.5px;">① トーナメントツリー規模・スケジュール</div>
         <div class="row" style="flex-wrap:wrap; gap:10px; margin-bottom:10px; align-items:center;">
           <label>対象チーム数:
             <select id="lsTeamCountSel" style="width:160px;">

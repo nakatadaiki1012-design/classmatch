@@ -1,5 +1,5 @@
 // classmatch_local v1.3 管理ページ
-// 変更: かぎ型ブラケット線, クラスピッカー, バージョンログ, クラス数制限を撤廃
+// 変更: かぎ型トーナメントツリー線, クラスピッカー, バージョンログ, クラス数制限を撤廃
 (function () {
   const el = (id) => document.getElementById(id);
   const statusBar = el("statusBar");
@@ -52,7 +52,7 @@
       version: "1.4.0",
       date: "2026-02-28",
       changes: [
-        "参加チーム数に応じたブラケット情報バナーをリアルタイム表示",
+        "参加チーム数に応じたトーナメントツリー情報バナーをリアルタイム表示",
         "BYEを標準的なトーナメント形式（対称配置）に改善",
         "シード設定機能を追加（先頭Nチームを有利な枠に固定配置）",
         "ラウンド名を改善（決勝/準決勝/準々決勝/R○回戦）",
@@ -63,11 +63,11 @@
       version: "1.3.0",
       date: "2026-02-25",
       changes: [
-        "ブラケット接続線をかぎ型（直角）コネクターに変更",
+        "トーナメントツリー接続線をかぎ型（直角）コネクターに変更",
         "クラス一括生成ピッカーを追加（学年×クラス数×形式）",
         "UIデザインを全面刷新（Noto Sans JP / カード型）",
         "クラス数の「24固定」制限を撤廃（2〜128クラスに対応）",
-        "ブラケットのデフォルト幅を縮小（クラス名がコンパクトに表示）",
+        "トーナメントツリーのデフォルト幅を縮小（クラス名がコンパクトに表示）",
         "バージョンログを追加"
       ]
     },
@@ -874,7 +874,7 @@
         else tr.classList.remove("ongoing-row");
       }
 
-      // ブラケットSVGのハイライト
+      // トーナメントツリーSVGのハイライト
       const hlTag = el(`match-hl-${key}`);
       if (hlTag) {
         if (isOngoing) {
@@ -1180,14 +1180,14 @@
             <option value="5" ${v.sets === 5 ? "selected" : ""}>5 セット (3勝)</option>
           </select>
         </label>
-        <label style="position:relative;">トーナメント表の大きさ
+        <label style="position:relative;">トーナメントツリーの大きさ
           <select class="bracketSlots">${bSlotOpts.join("")}</select>
         </label>
       </div></details>
         <button class="btnRemove ghost" style="align-self:flex-end;">削除</button>
       </div>
     `;
-    // 参加クラス数変更時にブラケット枠数を自動提案
+    // 参加クラス数変更時にトーナメントツリー枠数を自動提案
     const pInput = wrap.querySelector(".participants");
     const bSelect = wrap.querySelector(".bracketSlots");
     pInput.addEventListener("input", () => {
@@ -1609,7 +1609,7 @@
     }
     generateEvents();
     saveState();
-    toast("ブラケットを生成しました", "info");
+    toast("トーナメントツリーを作成しました", "info");
     renderEvents();
     show("setupView");
     showWizStep(4);
@@ -1759,7 +1759,7 @@
     return (sport.courts || "A").split(",").map(s => s.trim()).filter(Boolean);
   }
 
-  // ブラケットサイズ: 参加数以上の最小の2のべき乗 (最小4)
+  // トーナメントツリーサイズ: 参加数以上の最小の2のべき乗 (最小4)
   function bracketSize(n) {
     let s = 4;
     while (s < n) s *= 2;
@@ -1770,7 +1770,7 @@
     return Math.log2(size);
   }
 
-  // ブラケット情報テキスト（チーム数 → 説明）
+  // トーナメントツリー情報テキスト（チーム数 → 説明）
   function bracketInfo(n) {
     if (!n || n < 2) return null;
     const size = bracketSize(n);
@@ -1779,7 +1779,7 @@
     return { size, rounds, byes };
   }
 
-  // ブラケット情報バナーを更新する
+  // トーナメントツリー情報バナーを更新する
   function updateBracketInfoBanner(n, manualBSize) {
     const banner = el("bracketInfoBanner");
     if (!banner) return;
@@ -1801,7 +1801,7 @@
     banner.classList.remove("hidden");
   }
 
-  // ブラケットシード配置（完全修正版）
+  // トーナメントツリーシード配置（完全修正版）
   // ・BYEは1試合に最大1個（均等分散）
   // ・seededTeams: リスト先頭のシードチーム → BYE対戦位置（不戦勝）に優先配置
   // ・randomTeams: それ以外のチーム → 残りスロットにランダム配置
@@ -1922,7 +1922,7 @@
     }
 
     // ── トーナメント生成（通常） ──
-    // ブラケット枠数: 手動指定ありなら使用、なければ自動
+    // トーナメントツリー枠数: 手動指定ありなら使用、なければ自動
     let bSize;
     const manualSlots = sport.bracketSlots;
     if (manualSlots && manualSlots !== "auto" && Number.isFinite(Number(manualSlots))) {
@@ -2107,8 +2107,8 @@
       area.innerHTML = `
         <div class="emptyState">
           <div class="emptyIcon">⚡</div>
-          <div class="emptyTitle">ブラケットがまだありません</div>
-          <div class="emptyDesc">上の① ② ③ を入力して「⚡ ブラケット生成」を押してください</div>
+          <div class="emptyTitle">トーナメントツリーがまだありません</div>
+          <div class="emptyDesc">上の① ② ③ を入力して「⚡ トーナメントツリーを作成」を押してください</div>
         </div>`;
       if (hint) hint.textContent = "";
       return;
@@ -2444,7 +2444,7 @@
       }
     }
 
-    // 裏トーナメントがすでに存在する場合、シード構成変更に合わせて連動して再構築する（メインブラケット編集時のみ）
+    // 裏トーナメントがすでに存在する場合、シード構成変更に合わせて連動して再構築する（メイントーナメントツリー編集時のみ）
     if (!editingLoserMatchups && state.tournament.loserUiEnabled && currentEvent.loserMatches && currentEvent.loserMatches.length > 0) {
       const lR1 = currentEvent.matches.filter(m => m.round === 1);
       const losers = [];
@@ -2529,7 +2529,7 @@
     });
 
     if (seedMatches.length === 0) {
-      seedList.innerHTML = '<span class="small" style="color:var(--subtle); padding:4px;">シード試合が見つかりません。ブラケットにBYE（不戦勝）がある場合に表示されます。</span>';
+      seedList.innerHTML = '<span class="small" style="color:var(--subtle); padding:4px;">シード試合が見つかりません。トーナメントツリーにBYE（不戦勝）がある場合に表示されます。</span>';
     } else {
       seedMatches.forEach(m => {
         const key = matchKey(m);
@@ -3100,7 +3100,7 @@
     document.querySelectorAll(".bracketToolbar details[open]").forEach(d => { if (!d.contains(e.target)) d.open = false; });
   });
 
-  // 画面サイズが変わったらトーナメント表を描き直す（両側型/片側型の自動切替のため）
+  // 画面サイズが変わったらトーナメントツリーを描き直す（両側型/片側型の自動切替のため）
   let _resizeTimer = null;
   window.addEventListener("resize", () => {
     clearTimeout(_resizeTimer);
@@ -3113,11 +3113,11 @@
   document.addEventListener("mouseup", () => { window.__draggedTeam = null; });
 
 
-  // ブラケットをコンテナ幅にぴったり収まるよう寸法を計算する。
+  // トーナメントツリーをコンテナ幅にぴったり収まるよう寸法を計算する。
   // teamCount: 参加チーム数 / opts.containerWidth: 実測した表示領域の幅 / opts.dir: "vertical"|"horizontal"
   function autoFitBracketUI(teamCount, opts = {}) {
     const dir = opts.dir || state.tournament?.bracketDir || "vertical";
-    // ブラケットサイズ（2のべき乗）から1回戦の試合数を求める
+    // トーナメントツリーサイズ（2のべき乗）から1回戦の試合数を求める
     const bSize = (typeof bracketSize === "function") ? bracketSize(Math.max(2, teamCount)) : 2 ** Math.ceil(Math.log2(Math.max(2, teamCount)));
     const r1count = Math.max(1, bSize / 2);         // 1回戦の枠数（縦型では横方向に並ぶ）
     const rounds = Math.max(1, Math.log2(bSize));   // ラウンド数
@@ -4055,10 +4055,10 @@
   if (el("btnAutoFit")) el("btnAutoFit").onclick = () => {
     if (!currentEvent) return;
     autoFitCurrentBracket();
-    toast("ブラケットを見やすく自動調整しました", "info");
+    toast("トーナメントツリーを見やすく自動調整しました", "info");
   };
 
-  // 現在のブラケットをコンテナ幅に合わせて自動調整する共通処理
+  // 現在のトーナメントツリーをコンテナ幅に合わせて自動調整する共通処理
   function autoFitCurrentBracket() {
     if (!currentEvent) return;
     // 参加チーム数（1回戦のBYE以外×2 ＝ 実参加数の目安）。全チーム数を優先

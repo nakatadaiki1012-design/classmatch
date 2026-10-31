@@ -328,7 +328,7 @@ body.fz-l .teamBox .tbText{font-size:20px;}
 
   <main>
     <div id="loadingMsg">📡 データを読み込んでいます...</div>
-    <div id="errorMsg" class="hidden">❌ ブラケットデータが見つかりません。<br/>先生から共有リンクを受け取ってください。</div>
+    <div id="errorMsg" class="hidden">❌ トーナメントツリーのデータが見つかりません。<br/>先生から共有リンクを受け取ってください。</div>
 
     <div id="viewerContent" class="hidden">
       <!-- 自分のクラスの今日の予定（全競技まとめ） -->
@@ -685,7 +685,7 @@ body.fz-l .teamBox .tbText{font-size:20px;}
       bracket.querySelectorAll("svg.bv, .loserLabel, .nowStrip").forEach(e => e.remove());
       const note = document.createElement("div");
       note.className = "autoNote";
-      note.innerHTML = `<span>一覧で表示中</span><button type="button">トーナメント表で見る</button>`;
+      note.innerHTML = `<span>一覧で表示中</span><button type="button">トーナメントツリーで見る</button>`;
       note.querySelector("button").onclick = () => { prefs.view = "tree"; savePrefs(); renderCurrentEvent(); };
       bracket.appendChild(note);
       bracket.appendChild(buildMatchList(ev, info));
