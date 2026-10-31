@@ -17,6 +17,8 @@
   function toast(message, type = 'success', durationMs = 3000, actions = []) {
     const icons = { success: '✅', info: 'ℹ️', warn: '⚠️', error: '❌' };
     const t = document.createElement('div');
+    // ボタン付きの通知は常に1つだけ（続けて入力しても画面が埋まらない）
+    if (actions.length) _toastContainer.querySelectorAll('.toast.hasAct').forEach(x => x.remove());
     t.className = `toast ${type}` + (actions.length ? ' hasAct' : '');
     t.innerHTML = `<span>${icons[type] || ''}</span><span>${escapeHtml(message)}</span>`;
     actions.forEach(a => {
@@ -352,7 +354,28 @@
   // BroadcastChannel: viewer.htmlなど同一オリジンの他タブにリアルタイム配信
   const _liveCh = (typeof BroadcastChannel !== "undefined") ? new BroadcastChannel("classmatch-live") : null;
 
+  // ── 複数の先生で同時入力するための「変更時刻」スタンプ ──
+  // 試合ごとに最後に変わった時刻(m.ts)を付け、Firebase経由で届いたデータと試合単位で新しい方を採用する
+  let _snap = null;
+  const mKey = (m) => `${m.isLoserMatch ? "L" : "R"}${m.round}-${m.slot}`;
+  const strip = (m) => { const c = Object.assign({}, m); delete c.ts; return JSON.stringify(c); };
+  const structSig = (st) => (st.events || []).map(e => e.id + ":" + [...(e.matches || []), ...(e.loserMatches || [])].map(mKey).join(",")).join("|");
+  function takeSnap() {
+    _snap = { struct: structSig(state), m: {} };
+    (state.events || []).forEach(e => [...(e.matches || []), ...(e.loserMatches || [])].forEach(m => { _snap.m[e.id + "|" + mKey(m)] = strip(m); }));
+  }
+  function stampChanges() {
+    const now = Date.now();
+    if (!_snap) { takeSnap(); return; }
+    if (structSig(state) !== _snap.struct) state.tournament.structTs = now;
+    (state.events || []).forEach(e => [...(e.matches || []), ...(e.loserMatches || [])].forEach(m => {
+      if (_snap.m[e.id + "|" + mKey(m)] !== strip(m)) m.ts = now;
+    }));
+    takeSnap();
+  }
+
   function saveState() {
+    stampChanges();
     state.tournament.updatedAt = new Date().toISOString();
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     // 同一オリジン他タブへブロードキャスト
@@ -388,16 +411,78 @@
     if (_live.status !== "error") setLiveStatus("sending");
   }
   async function ensureLiveConn() {
-    if (_live.inited) return;
-    await FS.init();
-    FS.onConnection(c => { _live.connected = c; renderLiveUI(); });
-    _live.inited = true;
+    if (!_live.inited) {
+      await FS.init();
+      FS.onConnection(c => { _live.connected = c; renderLiveUI(); });
+      _live.inited = true;
+    }
+    startCoSync();
+  }
+  // 他の先生が入力した結果を受け取る（同じ共有コードを購読）
+  function startCoSync() {
+    const l = liveCfg();
+    if (!l?.code || _live.subCode === l.code) return;
+    if (_live.unsub) _live.unsub();
+    _live.subCode = l.code; _live.synced = false;
+    _live.unsub = FS.subscribe(l.code, (data) => { mergeRemote(data); }, () => { _live.synced = true; });
+  }
+  const toArr = (v) => Array.isArray(v) ? v : (v && typeof v === "object" ? Object.values(v) : []);
+  // 他の先生の入力は「元に戻す」で消さない: 保存済みの戻し先にも反映しておく
+  function patchUndo(evId, r) {
+    for (let i = 0; i < undoStack.length; i++) {
+      try {
+        const ev = JSON.parse(undoStack[i]); if (ev.id !== evId) continue;
+        const k = r.isLoserMatch ? "loserMatches" : "matches";
+        const j = (ev[k] || []).findIndex(x => mKey(x) === mKey(r));
+        if (j >= 0) { ev[k][j] = r; undoStack[i] = JSON.stringify(ev); }
+      } catch {}
+    }
+  }
+  function mergeRemote(data) {
+    const first = !_live.synced; _live.synced = true;
+    if (!data || !data.events) { if (first) scheduleLivePublish(200); return; }   // まだ誰も送っていない → こちらの内容を送る
+    const rEvents = toArr(data.events).map(ev => Object.assign({}, ev, { matches: toArr(ev.matches), loserMatches: ev.loserMatches ? toArr(ev.loserMatches) : undefined }));
+    const rT = data.tournament || {};
+    const remote = { events: rEvents };
+    let changed = false, localNewer = false;
+    if (structSig(remote) !== structSig(state)) {
+      // 競技の作り直しなど構成が違う: 新しく作った方を採用
+      if ((rT.structTs || 0) > (state.tournament.structTs || 0) || (first && !(state.tournament.structTs))) {
+        state.events = rEvents; state.tournament.structTs = rT.structTs || 0;
+        if (rT.classes) state.tournament.classes = toArr(rT.classes);
+        if (rT.name && !state.tournament.name) state.tournament.name = rT.name;
+        changed = true;
+      } else localNewer = true;
+    } else {
+      state.events.forEach((e, ei) => {
+        const re = rEvents[ei];
+        const rmap = {}; [...re.matches, ...(re.loserMatches || [])].forEach(m => { rmap[mKey(m)] = m; });
+        ["matches", "loserMatches"].forEach(k => (e[k] || []).forEach((m, i) => {
+          const r = rmap[mKey(m)]; if (!r) return;
+          if ((r.ts || 0) > (m.ts || 0)) { e[k][i] = r; changed = true; patchUndo(e.id, r); }
+          else if ((m.ts || 0) > (r.ts || 0)) localNewer = true;
+        }));
+      });
+    }
+    if (changed) {
+      takeSnap();
+      state.tournament.updatedAt = new Date().toISOString();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      try { _liveCh?.postMessage({ type: "state-update", state }); } catch {}
+      if (currentEvent) {
+        currentEvent = state.events.find(e => e.id === currentEvent.id) || null;
+        if (currentEvent && !el("eventView").classList.contains("hidden") && el("resultModal").classList.contains("hidden")) renderEventDetail(currentEvent.id);
+      }
+      renderEvents?.();
+    }
+    if (localNewer) scheduleLivePublish(300);           // こちらの方が新しい試合がある → 送り直して揃える
   }
   async function doLivePublish() {
     if (!liveActive()) return;
     const l = liveCfg();
     try {
       await ensureLiveConn();
+      if (!_live.synced) { _live.timer = setTimeout(doLivePublish, 800); return; }   // 先に他の先生の入力を受け取ってから送る
       await FS.publish(l.code, l.secret, state);
       _live.lastOk = Date.now();
       setLiveStatus("ok");
@@ -407,6 +492,12 @@
     const l = liveCfg(), cfg = FS?.getConfig();
     if (!l?.code || !cfg) return "";
     return location.href.replace(/admin\.html.*$/, "") + "viewer.html?t=" + l.code + "#fb=" + FS.encodeConfig(cfg);
+  }
+  // 先生用リンク（結果入力を一緒にできる）。鍵を含むので生徒には送らない
+  function teacherLink() {
+    const l = liveCfg(), cfg = FS?.getConfig();
+    if (!l?.code || !l?.secret || !cfg) return "";
+    return location.href.replace(/admin\.html.*$/, "") + "admin.html?t=" + l.code + "#fbk=" + FS.encodeConfig(cfg) + "." + l.secret;
   }
   function renderLiveUI() {
     if (!FS) return;
@@ -457,6 +548,7 @@
   if (FS && el("lsRulesText")) el("lsRulesText").textContent = FS.RULES;
   const copyText = async (txt, okMsg) => { try { await navigator.clipboard.writeText(txt); toast(okMsg, "success", 2200); } catch { toast("コピーに失敗しました。手動でコピーしてください", "warn"); } };
   if (el("lsCopyRules")) el("lsCopyRules").onclick = () => copyText(FS.RULES, "ルールをコピーしました");
+  if (el("lsCopyTeacher")) el("lsCopyTeacher").onclick = () => { if (!requirePin()) return; copyText(teacherLink(), "先生用リンクをコピーしました（生徒には送らないでください）"); };
   if (el("lsCopy")) el("lsCopy").onclick = () => copyText(liveLink(), "リンクをコピーしました。LINEなどで生徒に送ってください");
   if (el("lsLink")) el("lsLink").onclick = () => el("lsLink").select();
 
@@ -962,6 +1054,7 @@
     if (prev) prev.disabled = wizStep === 1;
     if (next) next.disabled = wizStep === 4;
     if (wizStep === 4) renderEvents();
+    el("setupProblems")?.classList.toggle("hidden", wizStep !== 4);   // 「生成できます」は生成の画面でだけ出す
   }
   document.querySelectorAll(".wizTabs .spStep").forEach(b => b.onclick = () => showWizStep(Number(b.dataset.step)));
   if (el("wizPrev")) el("wizPrev").onclick = () => showWizStep(wizStep - 1);
@@ -971,7 +1064,17 @@
     const box = el("setupProblems");
     if (!box) return;
     const probs = validateSetupPreview();
-    if (!probs.length) {
+    // 見本のまま・大会名なし は止めないが、気づけるように注意を出す
+    const t = state.tournament || {};
+    const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+    const warns = [];
+    if (!(el("tName")?.value || "").trim()) warns.push("大会名が未入力");
+    if (same(t.classes || [], DEFAULT_CLASSES)) warns.push("クラスが見本のまま（1-1〜3-8）");
+    if (same((t.sports || []).map(x => x.name), DEFAULT_SPORTS.map(x => x.name))) warns.push("競技が見本のまま（バレー・ドッジ）");
+    if (!probs.length && warns.length) {
+      box.textContent = "確認してください： " + warns.join(" / ") + "（このままでも生成はできます）";
+      box.style.color = "#b45309";
+    } else if (!probs.length) {
       box.textContent = "OK：このまま生成できます。";
       box.style.color = "var(--ok)";
     } else {
@@ -999,6 +1102,10 @@
       <div class="sportLabel">競技</div>
       <div class="row" style="gap:8px; flex-wrap:wrap;">
         <label>競技名 <input class="sportName" value="${escapeHtml(v.name ?? "")}" style="width:120px"/></label>
+        <label>形式 <select class="sportFormat">
+            <option value="tournament" ${v.format !== "league" ? "selected" : ""}>トーナメント</option>
+            <option value="league" ${v.format === "league" ? "selected" : ""}>リーグ（総当たり）</option>
+          </select></label>
         <label>試合(分) <input class="matchMin" type="number" min="1" value="${Number(v.matchMinutes ?? 10)}" style="width:75px"/></label>
         <label>入替(分) <input class="turnMin"  type="number" min="0" value="${Number(v.turnoverMinutes ?? 2)}" style="width:75px"/></label>
         <label>コート名 <input class="courts" value="${escapeHtml(v.courts ?? "A,B")}" placeholder="例：A,B" style="width:90px"/></label>
@@ -1057,6 +1164,7 @@
       const bSlotVal = card.querySelector(".bracketSlots")?.value ?? "auto";
       return {
         name: (card.querySelector(".sportName").value || "").trim(),
+        format: card.querySelector(".sportFormat")?.value === "league" ? "league" : "tournament",
         m: card.querySelector(".genM")?.checked ?? true,
         f: card.querySelector(".genF")?.checked ?? true,
         x: card.querySelector(".genX")?.checked ?? false,
@@ -3789,8 +3897,26 @@
   show("setupView");
   showWizStep(state.events.length ? 4 : 1);
   updateHeaderMeta();
+  // 先生用リンクで開いた: 同じ大会に参加して、結果を一緒に入力できるようにする
+  (function joinFromLink() {
+    const code = new URLSearchParams(location.search).get("t");
+    const m = /(?:^|[#&])fbk=([^.&]+)\.([0-9a-f]+)/.exec(location.hash);
+    if (!code || !m || !FS) return;
+    const cfg = FS.decodeConfig(m[1]);
+    if (!cfg) return;
+    const cur = state.tournament.liveShare;
+    if (cur?.code && cur.code !== code && state.events.length && !confirm("この端末の大会データを、共有されている大会に切り替えます。よろしいですか？")) return;
+    FS.setConfig(cfg); _live.inited = false;
+    state.tournament.liveShare = { enabled: true, code, secret: m[2] };
+    if (!cur || cur.code !== code) { state.tournament.structTs = 0; state.events = []; }   // 受け取った大会で置き換える
+    takeSnap();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    history.replaceState(null, "", location.pathname);       // 鍵をアドレスバーに残さない
+    toast("共有されている大会に参加しました。結果を入力すると他の先生の画面にも反映されます", "success", 4000);
+  })();
+  takeSnap();
   renderLiveUI();
-  if (liveActive()) scheduleLivePublish(1200);
+  if (liveActive()) { ensureLiveConn().catch(e => setLiveStatus("error", FS.explain(e))); scheduleLivePublish(1200); }
 
   // ── Admin Panel Toggle ──
   // 試合リスト（右パネル）の開閉。開閉後は表の幅が変わるので描き直す

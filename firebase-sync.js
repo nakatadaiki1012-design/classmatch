@@ -139,7 +139,7 @@
       tournament: {
         name: t.name || "", date: t.date || "", place: t.place || "",
         classes: t.classes || [], bracketOrient: t.bracketOrient === "v" ? "v" : "h",
-        tickerText: t.tickerText || "", updatedAt: t.updatedAt || "",
+        tickerText: t.tickerText || "", updatedAt: t.updatedAt || "", structTs: t.structTs || 0,
       },
       events: state.events || [],
     };
