@@ -366,9 +366,55 @@
   .inst .ring{opacity:0; pointer-events:none;}
   .ev.gb .n{outline:2px solid #c59bff; outline-offset:1px; border-radius:4px;}
   .hwy{margin:8px 0 6px;}
+  /* 3D合奏が中心：タブは隠し、メニューから開く */
+  .tabs{display:none;}
+  .backbar{position:sticky; top:0; z-index:25; display:flex; align-items:center; gap:10px; padding:8px 0; margin-bottom:8px; background:var(--bg);}
+  .backbar b{font-size:1rem;}
+  body[data-page="stage3d"] .lead{display:none;}
+  body[data-page="stage3d"] h1{font-size:1.05rem; margin:4px 0 6px;}
+  #page-stage3d .s3top{display:flex; gap:6px; align-items:stretch; margin-bottom:6px;}
+  #page-stage3d .s3top select{flex:1; min-width:0;}
+  .s3menuBtn{display:flex; flex-direction:column; align-items:center; justify-content:center; padding:2px 10px; font-size:1.05rem; line-height:1;}
+  .s3menuBtn small{font-size:.55rem; font-weight:700;}
+  .s3box{height:calc(100vh - 210px); height:calc(100svh - 210px); min-height:340px; max-height:680px;}
+  #page-stage3d.joining .s3box{height:44vh; height:44svh; min-height:250px;}
+  .s3st{position:absolute; left:8px; top:8px; background:rgba(27,18,12,.72); color:#f6ead8; border-radius:999px; padding:3px 10px; font-size:.72rem; font-weight:700; pointer-events:none; max-width:calc(100% - 210px); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  @media (max-width:520px){ .s3dial{width:96px;} .s3st{font-size:.66rem;} }
+  .s3cam{top:8px; right:8px;} .s3cam button{padding:3px 8px; font-size:.68rem;}
+  .s3dial{position:absolute; left:6px; bottom:6px; width:118px; background:rgba(27,18,12,.78); border-radius:14px; padding:4px; pointer-events:none;}
+  .s3dial .gstrip{display:none;} .s3dial svg{display:block; width:100%; height:auto;}
+  #page-stage3d.joining .s3dial{width:84px;}
+  .s3sheet{position:absolute; left:8px; right:8px; bottom:8px; max-height:72%; overflow:auto; background:rgba(255,250,240,.97); color:#2a1c13; border-radius:16px; padding:12px 14px; box-shadow:0 8px 30px rgba(0,0,0,.35); border-top:5px solid var(--g, #c9a24a); z-index:5;}
+  .s3sheet h3{margin:0; font-size:1.1rem; display:flex; align-items:center; gap:8px;}
+  .s3sheet .pill{font-size:.66rem; font-weight:800; background:var(--g); color:#1b120c; border-radius:999px; padding:1px 8px;}
+  .s3sheet .x{position:absolute; right:8px; top:8px; background:#efe4d0; color:#2a1c13; border:none; border-radius:50%; width:30px; height:30px; padding:0;}
+  .s3sheet p{margin:6px 0; font-size:.82rem; line-height:1.55;}
+  .s3sheet ul{margin:4px 0 8px; padding-left:1.1em; font-size:.78rem; line-height:1.5; color:#4a3a2a;}
+  .s3sheet .acts{display:flex; flex-wrap:wrap; gap:6px; margin-top:6px;}
+  .s3sheet .acts button{font-size:.8rem; padding:8px 12px;}
+  .s3sheet .acts .sec{background:#efe4d0; color:#2a1c13; border-color:#d8c6a6;}
+  .s3bar{display:flex; align-items:center; gap:6px; margin-top:8px; flex-wrap:nowrap;}
+  .s3big{width:50px; height:50px; flex:0 0 50px; border-radius:50%; font-size:1.2rem; padding:0;}
+  .s3sm{padding:6px 10px; font-size:.78rem; white-space:nowrap;}
+  .s3tempo{display:flex; align-items:center; gap:3px; margin-left:auto;} .s3tempo button{width:32px; padding:6px 0;} .s3tempo b{font-size:.8rem; min-width:50px; text-align:center;}
+  .s3seg{display:flex;} .s3seg button{padding:6px 8px; font-size:.75rem; border-radius:0;} .s3seg button:first-child{border-radius:10px 0 0 10px;} .s3seg button:last-child{border-radius:0 10px 10px 0;}
+  .s3roles{display:flex; gap:6px; overflow-x:auto; margin-top:8px; padding-bottom:4px; scrollbar-width:thin;}
+  .s3roles button{flex:0 0 auto; padding:6px 11px; font-size:.78rem; border-radius:999px; background:var(--panel2); color:var(--text); border:1.5px solid var(--g, var(--line)); display:flex; align-items:center; gap:5px;}
+  .s3roles button i{width:9px; height:9px; border-radius:50%; background:var(--g);}
+  .s3roles button.on{background:var(--g); color:#1b120c;}
+  .s3me{margin-top:8px; background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:10px;}
+  .s3mehead{display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;}
+  .s3me details{margin-top:8px;} .s3me summary{cursor:pointer; color:var(--sub); font-size:.8rem;}
+  .s3hint{margin:6px 0 0; text-align:center; font-size:.72rem; color:var(--sub);}
+  .s3menu{position:fixed; inset:0; z-index:60; background:rgba(0,0,0,.5); display:flex; align-items:flex-end; justify-content:center;}
+  .s3menu[hidden]{display:none;}
+  .s3menuIn{background:var(--panel); width:min(520px, 100%); border-radius:18px 18px 0 0; padding:12px 14px calc(14px + env(safe-area-inset-bottom)); display:flex; flex-direction:column; gap:8px;}
+  .s3menuHead{display:flex; justify-content:space-between; align-items:center;}
+  .s3mi{display:flex; align-items:center; gap:12px; text-align:left; padding:10px 12px; font-size:1.3rem; background:var(--panel2); color:var(--text); border:1px solid var(--line); border-radius:12px;}
+  .s3mi b{display:block; font-size:.92rem;} .s3mi small{display:block; font-size:.7rem; color:var(--sub); font-weight:400;}
   /* 3D合奏 */
   .s3ctl{gap:6px;} .s3ctl select{flex:1 1 180px; min-width:0;}
-  .s3box{position:relative; height:min(64vh, 540px); min-height:320px; border-radius:14px; overflow:hidden; background:#e7dccb; margin-top:8px; touch-action:none;}
+  .s3box{position:relative; border-radius:14px; overflow:hidden; background:#e7dccb; margin-top:8px; touch-action:none;}
   #s3gl{width:100%; height:100%; display:block;}
   #s3labels{position:absolute; inset:0; pointer-events:none; overflow:hidden;}
   .s3tag{position:absolute; left:0; top:0; pointer-events:auto; background:rgba(255,250,240,.9); color:#2a1c13; border:1px solid #c9a24a; border-radius:8px;
@@ -380,7 +426,6 @@
   .s3cam button{padding:4px 9px; font-size:.72rem; background:rgba(255,250,240,.88); color:#2a1c13; border:1px solid #c9a24a; border-radius:999px;}
   .s3cam button.on{background:var(--accent); color:var(--onaccent);}
   .s3load{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; text-align:center; padding:20px; color:#2a1c13; font-weight:700; background:rgba(231,220,203,.92);}
-  .s3st{font-size:.85rem; font-weight:700;}
   .s3head select{width:100%;}
   .s3dock{display:flex; gap:12px; align-items:center; margin-top:10px; flex-wrap:wrap;}
   .s3cyc{flex:0 0 190px; max-width:190px; margin:0;} .s3cyc .gstrip{display:none;}
@@ -486,34 +531,40 @@
 
 <!-- ============ 3D合奏：奏者たちが演奏するようす ============ -->
 <section id="page-stage3d" class="page active">
-  <div class="panel s3panel">
-    <div class="s3head"><select id="s3piece" aria-label="曲をえらぶ"></select></div>
-    <div class="s3box" id="s3box"><canvas id="s3gl"></canvas><div id="s3labels"></div>
-      <div class="s3cam" id="s3cam"><button data-cam="front" class="on">正面</button><button data-cam="top">真上</button><button data-cam="side">横</button><button data-cam="near">近く</button></div>
-      <div class="s3load" id="s3load" hidden>3Dの舞台を準備中…</div></div>
-    <div class="s3dock">
-      <div id="s3cycle" class="cycwrap s3cyc"></div>
-      <div class="s3right">
-        <div class="row s3ctl">
-          <button id="s3play" class="s3big" aria-label="合奏をはじめる">▶</button><button class="sec" id="s3stop">■ 止める</button><button class="sec" id="s3suwuk">終わりへ</button>
-          <span class="row s3tempo"><button class="sec" id="s3slow" aria-label="遅く">−</button><b id="s3bpm">♩=72</b><button class="sec" id="s3fast" aria-label="速く">＋</button></span>
-          <span class="row" id="s3ir" style="gap:4px"><button class="sec on" data-ir="1">イラマ I</button><button class="sec" data-ir="2">イラマ II</button></span>
-        </div>
-        <div class="s3st" id="s3st">▶ を押すと合奏が始まります</div>
-        <div class="s3legend" id="s3legend"></div>
-        <label class="chk"><input type="checkbox" id="s3names" checked>名前を出す</label>
-      </div>
-    </div>
-    <section class="s3insts" id="s3insts" aria-label="楽器のオン・オフ"></section>
-    <p class="muted" style="margin:6px 0 0;text-align:center">舞台の奏者か、下の楽器名をタップすると、休ませたり戻したりできます。「だけ」でその役割だけを聴けます。指で回す・2本指で拡大。</p>
+  <div class="s3top">
+    <select id="s3piece" aria-label="曲をえらぶ"></select>
+    <button class="sec s3menuBtn" id="s3menuBtn" aria-label="メニュー（レッスン・楽器のしくみなど）">☰<small>メニュー</small></button>
   </div>
-  <div class="panel">
-    <div class="jstep">🥢 自分も合奏に入る</div>
-    <div class="jhint">楽器をえらぶと、その奏者のかわりにあなたが叩きます（ほかの奏者は自動で演奏）。</div>
-    <div class="chips" id="s3join"></div>
-    <div id="s3prac" style="margin-top:8px"></div>
+  <div class="s3box" id="s3box"><canvas id="s3gl"></canvas><div id="s3labels"></div>
+    <div class="s3st" id="s3st">▶ を押すと合奏が始まります</div>
+    <div class="s3cam" id="s3cam"><button data-cam="front" class="on">正面</button><button data-cam="top">真上</button><button data-cam="near">近く</button><button data-names="1" class="on" aria-label="名前の表示">名前</button></div>
+    <div id="s3cycle" class="s3dial" aria-label="ゴングの周期"></div>
+    <div class="s3sheet" id="s3sheet" hidden></div>
+    <div class="s3load" id="s3load" hidden>3Dの舞台を準備中…</div>
   </div>
+  <div class="s3bar">
+    <button id="s3play" class="s3big" aria-label="合奏をはじめる">▶</button>
+    <button class="sec s3sm" id="s3suwuk">終わる</button>
+    <span class="s3tempo"><button class="sec" id="s3slow" aria-label="遅く">−</button><b id="s3bpm">♩=72</b><button class="sec" id="s3fast" aria-label="速く">＋</button></span>
+    <span class="s3seg" id="s3ir"><button class="sec on" data-ir="1" aria-label="イラマ I">イラマⅠ</button><button class="sec" data-ir="2" aria-label="イラマ II">Ⅱ</button></span>
+  </div>
+  <div class="s3roles" id="s3roles" aria-label="役割ごとに聴く"></div>
+  <div class="s3me" id="s3me" hidden>
+    <div class="s3mehead"><b id="s3meName"></b><button class="sec s3sm" id="s3meQuit">✕ やめる</button></div>
+    <div id="s3prac"></div>
+  </div>
+  <p class="s3hint">奏者をタップ → 楽器の説明と「演奏する」。指で回す・2本指で拡大。</p>
 </section>
+<div class="s3menu" id="s3menu" hidden>
+  <div class="s3menuIn">
+    <div class="s3menuHead"><b>メニュー</b><button class="sec s3sm" data-close="1">✕</button></div>
+    <button class="s3mi" data-go="lesson">📚<span><b>レッスン</b><small>14ステップで順番に学ぶ</small></span></button>
+    <button class="s3mi" data-go="theory">🎼<span><b>楽器のしくみ</b><small>楽器ごとの役割と決まりごと</small></span></button>
+    <button class="s3mi" data-go="jam">🥢<span><b>合奏の練習</b><small>楽器と曲を絵から選んで練習</small></span></button>
+    <button class="s3mi" data-go="play">🎹<span><b>自由に叩く</b><small>好きな楽器を自由に鳴らす</small></span></button>
+    <button class="s3mi" data-go="auto">⚙️<span><b>自動演奏（くわしく）</b><small>自分の曲・タイムライン・聴きくらべ</small></span></button>
+  </div>
+</div>
 
 <!-- ============ レッスン ============ -->
 <section id="page-lesson" class="page">
@@ -3176,13 +3227,21 @@ function renderTheory(){
 /* =========================================================
  *  12. タブ・起動
  * ========================================================= */
-document.querySelector('.tabs').addEventListener('click', e=>{
-  const b = e.target.closest('[data-tab]'); if (!b) return;
+// ページの切りかえ：ふだんは3D合奏。レッスンなどはメニューから開き、「← 3D合奏へ」で戻る
+function showPage(tab){
   if (PW) stopPractice(PW);
-  document.querySelectorAll('.tabs button').forEach(x=>x.classList.toggle('active', x===b));
-  document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active', p.id==='page-'+b.dataset.tab));
-  if (b.dataset.tab==='stage3d'){ s3Sync(); open3D(); }
-});
+  document.querySelectorAll('.tabs button').forEach(x=>x.classList.toggle('active', x.dataset.tab===tab));
+  document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active', p.id==='page-'+tab));
+  document.body.dataset.page = tab;
+  if (tab==='stage3d' && typeof s3Sync === 'function'){ s3Sync(); open3D(); }
+  window.scrollTo(0, 0);
+}
+document.querySelector('.tabs').addEventListener('click', e=>{ const b = e.target.closest('[data-tab]'); if (b) showPage(b.dataset.tab); });
+{ const TITLE = {jam:'🥢 合奏の練習', lesson:'📚 レッスン', theory:'🎼 楽器のしくみ', play:'🎹 自由に叩く', auto:'⚙️ 自動演奏（くわしく）'};
+  for (const [id, t] of Object.entries(TITLE)){ const sec = document.getElementById('page-' + id); if (!sec) continue;
+    sec.insertAdjacentHTML('afterbegin', `<div class="backbar"><button class="sec" data-back="1">← 3D合奏へ</button><b>${t}</b></div>`); }
+  document.addEventListener('click', e => { if (e.target.closest('[data-back]')) showPage('stage3d'); }); }
+document.body.dataset.page = 'stage3d';
 $('#unlockBtn').onclick = () => { initAudio(); $('#unlock').remove(); };
 // PCのキーボードでも叩ける：数字1〜7＝音（Shiftで高い音）、スペース＝ゴングなど、D T P K L＝クンダン
 document.addEventListener('keydown', e => {
@@ -3443,7 +3502,7 @@ function init3D(){
   const world = new THREE.Group(); scene.add(world);
   const mesh = (geo, mat, x=0, y=0, z=0, par, shadow=true) => { const m = new THREE.Mesh(geo, mat); m.position.set(x,y,z); m.castShadow = shadow; m.receiveShadow = true; (par||world).add(m); return m; };
   let envGroup = null; const ROOF = [];
-  function buildEnv(bali){
+  function buildEnv(bali, tall){
     if (envGroup){ world.remove(envGroup); envGroup.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
     const G = envGroup = new THREE.Group(); world.add(G);
     scene.background = col(bali ? 0xbfd6dc : 0xd9cdb8); scene.fog = new THREE.Fog(scene.background.getHex(), 16, 44);
@@ -3454,7 +3513,8 @@ function init3D(){
     mesh(new THREE.BoxGeometry(13.8, .1, 9.8), M(0x8a7c68, {roughness:.8}), 0, -.29, -.4, G, false);
     for (let k = 0; k < 2; k++) mesh(new THREE.BoxGeometry(4 - k*.4, .12, .4), M(0xa89a84, {roughness:.7}), 0, -.3 + k*.12, 4.75 - k*.32, G, false);
     // ござ
-    const mat = mesh(new THREE.PlaneGeometry(10.6, 7.2), new THREE.MeshStandardMaterial({map:tikar, roughness:.92}), 0, .004, -.35, G, false); mat.rotation.x = -Math.PI/2;
+    const mat = tall ? mesh(new THREE.PlaneGeometry(6.6, 9.2), new THREE.MeshStandardMaterial({map:tikar, roughness:.92}), 0, .004, -.45, G, false)
+                     : mesh(new THREE.PlaneGeometry(10.6, 7.2), new THREE.MeshStandardMaterial({map:tikar, roughness:.92}), 0, .004, -.35, G, false); mat.rotation.x = -Math.PI/2;
     const PIL = bali ? lacPlain : woodDark;
     // 柱（ジャワ：4本の大黒柱ソコ・グル＋外周の柱／バリ：朱塗りの柱）と梁
     const pillars = bali ? [[-5.9,-4.3],[5.9,-4.3],[-5.9,3.2],[5.9,3.2],[0,-4.3]] : [[-3.3,-3.9],[3.3,-3.9],[-6.2,-3.9],[6.2,-3.9],[-6.2,3.4],[6.2,3.4]];
@@ -3789,67 +3849,71 @@ function init3D(){
   function perf(bali, k, x, z, rotY, insts, kind, opt={}){
     const P = figure(bali, k); P.g.position.set(x, 0, z); P.g.rotation.y = rotY; ens.add(P.g);
     P.insts = insts; P.kind = kind; Object.assign(P, opt); P.group = groupOf(insts[0]); PERF.push(P); return P; }
+  // 並び方：横長の画面は3列、縦長の画面（スマホ）は5列にして、画面いっぱいに全員が入るようにする
+  const LAYOUT = {
+    java:{wide:{gong:[4.35,-2.55], gongP:[3.72,-2.5], kenong:[1.2,-3.15], kethuk:[-.9,-2.85],
+                slenthem:[-3.55,-1.15], demung:[-2.15,-1.15], demung2:[-.75,-1.15], saron:[.65,-1.15], saron2:[2.0,-1.15], peking:[3.35,-1.15],
+                bonang:[-3.2,.75], panerus:[-1.65,.75], kendhang:[0,.95], gender:[1.6,.75], rebab:[2.85,.75], suling:[3.75,.75]},
+          tall:{gong:[1.75,-3.8], gongP:[1.12,-3.75], kenong:[-.25,-4.4], kethuk:[-1.75,-3.95],
+                slenthem:[-1.5,-2.3], demung:[0,-2.3], demung2:[1.5,-2.3], saron:[-1.5,-.65], saron2:[0,-.65], peking:[1.5,-.65],
+                bonang:[-1.6,1.0], panerus:[0,1.0], gender:[1.6,1.0], kendhang:[0,2.75], rebab:[-1.4,2.55], suling:[1.4,2.55]}},
+    bali:{wide:{gong:[4.3,-2.4], gongP:[3.67,-2.45], kajar:[1.55,-2.55], ceng:[-.1,-2.5],
+                jegogan:[-2.7,-1.25], jegogan2:[-1.25,-1.25], calung:[.2,-1.25], calung2:[1.6,-1.25],
+                polos:[-2.4,.55], polos2:[-.8,.55], sangsih:[.8,.55], sangsih2:[2.4,.55], kendhang:[0,1.9]},
+          tall:{gong:[1.6,-3.6], gongP:[.97,-3.65], kajar:[-1.55,-3.75], ceng:[-.2,-3.7],
+                jegogan:[-.8,-2.2], jegogan2:[.8,-2.2], calung:[-.8,-.65], calung2:[.8,-.65],
+                polos:[-.9,.9], sangsih:[.9,.9], polos2:[-.9,2.45], sangsih2:[.9,2.45], kendhang:[0,3.75]}}};
+  let TALL = false;
   function buildEnsemble(form, laras){
     while (ens.children.length) ens.remove(ens.children[0]);
     PERF = []; INSTS = {}; KEYFLASH.length = 0; LABELS.forEach(l => l.el.remove()); LABELS = [];
-    const bali = form === 'bali'; buildEnv(bali);
+    const bali = form === 'bali'; buildEnv(bali, TALL);
+    const L = LAYOUT[bali ? 'bali' : 'java'][TALL ? 'tall' : 'wide'];
     let k = 0;
+    const behind = I => I.g.position.z - (I.depth||.4)/2 - .33;
     if (!bali){
-      const bk = barKeys(laras), ns = LARAS[laras].notes.filter((d, i) => laras === 'slendro' || [1,2,3,5,6].includes(d)).slice(0, 7);
-      const bonNs = LARAS[laras].notes;
-      // 後列：ゴング類
-      hangingGongs('gong', 4.35, -2.55, [{key:'G', R:.46, x:.5, y:.72, big:true}, ...LARAS[laras].notes.filter(d => [5,6,1,2,3].includes(d)).slice(0,2).map((d, i) => ({key:'P'+d, R:.19, x:-.22 - i*.4, y:.6}))], -Math.PI/2);
-      kenongInst('kenong', 1.2, -3.15, bonNs.filter(d => [6,1,2,3,5].includes(d)).slice(0,5));
-      smallKettles('kethuk', -.9, -2.85, [['t', .1, -.15], ['p', .075, .17]]);
-      // 中列：骨組み（サロン類）を一列に
-      genderInst('slenthem', -3.55, -1.15, bk, 1.4);
-      saronInst('demung', -2.15, -1.15, bk, 1.5); saronInst('demung2', -.75, -1.15, bk, 1.5);
-      saronInst('saron', .65, -1.15, bk, 1); saronInst('saron2', 2.0, -1.15, bk, 1);
-      saronInst('peking', 3.35, -1.15, bk, .55);
-      // 前列：飾りと指揮と柔らかい楽器を一列に
-      bonangInst('bonang', -3.2, .75, bonNs, 1); bonangInst('panerus', -1.65, .75, bonNs, .3);
-      kendhangInst('kendhang', 0, .95, false);
-      genderInst('gender', 1.6, .75, [...bonNs.map(d => [d,0]), ...bonNs.map(d => [d,1])], .9);
-      rebabInst('rebab', 2.85, .75); sulingInst('suling', 3.75, .75);
-      const S0 = 0, behind = I => I.g.position.z - (I.depth||.4)/2 - .33;
-      perf(false, k++, 3.72, -2.5, Math.PI/2, ['gong','kempul'], 'gong');
-      perf(false, k++, 1.2, -3.22, 0, ['kenong'], 'kenong');
-      perf(false, k++, -.9, -2.47, 0, ['kethuk','kempyang'], 'kethuk');
-      perf(false, k++, -3.55, behind(INSTS.slenthem), 0, ['slenthem'], 'bars', {iid:'slenthem', head:'disc', len:.24});
-      perf(false, k++, -2.15, behind(INSTS.demung), 0, ['demung'], 'bars', {iid:'demung', head:'hammer', len:.26});
-      perf(false, k++, -.75, behind(INSTS.demung2), 0, ['demung'], 'bars', {iid:'demung2', head:'hammer', len:.26});
-      perf(false, k++, .65, behind(INSTS.saron), 0, ['saron'], 'bars', {iid:'saron', head:'hammer', len:.22});
-      perf(false, k++, 2.0, behind(INSTS.saron2), 0, ['saron'], 'bars', {iid:'saron2', head:'hammer', len:.22});
-      perf(false, k++, 3.35, behind(INSTS.peking), 0, ['peking'], 'bars', {iid:'peking', head:'horn', len:.2});
-      perf(false, k++, -3.2, behind(INSTS.bonang), 0, ['bonang'], 'kettles', {iid:'bonang', head:'pad', len:.24});
-      perf(false, k++, -1.65, behind(INSTS.panerus), 0, ['panerus'], 'kettles', {iid:'panerus', head:'pad', len:.22});
-      perf(false, k++, 0, .55, 0, ['kendhang'], 'drum');
-      perf(false, k++, 1.6, behind(INSTS.gender), 0, ['gender'], 'kettles', {iid:'gender', head:'disc', len:.2});
-      perf(false, k++, 2.85, .75, 0, ['rebab'], 'rebab');
-      perf(false, k++, 3.75, .75, 0, ['suling'], 'suling');
+      const bk = barKeys(laras), bonNs = LARAS[laras].notes;
+      // 区切り：ゴング類
+      hangingGongs('gong', ...L.gong, [{key:'G', R:.46, x:.5, y:.72, big:true}, ...LARAS[laras].notes.filter(d => [5,6,1,2,3].includes(d)).slice(0,2).map((d, i) => ({key:'P'+d, R:.19, x:-.22 - i*.4, y:.6}))], -Math.PI/2);
+      kenongInst('kenong', ...L.kenong, bonNs.filter(d => [6,1,2,3,5].includes(d)).slice(0,5));
+      smallKettles('kethuk', ...L.kethuk, [['t', .1, -.15], ['p', .075, .17]]);
+      // 骨組み（サロン類）
+      genderInst('slenthem', ...L.slenthem, bk, 1.4);
+      saronInst('demung', ...L.demung, bk, 1.5); saronInst('demung2', ...L.demung2, bk, 1.5);
+      saronInst('saron', ...L.saron, bk, 1); saronInst('saron2', ...L.saron2, bk, 1);
+      saronInst('peking', ...L.peking, bk, .55);
+      // 飾り・指揮・柔らかい楽器
+      bonangInst('bonang', ...L.bonang, bonNs, 1); bonangInst('panerus', ...L.panerus, bonNs, .3);
+      kendhangInst('kendhang', ...L.kendhang, false);
+      genderInst('gender', ...L.gender, [...bonNs.map(d => [d,0]), ...bonNs.map(d => [d,1])], .9);
+      rebabInst('rebab', ...L.rebab); sulingInst('suling', ...L.suling);
+      perf(false, k++, ...L.gongP, Math.PI/2, ['gong','kempul'], 'gong');
+      perf(false, k++, L.kenong[0], L.kenong[1] - .07, 0, ['kenong'], 'kenong');
+      perf(false, k++, L.kethuk[0], L.kethuk[1] + .38, 0, ['kethuk','kempyang'], 'kethuk');
+      for (const [iid, inst, head, len] of [['slenthem','slenthem','disc',.24],['demung','demung','hammer',.26],['demung2','demung','hammer',.26],['saron','saron','hammer',.22],['saron2','saron','hammer',.22],['peking','peking','horn',.2]])
+        perf(false, k++, L[iid][0], behind(INSTS[iid]), 0, [inst], 'bars', {iid, head, len});
+      perf(false, k++, L.bonang[0], behind(INSTS.bonang), 0, ['bonang'], 'kettles', {iid:'bonang', head:'pad', len:.24});
+      perf(false, k++, L.panerus[0], behind(INSTS.panerus), 0, ['panerus'], 'kettles', {iid:'panerus', head:'pad', len:.22});
+      perf(false, k++, L.kendhang[0], L.kendhang[1] - .4, 0, ['kendhang'], 'drum');
+      perf(false, k++, L.gender[0], behind(INSTS.gender), 0, ['gender'], 'kettles', {iid:'gender', head:'disc', len:.2});
+      perf(false, k++, ...L.rebab, 0, ['rebab'], 'rebab');
+      perf(false, k++, ...L.suling, 0, ['suling'], 'suling');
     } else {
       const gk = gangsaKeys(), ck = calungKeys();
-      hangingGongs('gong', 4.3, -2.4, [{key:'G', R:.46, x:.5, y:.72, big:true}, {key:'P', R:.27, x:-.28, y:.64}, {key:'N', R:.16, x:-.76, y:.58}], -Math.PI/2);
-      smallKettles('kajar', 1.55, -2.55, [['j', .1, 0]]);
-      cengInst('ceng', -.1, -2.5);
-      baliBars('jegogan', -2.7, -1.25, ck, 1.6, 5); baliBars('jegogan2', -1.25, -1.25, ck, 1.6, 5);
-      baliBars('calung', .2, -1.25, ck, 1.15, 5); baliBars('calung2', 1.6, -1.25, ck, 1.15, 5);
-      baliBars('polos', -2.4, .55, gk, .65); baliBars('polos2', -.8, .55, gk, .65);
-      baliBars('sangsih', .8, .55, gk, .65); baliBars('sangsih2', 2.4, .55, gk, .65);
-      kendhangInst('kendhang', 0, 1.9, true);
-      const behind = I => I.g.position.z - (I.depth||.4)/2 - .33;
-      perf(true, k++, 3.67, -2.45, Math.PI/2, ['gong','kempul','kenong'], 'gong');
-      perf(true, k++, 1.55, -2.17, 0, ['kajar'], 'kenong', {iid:'kajar'});
-      perf(true, k++, -.1, -2.0, 0, ['ceng'], 'ceng');
-      perf(true, k++, -2.7, behind(INSTS.jegogan), 0, ['jegogan'], 'bars', {iid:'jegogan', head:'pad', len:.28});
-      perf(true, k++, -1.25, behind(INSTS.jegogan2), 0, ['jegogan'], 'bars', {iid:'jegogan2', head:'pad', len:.28});
-      perf(true, k++, .2, behind(INSTS.calung), 0, ['calung'], 'bars', {iid:'calung', head:'hammer', len:.24});
-      perf(true, k++, 1.6, behind(INSTS.calung2), 0, ['calung'], 'bars', {iid:'calung2', head:'hammer', len:.24});
-      perf(true, k++, -2.4, behind(INSTS.polos), 0, ['polos'], 'bars', {iid:'polos', head:'hammer', len:.22});
-      perf(true, k++, -.8, behind(INSTS.polos2), 0, ['polos'], 'bars', {iid:'polos2', head:'hammer', len:.22});
-      perf(true, k++, .8, behind(INSTS.sangsih), 0, ['sangsih'], 'bars', {iid:'sangsih', head:'hammer', len:.22});
-      perf(true, k++, 2.4, behind(INSTS.sangsih2), 0, ['sangsih'], 'bars', {iid:'sangsih2', head:'hammer', len:.22});
-      perf(true, k++, 0, 1.5, 0, ['kendhang'], 'drum');
+      hangingGongs('gong', ...L.gong, [{key:'G', R:.46, x:.5, y:.72, big:true}, {key:'P', R:.27, x:-.28, y:.64}, {key:'N', R:.16, x:-.76, y:.58}], -Math.PI/2);
+      smallKettles('kajar', ...L.kajar, [['j', .1, 0]]);
+      cengInst('ceng', ...L.ceng);
+      baliBars('jegogan', ...L.jegogan, ck, 1.6, 5); baliBars('jegogan2', ...L.jegogan2, ck, 1.6, 5);
+      baliBars('calung', ...L.calung, ck, 1.15, 5); baliBars('calung2', ...L.calung2, ck, 1.15, 5);
+      for (const id of ['polos','polos2','sangsih','sangsih2']) baliBars(id, ...L[id], gk, .65);
+      kendhangInst('kendhang', ...L.kendhang, true);
+      perf(true, k++, ...L.gongP, Math.PI/2, ['gong','kempul','kenong'], 'gong');
+      perf(true, k++, L.kajar[0], L.kajar[1] + .38, 0, ['kajar'], 'kenong', {iid:'kajar'});
+      perf(true, k++, L.ceng[0], L.ceng[1] + .5, 0, ['ceng'], 'ceng');
+      for (const [iid, inst, head, len] of [['jegogan','jegogan','pad',.28],['jegogan2','jegogan','pad',.28],['calung','calung','hammer',.24],['calung2','calung','hammer',.24],
+          ['polos','polos','hammer',.22],['polos2','polos','hammer',.22],['sangsih','sangsih','hammer',.22],['sangsih2','sangsih','hammer',.22]])
+        perf(true, k++, L[iid][0], behind(INSTS[iid]), 0, [inst], 'bars', {iid, head, len});
+      perf(true, k++, L.kendhang[0], L.kendhang[1] - .4, 0, ['kendhang'], 'drum');
     }
     // バチを持たせる
     for (const P of PERF){
@@ -3884,7 +3948,7 @@ function init3D(){
       if (iid === 'jegogan' || iid === 'calung' || iid === 'polos' || iid === 'sangsih') c.x = (INSTS[iid].g.position.x + INSTS[iid + '2'].g.position.x)/2;
       const el = document.createElement('button'); el.className = 's3tag'; el.innerHTML = `<span class="nt"></span>${name}<small>${role}</small>`; el.dataset.insts = insts.join(' ');
       el.style.setProperty('--g', '#' + (GCOL[groupOf(insts[0])] || 0xc9a24a).toString(16).padStart(6, '0'));
-      el.onclick = () => toggleMute(insts); layer.appendChild(el);
+      el.onclick = () => (G3.onPick ? G3.onPick(insts) : toggleMute(insts)); layer.appendChild(el);
       LABELS.push({el, at:c, insts}); }
     syncMute();
   }
@@ -4044,11 +4108,31 @@ function init3D(){
 
   // ---- 画面に合わせる・カメラ ----
   const CAMS = {front:[V(0, 3.7, 7.6), V(0, .3, -.7)], top:[V(0, 12.5, .6), V(0, 0, -.4)], side:[V(9.2, 3.2, 3.4), V(0, .4, -.4)], near:[V(-.6, 1.55, 4.0), V(-.4, .5, -.2)]};
-  let camAnim = null;
-  function setCam(name){ const [p, t] = CAMS[name]; camAnim = {p0:camera.position.clone(), t0:controls.target.clone(), p, t, s:performance.now()}; document.querySelectorAll('#s3cam [data-cam]').forEach(b => b.classList.toggle('on', b.dataset.cam === name)); }
+  let camAnim = null, curCam = 'front';
+  // 画面の縦横に合わせて、全員が入る距離を計算する（正面・真上）
+  function fitPose(name){
+    const bb = new THREE.Box3(); for (const P of PERF) bb.expandByObject(P.g); for (const I of Object.values(INSTS)) bb.expandByObject(I.g);
+    if (bb.isEmpty()) return CAMS[name];
+    const c = bb.getCenter(V(0,0,0)), tall = camera.aspect < .9;
+    if (name === 'near'){ const t = V(c.x - .2, .5, bb.max.z - 1.0); return [t.clone().add(V(-.5, 1.1, 2.7)), t]; }
+    const dir = (name === 'top' ? V(0, 1, .14) : tall ? V(0, 1.15, 1) : V(0, .55, 1)).normalize(), tgt = V(c.x, .25, c.z + (name === 'top' ? 0 : .25));
+    const pts = []; for (const x of [bb.min.x + .2, bb.max.x - .2]) for (const y of [0, 1.05]) for (const z of [bb.min.z + .1, bb.max.z]) pts.push(V(x, y, z));
+    const cam = camera.clone(); let d = 2.5;
+    for (; d < 40; d += .15){ cam.position.copy(tgt).addScaledVector(dir, d); cam.lookAt(tgt); cam.updateMatrixWorld(true);
+      if (pts.every(p => { const q = p.clone().project(cam); return Math.abs(q.x) < .97 && q.y < .86 && q.y > -.98; })) break; }
+    return [cam.position.clone(), tgt]; }
+  function setCam(name, instant){ curCam = name; const [p, t] = fitPose(name);
+    if (instant){ camAnim = null; camera.position.copy(p); controls.target.copy(t); controls.update(); }
+    else camAnim = {p0:camera.position.clone(), t0:controls.target.clone(), p, t, s:performance.now()};
+    document.querySelectorAll('#s3cam [data-cam]').forEach(b => b.classList.toggle('on', b.dataset.cam === name)); }
   camera.position.copy(CAMS.front[0]); controls.target.copy(CAMS.front[1]); controls.update();
+  let lastAsp = 0;
   function resize(){ const w = boxEl.clientWidth, h = boxEl.clientHeight; if (!w || !h) return; renderer.setSize(w, h, true); camera.aspect = w/h;
-    camera.fov = w/h < .9 ? 48 : 34; camera.updateProjectionMatrix(); }
+    camera.fov = w/h < .9 ? 46 : 34; camera.updateProjectionMatrix();
+    const tall = w/h < .9;
+    if (G3.ready && tall !== TALL){ TALL = tall; curKey = ''; G3.rebuild(); }
+    else if (Math.abs(w/h - lastAsp) > .02 && PERF.length) setCam(curCam, true);
+    lastAsp = w/h; }
   window.addEventListener('resize', resize);
   if (window.ResizeObserver) new ResizeObserver(() => resize()).observe(boxEl);
   // 奏者をタップ → 休ませる・戻す
@@ -4058,8 +4142,9 @@ function init3D(){
     mp.set((e.clientX - r.left)/r.width*2 - 1, -(e.clientY - r.top)/r.height*2 + 1); ray.setFromCamera(mp, camera);
     const hits = ray.intersectObjects(ens.children, true); if (!hits.length) return;
     let o = hits[0].object; while (o && o.parent !== ens) o = o.parent;
-    const P = PERF.find(P => P.g === o); if (P){ toggleMute(P.insts); return; }
-    const I = Object.values(INSTS).find(I => I.g === o); if (I){ const P2 = PERF.find(P => P.inst === I); if (P2) toggleMute(P2.insts); } });
+    const pick = insts => (G3.onPick ? G3.onPick(insts) : toggleMute(insts));
+    const P = PERF.find(P => P.g === o); if (P){ pick(P.insts); return; }
+    const I = Object.values(INSTS).find(I => I.g === o); if (I){ const P2 = PERF.find(P => P.inst === I); if (P2) pick(P2.insts); } });
 
   // ---- 描画ループ（3D合奏タブを開いているときだけ動く） ----
   let lastMs = performance.now(), curKey = '', perfAvg = 1/60, perfN = 0, quality = 2;
@@ -4087,7 +4172,7 @@ function init3D(){
       f.m.material.emissiveIntensity = (1 - a/.5) * .9; }
     renderer.render(scene, camera);
     // 名札の位置
-    const w = boxEl.clientWidth, h = boxEl.clientHeight, show = $('#s3names').checked;
+    const w = boxEl.clientWidth, h = boxEl.clientHeight, show = S3_NAMES;
     for (const L of LABELS){ const p = L.at.clone().applyMatrix4(ens.matrixWorld).project(camera);
       const vis = show && p.z < 1 && Math.abs(p.x) < 1.1 && Math.abs(p.y) < 1.1;
       L.el.style.display = vis ? '' : 'none'; if (vis) L.el.style.transform = `translate(${((p.x + 1)/2*w).toFixed(1)}px, ${((1 - p.y)/2*h).toFixed(1)}px) translate(-50%, -100%)`;
@@ -4097,7 +4182,7 @@ function init3D(){
     s3Hot(now);
     s3Status();
   }
-  G3.rebuild = () => { const key = S.form + '|' + S.laras; if (key === curKey) return; curKey = key; buildEnsemble(S.form, S.laras); };
+  G3.rebuild = () => { const key = S.form + '|' + S.laras + '|' + TALL; if (key === curKey) return; curKey = key; buildEnsemble(S.form, S.laras); setCam(curCam, true); };
   // 点検用：各奏者が自分の楽器のすべての打つ点にバチが届くか（届かない点の数）
   G3.reach = () => { const out = {}; for (const P of PERF){ if (!P.inst || !P.sticks.R || ['rebab','suling','drum','ceng'].includes(P.kind)) continue; let bad = 0, worst = 0;
       for (const w of Object.values(P.inst.keys)){ const loc = toLocal(P, w), side = loc.x >= 0 && P.sticks.L ? 'L' : 'R', L = P.sticks[side].len;
@@ -4107,91 +4192,120 @@ function init3D(){
   G3.resize = resize; G3.setCam = setCam; G3.info = renderer.info; G3.look = (p, t) => { camAnim = null; camera.position.set(...p); controls.target.set(...t); controls.update(); };
   G3.sync = () => { G3.rebuild(); syncMute(); };
   G3.ready = true; G3.lastNote = LASTNOTE;
-  G3.rebuild(); resize(); requestAnimationFrame(frame);
+  { const w = boxEl.clientWidth, h = boxEl.clientHeight; TALL = !!(w && h && w/h < .9); }
+  resize(); G3.rebuild(); setCam('front', true); requestAnimationFrame(frame);
 }
 
 // ---- 3D合奏ページの操作 ----
 // 役割のまとまり（雅楽シミュレーターの「吹物・弾物・打物」のように）
 const S3_GROUPS = {
-  java:[{id:'bal', k:'骨組み', c:'#7fd3a0', insts:[['saron','サロン','旋律の骨組み'],['demung','デムン','低い骨組み'],['slenthem','スレンテム','いちばん低い']]},
-        {id:'elab', k:'飾り', c:'#c59bff', insts:[['peking','ペキン','先取り'],['bonang','ボナン','飾る'],['panerus','パネルス','細かく飾る']]},
+  java:[{id:'bal', k:'骨組み', c:'#7fd3a0', insts:[['saron','サロン','旋律の骨組み'],['demung','デムン','低い骨組み'],['slenthem','スレンテム','いちばん低い骨組み']]},
+        {id:'elab', k:'飾り', c:'#c59bff', insts:[['peking','ペキン','先取りで飾る'],['bonang','ボナン','旋律を飾る'],['panerus','パネルス','細かく飾る']]},
         {id:'colo', k:'区切り', c:'#e9b44c', insts:[['gong','ゴング','1周の終わり'],['kempul','クンプル','区切りの間'],['kenong','クノン','大きな区切り'],['kethuk','クトゥッ','細かい区切り']]},
         {id:'drum', k:'指揮', c:'#ff7b9c', insts:[['kendhang','クンダン','テンポを決める']]},
-        {id:'soft', k:'柔らかい', c:'#9fb6c8', insts:[['gender','グンデル','やさしく飾る'],['rebab','ルバブ','旋律を歌う'],['suling','スリン','笛']]}],
+        {id:'soft', k:'柔らかい', c:'#9fb6c8', insts:[['gender','グンデル','やさしく飾る'],['rebab','ルバブ','旋律を歌う'],['suling','スリン','竹の笛']]}],
   bali:[{id:'bal', k:'骨組み', c:'#7fd3a0', insts:[['calung','チャルン','旋律の骨組み'],['jegogan','ジェゴガン','低い骨組み']]},
-        {id:'elab', k:'コテカン', c:'#c59bff', insts:[['polos','ポロス','かみ合わせの表'],['sangsih','サンシ','かみ合わせの裏']]},
+        {id:'elab', k:'コテカン', c:'#c59bff', insts:[['polos','ガンサ・ポロス','かみ合わせの表'],['sangsih','ガンサ・サンシ','かみ合わせの裏']]},
         {id:'colo', k:'区切り', c:'#e9b44c', insts:[['gong','ゴング','1周の終わり'],['kempul','クンプール','半分の区切り'],['kenong','クモン','区切り'],['kajar','カジャール','拍を刻む'],['ceng','チェンチェン','シンバル']]},
-        {id:'drum', k:'指揮', c:'#ff7b9c', insts:[['kendhang','クンダン','リーダー']]}],
+        {id:'drum', k:'指揮', c:'#ff7b9c', insts:[['kendhang','クンダン','合奏のリーダー']]}],
 };
 const S3_KEYS = id => id === 'kethuk' ? ['kethuk','kempyang'] : [id];
 const S3_THEORY = {gender:'soft', rebab:'soft', suling:'soft', jegogan:'calung'};
-function s3AllInsts(){ return S3_GROUPS[S.form === 'bali' ? 'bali' : 'java'].flatMap(g => g.insts.flatMap(i => S3_KEYS(i[0]))); }
+const S3_EXTRA = {kajar:'小さな壺型ゴングを毎拍たたいて、バリの速い合奏の拍を刻みます。', ceng:'亀の形の台にのせた小さなシンバルを、手に持ったシンバルで打ちます。合奏に勢いをつけます。',
+  kempul_bali:'吊るした中くらいのゴング（クンプール）。1周のまん中で鳴り、周期を半分に区切ります。', kenong_bali:'小さな吊りゴング（クモン）。周期をさらに区切ります。'};
+let S3_NAMES = true, S3_ME = null, S3_CUR = null, s3Cycle = null;
+const s3Groups = () => S3_GROUPS[S.form === 'bali' ? 'bali' : 'java'];
+function s3AllInsts(){ return s3Groups().flatMap(g => g.insts.flatMap(i => S3_KEYS(i[0]))); }
+const s3Off = id => S3_KEYS(id).every(i => S.mutedInst[i] || S.muted[laneOf(i)]);
 function s3Set(list){ const on = new Set(list); for (const i of s3AllInsts()){ S.mutedInst[i] = !on.has(i); if (on.has(i)) S.muted[laneOf(i)] = false; } renderLanes(); G3.syncMute ? G3.syncMute() : s3Chips(); }
-function s3BuildInsts(){
-  const box = $('#s3insts'); if (!box) return; const gs = S3_GROUPS[S.form === 'bali' ? 'bali' : 'java'];
-  box.innerHTML = gs.map(g => `<div class="s3grp" style="--g:${g.c}"><button class="gl" data-solo="${g.id}" aria-label="${g.k}だけ聴く">${g.k}<small>だけ</small></button>${
-    g.insts.map(([id, n, r]) => `<span class="s3ic" data-ic="${id}"><button class="t" aria-label="${n}をオン・オフ"><b>${n}</b><small>${r}</small></button>${THEORY.some(t => t.id === (S3_THEORY[id]||id)) ? `<button class="i" aria-label="${n}のしくみ">i</button>` : ''}</span>`).join('')}</div>`).join('')
-    + '<button class="sec s3all" data-all="1">全員</button>';
-  $('#s3legend').innerHTML = gs.map(g => `<span><i style="background:${g.c}"></i>${g.k}</span>`).join('');
+function s3BuildRoles(){
+  $('#s3roles').innerHTML = '<button data-all="1" style="--g:#e9dcc6">全員</button>' + s3Groups().map(g => `<button data-solo="${g.id}" style="--g:${g.c}"><i></i>${g.k}だけ</button>`).join('');
   s3Chips(); }
 function s3Chips(){
-  const gs = S3_GROUPS[S.form === 'bali' ? 'bali' : 'java'], off = id => S3_KEYS(id).every(i => S.mutedInst[i] || S.muted[laneOf(i)]);
-  document.querySelectorAll('#s3insts [data-ic]').forEach(c => c.classList.toggle('off', off(c.dataset.ic)));
-  for (const g of gs){ const b = document.querySelector(`#s3insts [data-solo="${g.id}"]`); if (!b) continue;
-    const mine = new Set(g.insts.flatMap(i => S3_KEYS(i[0]))); b.classList.toggle('act', s3AllInsts().every(i => (S.mutedInst[i] || S.muted[laneOf(i)]) === !mine.has(i))); }
-}
-let s3HotT = 0;
-function s3Hot(now){ // いま鳴らしている楽器のボタンを光らせる
-  if (performance.now() - s3HotT < 80) return; s3HotT = performance.now();
-  document.querySelectorAll('#s3insts [data-ic]').forEach(c => { const hot = S3_KEYS(c.dataset.ic).some(i => { const x = G3.lastNote && G3.lastNote[i]; return x && x.t <= now && now - x.t < .3; }); c.classList.toggle('hot', hot); }); }
-$('#s3insts').onclick = e => {
-  const all = e.target.closest('[data-all]'); if (all){ s3Set(s3AllInsts()); return; }
-  const solo = e.target.closest('[data-solo]'); if (solo){ const g = S3_GROUPS[S.form === 'bali' ? 'bali' : 'java'].find(x => x.id === solo.dataset.solo);
-    s3Set(solo.classList.contains('act') ? s3AllInsts() : g.insts.flatMap(i => S3_KEYS(i[0]))); return; }
-  const ic = e.target.closest('[data-ic]'); if (!ic) return; const id = ic.dataset.ic;
-  if (e.target.closest('.i')){ curTheory = S3_THEORY[id] || id; document.querySelector('.tabs [data-tab="theory"]').click(); renderTheoryGroups(); renderTheory(); window.scrollTo({top:0, behavior:'smooth'}); return; }
-  const keys = S3_KEYS(id), turnOn = keys.every(i => S.mutedInst[i] || S.muted[laneOf(i)]);
-  keys.forEach(i => { S.mutedInst[i] = !turnOn; if (turnOn) S.muted[laneOf(i)] = false; }); renderLanes(); G3.syncMute ? G3.syncMute() : s3Chips(); };
+  const all = s3AllInsts();
+  document.querySelectorAll('#s3roles [data-solo]').forEach(b => { const g = s3Groups().find(x => x.id === b.dataset.solo), mine = new Set(g.insts.flatMap(i => S3_KEYS(i[0])));
+    b.classList.toggle('on', all.every(i => (S.mutedInst[i] || S.muted[laneOf(i)]) === !mine.has(i))); });
+  const ab = $('#s3roles [data-all]'); if (ab) ab.classList.toggle('on', all.every(i => !S.mutedInst[i]));
+  if (S3_CUR){ const mb = $('#s3sheet [data-mute]'); if (mb) mb.textContent = s3Off(S3_CUR) ? '🔊 鳴らす' : '🔇 休ませる'; } }
+function s3Hot(){}
+$('#s3roles').onclick = e => {
+  if (e.target.closest('[data-all]')){ s3Set(s3AllInsts()); return; }
+  const b = e.target.closest('[data-solo]'); if (!b) return; const g = s3Groups().find(x => x.id === b.dataset.solo);
+  s3Set(b.classList.contains('on') ? s3AllInsts() : g.insts.flatMap(i => S3_KEYS(i[0]))); };
+// 奏者や名札をタップ → 楽器の説明カード
+function s3Open(insts){
+  const id = insts.includes('kethuk') || insts.includes('kempyang') ? 'kethuk' : insts[0];
+  let grp = null, ent = null; for (const g of s3Groups()) for (const it of g.insts) if (it[0] === id){ grp = g; ent = it; }
+  if (!grp) return;
+  S3_CUR = id;
+  const T = THEORY.find(t => t.id === (S3_THEORY[id] || id)), bali = S.form === 'bali';
+  const role = (bali && S3_EXTRA[id + '_bali']) || S3_EXTRA[id] || (T ? (T.facts.find(f => f[0] === '役割') || [,''])[1] : ent[2]);
+  const rules = T && !(bali && S3_EXTRA[id + '_bali']) ? T.rules.slice(0, 2) : [];
+  const playable = JAM_INST[bali ? 'bali' : 'java'].some(x => x[0] === id);
+  const sh = $('#s3sheet'); sh.style.setProperty('--g', grp.c);
+  sh.innerHTML = `<button class="x" aria-label="閉じる">✕</button><h3>${ent[1]}<span class="pill">${grp.k}</span></h3><p>${role}</p>${rules.length ? `<ul>${rules.map(r => `<li>${r}</li>`).join('')}</ul>` : ''}
+    <div class="acts">${playable ? '<button data-play="1">🥢 この楽器を演奏する</button>' : ''}<button class="sec" data-mute="1"></button>${T ? '<button class="sec" data-more="1">📖 くわしく</button>' : ''}</div>`;
+  sh.hidden = false; s3Chips(); }
+function s3Close(){ $('#s3sheet').hidden = true; S3_CUR = null; }
+$('#s3sheet').onclick = e => {
+  const id = S3_CUR; if (!id) return;
+  if (e.target.closest('.x')){ s3Close(); return; }
+  if (e.target.closest('[data-play]')){ s3Join(id); return; }
+  if (e.target.closest('[data-mute]')){ const keys = S3_KEYS(id), turnOn = s3Off(id); keys.forEach(i => { S.mutedInst[i] = !turnOn; if (turnOn) S.muted[laneOf(i)] = false; });
+    renderLanes(); G3.syncMute ? G3.syncMute() : s3Chips(); return; }
+  if (e.target.closest('[data-more]')){ curTheory = S3_THEORY[id] || id; s3Close(); showPage('theory'); renderTheoryGroups(); renderTheory(); } };
+G3.onPick = insts => s3Open(insts);
+// この楽器を演奏する：舞台を少し小さくして、下に叩く画面を出す
+function s3Join(id){
+  stopAll(); s3Close(); S3_ME = id;
+  const idx = +$('#pieceSel').value, p = PIECES[idx], name = (s3Groups().flatMap(g => g.insts).find(x => x[0] === id) || [,id])[1];
+  $('#page-stage3d').classList.add('joining'); $('#s3me').hidden = false; $('#s3meName').textContent = `🥢 あなた：${name}`;
+  mountPractice($('#s3prac'), {piece:idx, user:id, bpm:Math.min(p.tempo, JAM_DENSE.has(id) ? (p.form==='bali' ? 40 : 48) : 66), backing:'all', passRatio:.75,
+    iramaToggle: p.form !== 'bali' && ['peking','bonang','panerus','kendhang'].includes(id),
+    intro:'「一緒に弾く」を押すと、舞台の奏者と一緒に合奏が始まります。流れてくる音が線に重なったら叩こう。'});
+  const pr = $('#s3prac .prac'), rows = pr.querySelectorAll(':scope > .row'), more = document.createElement('details');
+  more.innerHTML = '<summary>テンポ・ずれ調整・楽譜</summary>';
+  [rows[0], '.pmsg', '.hwy', '.pkb', '.pstats'].forEach(x => pr.appendChild(typeof x === 'string' ? pr.querySelector(x) : x));
+  [rows[1], '.pcount', '.pcalbox', '.pscore'].forEach(x => { const el = typeof x === 'string' ? pr.querySelector(x) : x; if (el) more.appendChild(el); });
+  pr.appendChild(more);
+  setTimeout(() => { if (G3.ready) G3.resize(); $('#s3box').scrollIntoView({behavior:'smooth', block:'start'}); }, 50); }
+function s3Quit(){ stopAll(); S3_ME = null; $('#s3me').hidden = true; $('#s3prac').innerHTML = ''; $('#page-stage3d').classList.remove('joining'); setTimeout(() => G3.ready && G3.resize(), 50); }
+$('#s3meQuit').onclick = s3Quit;
 function s3Tempo(d){ const v = Math.max(30, Math.min(160, Math.round(+$('#tempo').value + d))); $('#tempo').value = v; $('#tempo').oninput({target:$('#tempo')}); $('#s3bpm').textContent = '♩=' + v; }
 $('#s3slow').onclick = () => s3Tempo(-4); $('#s3fast').onclick = () => s3Tempo(4);
-let s3Cycle = null;
-setTimeout(() => { if ($('#page-stage3d').classList.contains('active')){ s3Sync(); open3D(); } }, 0);
 function s3Sync(){
   const sel = $('#s3piece'); if (!sel) return;
   if (!s3Cycle) s3Cycle = new CycleView($('#s3cycle')); else s3Cycle.build();
   $('#s3bpm').textContent = '♩=' + $('#tempo').value;
-  s3BuildInsts();
+  s3BuildRoles();
   sel.innerHTML = $('#pieceSel').innerHTML; sel.value = $('#pieceSel').value;
   const bali = S.form === 'bali';
   $('#s3ir').style.display = bali ? 'none' : '';
   document.querySelectorAll('#s3ir [data-ir]').forEach(b => b.classList.toggle('on', +b.dataset.ir === (S.pendingIrama || S.irama)));
-  const list = JAM_INST[bali ? 'bali' : 'java'];
-  $('#s3join').innerHTML = list.map(([k,n]) => `<button class="sec ${S3_ME===k?'on':''}" data-i="${k}">${n}</button>`).join('') + (S3_ME ? '<button class="sec" data-i="">やめる</button>' : '');
-  if (S3_ME && !list.some(x => x[0] === S3_ME)){ S3_ME = null; $('#s3prac').innerHTML = ''; }
+  if (S3_ME && !JAM_INST[bali ? 'bali' : 'java'].some(x => x[0] === S3_ME)) s3Quit();
+  if (S3_CUR && !s3Groups().some(g => g.insts.some(i => i[0] === S3_CUR))) s3Close();
   if (G3.ready) G3.sync();
 }
-let S3_ME = null;
-$('#s3piece').onchange = e => { stopAll(); S3_ME = null; $('#s3prac').innerHTML = ''; usePiece(+e.target.value); };
-$('#s3play').onclick = () => { if (PW) stopPractice(PW); initAudio(); startAuto(); };
-$('#s3stop').onclick = () => { stopAll(); };
+setTimeout(() => { if ($('#page-stage3d').classList.contains('active')){ s3Sync(); open3D(); } }, 0);
+$('#s3piece').onchange = e => { stopAll(); if (S3_ME) s3Quit(); s3Close(); usePiece(+e.target.value); };
+$('#s3play').onclick = () => { if (S.playing || (PW && PW.running)){ stopAll(); return; } if (PW) stopPractice(PW); initAudio(); startAuto(); };
 $('#s3suwuk').onclick = () => suwuk();
 $('#s3ir').onclick = e => { const b = e.target.closest('[data-ir]'); if (!b) return; setIrama(+b.dataset.ir); s3Sync(); };
-$('#s3cam').onclick = e => { const b = e.target.closest('[data-cam]'); if (b && G3.ready) G3.setCam(b.dataset.cam); };
-$('#s3join').onclick = e => { const b = e.target.closest('[data-i]'); if (!b) return; stopAll();
-  S3_ME = b.dataset.i || null; s3Sync();
-  if (!S3_ME){ $('#s3prac').innerHTML = ''; return; }
-  const idx = +$('#pieceSel').value, p = PIECES[idx];
-  mountPractice($('#s3prac'), {piece:idx, user:S3_ME, bpm:Math.min(p.tempo, JAM_DENSE.has(S3_ME) ? (p.form==='bali' ? 40 : 48) : 66), backing:'all', passRatio:.75,
-    intro:'「一緒に弾く」を押すと、舞台の奏者たちと一緒に合奏が始まります。あなたの奏者は、あなたが叩いたときに動きます。'});
-  const pr = $('#s3prac .prac'), rows = pr.querySelectorAll(':scope > .row');
-  [rows[0], '.pcount', '.pmsg', '.hwy', '.pkb', '.pstats', rows[1], '.pcalbox', '.pscore'].forEach(x => pr.appendChild(typeof x==='string' ? pr.querySelector(x) : x));
-};
+$('#s3cam').onclick = e => { const n = e.target.closest('[data-names]'); if (n){ S3_NAMES = !S3_NAMES; n.classList.toggle('on', S3_NAMES); return; }
+  const b = e.target.closest('[data-cam]'); if (b && G3.ready) G3.setCam(b.dataset.cam); };
+// メニュー（レッスン・楽器のしくみ・合奏の練習・自由に叩く・自動演奏）
+$('#s3menuBtn').onclick = () => { $('#s3menu').hidden = false; };
+$('#s3menu').onclick = e => { const go = e.target.closest('[data-go]');
+  if (go){ $('#s3menu').hidden = true; stopAll(); showPage(go.dataset.go); return; }
+  if (e.target.closest('[data-close]') || e.target === $('#s3menu')) $('#s3menu').hidden = true; };
 function s3Status(){ const el = $('#s3st'); if (!el) return; let t;
+  const busy = S.playing || (PW && PW.running);
   if (PW && PW.running && PW.el === $('#s3prac')) t = '🥢 あなたも合奏に参加中';
   else if (S.playing){ const ep = enginePos(), b = ep ? Math.max(1, Math.ceil(ep.pos - 1e-6)) : 0;
-    t = !ep ? '▶ 合奏中' : ep.phase === 'buka' ? `ブカ（前奏）… ${b}拍目` : `▶ ${b} / ${S.N} 拍 ・ ゴングまで あと ${S.N - b} 拍`; if (S.ending) t += '（終わりに向かっています）'; }
-  else t = '▶ を押すと合奏が始まります';
-  if (el.textContent !== t) el.textContent = t; }
+    t = !ep ? '合奏中' : ep.phase === 'buka' ? `前奏… ${b}拍目` : `${b} / ${S.N} 拍・ゴングまで ${S.N - b}`; if (S.ending) t += '（終わりへ）'; }
+  else t = '▶ で合奏が始まります';
+  if (el.textContent !== t) el.textContent = t;
+  const pb = $('#s3play'), want = busy ? '■' : '▶'; if (pb.textContent !== want){ pb.textContent = want; pb.setAttribute('aria-label', busy ? '止める' : '合奏をはじめる'); } }
 
 </script>
 </body>
