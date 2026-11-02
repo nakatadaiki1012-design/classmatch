@@ -424,6 +424,20 @@
   .s3mehead{display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;}
   .s3me details{margin-top:8px;} .s3me summary{cursor:pointer; color:var(--sub); font-size:.8rem;}
   .s3hint{margin:6px 0 0; text-align:center; font-size:.72rem; color:var(--sub);}
+  .s3tabs{display:flex; margin-top:8px; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:3px; gap:3px;}
+  .s3tabs button{flex:1; background:none; border:none; color:var(--sub); padding:8px 4px; font-size:.85rem; font-weight:800; border-radius:9px; min-height:38px;}
+  .s3tabs button.on{background:var(--accent); color:var(--onaccent);}
+  .s3pane{margin-top:6px;}
+  .s3pane .panel{margin-bottom:8px;}
+  #s3pLearn .lhead .muted{display:none;}
+  .s3ilist{display:flex; flex-direction:column; gap:8px; margin-bottom:8px;}
+  .s3ilist .grp{display:flex; flex-wrap:wrap; gap:5px; align-items:center;}
+  .s3ilist .grp b{color:var(--g); font-size:.8rem; min-width:4.5em;}
+  .s3ilist button{padding:7px 11px; font-size:.8rem; border-radius:999px; background:var(--panel2); color:var(--text); border:1.5px solid var(--g); min-height:36px;}
+  .s3ilist button.on{background:var(--g); color:#1b120c;}
+  body.s3joining .s3tabs, body.s3joining .s3pane{display:none !important;}
+  details.about summary{cursor:pointer; font-weight:800; color:var(--sub); font-size:.85rem;}
+  details.about:not([open]){padding:10px 14px;}
   .s3menu{position:fixed; inset:0; z-index:60; background:rgba(0,0,0,.5); display:flex; align-items:flex-end; justify-content:center;}
   .s3menu[hidden]{display:none;}
   .s3menuIn{background:var(--panel); width:min(520px, 100%); border-radius:18px 18px 0 0; padding:12px 14px calc(14px + env(safe-area-inset-bottom)); display:flex; flex-direction:column; gap:8px;}
@@ -552,7 +566,7 @@
 <section id="page-stage3d" class="page active">
   <div class="s3top">
     <select id="s3piece" aria-label="曲をえらぶ"></select>
-    <button class="sec s3menuBtn" id="s3menuBtn" aria-label="メニュー（レッスン・楽器のしくみなど）">☰<small>メニュー</small></button>
+    <button class="sec s3menuBtn" id="s3menuBtn" aria-label="その他（練習・自由に叩く・自動演奏など）">⋯<small>その他</small></button>
   </div>
   <div class="s3box" id="s3box"><canvas id="s3gl"></canvas><div id="s3labels"></div>
     <div class="s3st" id="s3st">▶ を押すと合奏が始まります</div>
@@ -561,6 +575,10 @@
     <div class="s3load" id="s3load" hidden>3Dの舞台を準備中…</div>
   </div>
   <div class="s3sheet" id="s3sheet" hidden></div>
+  <div class="s3tabs" id="s3tabs" role="tablist">
+    <button data-pane="play" class="on" role="tab">🎵 演奏</button><button data-pane="learn" role="tab">📚 学ぶ</button><button data-pane="inst" role="tab">🥢 楽器</button>
+  </div>
+  <div class="s3pane" id="s3pPlay">
   <div class="s3bar">
     <button id="s3play" class="s3big hint" aria-label="合奏をはじめる">▶</button>
     <button class="sec s3sm" id="s3suwuk">終わる</button>
@@ -568,17 +586,18 @@
     <button class="sec s3sm" id="s3ir" aria-label="イラマ（速さと細かさの段階）を切りかえる">イラマⅠ</button>
   </div>
   <div class="s3roles" id="s3roles" aria-label="役割ごとに聴く"></div>
+  </div>
+  <div class="s3pane" id="s3pLearn" hidden></div>
+  <div class="s3pane" id="s3pInst" hidden><div class="s3ilist" id="s3ilist"></div></div>
   <div class="s3me" id="s3me" hidden>
     <div class="s3mehead"><b id="s3meName"></b><button class="sec s3sm" id="s3meQuit">✕ やめる</button></div>
     <div id="s3prac"></div>
   </div>
-  <p class="s3hint">奏者をタップ → 楽器の説明と「演奏する」。指で回す・2本指で拡大。</p>
 </section>
 <div class="s3menu" id="s3menu" hidden>
   <div class="s3menuIn">
-    <div class="s3menuHead"><b>メニュー</b><button class="sec s3sm" data-close="1">✕</button></div>
-    <button class="s3mi" data-go="lesson">📚<span><b>レッスン</b><small>14ステップで順番に学ぶ</small></span></button>
-    <button class="s3mi" data-go="theory">🎼<span><b>楽器のしくみ</b><small>楽器ごとの役割と決まりごと</small></span></button>
+    <div class="s3menuHead"><b>その他</b><button class="sec s3sm" data-close="1">✕</button></div>
+    <button class="s3mi" data-go="range">🎚<span><b>楽器の音の高さ地図</b><small>楽器ごとのオクターブのちがい</small></span></button>
     <button class="s3mi" data-go="jam">🥢<span><b>合奏の練習</b><small>楽器と曲を絵から選んで練習</small></span></button>
     <button class="s3mi" data-go="play">🎹<span><b>自由に叩く</b><small>好きな楽器を自由に鳴らす</small></span></button>
     <button class="s3mi" data-go="auto">⚙️<span><b>自動演奏（くわしく）</b><small>自分の曲・タイムライン・聴きくらべ</small></span></button>
@@ -731,8 +750,8 @@
 
 <!-- ============ このアプリについて（検索エンジンと初めての人向けの説明） ============ -->
 <noscript><p class="lead">このアプリは JavaScript を使って音を鳴らします。ブラウザの設定で JavaScript を有効にしてください。</p></noscript>
-<section id="about" class="panel about">
-  <h2>このアプリについて</h2>
+<details id="about" class="panel about">
+  <summary>このアプリについて</summary>
   <p>「はじめてのガムラン教室」は、インドネシアの青銅の合奏音楽<strong>ガムラン（gamelan）</strong>を、スマホ・タブレット・パソコンのブラウザだけで学べる無料の学習アプリです。インストールは要りません。</p>
   <ul>
     <li><strong>14のレッスン</strong>：数字の楽譜、ゴングが時間を区切るしくみ（コロトミー）、スレンドロとペロッグ、イラマ、バリのコテカンまで順番に学べます。</li>
@@ -746,7 +765,7 @@
     <dt>音は本物の録音ですか？</dt><dd>いいえ。ブラウザで作った合成音です。音の高さと響きの長さは測りながら調整しています。</dd>
     <dt>お金はかかりますか？</dt><dd>無料です。</dd>
   </dl>
-</section>
+</details>
 
 <script>
 'use strict';
@@ -3248,6 +3267,8 @@ function renderTheory(){
  * ========================================================= */
 // ページの切りかえ：ふだんは3D合奏。レッスンなどはメニューから開き、「← 3D合奏へ」で戻る
 function showPage(tab){
+  // レッスンと楽器のしくみは、合奏の画面の下のパネルで開く
+  if (tab === 'lesson' || tab === 'inst'){ if (typeof s3Pane === 'function'){ if (!$('#page-stage3d').classList.contains('active')) showPage('stage3d'); s3Pane(tab === 'lesson' ? 'learn' : 'inst'); return; } }
   if (PW) stopPractice(PW);
   document.querySelectorAll('.tabs button').forEach(x=>x.classList.toggle('active', x.dataset.tab===tab));
   document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active', p.id==='page-'+tab));
@@ -3256,7 +3277,7 @@ function showPage(tab){
   window.scrollTo(0, 0);
 }
 document.querySelector('.tabs').addEventListener('click', e=>{ const b = e.target.closest('[data-tab]'); if (b) showPage(b.dataset.tab); });
-{ const TITLE = {jam:'🥢 合奏の練習', lesson:'📚 レッスン', theory:'🎼 楽器のしくみ', play:'🎹 自由に叩く', auto:'⚙️ 自動演奏（くわしく）'};
+{ const TITLE = {jam:'🥢 合奏の練習', lesson:'📚 レッスン', theory:'🎚 楽器の音の高さ地図', play:'🎹 自由に叩く', auto:'⚙️ 自動演奏（くわしく）'};
   for (const [id, t] of Object.entries(TITLE)){ const sec = document.getElementById('page-' + id); if (!sec) continue;
     sec.insertAdjacentHTML('afterbegin', `<div class="backbar"><button class="sec" data-back="1">← 3D合奏へ</button><b>${t}</b></div>`); }
   document.addEventListener('click', e => { if (e.target.closest('[data-back]')) showPage('stage3d'); }); }
@@ -4276,7 +4297,7 @@ $('#s3sheet').onclick = e => {
   if (e.target.closest('[data-play]')){ s3Join(id); return; }
   if (e.target.closest('[data-mute]')){ const keys = S3_KEYS(id), turnOn = s3Off(id); keys.forEach(i => { S.mutedInst[i] = !turnOn; if (turnOn) S.muted[laneOf(i)] = false; });
     renderLanes(); G3.syncMute ? G3.syncMute() : s3Chips(); return; }
-  if (e.target.closest('[data-more]')){ curTheory = S3_THEORY[id] || id; s3Close(); showPage('theory'); renderTheoryGroups(); renderTheory(); } };
+  if (e.target.closest('[data-more]')){ s3Close(); s3ShowInst(S3_THEORY[id] || id); } };
 G3.onPick = insts => s3Open(insts);
 // この楽器を演奏する：舞台を少し小さくして、下に叩く画面を出す
 function s3Join(id){
@@ -4309,6 +4330,7 @@ function s3Sync(){
   if (S3_ME && !JAM_INST[bali ? 'bali' : 'java'].some(x => x[0] === S3_ME)) s3Quit();
   if (S3_CUR && !s3Groups().some(g => g.insts.some(i => i[0] === S3_CUR))) s3Close();
   if (G3.ready) G3.sync();
+  if (typeof s3PaneCur !== 'undefined' && s3PaneCur === 'inst') s3IList();
 }
 setTimeout(() => { if ($('#page-stage3d').classList.contains('active')){ s3Sync(); open3D(); } }, 0);
 $('#s3piece').onchange = e => { stopAll(); if (S3_ME) s3Quit(); s3Close(); usePiece(+e.target.value); };
@@ -4321,8 +4343,33 @@ $('#s3cam').onclick = e => { const n = e.target.closest('[data-names]'); if (n){
 // メニュー（レッスン・楽器のしくみ・合奏の練習・自由に叩く・自動演奏）
 $('#s3menuBtn').onclick = () => { $('#s3menu').hidden = false; };
 $('#s3menu').onclick = e => { const go = e.target.closest('[data-go]');
-  if (go){ $('#s3menu').hidden = true; stopAll(); showPage(go.dataset.go); return; }
+  if (go){ $('#s3menu').hidden = true; stopAll(); showPage(go.dataset.go === 'range' ? 'theory' : go.dataset.go); return; }
   if (e.target.closest('[data-close]') || e.target === $('#s3menu')) $('#s3menu').hidden = true; };
+// ---- 舞台の下のパネル：演奏・学ぶ（レッスン）・楽器（しくみ） ----
+{ // レッスンと楽器のしくみのカードを、合奏の画面の下に移す（中身の作りはそのまま）
+  const learn = $('#s3pLearn'); learn.appendChild(document.querySelector('#page-lesson .lhead')); learn.appendChild($('#lCard'));
+  $('#s3pInst').appendChild($('#tCard'));
+  document.querySelector('#page-theory .tgroups').closest('.panel').style.display = 'none'; }
+let s3PaneCur = 'play';
+function s3Pane(name){
+  s3PaneCur = name;
+  document.querySelectorAll('#s3tabs [data-pane]').forEach(b => { b.classList.toggle('on', b.dataset.pane === name); b.setAttribute('aria-selected', b.dataset.pane === name); });
+  $('#s3pPlay').hidden = name !== 'play'; $('#s3pLearn').hidden = name !== 'learn'; $('#s3pInst').hidden = name !== 'inst';
+  if (name === 'inst') s3IList();
+  try { localStorage.setItem('gamelan-pane', name); } catch(e){}
+}
+$('#s3tabs').onclick = e => { const b = e.target.closest('[data-pane]'); if (b){ if (PW) stopPractice(PW); s3Pane(b.dataset.pane); } };
+// 楽器のパネル：役割ごとの楽器名 → 下にその楽器のしくみ（絵・決まりごと・お手本・一緒に弾く）
+function s3IList(){
+  const seen = new Set(), rows = [];
+  const reg = S.form === 'bali' ? 'bali' : 'java';
+  for (const g of S3_GROUPS[reg]){ const items = []; for (const [id, n] of g.insts){ const t = S3_THEORY[id] || id; if (THEORY.some(x => x.id === t) && !seen.has(t)){ seen.add(t); items.push([t, n]); }
+      if (id === 'kethuk' && !seen.has('kempyang')){ seen.add('kempyang'); items.push(['kempyang', 'クンピャン']); } }
+    if (items.length) rows.push(`<div class="grp" style="--g:${g.c}"><b>${g.k}</b>${items.map(([t, n]) => `<button data-t="${t}" class="${t === curTheory ? 'on' : ''}">${t === 'soft' ? '柔らかい楽器' : t === 'calung' ? 'チャルン／ジェゴガン' : n}</button>`).join('')}</div>`); }
+  $('#s3ilist').innerHTML = rows.join(''); }
+function s3ShowInst(id){ curTheory = id; s3Pane('inst'); renderTheory(); s3IList(); requestAnimationFrame(() => $('#tCard').scrollIntoView({behavior:'smooth', block:'start'})); }
+$('#s3ilist').onclick = e => { const b = e.target.closest('[data-t]'); if (b) s3ShowInst(b.dataset.t); };
+try { const v = localStorage.getItem('gamelan-pane'); if (v && v !== 'play') s3Pane(v); } catch(e){}
 function s3Status(){ const el = $('#s3st'); if (!el) return; let t;
   const busy = S.playing || (PW && PW.running);
   if (PW && PW.running && PW.el === $('#s3prac')) t = '🥢 参加中';
