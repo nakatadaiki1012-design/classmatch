@@ -737,6 +737,7 @@
   <script src="firebase-sync.js"></script>
   <script src="bracket-render.js"></script>
   <script src="admin.js"></script>
+<script>/* 古いアプリの service worker が残っていたら解除 */try{navigator.serviceWorker&&navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.unregister()))}catch(e){}</script>
 </body>
 
 </html>

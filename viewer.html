@@ -1067,5 +1067,6 @@ body.fz-l .teamBox .tbText{font-size:20px;}
   loadState();
 })();
 </script>
+<script>/* 古いアプリの service worker が残っていたら解除 */try{navigator.serviceWorker&&navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.unregister()))}catch(e){}</script>
 </body>
 </html>
